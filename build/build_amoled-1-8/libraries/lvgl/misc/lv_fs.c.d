@@ -1,0 +1,34 @@
+E:\DataJPL\arduino\arduino_maker\companion\build\build_amoled-1-8\libraries\lvgl\misc\lv_fs.c.o: \
+ C:\Users\photo\AppData\Local\Arduino15\internal\lvgl_8.4.0_18f8734bf9323e2e\lvgl\src\misc\lv_fs.c \
+ C:\Users\photo\AppData\Local\Arduino15\internal\lvgl_8.4.0_18f8734bf9323e2e\lvgl\src\misc\lv_fs.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/lv_conf_internal.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/lv_conf_kconfig.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\esp32_esp32-arduino-libs_idf-release_v5.3-489d7a2b-v1_80ffc9027a\esp32s3/qio_opi/include/sdkconfig.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\esp32_esp32-arduino-libs_idf-release_v5.3-489d7a2b-v1_80ffc9027a\esp32s3/include/esp_common/include/esp_attr.h \
+ E:\DataJPL\arduino\arduino_maker\companion/lv_conf.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_assert.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/lv_conf_internal.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_log.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_types.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_mem.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\lvgl_8.4.0_18f8734bf9323e2e\lvgl\src\misc\lv_ll.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\lvgl_8.4.0_18f8734bf9323e2e\lvgl\src\misc\lv_gc.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\lvgl_8.4.0_18f8734bf9323e2e\lvgl\src\misc\lv_mem.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\lvgl_8.4.0_18f8734bf9323e2e\lvgl\src\misc\lv_timer.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/hal/lv_hal_tick.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/lv_conf_internal.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\lvgl_8.4.0_18f8734bf9323e2e\lvgl\src\misc\lv_types.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/draw/lv_img_cache.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/draw/lv_img_decoder.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/lv_conf_internal.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/draw/lv_img_buf.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_color.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_assert.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_math.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_area.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_fs.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_types.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/draw/lv_draw_mask.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_math.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/core/lv_obj_pos.h \
+ C:/Users/photo/AppData/Local/Arduino15/internal/lvgl_8.4.0_18f8734bf9323e2e/lvgl/src/misc/lv_area.h

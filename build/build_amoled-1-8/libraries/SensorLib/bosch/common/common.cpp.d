@@ -1,0 +1,19 @@
+E:\DataJPL\arduino\arduino_maker\companion\build\build_amoled-1-8\libraries\SensorLib\bosch\common\common.cpp.o: \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src\bosch\common\common.cpp \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src\bosch\common\common.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhy2.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhy2_defs.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhi3.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhy2.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhi3_defs.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhi3_multi_tap.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhi3.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhi3_multi_tap_defs.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhy2_klio.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhy2_klio_defs.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhy2_swim.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhy2_swim_defs.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhy2_bsec.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhy2_head_tracker.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhy2_head_tracker_defs.h \
+ C:\Users\photo\AppData\Local\Arduino15\internal\SensorLib_0.3.1_f1d18563defb1310\SensorLib\src/bosch/bhy2_parse.h
