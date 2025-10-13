@@ -1,5 +1,5 @@
 /*
-October 2025.  JP Lavoie
+October 2025.  JP Lavoie.  Arduino code
 
 companion_camera.ino
 Square Line Studio UI 1.4.3 using LVGL 8.4.0
@@ -303,7 +303,6 @@ bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) 
 
 
 //***************************************************************************************************
-// --- FINAL WORKING VERSION ---
 // This function combines the original image request logic with the now-working
 // secure connection method.
 bool requestImage(const char* endpoint_type) {
@@ -888,7 +887,7 @@ bool connectToWiFi(int connection) {      // connection is either 1 for wifi1 or
     WiFi.setSleep(false);
     USBSerial.println("INFO: Wi-Fi Power Save disabled for stability.");
 
-    // **FIXED: Determine secure vs non-secure based on PORT NUMBER, not connection number**
+    // Determine secure vs non-secure based on PORT NUMBER, not connection number
     if (connection == 1) {
       // Check if SERVER1 uses secure port
       if (SERVERPORT1 == 9735 || SERVERPORT1 == 8883) {
@@ -1700,7 +1699,6 @@ void setup() {
   // --- Initialize the Motion Icon Label ---
   lv_label_set_text(ui_labelMotionIcon, LV_SYMBOL_CHARGE); // Set content to the icon
   
-  // -- NEW AND IMPORTANT LINE --
   // Force the label to use a font that is known to contain the symbols.
   lv_obj_set_style_text_font(ui_labelMotionIcon, &lv_font_montserrat_24, 0);
 
@@ -1776,7 +1774,6 @@ void setup() {
     #error "Invalid WIFI_PRIORITY defined. Please choose 1 or 2."
   #endif
 
-// --- NEW: Use the retry-capable WiFi connection function ---
   if (attemptWiFiConnection()) {
     USBSerial.println("WiFi connection established successfully.");
     
