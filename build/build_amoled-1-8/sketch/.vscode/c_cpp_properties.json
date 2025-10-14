@@ -9,12 +9,12 @@
         "C:\\Users\\photo\\AppData\\Local\\Arduino15\\internal\\esp32_esp32-arduino-libs_idf-release_v5.3-489d7a2b-v1_80ffc9027a\\esp32s3\\include/**"
       ],
       "forcedInclude": [],
-      "compilerPath": "C:\\Users\\photo\\AppData\\Local\\Arduino15\\internal\\esp32_esp-x32_2405_35babd064a56bf21/bin/xtensa-esp32s3-elf-gcc",
+      "compilerPath": "C:\\Users\\photo\\AppData\\Local\\Arduino15\\internal\\esp32_esp-x32_2405_35babd064a56bf21/bin/xtensa-esp32s3-elf-g++",
       "compilerArgs": [
-        "C:\\Users\\photo\\AppData\\Local\\Arduino15\\internal\\esp32_esp-x32_2405_35babd064a56bf21/bin/xtensa-esp32s3-elf-gcc",
+        "C:\\Users\\photo\\AppData\\Local\\Arduino15\\internal\\esp32_esp-x32_2405_35babd064a56bf21/bin/xtensa-esp32s3-elf-g++",
         "-MMD",
         "-c",
-        "@C:\\Users\\photo\\AppData\\Local\\Arduino15\\internal\\esp32_esp32-arduino-libs_idf-release_v5.3-489d7a2b-v1_80ffc9027a\\esp32s3/flags/c_flags",
+        "@C:\\Users\\photo\\AppData\\Local\\Arduino15\\internal\\esp32_esp32-arduino-libs_idf-release_v5.3-489d7a2b-v1_80ffc9027a\\esp32s3/flags/cpp_flags",
         "-w",
         "-Os",
         "-Werror=return-type",
@@ -64,9 +64,9 @@
         "-IC:\\Users\\photo\\AppData\\Local\\Arduino15\\internal\\esp32_esp32_3.1.3_e149c3cd368ed269\\libraries\\SD\\src",
         "@E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8/build_opt.h",
         "@E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8/file_opts",
-        "E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8\\sketch\\ui_Screen1.c",
+        "E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8\\sketch\\companion.ino.cpp",
         "-o",
-        "E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8\\sketch\\ui_Screen1.c.o"
+        "E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8\\sketch\\companion.ino.cpp.o"
       ],
       "defines": [
         "F_CPU=80000000L",

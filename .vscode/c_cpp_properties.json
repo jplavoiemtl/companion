@@ -63,9 +63,9 @@
         "-IC:\\Users\\photo\\AppData\\Local\\Arduino15\\internal\\esp32_esp32_3.1.3_e149c3cd368ed269\\libraries\\SD\\src",
         "@E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8/build_opt.h",
         "@E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8/file_opts",
-        "E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8\\sketch\\ui.c",
+        "E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8\\sketch\\ui_Screen2.c",
         "-o",
-        "E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8\\sketch\\ui.c.o"
+        "E:\\DataJPL\\arduino\\arduino_maker\\companion\\build\\build_amoled-1-8\\sketch\\ui_Screen2.c.o"
       ],
       "defines": [
         "F_CPU=80000000L",

@@ -1,6 +1,6 @@
 #line 1 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 /*
-October 2025.  JP Lavoie
+October 2025.  JP Lavoie.  Arduino code
 
 companion_camera.ino
 Square Line Studio UI 1.4.3 using LVGL 8.4.0
@@ -289,67 +289,67 @@ void my_print(const char *buf) {
 // --- HTTP IMAGE INTEGRATION --- TJpg_Decoder callback to write decoded pixels into our PSRAM buffer
 #line 289 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap);
-#line 309 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 308 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 bool requestImage(const char* endpoint_type);
-#line 406 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 405 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void processHTTPResponse();
-#line 541 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 540 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 bool requestLatestImage();
-#line 571 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 570 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void buttonLatest_event_handler(lv_event_t * e);
-#line 583 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 582 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void buttonNew_event_handler(lv_event_t * e);
-#line 608 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 607 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void buttonBack_event_handler(lv_event_t * e);
-#line 635 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 634 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void screen2_event_handler(lv_event_t * e);
-#line 701 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 700 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p);
-#line 716 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 715 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void increase_lvgl_tick(void *arg);
-#line 724 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 723 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data);
-#line 743 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 742 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void updatePowerDisplay(String powerStr);
-#line 750 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 749 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void updateEnergyDisplay(String energyStr);
-#line 757 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 756 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void callbackMqtt(char* topic, byte* payload, unsigned int length);
-#line 839 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 838 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 bool connectToWiFi(int connection);
-#line 948 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 947 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 bool scanForSSID(const char* ssid);
-#line 1006 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1005 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void trySecondSSID(int lastAttemptedConnection);
-#line 1047 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1046 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 bool attemptWiFiConnection();
-#line 1162 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1161 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 bool updateMotionState();
-#line 1210 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1209 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void Arduino_IIC_Touch_Interrupt(void);
-#line 1218 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1217 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void adcOn();
-#line 1229 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1228 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void adcOff();
-#line 1240 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1239 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void updatePowerStatus();
-#line 1266 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1265 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void updateBatteryInfo();
-#line 1304 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1303 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void updateBatteryInfoUI();
-#line 1387 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1386 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void updateConnectionStatusUI();
-#line 1429 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1428 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void updateMotionStatusUI();
-#line 1459 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1458 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void activity_event_handler(lv_event_t * e);
-#line 1466 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1465 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void goToDeepSleep();
-#line 1504 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1503 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void goToShutdown();
-#line 1574 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1573 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void setup();
-#line 1835 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1832 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void loop();
 #line 289 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) {
@@ -369,7 +369,6 @@ bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) 
 
 
 //***************************************************************************************************
-// --- FINAL WORKING VERSION ---
 // This function combines the original image request logic with the now-working
 // secure connection method.
 bool requestImage(const char* endpoint_type) {
@@ -954,7 +953,7 @@ bool connectToWiFi(int connection) {      // connection is either 1 for wifi1 or
     WiFi.setSleep(false);
     USBSerial.println("INFO: Wi-Fi Power Save disabled for stability.");
 
-    // **FIXED: Determine secure vs non-secure based on PORT NUMBER, not connection number**
+    // Determine secure vs non-secure based on PORT NUMBER, not connection number
     if (connection == 1) {
       // Check if SERVER1 uses secure port
       if (SERVERPORT1 == 9735 || SERVERPORT1 == 8883) {
@@ -1766,7 +1765,6 @@ void setup() {
   // --- Initialize the Motion Icon Label ---
   lv_label_set_text(ui_labelMotionIcon, LV_SYMBOL_CHARGE); // Set content to the icon
   
-  // -- NEW AND IMPORTANT LINE --
   // Force the label to use a font that is known to contain the symbols.
   lv_obj_set_style_text_font(ui_labelMotionIcon, &lv_font_montserrat_24, 0);
 
@@ -1842,7 +1840,6 @@ void setup() {
     #error "Invalid WIFI_PRIORITY defined. Please choose 1 or 2."
   #endif
 
-// --- NEW: Use the retry-capable WiFi connection function ---
   if (attemptWiFiConnection()) {
     USBSerial.println("WiFi connection established successfully.");
     
