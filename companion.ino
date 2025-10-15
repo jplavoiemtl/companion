@@ -1337,14 +1337,34 @@ void updateBatteryInfoUI() {
 
   // --- Logic to update the UI labels based on the new state ---
 
-  // Update Percentage Label
+  // Update battery Label with icon
   if (batteryPercent != prevUiPercent) {
-    if (batteryConnected) {
-      lv_label_set_text(ui_labelBatteryPercent, batteryPercent.c_str());
-    } else {
-      lv_label_set_text(ui_labelBatteryPercent, "N/A"); // Show placeholder if no battery
-    }
-    prevUiPercent = batteryPercent;
+      if (batteryConnected) {
+          // Determine which battery icon to use based on percentage
+          const char* batteryIcon;
+          int percent = batteryPercent.substring(0, batteryPercent.length() - 1).toInt(); // Remove '%' and convert
+          
+          if (percent >= 80) {
+              batteryIcon = LV_SYMBOL_BATTERY_FULL;
+          } else if (percent >= 60) {
+              batteryIcon = LV_SYMBOL_BATTERY_3;
+          } else if (percent >= 40) {
+              batteryIcon = LV_SYMBOL_BATTERY_2;
+          } else if (percent >= 20) {
+              batteryIcon = LV_SYMBOL_BATTERY_1;
+          } else {
+              batteryIcon = LV_SYMBOL_BATTERY_EMPTY;
+          }
+          
+          String displayText = String(batteryIcon);
+          lv_label_set_text(ui_batText, displayText.c_str());
+          lv_label_set_text(ui_labelBatteryPercent, batteryPercent.c_str());
+      } else {
+          lv_label_set_text(ui_batText, LV_SYMBOL_BATTERY_EMPTY);
+          lv_label_set_text(ui_labelBatteryPercent, "N/A"); // Show placeholder if no battery
+      }
+
+      prevUiPercent = batteryPercent;
   }
 
   // Update Voltage Label

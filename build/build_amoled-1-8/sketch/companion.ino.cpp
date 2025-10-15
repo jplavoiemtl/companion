@@ -337,19 +337,19 @@ void updatePowerStatus();
 void updateBatteryInfo();
 #line 1303 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void updateBatteryInfoUI();
-#line 1386 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1406 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void updateConnectionStatusUI();
-#line 1428 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1448 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void updateMotionStatusUI();
-#line 1458 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1478 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void activity_event_handler(lv_event_t * e);
-#line 1465 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1485 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void goToDeepSleep();
-#line 1503 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1523 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void goToShutdown();
-#line 1573 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1593 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void setup();
-#line 1832 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
+#line 1852 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 void loop();
 #line 289 "E:\\DataJPL\\arduino\\arduino_maker\\companion\\companion.ino"
 bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) {
@@ -1403,14 +1403,34 @@ void updateBatteryInfoUI() {
 
   // --- Logic to update the UI labels based on the new state ---
 
-  // Update Percentage Label
+  // Update battery Label with icon
   if (batteryPercent != prevUiPercent) {
-    if (batteryConnected) {
-      lv_label_set_text(ui_labelBatteryPercent, batteryPercent.c_str());
-    } else {
-      lv_label_set_text(ui_labelBatteryPercent, "N/A"); // Show placeholder if no battery
-    }
-    prevUiPercent = batteryPercent;
+      if (batteryConnected) {
+          // Determine which battery icon to use based on percentage
+          const char* batteryIcon;
+          int percent = batteryPercent.substring(0, batteryPercent.length() - 1).toInt(); // Remove '%' and convert
+          
+          if (percent >= 80) {
+              batteryIcon = LV_SYMBOL_BATTERY_FULL;
+          } else if (percent >= 60) {
+              batteryIcon = LV_SYMBOL_BATTERY_3;
+          } else if (percent >= 40) {
+              batteryIcon = LV_SYMBOL_BATTERY_2;
+          } else if (percent >= 20) {
+              batteryIcon = LV_SYMBOL_BATTERY_1;
+          } else {
+              batteryIcon = LV_SYMBOL_BATTERY_EMPTY;
+          }
+          
+          String displayText = String(batteryIcon);
+          lv_label_set_text(ui_batText, displayText.c_str());
+          lv_label_set_text(ui_labelBatteryPercent, batteryPercent.c_str());
+      } else {
+          lv_label_set_text(ui_batText, LV_SYMBOL_BATTERY_EMPTY);
+          lv_label_set_text(ui_labelBatteryPercent, "N/A"); // Show placeholder if no battery
+      }
+
+      prevUiPercent = batteryPercent;
   }
 
   // Update Voltage Label
