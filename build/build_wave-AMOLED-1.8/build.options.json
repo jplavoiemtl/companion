@@ -1,9 +1,0 @@
-{
-  "additionalFiles": "..\\..\\..,..\\..\\..,..\\..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..,..\\..",
-  "compiler.optimization_flags": "-Os",
-  "customBuildProperties": "",
-  "fqbn": "esp32:esp32:waveshare_esp32_s3_touch_amoled_18:UploadSpeed=921600,USBMode=hwcdc,CDCOnBoot=cdc,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=80,FlashMode=qio,PartitionScheme=app3M_fat9M_16MB,DebugLevel=none,PSRAM=enabled,LoopCore=1,EventsCore=1,EraseFlash=none",
-  "hardwareFolders": "C:\\Users\\photo\\AppData\\Local\\Arduino15\\packages",
-  "otherLibrariesFolders": "C:\\Users\\photo\\Documents\\Arduino\\libraries",
-  "sketchLocation": "E:\\DataJPL\\arduino\\arduino_maker\\companion"
-}

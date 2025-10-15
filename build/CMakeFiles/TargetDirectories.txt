@@ -1,3 +1,0 @@
-E:/DataJPL/arduino/arduino_maker/companion/build/CMakeFiles/ui.dir
-E:/DataJPL/arduino/arduino_maker/companion/build/CMakeFiles/ALL_BUILD.dir
-E:/DataJPL/arduino/arduino_maker/companion/build/CMakeFiles/ZERO_CHECK.dir
