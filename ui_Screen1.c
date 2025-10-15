@@ -106,7 +106,8 @@ void ui_Screen1_screen_init(void)
     lv_obj_set_x(ui_batText, -160);
     lv_obj_set_y(ui_batText, -167);
     lv_obj_set_align(ui_batText, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_batText, LV_SYMBOL_BATTERY_EMPTY);
+    lv_label_set_text(ui_batText, "Bat: ");
+    lv_obj_set_style_text_color(ui_batText, lv_color_hex(0xE09921), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_batText, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_batText, &lv_font_montserrat_20, LV_PART_MAIN | LV_STATE_DEFAULT);
 
