@@ -217,6 +217,7 @@ float batteryVoltage = 0.0;
 bool batteryConnected = false;
 bool vbusPresent = false;
 const unsigned long INACTIVITY_TIMEOUT = 30000;   // Touch user inactivity for going to sleep
+const unsigned long MOTION_TIMEOUT = 4000;      // Time to consider the device stationary after motion stops
 unsigned long lastActivityTime = 0;
 bool shutdownRequested = false; 
 bool g_isCurrentlyMoving = false;
@@ -1190,7 +1191,7 @@ bool updateMotionState() {
       lastMotionTime = currentTime;
     } else {
       // No motion was detected in this check
-      if (g_isCurrentlyMoving && (currentTime - lastMotionTime > 4000)) {
+      if (g_isCurrentlyMoving && (currentTime - lastMotionTime > MOTION_TIMEOUT)) {
         // If we were previously moving, and it's been 2 seconds of no motion,
         // update the state to "not moving".
         USBSerial.println("Movement Stopped.");
