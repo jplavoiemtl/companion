@@ -1190,7 +1190,7 @@ bool updateMotionState() {
       lastMotionTime = currentTime;
     } else {
       // No motion was detected in this check
-      if (g_isCurrentlyMoving && (currentTime - lastMotionTime > 2000)) {
+      if (g_isCurrentlyMoving && (currentTime - lastMotionTime > 4000)) {
         // If we were previously moving, and it's been 2 seconds of no motion,
         // update the state to "not moving".
         USBSerial.println("Movement Stopped.");
@@ -1361,7 +1361,7 @@ void updateBatteryInfoUI() {
           lv_label_set_text(ui_labelBatteryPercent, batteryPercent.c_str());
       } else {
           lv_label_set_text(ui_batText, LV_SYMBOL_BATTERY_EMPTY);
-          lv_label_set_text(ui_labelBatteryPercent, "N/A"); // Show placeholder if no battery
+          lv_label_set_text(ui_labelBatteryPercent, ""); // Show placeholder if no battery
       }
 
       prevUiPercent = batteryPercent;

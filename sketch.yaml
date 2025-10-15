@@ -21,4 +21,26 @@ profiles:
       parity: none
       stop_bits: "1"
     port: COM10
+  amoled-1-8-no-bat:
+    fqbn: esp32:esp32:waveshare_esp32_s3_touch_amoled_18:UploadSpeed=921600,USBMode=hwcdc,CDCOnBoot=cdc,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=80,FlashMode=qio,PartitionScheme=app3M_fat9M_16MB,DebugLevel=none,PSRAM=enabled,LoopCore=1,EventsCore=1,EraseFlash=none
+    platforms:
+      - platform: esp32:esp32 (3.1.3)
+        platform_index_url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+    libraries:
+      - SensorLib (0.3.1)
+      - lvgl (8.4.0)
+      - dir: C:\Users\photo\Documents\Arduino\libraries\GFX_Library_for_Arduino
+      - dir: C:\Users\photo\Documents\Arduino\libraries\Arduino_DriveBus
+      - ESP32_IO_Expander (0.0.3)
+      - XPowersLib (0.2.6)
+      - PubSubClient (2.8)
+      - TJpg_Decoder (1.1.0)
+    programmer: ""
+    port_config:
+      baudrate: "115200"
+      lineEnding: "\r\n"
+      bits: "8"
+      parity: none
+      stop_bits: "1"
+    port: COM5
 default_profile: amoled-1-8
