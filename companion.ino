@@ -217,7 +217,7 @@ float batteryVoltage = 0.0;
 bool batteryConnected = false;
 bool vbusPresent = false;
 const unsigned long INACTIVITY_TIMEOUT = 30000;   // Touch user inactivity for going to sleep
-const unsigned long MOTION_TIMEOUT = 4000;      // Time to consider the device stationary after motion stops
+const unsigned long MOTION_TIMEOUT = 10000;      // Time to consider the device stationary after motion stops
 unsigned long lastActivityTime = 0;
 bool shutdownRequested = false; 
 bool g_isCurrentlyMoving = false;
@@ -1034,8 +1034,9 @@ void trySecondSSID(int lastAttemptedConnection) {
  * @brief Attempts to connect to WiFi networks with retry logic based on power source.
  * 
  * When USB power is present (vbusPresent == true):
- *   - Retries WiFi connection indefinitely with delays between attempts
+ *   - Retries WiFi connection up to 5 times with delays between attempts
  *   - Updates UI with retry count and status
+ *   - Initiates shutdown after 5 failed attempts
  *   - Allows switching to battery mode during retry (will shutdown on next failure)
  * 
  * When on battery power only (vbusPresent == false):
@@ -1045,6 +1046,7 @@ void trySecondSSID(int lastAttemptedConnection) {
  * @return true if WiFi connection was successful, false otherwise
  */
 bool attemptWiFiConnection() {
+    const int MAX_RETRIES = 5;  // Maximum number of retry attempts
     int retryCount = 0;
     bool connected = false;
     
@@ -1054,19 +1056,21 @@ bool attemptWiFiConnection() {
     // Force a refresh to show "Connecting..." immediately
     for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
     
-    while (!connected) {
+    while (!connected && retryCount < MAX_RETRIES) {  // MODIFIED: Added retry limit check
         retryCount++;
         
         // Update UI with retry count if this is a retry
         if (retryCount > 1) {
             char statusBuffer[32];
-            snprintf(statusBuffer, sizeof(statusBuffer), "Retry %d...", retryCount - 1);
+            snprintf(statusBuffer, sizeof(statusBuffer), "Retry %d/%d...", retryCount - 1, MAX_RETRIES - 1);  // MODIFIED: Show x/5 format
             lv_label_set_text(ui_labelConnectionStatus, statusBuffer);
             lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFFB700), LV_PART_MAIN); // Orange
             for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
             
             USBSerial.print("WiFi Connection Retry #");
-            USBSerial.println(retryCount - 1);
+            USBSerial.print(retryCount - 1);
+            USBSerial.print(" of ");
+            USBSerial.println(MAX_RETRIES - 1);
         }
         
         // Try primary network
@@ -1104,6 +1108,22 @@ bool attemptWiFiConnection() {
             // Battery power only - shutdown after failed attempts
             USBSerial.println("Battery power only and WiFi connection failed.");
             USBSerial.println("Initiating shutdown to conserve battery...");
+            
+            // Update UI before shutdown
+            lv_label_set_text(ui_labelConnectionStatus, "No WiFi - Shutdown");
+            lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
+            for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
+            
+            delay(2000); // Show message briefly
+            goToShutdown(); // This function does not return
+            
+            // Code should never reach here, but just in case:
+            return false;
+        }
+        
+        // --- Check if max retries reached ---
+        if (retryCount >= MAX_RETRIES) {  // NEW: Check if we've exhausted all retries
+            USBSerial.println("Maximum retry attempts reached. Initiating shutdown...");
             
             // Update UI before shutdown
             lv_label_set_text(ui_labelConnectionStatus, "No WiFi - Shutdown");
