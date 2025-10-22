@@ -173,7 +173,7 @@ QMI8658_WoM_Handler qmi;
 // =================================================
 const char HILO_POWER[] = "ha/hilo_meter_power";
 const char HILO_ENERGY[] = "hilo_energie";
-
+const char MOTION_TOPIC[] = "companion/motion";
 
 // Generic pointers that will be assigned based on WIFI_PRIORITY
 const char* primarySsid;
@@ -217,7 +217,7 @@ float batteryVoltage = 0.0;
 bool batteryConnected = false;
 bool vbusPresent = false;
 const unsigned long INACTIVITY_TIMEOUT = 60000;   // Touch user inactivity for going to sleep
-const unsigned long MOTION_TIMEOUT = 20000;      // Time to consider the device stationary after motion stops
+const unsigned long MOTION_TIMEOUT = 30000;      // Time to consider the device stationary after motion stops
 unsigned long lastActivityTime = 0;
 bool shutdownRequested = false; 
 bool g_isCurrentlyMoving = false;
@@ -1181,7 +1181,6 @@ bool attemptWiFiConnection() {
  */
 bool updateMotionState() {
   static const unsigned long MOTION_CHECK_INTERVAL = 100; // Poll every 100ms
-  static const unsigned long STATIONARY_TIMEOUT = 25000;  // 25 seconds of no motion = stationary
 
   static unsigned long lastMotionCheckTime = 0;
   static unsigned long lastMotionTime = 0; // Initialize at 0, will be set on first loop
@@ -1206,16 +1205,24 @@ bool updateMotionState() {
       if (!g_isCurrentlyMoving) {
         USBSerial.println("Movement Detected!");
         g_isCurrentlyMoving = true;
+
+        // Publish motion detected
+        if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
+          mqttClient.publish(MOTION_TOPIC, "1");
+        }
       }
       // Every time motion is detected, reset the stationary timer
       lastMotionTime = currentTime;
     } else {
       // No motion was detected in this check
       if (g_isCurrentlyMoving && (currentTime - lastMotionTime > MOTION_TIMEOUT)) {
-        // If we were previously moving, and it's been 2 seconds of no motion,
-        // update the state to "not moving".
         USBSerial.println("Movement Stopped.");
         g_isCurrentlyMoving = false;
+
+        // Publish motion stopped
+        if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
+          mqttClient.publish(MOTION_TOPIC, "0");
+        }
       }
     }
   }
