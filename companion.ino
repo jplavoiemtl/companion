@@ -217,13 +217,14 @@ float batteryVoltage = 0.0;
 bool batteryConnected = false;
 bool vbusPresent = false;
 const unsigned long INACTIVITY_TIMEOUT = 60000;   // Touch user inactivity for going to sleep
-const unsigned long MOTION_TIMEOUT = 30000;      // Time to consider the device stationary after motion stops
+const unsigned long MOTION_TIMEOUT = 30000;      // Time to consider the device stationary after motion stops and send MQTT
 unsigned long lastActivityTime = 0;
 bool shutdownRequested = false; 
 bool g_isCurrentlyMoving = false;
 
 unsigned long lastBatteryUpdate = 0;
 unsigned long lastConnectionUpdate = 0;
+unsigned long lastMotionTXTime = 0;
 
 // --- USB Power Transition Tracking ---
 bool allowSleep = false;
@@ -1206,9 +1207,11 @@ bool updateMotionState() {
         USBSerial.println("Movement Detected!");
         g_isCurrentlyMoving = true;
 
-        // Publish motion detected
+        // Publish MQTT motion event 
         if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
           mqttClient.publish(MOTION_TOPIC, "1");
+          lastMotionTXTime = millis();
+          USBSerial.println("TX motion MQTT: Moving (immediate)");
         }
       }
       // Every time motion is detected, reset the stationary timer
@@ -1218,11 +1221,6 @@ bool updateMotionState() {
       if (g_isCurrentlyMoving && (currentTime - lastMotionTime > MOTION_TIMEOUT)) {
         USBSerial.println("Movement Stopped.");
         g_isCurrentlyMoving = false;
-
-        // Publish motion stopped
-        if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
-          mqttClient.publish(MOTION_TOPIC, "0");
-        }
       }
     }
   }
@@ -1901,7 +1899,7 @@ void loop() {
     }
   }
 
-  // --- HTTP IMAGE INTEGRATION --- Task 3: Process HTTP response if in progress
+  // --- Task 3: Process HTTP response if in progress
   processHTTPResponse();
 
   // --- Task 4 (Timed): Update Battery Info and UI ---
@@ -1960,7 +1958,16 @@ void loop() {
     }
   }
 
-  // --- Task 7: Check for user inactivity to trigger deep sleep if allowed to sleep ---
+  // --- Task 7: Transmit motion MQTT if connected --- 
+  if (ENABLE_MOTION_MQTT && g_isCurrentlyMoving && mqttClient.connected()) {
+    if (millis() - lastMotionTXTime > MOTION_TIMEOUT) {
+      mqttClient.publish(MOTION_TOPIC, "1");
+      lastMotionTXTime = millis();
+      USBSerial.println("TX motion MQTT: Moving (periodic)");
+    }
+  }
+
+  // --- Task 8: Check for user inactivity to trigger deep sleep if allowed to sleep ---
   if (millis() - lastActivityTime > INACTIVITY_TIMEOUT && allowSleep) {
       
       if (usbWasEverPresent && !vbusPresent) {
