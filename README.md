@@ -4,12 +4,7 @@ companion_camera.ino,  October 2025.  JP Lavoie
 Square Line Studio UI 1.4.3 using LVGL 8.4.0
 
 ## Features
-Display a jpg image via HTTPS GET request (latest image, new, back)
-Forwarded port on pfsense.  Synology to do a reverse proxy to a Flask server on Dockerpi
-to avoid exposing Node-Red to the internet.  Only use defined end-points on the Flask server, encryption
-with HTTPS and use of a security token to make the image requests for added security.
-Connects to local wifi or iPhone hotspot and report battery voltage on MQTT.
-Node-Red will send a latest image taken MQTT message to display a new image on the module.
+Display a jpg image.
 
 Display the power (kW) and energy (kWh) of the house from Hilo on screen 1.
 
