@@ -205,7 +205,7 @@ enum ImageRequestState {
 
 ImageRequestState httpState = HTTP_IDLE;
 HTTPClient httpClient;
-static WiFiClientSecure httpsClient; // ADDED: Client for handling HTTPS requests
+WiFiClientSecure httpsClient; // ADDED: Client for handling HTTPS requests
 uint8_t* jpeg_buffer_psram = nullptr;
 size_t jpeg_buffer_size = 0;
 size_t jpeg_bytes_received = 0;
@@ -219,6 +219,16 @@ void my_print(const char *buf) {
   Serial.flush();
 }
 #endif
+
+
+//***************************************************************************************************
+void printMemoryStats(const char* location) {
+  USBSerial.printf("[MEM] %s - Free Heap: %d, Free PSRAM: %d, Min Free Heap: %d\n", 
+                   location, 
+                   ESP.getFreeHeap(), 
+                   ESP.getFreePsram(),
+                   ESP.getMinFreeHeap());
+}
 
 
 //***************************************************************************************************
@@ -243,6 +253,9 @@ bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) 
 // This function combines the original image request logic with the now-working
 // secure connection method.
 bool requestImage(const char* endpoint_type) {
+    USBSerial.println("=== requestImage() ENTRY ===");
+    printMemoryStats("Entry state");
+
     // A small delay can help the system stabilize memory before a large allocation
     delay(10); 
     
@@ -256,6 +269,8 @@ bool requestImage(const char* endpoint_type) {
         return false;
     }
 
+    USBSerial.printf("WiFi connected to: %s, RSSI: %d dBm\n", WiFi.SSID().c_str(), WiFi.RSSI());
+
     lv_refr_now(NULL);
 
     // --- DYNAMIC URL AND CLIENT CONFIGURATION ---
@@ -265,22 +280,49 @@ bool requestImage(const char* endpoint_type) {
 
     if (isSecureConnection) {
         // === HTTPS Connection for remote access (ssid2) ===
+
+        USBSerial.println("Cleaning up previous HTTPS client state...");
+        httpsClient.stop();  // Close any existing connection
+        delay(10);           // Brief delay for cleanup
+
         url = String(IMAGE_SERVER_REMOTE) + String(endpoint_type) + "?token=" + String(API_TOKEN);
         USBSerial.println("Initiating HTTPS GET: " + url);
+
+        printMemoryStats("Before HTTPS begin");
         
         // Configure the secure client with the now-verified remote server's CA certificate
         httpsClient.setCACert(remote_server_ca_cert);
 
         // Begin HTTPS connection using the secure client
-        httpClient.begin(httpsClient, url);
+        bool beginResult = httpClient.begin(httpsClient, url);
+        
+        if (!beginResult) {
+            USBSerial.println("FATAL: httpClient.begin() failed for HTTPS!");
+            printMemoryStats("HTTPS begin failure");
+            httpState = HTTP_ERROR;
+            return false;
+        }
+        USBSerial.println("HTTPS begin successful");
 
     } else {
         // === HTTP Connection for local access (ssid1) ===
         url = String(IMAGE_SERVER_BASE) + String(endpoint_type);
         USBSerial.println("Initiating HTTP GET: " + url);
 
+        // ADD THIS:
+        printMemoryStats("Before HTTP begin");
+        
         // Begin standard HTTP connection
-        httpClient.begin(url);
+        bool beginResult = httpClient.begin(url);
+        
+        // ADD THIS:
+        if (!beginResult) {
+            USBSerial.println("FATAL: httpClient.begin() failed for HTTP!");
+            printMemoryStats("HTTP begin failure");
+            httpState = HTTP_ERROR;
+            return false;
+        }
+        USBSerial.println("HTTP begin successful");
     }
     // --- END OF DYNAMIC CONFIGURATION ---
 
@@ -294,6 +336,8 @@ bool requestImage(const char* endpoint_type) {
     USBSerial.printf("DEBUG: httpClient.GET() finished with code: %d\n", httpCode);
     
     if (httpCode != HTTP_CODE_OK) {
+        USBSerial.printf("FATAL: HTTP GET failed with code: %d\n", httpCode);  // ENHANCED
+        printMemoryStats("HTTP GET failure");                                   // NEW
         httpClient.end();
         httpState = HTTP_ERROR;
         return false;
@@ -315,17 +359,35 @@ bool requestImage(const char* endpoint_type) {
 
     // Allocate PSRAM buffer for the JPEG data
     if (jpeg_buffer_psram) {
+        USBSerial.println("WARNING: jpeg_buffer_psram was not null, freeing old buffer...");
         free(jpeg_buffer_psram);
         jpeg_buffer_psram = nullptr;
+        delay(10);  // Give time for memory to be released
     }
-
+    
+    // Also check and clean image buffer
+    if (image_buffer_psram) {
+        USBSerial.println("WARNING: image_buffer_psram exists, freeing...");
+        free(image_buffer_psram);
+        image_buffer_psram = nullptr;
+        delay(10);
+    }
+    
+    printMemoryStats("Before JPEG allocation");
+    
     jpeg_buffer_psram = (uint8_t*)ps_malloc(contentLength);
     if (!jpeg_buffer_psram) {
-        USBSerial.println("Failed to allocate PSRAM for JPEG buffer");
+        USBSerial.println("FATAL: Failed to allocate PSRAM for JPEG buffer");
+        USBSerial.printf("Requested size: %d bytes\n", contentLength);
+        printMemoryStats("JPEG allocation failure");
         httpClient.end();
         httpState = HTTP_ERROR;
         return false;
     }
+    
+    USBSerial.printf("Successfully allocated JPEG buffer: %d bytes at 0x%08X\n", 
+                     contentLength, (uint32_t)jpeg_buffer_psram);
+    printMemoryStats("After JPEG allocation");
 
     jpeg_buffer_size = contentLength;
     jpeg_bytes_received = 0;
@@ -333,6 +395,8 @@ bool requestImage(const char* endpoint_type) {
     httpState = HTTP_RECEIVING;
     
     USBSerial.println("Starting to receive image data...");
+    printMemoryStats("Before returning true");
+    USBSerial.println("=== requestImage() EXIT SUCCESS ===");    
     return true;
 }
 
@@ -397,15 +461,26 @@ void processHTTPResponse() {
 
     // Allocate PSRAM buffer for the decoded RGB565 image
     size_t imageBufferSize = screenWidth * screenHeight * sizeof(uint16_t);
+    
+    printMemoryStats("Before image buffer allocation");
+    
     image_buffer_psram = (uint16_t*)ps_malloc(imageBufferSize);
     
     if (!image_buffer_psram) {
-      USBSerial.println("PSRAM allocation failed for decoded image buffer");
+      USBSerial.println("FATAL: PSRAM allocation failed for decoded image buffer");
+      USBSerial.printf("Requested size: %d bytes\n", imageBufferSize);
+      printMemoryStats("Image buffer allocation failure");
+      
       free(jpeg_buffer_psram);
       jpeg_buffer_psram = nullptr;
+      httpClient.end();
       httpState = HTTP_ERROR;
       return;
     }
+    
+    USBSerial.printf("Successfully allocated image_buffer_psram: %d bytes at 0x%08X\n", 
+                     imageBufferSize, (uint32_t)image_buffer_psram);
+    printMemoryStats("After image buffer allocation");
 
     // Set up the decoder
     TJpgDec.setJpgScale(1);
@@ -1547,7 +1622,6 @@ void goToShutdown() {
     USBSerial.println("Shutdown failed. System is stuck.");
   }
 }
-
 
 
 //***************************************************************************************************
