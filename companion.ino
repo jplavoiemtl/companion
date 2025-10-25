@@ -2006,5 +2006,12 @@ void loop() {
       }
   }
 
-  delay(1); // A small delay to yield time to other tasks.
+  // Smart delay based on system state
+  if (httpState == HTTP_RECEIVING || httpState == HTTP_REQUESTING) {
+      delay(1);  // Fast response during downloads
+  } else if (lv_scr_act() == ui_Screen2 && imageDisplayTimeoutActive) {
+      delay(5);  // Moderate when displaying image
+  } else {
+      delay(10); // Longer delay when idle saves more power
+  }
 }
