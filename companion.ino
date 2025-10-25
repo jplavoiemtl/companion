@@ -1625,30 +1625,20 @@ void goToShutdown() {
 
 
 //***************************************************************************************************
-void setup() {
-  USBSerial.begin(115200);
-
-  esp_sleep_wakeup_cause_t wakeReason = esp_sleep_get_wakeup_cause();
-
-  if (wakeReason == ESP_SLEEP_WAKEUP_EXT0) {
-    // This is a Deep Sleep Wake. The ESP32's I2C driver is stuck.
-    // We MUST reset it to prevent the "i2c driver install error".
-    USBSerial.println("Deep Sleep Wake detected. Performing I2C driver reset...");
-    Wire.end();
-    delay(10);
-  }
-  // For any other type of boot (Cold or Shutdown), we DO NOT call Wire.end().
-
-  Wire.begin(IIC_SDA, IIC_SCL);
-  delay(50); 
-  
-  USBSerial.println("\n--- Board is starting up ---");
-  
-  WiFi.mode(WIFI_OFF);
-  
-  if (!pmic.init()) {
-    USBSerial.println("ERROR: PMIC AXP2101 failed to initialize!");
-  } else {
+// INITIALIZATION HELPER FUNCTIONS
+/****************************************************************************************************
+ * Initialize PMIC (AXP2101) - Power Management IC
+ * Configures charging, voltage rails, and ADC
+ * @return true if successful, false otherwise
+ */
+bool initPMIC() {
+    USBSerial.println("--- Initializing PMIC (AXP2101) ---");
+    
+    if (!pmic.init()) {
+        USBSerial.println("ERROR: PMIC AXP2101 failed to initialize!");
+        return false;
+    }
+    
     USBSerial.println("PMIC init OK.");
 
     // This is required to clear stale hardware flags inside the PMIC after a
@@ -1659,48 +1649,128 @@ void setup() {
     adcOn();
     delay(150); // A longer delay to allow the ADC system to fully stabilize.
     
+    // Enable voltage rails
     pmic.enableALDO1(); 
     pmic.enableALDO2(); 
     pmic.enableBLDO1(); 
     pmic.enableALDO3();
-  }
+    
+    USBSerial.println("PMIC initialization complete");
+    return true;
+}
 
-  expander = new EXAMPLE_CHIP_CLASS(TCA95xx_8bit,
-                                    (i2c_port_t)0, ESP_IO_EXPANDER_I2C_TCA9554_ADDRESS_000,
-                                    IIC_SCL, IIC_SDA);
-  expander->init();
-  expander->begin();
-  expander->pinMode(0, OUTPUT);
-  expander->pinMode(1, OUTPUT);
-  expander->pinMode(2, OUTPUT);
-  expander->digitalWrite(0, LOW);
-  expander->digitalWrite(1, LOW);
-  expander->digitalWrite(2, LOW);
-  delay(20);
-  expander->digitalWrite(0, HIGH);
-  expander->digitalWrite(1, HIGH);
-  expander->digitalWrite(2, HIGH);
-  
-  IIC_Bus = std::make_shared<Arduino_HWIIC>(IIC_SDA, IIC_SCL, &Wire);
-  FT3168 = std::make_unique<Arduino_FT3x68>(IIC_Bus, FT3168_DEVICE_ADDRESS, DRIVEBUS_DEFAULT_VALUE, TP_INT, Arduino_IIC_Touch_Interrupt);
-  while (FT3168->begin() == false) {
-    USBSerial.println("ERROR: FT3168 initialization fail");
-    delay(2000);
-  }
-  
-  FT3168->IIC_Write_Device_State(FT3168->Arduino_IIC_Touch::Device::TOUCH_POWER_MODE,
-                                 FT3168->Arduino_IIC_Touch::Device_Mode::TOUCH_POWER_ACTIVE);
-  
-  gfx->begin();
+/****************************************************************************************************
+ * Initialize I/O Expander (TCA9554)
+ * Sets up GPIO pins for LCD control
+ * @return true if successful, false otherwise
+ */
+bool initIOExpander() {
+    USBSerial.println("--- Initializing I/O Expander ---");
+    
+    expander = new EXAMPLE_CHIP_CLASS(TCA95xx_8bit,
+                                      (i2c_port_t)0, ESP_IO_EXPANDER_I2C_TCA9554_ADDRESS_000,
+                                      IIC_SCL, IIC_SDA);
+    
+    expander->init();
+    expander->begin();
+    
+    // Configure pins for LCD control
+    expander->pinMode(0, OUTPUT);
+    expander->pinMode(1, OUTPUT);
+    expander->pinMode(2, OUTPUT);
+    
+    // Reset sequence
+    expander->digitalWrite(0, LOW);
+    expander->digitalWrite(1, LOW);
+    expander->digitalWrite(2, LOW);
+    delay(20);
+    expander->digitalWrite(0, HIGH);
+    expander->digitalWrite(1, HIGH);
+    expander->digitalWrite(2, HIGH);
+    
+    USBSerial.println("I/O Expander initialization complete");
+    return true;
+}
+
+/****************************************************************************************************
+ * Initialize Touch Controller (FT3168)
+ * Sets up I2C communication with capacitive touch panel
+ */
+void initTouch() {
+    USBSerial.println("--- Initializing Touch Controller ---");
+    
+    IIC_Bus = std::make_shared<Arduino_HWIIC>(IIC_SDA, IIC_SCL, &Wire);
+    FT3168 = std::make_unique<Arduino_FT3x68>(IIC_Bus, FT3168_DEVICE_ADDRESS, DRIVEBUS_DEFAULT_VALUE, TP_INT, Arduino_IIC_Touch_Interrupt);
+    while (FT3168->begin() == false) {
+      USBSerial.println("ERROR: FT3168 initialization fail");
+      delay(2000);
+    }
+    
+    FT3168->IIC_Write_Device_State(FT3168->Arduino_IIC_Touch::Device::TOUCH_POWER_MODE,
+                                  FT3168->Arduino_IIC_Touch::Device_Mode::TOUCH_POWER_ACTIVE);
+    
+    USBSerial.println("Touch controller initialization complete");
+}
+
+/****************************************************************************************************
+ * Initialize Display Hardware
+ * Sets up display controller and basic configuration
+ * @param wakeReason Wake reason from handleWakeReason()
+ * @return true if successful, false otherwise
+ */
+void initDisplay() {
+    gfx->begin();
+
+    gfx->fillScreen(BLACK);
+    gfx->Display_Brightness(150);    
+}
+
+
+//***************************************************************************************************
+void setup() {
+  USBSerial.begin(115200);
+  delay(100); // Allow time for Serial to initialize
+
+  esp_sleep_wakeup_cause_t wakeReason = esp_sleep_get_wakeup_cause();
 
   if (wakeReason == ESP_SLEEP_WAKEUP_EXT0) {
-    USBSerial.println("Woke up from touch (Deep Sleep).");
+    // This is a Deep Sleep Wake. The ESP32's I2C driver is stuck.
+    // We MUST reset it to prevent the "i2c driver install error".
+    USBSerial.println("Deep Sleep Wake detected. Performing I2C driver reset...");
+    Wire.end();
+    delay(10);
   } else {
     USBSerial.println("Woke up from Power-On or Full Shutdown.");
   }
+  // For any other type of boot (Cold or Shutdown), we DO NOT call Wire.end().
 
-  gfx->fillScreen(BLACK);
-  gfx->Display_Brightness(150);
+  Wire.begin(IIC_SDA, IIC_SCL);
+  delay(50); 
+  
+  USBSerial.println("\n--- Board is starting up ---");
+  
+  WiFi.mode(WIFI_OFF);
+
+  // Initialize PMIC - critical for power management
+  if (!initPMIC()) {
+      USBSerial.println("FATAL: PMIC initialization failed - cannot continue");
+      while(1) { delay(1000); }
+  }
+
+  // Initialize I/O Expander - needed for display control
+  if (!initIOExpander()) {
+      USBSerial.println("FATAL: I/O Expander initialization failed");
+      while(1) { delay(1000); }
+  }
+  
+  // Initialize Touch Controller
+  initTouch();
+
+  // Initialize Display Hardware
+  initDisplay();
+
+  
+
   
   USBSerial.println("Initializing LVGL...");
 
@@ -2001,7 +2071,11 @@ void loop() {
               goToShutdown();
           } else {
               // No touch for 30s BUT still moving → SLEEP for quick wake
-              goToDeepSleep();
+              #ifdef CAR
+                  goToShutdown();
+              #else
+                  goToDeepSleep();
+              #endif
           }
       }
   }
