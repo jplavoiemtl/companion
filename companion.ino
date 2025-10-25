@@ -1725,6 +1725,150 @@ void initDisplay() {
     gfx->Display_Brightness(150);    
 }
 
+/****************************************************************************************************
+ * Initialize LVGL Graphics Library
+ * Sets up display buffers, input devices, timers, and loads UI
+ * @return true if successful, false otherwise
+ */
+bool initLVGL() {
+    USBSerial.println("--- Initializing LVGL ---");
+    
+    // 1. Initialize the LVGL library itself
+    lv_init();
+
+    // 2. Initialize the display driver
+    lv_disp_draw_buf_init(&draw_buf, buf, NULL, screenWidth * screenHeight / 10);
+
+    // Initialize the display
+    static lv_disp_drv_t disp_drv;
+    lv_disp_drv_init(&disp_drv);
+    disp_drv.hor_res = screenWidth;
+    disp_drv.ver_res = screenHeight;
+    disp_drv.flush_cb = my_disp_flush;
+    disp_drv.draw_buf = &draw_buf;
+    disp_drv.sw_rotate = 1;
+    disp_drv.rotated = LV_DISP_ROT_90;
+    lv_disp_t * disp = lv_disp_drv_register(&disp_drv);
+
+    // Initialize the input device driver
+    static lv_indev_drv_t indev_drv;
+    lv_indev_drv_init(&indev_drv);
+    indev_drv.type = LV_INDEV_TYPE_POINTER;
+    indev_drv.read_cb = my_touchpad_read;
+    lv_indev_drv_register(&indev_drv);
+
+    // Create LVGL tick timer
+    const esp_timer_create_args_t lvgl_tick_timer_args = {
+        .callback = &increase_lvgl_tick,
+        .name = "lvgl_tick"
+    };
+
+    esp_timer_handle_t lvgl_tick_timer = NULL;
+    if (esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer) != ESP_OK) {
+        USBSerial.println("ERROR: Failed to create LVGL tick timer");
+        return false;
+    }
+    
+    if (esp_timer_start_periodic(lvgl_tick_timer, LVGL_TICK_PERIOD_MS * 1000) != ESP_OK) {
+        USBSerial.println("ERROR: Failed to start LVGL tick timer");
+        return false;
+    }
+
+    // Load UI from SquareLine Studio
+    ui_init();
+
+    USBSerial.println("LVGL initialization complete");
+    return true;
+}
+
+/****************************************************************************************************
+ * Initialize UI Event Handlers and Components
+ * Registers button callbacks and configures UI elements
+ */
+void initUIHandlers() {
+    USBSerial.println("--- Initializing UI Event Handlers ---");
+    
+    // Register button event handlers
+    lv_obj_add_event_cb(ui_ButtonLatest, buttonLatest_event_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_ButtonNew, buttonNew_event_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_ButtonBack, buttonBack_event_handler, LV_EVENT_CLICKED, NULL);
+    USBSerial.println("  Button event handlers registered");
+
+    // Attach Screen 2 event handler for image loading
+    lv_obj_add_event_cb(ui_Screen2, screen2_event_handler, LV_EVENT_ALL, NULL);
+    USBSerial.println("  Screen 2 event handler attached");
+
+    // Initialize the Motion Icon Label
+    lv_label_set_text(ui_labelMotionIcon, LV_SYMBOL_CHARGE);
+    lv_obj_set_style_text_font(ui_labelMotionIcon, &lv_font_montserrat_24, 0);
+    lv_obj_add_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);  // Start hidden
+    USBSerial.println("  Motion icon configured");
+
+    USBSerial.println("UI event handlers initialization complete");
+}
+
+/****************************************************************************************************
+ * Check and initialize PSRAM
+ * @return true if PSRAM available, false otherwise
+ */
+bool initPSRAM() {
+    USBSerial.println("--- Checking PSRAM ---");
+    
+    if (psramFound()) {
+        USBSerial.println("PSRAM found: " + String(ESP.getPsramSize() / 1024 / 1024) + "MB");
+        return true;
+    } else {
+        USBSerial.println("FATAL: PSRAM not found - cannot continue");
+        return false;
+    }
+}
+
+/****************************************************************************************************
+ * Initialize JPEG Decoder
+ */
+void initJPEGDecoder() {
+    USBSerial.println("--- Initializing JPEG Decoder ---");
+    
+    // The GFX library expects RGB565 format (Big Endian)
+    TJpgDec.setSwapBytes(false);
+    
+    USBSerial.println("JPEG decoder initialization complete");
+}
+
+/****************************************************************************************************
+ * Initialize IMU/Motion Sensor (QMI8658)
+ * Configures accelerometer and Wake-on-Motion
+ * @return true if successful, false otherwise
+ */
+bool initIMU() {
+    USBSerial.println("--- Initializing IMU (QMI8658) ---");
+    
+    if (!qmi.begin(Wire, QMI8658_L_SLAVE_ADDRESS, IIC_SDA, IIC_SCL)) {
+        USBSerial.println("FATAL: Failed to find QMI8658 - check your wiring!");
+        return false;
+    }
+    
+    USBSerial.println("QMI8658 Initialized.");
+    qmi.configureWoM();
+
+    // Poll for initial motion state
+    USBSerial.println("Getting initial motion state...");
+    for (int i = 0; i < 5; i++) {
+        updateMotionState(); // This will populate g_isCurrentlyMoving
+        delay(20);
+    }
+    
+    USBSerial.printf("Initial motion state: %s\n", 
+                     g_isCurrentlyMoving ? "MOVING" : "STATIONARY");
+    USBSerial.println("IMU initialization complete");
+    return true;
+}
+
+
+
+
+
+
 
 //***************************************************************************************************
 void setup() {
@@ -1747,8 +1891,6 @@ void setup() {
   Wire.begin(IIC_SDA, IIC_SCL);
   delay(50); 
   
-  USBSerial.println("\n--- Board is starting up ---");
-  
   WiFi.mode(WIFI_OFF);
 
   // Initialize PMIC - critical for power management
@@ -1769,87 +1911,34 @@ void setup() {
   // Initialize Display Hardware
   initDisplay();
 
-  
+  // Initialize LVGL
+  if (!initLVGL()) {
+      USBSerial.println("FATAL: LVGL initialization failed");
+      while(1) { delay(1000); }
+  }  
 
-  
-  USBSerial.println("Initializing LVGL...");
+  // Initialize UI Event Handlers
+  initUIHandlers();
 
-  // 1. Initialize the LVGL library itself
-  lv_init();
-
-  // 2. Initialize the display driver
-  lv_disp_draw_buf_init(&draw_buf, buf, NULL, screenWidth * screenHeight / 10);
-
-  /*Initialize the display*/
-  static lv_disp_drv_t disp_drv;
-  lv_disp_drv_init(&disp_drv);
-  /*Change the following line to your display resolution*/
-  disp_drv.hor_res = screenWidth;
-  disp_drv.ver_res = screenHeight;
-  disp_drv.flush_cb = my_disp_flush;
-  disp_drv.draw_buf = &draw_buf;
-  disp_drv.sw_rotate = 1;  // add for rotation
-  disp_drv.rotated = LV_DISP_ROT_90;  
-  lv_disp_t * disp = lv_disp_drv_register(&disp_drv);
-
-  /*Initialize the (dummy) input device driver*/
-  static lv_indev_drv_t indev_drv;
-  lv_indev_drv_init(&indev_drv);
-  indev_drv.type = LV_INDEV_TYPE_POINTER;
-  indev_drv.read_cb = my_touchpad_read;
-  lv_indev_drv_register(&indev_drv);
-
-  const esp_timer_create_args_t lvgl_tick_timer_args = {
-    .callback = &increase_lvgl_tick,
-    .name = "lvgl_tick"
-  };
-
-  esp_timer_handle_t lvgl_tick_timer = NULL;
-  esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer);
-  esp_timer_start_periodic(lvgl_tick_timer, LVGL_TICK_PERIOD_MS * 1000);
-
-  ui_init();
-
-  // --- Register button event handlers ---
-  lv_obj_add_event_cb(ui_ButtonLatest, buttonLatest_event_handler, LV_EVENT_CLICKED, NULL);
-  lv_obj_add_event_cb(ui_ButtonNew, buttonNew_event_handler, LV_EVENT_CLICKED, NULL);
-  lv_obj_add_event_cb(ui_ButtonBack, buttonBack_event_handler, LV_EVENT_CLICKED, NULL);
-  USBSerial.println("Button event handlers registered.");  
-
-  // --- HTTP IMAGE INTEGRATION --- Attach our custom event handler to Screen 2
-  // This will trigger our code when Screen 2 is loaded or unloaded.
-  lv_obj_add_event_cb(ui_Screen2, screen2_event_handler, LV_EVENT_ALL, NULL);
-  USBSerial.println("Attached event handler to Screen 2.");
-
-  // --- Initialize the Motion Icon Label ---
-  lv_label_set_text(ui_labelMotionIcon, LV_SYMBOL_CHARGE); // Set content to the icon
-  
-  // Force the label to use a font that is known to contain the symbols.
-  lv_obj_set_style_text_font(ui_labelMotionIcon, &lv_font_montserrat_24, 0);
-
-  lv_obj_add_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);  // Start with the icon hidden 
-
-  USBSerial.println("LVGL and UI Initialized Successfully.");
-
-  // --- HTTP IMAGE INTEGRATION --- Check PSRAM availability
-  if (psramFound()) {
-    USBSerial.println("PSRAM found: " + String(ESP.getPsramSize() / 1024 / 1024) + "MB");
-  } else {
-    USBSerial.println("FATAL: PSRAM not found - cannot continue");
-    while(1) delay(1000);
+  // Check PSRAM availability
+  if (!initPSRAM()) {
+      USBSerial.println("FATAL: PSRAM not available - cannot continue");
+      while(1) { delay(1000); }
   }
 
-  // --- HTTP IMAGE INTEGRATION --- Initialize JPEG Decoder
-  TJpgDec.setSwapBytes(false); // The GFX library expects RGB565 format (Big Endian)
+  // Initialize JPEG Decoder
+  initJPEGDecoder();
+
+  // Initialize IMU/Motion Sensor
+  if (!initIMU()) {
+      USBSerial.println("FATAL: IMU initialization failed");
+      while(1) { delay(1000); }
+  }
+
+
   
 
-  // --- Step 1: Initialize all hardware sensors FIRST ---
-  if (!qmi.begin(Wire, QMI8658_L_SLAVE_ADDRESS, IIC_SDA, IIC_SCL)) {
-    USBSerial.println("Failed to find QMI8658 - check your wiring!");
-    while (1) { delay(1000); }
-  }
-  USBSerial.println("QMI8658 Initialized.");
-  qmi.configureWoM();
+
 
   // --- Step 2: Gather ALL initial data from sensors ---
   updateBatteryInfo(); // Get battery status
@@ -1858,13 +1947,6 @@ void setup() {
   allowSleep = !vbusPresent;  // Allow sleep if starting on battery
   if (allowSleep) {
       USBSerial.println("Starting on battery - sleep enabled after inactivity");
-  }
-
-  // Poll for initial motion state
-  USBSerial.println("Getting initial motion state...");
-  for (int i = 0; i < 5; i++) {
-    updateMotionState(); // This will populate g_isCurrentlyMoving
-    delay(20);
   }
 
   // --- Step 3: Update the entire UI with all the new data ---
