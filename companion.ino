@@ -1669,6 +1669,9 @@ bool initI2C() {
 /****************************************************************************************************
  * Initialize PMIC (AXP2101) - Power Management IC
  * Configures charging, voltage rails, and ADC
+ * 
+ * IMPORTANT: WiFi.mode(WIFI_OFF) must be called in setup() BEFORE calling this function
+ * 
  * @return true if successful, false otherwise
  */
 bool initPMIC() {
@@ -2025,18 +2028,17 @@ void configureWiFiPriority() {
 /****************************************************************************************************
  * Initialize WiFi Connection
  * Attempts connection with fallback to secondary network
+ * 
+ * IMPORTANT: The following must be done in setup() BEFORE calling this function:
+ * 1. WiFi.mode(WIFI_OFF) - to disable WiFi radio during hardware init
+ * 2. configureWiFiPriority() - to set primary/secondary network variables
+ * 
  * @return true if successful, false otherwise
  */
 bool initWiFi() {
     USBSerial.println("--- Initializing WiFi ---");
     
-    // Disable WiFi initially
-    WiFi.mode(WIFI_OFF);
-    
-    // Configure network priority
-    configureWiFiPriority();
-    
-    // Attempt connection
+    // Attempt connection (network priority was already configured in setup)
     if (!attemptWiFiConnection()) {
         USBSerial.println("WiFi connection failed (unexpected state).");
         return false;
@@ -2123,20 +2125,37 @@ void finalizeSetup() {
 
 
 //***************************************************************************************************
-// MAIN SETUP FUNCTION
-
+// MAIN SETUP FUNCTION (CORRECTED ORDER)
+//***************************************************************************************************
 void setup() {
-    // Initialize serial first for debugging
-    initSerial();
+    // === EARLY INITIALIZATION (must happen first) ===
     
-    // Handle wake reason and I2C reset if needed
-    esp_sleep_wakeup_cause_t wakeReason = handleWakeReason();
+    // 1. Initialize serial
+    USBSerial.begin(115200);
     
-    // Initialize I2C bus
-    if (!initI2C()) {
-        USBSerial.println("FATAL: I2C initialization failed");
-        while(1) { delay(1000); }
+    // 2. Handle wake reason and I2C reset if needed
+    esp_sleep_wakeup_cause_t wakeReason = esp_sleep_get_wakeup_cause();
+
+    if (wakeReason == ESP_SLEEP_WAKEUP_EXT0) {
+        // This is a Deep Sleep Wake. The ESP32's I2C driver is stuck.
+        // We MUST reset it to prevent the "i2c driver install error".
+        USBSerial.println("Deep Sleep Wake detected. Performing I2C driver reset...");
+        Wire.end();
+        delay(10);
     }
+    // For any other type of boot (Cold or Shutdown), we DO NOT call Wire.end().
+    
+    // 3. Initialize I2C bus
+    Wire.begin(IIC_SDA, IIC_SCL);
+    delay(50);
+    
+    USBSerial.println("\n--- Board is starting up ---");
+    
+    // 4. CRITICAL: Disable WiFi BEFORE hardware initialization
+    //    This prevents interference with I2C bus and PMIC
+    WiFi.mode(WIFI_OFF);
+    
+    // === HARDWARE INITIALIZATION ===
     
     // Initialize PMIC - critical for power management
     if (!initPMIC()) {
@@ -2171,7 +2190,6 @@ void setup() {
     // Initialize UI Event Handlers
     if (!initUIHandlers()) {
         USBSerial.println("WARNING: UI handlers initialization failed");
-        // Non-fatal, continue
     }
     
     // Check PSRAM availability
@@ -2192,17 +2210,23 @@ void setup() {
     // Initialize Battery Monitoring
     if (!initBattery()) {
         USBSerial.println("WARNING: Battery monitoring initialization failed");
-        // Non-fatal, continue
     }
     
     // Update UI with initial sensor data
     updateInitialUI();
     
-    // Initialize WiFi
-    initWiFi();  // Failure handling is done in attemptWiFiConnection()
-
-    // Initialize MQTT  
-    initMQTT();  // Non-fatal - will retry in loop
+    // === NETWORK INITIALIZATION ===
+    
+    // Configure WiFi priority (must be done before initWiFi)
+    configureWiFiPriority();
+    
+    // Initialize WiFi (failure handling in attemptWiFiConnection)
+    initWiFi();
+    
+    // Initialize MQTT (will retry in loop if needed)
+    initMQTT();
+    
+    // === FINALIZATION ===
     
     // Finalize setup
     finalizeSetup();
