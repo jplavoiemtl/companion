@@ -1679,27 +1679,24 @@ bool initPMIC() {
     
     if (!pmic.init()) {
         USBSerial.println("ERROR: PMIC AXP2101 failed to initialize!");
-        return false;
+        // Original code CONTINUES here, doesn't return false!
+    } else {
+        USBSerial.println("PMIC init OK.");
+
+        USBSerial.println("Performing full ADC subsystem reset to ensure clean state...");
+        adcOff();
+        delay(50); 
+        adcOn();
+        delay(150);
+        
+        pmic.enableALDO1(); 
+        pmic.enableALDO2(); 
+        pmic.enableBLDO1(); 
+        pmic.enableALDO3();
     }
     
-    USBSerial.println("PMIC init OK.");
-
-    // This is required to clear stale hardware flags inside the PMIC after a
-    // warm boot from full shutdown. It is harmless on other boot types.
-    USBSerial.println("Performing full ADC subsystem reset to ensure clean state...");
-    adcOff();
-    delay(50); 
-    adcOn();
-    delay(150); // A longer delay to allow the ADC system to fully stabilize.
-    
-    // Enable voltage rails
-    pmic.enableALDO1(); 
-    pmic.enableALDO2(); 
-    pmic.enableBLDO1(); 
-    pmic.enableALDO3();
-    
     USBSerial.println("PMIC initialization complete");
-    return true;
+    return true;  // Always returns true, even if init failed
 }
 
 /****************************************************************************************************
@@ -1754,15 +1751,11 @@ bool initTouch() {
                                                DRIVEBUS_DEFAULT_VALUE, TP_INT, 
                                                Arduino_IIC_Touch_Interrupt);
     
-    int retries = 0;
+    // CRITICAL: Match original infinite retry behavior
     while (FT3168->begin() == false) {
         USBSerial.println("ERROR: FT3168 initialization fail");
         delay(2000);
-        retries++;
-        if (retries > 5) {
-            USBSerial.println("FATAL: Touch controller failed after 5 attempts");
-            return false;
-        }
+        // Keep trying forever, just like the original!
     }
     
     // Set touch to active power mode
@@ -2158,10 +2151,7 @@ void setup() {
     // === HARDWARE INITIALIZATION ===
     
     // Initialize PMIC - critical for power management
-    if (!initPMIC()) {
-        USBSerial.println("FATAL: PMIC initialization failed - cannot continue");
-        while(1) { delay(1000); }
-    }
+    initPMIC();  // Don't check return value, just like original
     
     // Initialize I/O Expander - needed for display control
     if (!initIOExpander()) {
@@ -2170,10 +2160,7 @@ void setup() {
     }
     
     // Initialize Touch Controller
-    if (!initTouch()) {
-        USBSerial.println("FATAL: Touch controller initialization failed");
-        while(1) { delay(1000); }
-    }
+    initTouch();  // Don't check return value - infinite retry inside
     
     // Initialize Display Hardware
     if (!initDisplay(wakeReason)) {
