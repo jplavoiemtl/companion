@@ -7,7 +7,6 @@ build/
 
 # VSCode settings
 .vscode/
-sketch.yaml
 
 # Arduino/compiled artifacts
 *.bin

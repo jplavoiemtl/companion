@@ -14,8 +14,10 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
+// --- HTTP IMAGE INTEGRATION --- New includes
 #include <HTTPClient.h>
 #include <TJpg_Decoder.h>
+// --- HTTP IMAGE INTEGRATION --- End of new includes
 
 // QMI8658 Register Addresses
 #define QMI8658_CTRL2       0x03
@@ -252,6 +254,7 @@ bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) 
 // secure connection method.
 bool requestImage(const char* endpoint_type) {
     USBSerial.println("=== requestImage() ENTRY ===");
+    printMemoryStats("Entry state");
 
     // A small delay can help the system stabilize memory before a large allocation
     delay(10); 
@@ -284,7 +287,9 @@ bool requestImage(const char* endpoint_type) {
 
         url = String(IMAGE_SERVER_REMOTE) + String(endpoint_type) + "?token=" + String(API_TOKEN);
         USBSerial.println("Initiating HTTPS GET: " + url);
-       
+
+        printMemoryStats("Before HTTPS begin");
+        
         // Configure the secure client with the now-verified remote server's CA certificate
         httpsClient.setCACert(remote_server_ca_cert);
 
@@ -293,6 +298,7 @@ bool requestImage(const char* endpoint_type) {
         
         if (!beginResult) {
             USBSerial.println("FATAL: httpClient.begin() failed for HTTPS!");
+            printMemoryStats("HTTPS begin failure");
             httpState = HTTP_ERROR;
             return false;
         }
@@ -302,13 +308,17 @@ bool requestImage(const char* endpoint_type) {
         // === HTTP Connection for local access (ssid1) ===
         url = String(IMAGE_SERVER_BASE) + String(endpoint_type);
         USBSerial.println("Initiating HTTP GET: " + url);
-       
+
+        // ADD THIS:
+        printMemoryStats("Before HTTP begin");
+        
         // Begin standard HTTP connection
         bool beginResult = httpClient.begin(url);
         
         // ADD THIS:
         if (!beginResult) {
             USBSerial.println("FATAL: httpClient.begin() failed for HTTP!");
+            printMemoryStats("HTTP begin failure");
             httpState = HTTP_ERROR;
             return false;
         }
@@ -321,10 +331,13 @@ bool requestImage(const char* endpoint_type) {
     httpClient.setConnectTimeout(HTTP_TIMEOUT_MS);
     httpClient.setTimeout(HTTP_TIMEOUT_MS);
     
+    USBSerial.println("DEBUG: Starting httpClient.GET()...");
     int httpCode = httpClient.GET();
+    USBSerial.printf("DEBUG: httpClient.GET() finished with code: %d\n", httpCode);
     
     if (httpCode != HTTP_CODE_OK) {
         USBSerial.printf("FATAL: HTTP GET failed with code: %d\n", httpCode);  // ENHANCED
+        printMemoryStats("HTTP GET failure");                                   // NEW
         httpClient.end();
         httpState = HTTP_ERROR;
         return false;
@@ -359,11 +372,14 @@ bool requestImage(const char* endpoint_type) {
         image_buffer_psram = nullptr;
         delay(10);
     }
-       
+    
+    printMemoryStats("Before JPEG allocation");
+    
     jpeg_buffer_psram = (uint8_t*)ps_malloc(contentLength);
     if (!jpeg_buffer_psram) {
         USBSerial.println("FATAL: Failed to allocate PSRAM for JPEG buffer");
         USBSerial.printf("Requested size: %d bytes\n", contentLength);
+        printMemoryStats("JPEG allocation failure");
         httpClient.end();
         httpState = HTTP_ERROR;
         return false;
@@ -379,6 +395,7 @@ bool requestImage(const char* endpoint_type) {
     httpState = HTTP_RECEIVING;
     
     USBSerial.println("Starting to receive image data...");
+    printMemoryStats("Before returning true");
     USBSerial.println("=== requestImage() EXIT SUCCESS ===");    
     return true;
 }
@@ -444,12 +461,15 @@ void processHTTPResponse() {
 
     // Allocate PSRAM buffer for the decoded RGB565 image
     size_t imageBufferSize = screenWidth * screenHeight * sizeof(uint16_t);
-       
+    
+    printMemoryStats("Before image buffer allocation");
+    
     image_buffer_psram = (uint16_t*)ps_malloc(imageBufferSize);
     
     if (!image_buffer_psram) {
       USBSerial.println("FATAL: PSRAM allocation failed for decoded image buffer");
       USBSerial.printf("Requested size: %d bytes\n", imageBufferSize);
+      printMemoryStats("Image buffer allocation failure");
       
       free(jpeg_buffer_psram);
       jpeg_buffer_psram = nullptr;
@@ -457,6 +477,10 @@ void processHTTPResponse() {
       httpState = HTTP_ERROR;
       return;
     }
+    
+    USBSerial.printf("Successfully allocated image_buffer_psram: %d bytes at 0x%08X\n", 
+                     imageBufferSize, (uint32_t)image_buffer_psram);
+    printMemoryStats("After image buffer allocation");
 
     // Set up the decoder
     TJpgDec.setJpgScale(1);
@@ -1601,20 +1625,30 @@ void goToShutdown() {
 
 
 //***************************************************************************************************
-// INITIALIZATION HELPER FUNCTIONS
-/****************************************************************************************************
- * Initialize PMIC (AXP2101) - Power Management IC
- * Configures charging, voltage rails, and ADC
- * @return true if successful, false otherwise
- */
-bool initPMIC() {
-    USBSerial.println("--- Initializing PMIC (AXP2101) ---");
-    
-    if (!pmic.init()) {
-        USBSerial.println("ERROR: PMIC AXP2101 failed to initialize!");
-        return false;
-    }
-    
+void setup() {
+  USBSerial.begin(115200);
+
+  esp_sleep_wakeup_cause_t wakeReason = esp_sleep_get_wakeup_cause();
+
+  if (wakeReason == ESP_SLEEP_WAKEUP_EXT0) {
+    // This is a Deep Sleep Wake. The ESP32's I2C driver is stuck.
+    // We MUST reset it to prevent the "i2c driver install error".
+    USBSerial.println("Deep Sleep Wake detected. Performing I2C driver reset...");
+    Wire.end();
+    delay(10);
+  }
+  // For any other type of boot (Cold or Shutdown), we DO NOT call Wire.end().
+
+  Wire.begin(IIC_SDA, IIC_SCL);
+  delay(50); 
+  
+  USBSerial.println("\n--- Board is starting up ---");
+  
+  WiFi.mode(WIFI_OFF);
+  
+  if (!pmic.init()) {
+    USBSerial.println("ERROR: PMIC AXP2101 failed to initialize!");
+  } else {
     USBSerial.println("PMIC init OK.");
 
     // This is required to clear stale hardware flags inside the PMIC after a
@@ -1625,471 +1659,227 @@ bool initPMIC() {
     adcOn();
     delay(150); // A longer delay to allow the ADC system to fully stabilize.
     
-    // Enable voltage rails
     pmic.enableALDO1(); 
     pmic.enableALDO2(); 
     pmic.enableBLDO1(); 
     pmic.enableALDO3();
-    
-    USBSerial.println("PMIC initialization complete");
-    return true;
-}
+  }
 
-/****************************************************************************************************
- * Initialize I/O Expander (TCA9554)
- * Sets up GPIO pins for LCD control
- * @return true if successful, false otherwise
- */
-bool initIOExpander() {
-    USBSerial.println("--- Initializing I/O Expander ---");
-    
-    expander = new EXAMPLE_CHIP_CLASS(TCA95xx_8bit,
-                                      (i2c_port_t)0, ESP_IO_EXPANDER_I2C_TCA9554_ADDRESS_000,
-                                      IIC_SCL, IIC_SDA);
-    
-    expander->init();
-    expander->begin();
-    
-    // Configure pins for LCD control
-    expander->pinMode(0, OUTPUT);
-    expander->pinMode(1, OUTPUT);
-    expander->pinMode(2, OUTPUT);
-    
-    // Reset sequence
-    expander->digitalWrite(0, LOW);
-    expander->digitalWrite(1, LOW);
-    expander->digitalWrite(2, LOW);
-    delay(20);
-    expander->digitalWrite(0, HIGH);
-    expander->digitalWrite(1, HIGH);
-    expander->digitalWrite(2, HIGH);
-    
-    USBSerial.println("I/O Expander initialization complete");
-    return true;
-}
-
-/****************************************************************************************************
- * Initialize Touch Controller (FT3168)
- * Sets up I2C communication with capacitive touch panel
- */
-void initTouch() {
-    USBSerial.println("--- Initializing Touch Controller ---");
-    
-    IIC_Bus = std::make_shared<Arduino_HWIIC>(IIC_SDA, IIC_SCL, &Wire);
-    FT3168 = std::make_unique<Arduino_FT3x68>(IIC_Bus, FT3168_DEVICE_ADDRESS, DRIVEBUS_DEFAULT_VALUE, TP_INT, Arduino_IIC_Touch_Interrupt);
-    while (FT3168->begin() == false) {
-      USBSerial.println("ERROR: FT3168 initialization fail");
-      delay(2000);
-    }
-    
-    FT3168->IIC_Write_Device_State(FT3168->Arduino_IIC_Touch::Device::TOUCH_POWER_MODE,
-                                  FT3168->Arduino_IIC_Touch::Device_Mode::TOUCH_POWER_ACTIVE);
-    
-    USBSerial.println("Touch controller initialization complete");
-}
-
-/****************************************************************************************************
- * Initialize Display Hardware
- * Sets up display controller and basic configuration
- */
-void initDisplay() {
-    gfx->begin();
-
-    gfx->fillScreen(BLACK);
-    gfx->Display_Brightness(150);    
-}
-
-/****************************************************************************************************
- * Initialize LVGL Graphics Library
- * Sets up display buffers, input devices, timers, and loads UI
- * @return true if successful, false otherwise
- */
-bool initLVGL() {
-    USBSerial.println("--- Initializing LVGL ---");
-    
-    // 1. Initialize the LVGL library itself
-    lv_init();
-
-    // 2. Initialize the display driver
-    lv_disp_draw_buf_init(&draw_buf, buf, NULL, screenWidth * screenHeight / 10);
-
-    // Initialize the display
-    static lv_disp_drv_t disp_drv;
-    lv_disp_drv_init(&disp_drv);
-    disp_drv.hor_res = screenWidth;
-    disp_drv.ver_res = screenHeight;
-    disp_drv.flush_cb = my_disp_flush;
-    disp_drv.draw_buf = &draw_buf;
-    disp_drv.sw_rotate = 1;
-    disp_drv.rotated = LV_DISP_ROT_90;
-    lv_disp_t * disp = lv_disp_drv_register(&disp_drv);
-
-    // Initialize the input device driver
-    static lv_indev_drv_t indev_drv;
-    lv_indev_drv_init(&indev_drv);
-    indev_drv.type = LV_INDEV_TYPE_POINTER;
-    indev_drv.read_cb = my_touchpad_read;
-    lv_indev_drv_register(&indev_drv);
-
-    // Create LVGL tick timer
-    const esp_timer_create_args_t lvgl_tick_timer_args = {
-        .callback = &increase_lvgl_tick,
-        .name = "lvgl_tick"
-    };
-
-    esp_timer_handle_t lvgl_tick_timer = NULL;
-    if (esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer) != ESP_OK) {
-        USBSerial.println("ERROR: Failed to create LVGL tick timer");
-        return false;
-    }
-    
-    if (esp_timer_start_periodic(lvgl_tick_timer, LVGL_TICK_PERIOD_MS * 1000) != ESP_OK) {
-        USBSerial.println("ERROR: Failed to start LVGL tick timer");
-        return false;
-    }
-
-    // Load UI from SquareLine Studio
-    ui_init();
-
-    USBSerial.println("LVGL initialization complete");
-    return true;
-}
-
-/****************************************************************************************************
- * Initialize UI Event Handlers and Components
- * Registers button callbacks and configures UI elements
- */
-void initUIHandlers() {
-    USBSerial.println("--- Initializing UI Event Handlers ---");
-    
-    // Register button event handlers
-    lv_obj_add_event_cb(ui_ButtonLatest, buttonLatest_event_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_ButtonNew, buttonNew_event_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_ButtonBack, buttonBack_event_handler, LV_EVENT_CLICKED, NULL);
-    USBSerial.println("  Button event handlers registered");
-
-    // Attach Screen 2 event handler for image loading
-    lv_obj_add_event_cb(ui_Screen2, screen2_event_handler, LV_EVENT_ALL, NULL);
-    USBSerial.println("  Screen 2 event handler attached");
-
-    // Initialize the Motion Icon Label
-    lv_label_set_text(ui_labelMotionIcon, LV_SYMBOL_CHARGE);
-    lv_obj_set_style_text_font(ui_labelMotionIcon, &lv_font_montserrat_24, 0);
-    lv_obj_add_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);  // Start hidden
-    USBSerial.println("  Motion icon configured");
-
-    USBSerial.println("UI event handlers initialization complete");
-}
-
-/****************************************************************************************************
- * Check and initialize PSRAM
- * @return true if PSRAM available, false otherwise
- */
-bool initPSRAM() {
-    USBSerial.println("--- Checking PSRAM ---");
-    
-    if (psramFound()) {
-        USBSerial.println("PSRAM found: " + String(ESP.getPsramSize() / 1024 / 1024) + "MB");
-        return true;
-    } else {
-        USBSerial.println("FATAL: PSRAM not found - cannot continue");
-        return false;
-    }
-}
-
-/****************************************************************************************************
- * Initialize JPEG Decoder
- */
-void initJPEGDecoder() {
-    USBSerial.println("--- Initializing JPEG Decoder ---");
-    
-    // The GFX library expects RGB565 format (Big Endian)
-    TJpgDec.setSwapBytes(false);
-    
-    USBSerial.println("JPEG decoder initialization complete");
-}
-
-/****************************************************************************************************
- * Initialize IMU/Motion Sensor (QMI8658)
- * Configures accelerometer and Wake-on-Motion
- * @return true if successful, false otherwise
- */
-bool initIMU() {
-    USBSerial.println("--- Initializing IMU (QMI8658) ---");
-    
-    if (!qmi.begin(Wire, QMI8658_L_SLAVE_ADDRESS, IIC_SDA, IIC_SCL)) {
-        USBSerial.println("FATAL: Failed to find QMI8658 - check your wiring!");
-        return false;
-    }
-    
-    USBSerial.println("QMI8658 Initialized.");
-    qmi.configureWoM();
-
-    // Poll for initial motion state
-    USBSerial.println("Getting initial motion state...");
-    for (int i = 0; i < 5; i++) {
-        updateMotionState(); // This will populate g_isCurrentlyMoving
-        delay(20);
-    }
-    
-    USBSerial.printf("Initial motion state: %s\n", 
-                     g_isCurrentlyMoving ? "MOVING" : "STATIONARY");
-    USBSerial.println("IMU initialization complete");
-    return true;
-}
-
-/****************************************************************************************************
- * Initialize Battery Monitoring
- * Reads initial battery state and configures sleep policy
- */
-void initBattery() {
-    USBSerial.println("--- Initializing Battery Monitoring ---");
-    
-    // Get initial battery readings
-    updateBatteryInfo();
-    
-    // Display initial state
-    USBSerial.printf("Battery: %s%% (%.2fV)\n", 
-                     batteryPercent.c_str(), 
-                     batteryVoltage);
-    USBSerial.printf("USB Power: %s\n", vbusPresent ? "CONNECTED" : "DISCONNECTED");
-    USBSerial.printf("Battery: %s\n", batteryConnected ? "PRESENT" : "NOT DETECTED");
-    
-    // Set sleep policy based on initial power state
-    allowSleep = !vbusPresent;
-    if (allowSleep) {
-        USBSerial.println("Starting on battery - sleep enabled after inactivity");
-    } else {
-        USBSerial.println("USB power detected - sleep disabled");
-    }
-    
-    USBSerial.println("Battery monitoring initialization complete");
-}
-
-/****************************************************************************************************
- * Update UI with initial sensor data
- * Must be called after battery and IMU initialization
- */
-void updateInitialUI() {
-    USBSerial.println("--- Updating Initial UI ---");
-    
-    // Update UI with all sensor data
-    updateBatteryInfoUI();
-    updateMotionStatusUI();
-    
-    // Force a complete screen refresh before WiFi connection
-    USBSerial.println("Forcing full UI refresh before WiFi connection...");
-    for (int i = 0; i < 15; i++) {
-        lv_timer_handler();
-        delay(5);
-    }
-    
-    USBSerial.println("Initial UI update complete");
-}
-
-/****************************************************************************************************
- * Configure WiFi Network Priority
- * Sets primary and secondary network based on WIFI_PRIORITY
- */
-void configureWiFiPriority() {
-    USBSerial.println("--- Configuring WiFi Priority ---");
-    
-    #if WIFI_PRIORITY == 1
-        primarySsid = ssid1;
-        primaryPassword = password1;
-        primaryNetworkNum = 1;
-        
-        secondarySsid = ssid2;
-        secondaryPassword = password2;
-        secondaryNetworkNum = 2;
-    #elif WIFI_PRIORITY == 2
-        primarySsid = ssid2;
-        primaryPassword = password2;
-        primaryNetworkNum = 2;
-
-        secondarySsid = ssid1;
-        secondaryPassword = password1;
-        secondaryNetworkNum = 1;
-    #else
-        #error "Invalid WIFI_PRIORITY defined. Please choose 1 or 2."
-    #endif
-    
-    USBSerial.printf("Primary network: %d, Secondary network: %d\n", 
-                     primaryNetworkNum, secondaryNetworkNum);
-}
-
-/****************************************************************************************************
- * Initialize WiFi Connection
- * Attempts connection with fallback to secondary network
- * 
- * IMPORTANT: The following must be done in setup() BEFORE calling this function:
- * 1. WiFi.mode(WIFI_OFF) - to disable WiFi radio during hardware init
- * 2. configureWiFiPriority() - to set primary/secondary network variables
- */
-void initWiFi() {
-    USBSerial.println("--- Initializing WiFi ---");
-    
-    // Attempt connection (network priority was already configured in setup)
-    if (!attemptWiFiConnection()) {
-        USBSerial.println("WiFi connection failed (unexpected state).");
-    }
-    
-    USBSerial.println("WiFi connection established successfully.");
-    
-    // Allow network stack to stabilize
-    USBSerial.println("Allowing network stack to stabilize...");
-    for (int i = 0; i < 10; i++) {
-        updateMotionState();
-        updateMotionStatusUI();
-        lv_timer_handler();
-        delay(200);
-    }
-    
-    USBSerial.println("WiFi initialization complete");
-}
-
-/****************************************************************************************************
- * Initialize MQTT Connection
- * Attempts initial connection with retry logic
- */
-void initMQTT() {
-    USBSerial.println("--- Initializing MQTT ---");
-    
-    if (WiFi.status() != WL_CONNECTED) {
-        USBSerial.println("WARNING: Cannot initialize MQTT - WiFi not connected");
-    }
-    
-    USBSerial.println("Attempting initial MQTT connection...");
-    
-    for (int i = 0; i < 3; i++) {
-        checkMQTT(true);  // Bypass rate limiting during setup
-        
-        if (mqttClient.connected()) {
-            USBSerial.println("Initial MQTT connection successful!");
-            return;  // Exit function immediately on success
-        }
-        
-        USBSerial.print("MQTT attempt ");
-        USBSerial.print(i + 1);
-        USBSerial.println(" failed, retrying...");
-        
-        if (i < 2) {  // Don't delay after last attempt
-            // 3 second delay between attempts
-            for (int j = 0; j < 15; j++) {
-                updateMotionState();
-                updateMotionStatusUI();
-                lv_timer_handler();
-                delay(200);
-            }
-        }
-    }
-    
-    USBSerial.println("Initial MQTT connection failed - will retry in loop");
-}
-
-/****************************************************************************************************
- * Finalize Setup
- * Updates UI with final status and prepares for main loop
- */
-void finalizeSetup() {
-    // Update connection status UI
-    updateConnectionStatusUI();
-    
-    // Final UI refresh
-    for (int i = 0; i < 5; i++) { 
-        lv_timer_handler(); 
-        delay(5); 
-    }
-    
-    // Set initial activity timestamp
-    lastActivityTime = millis();
-    
-    USBSerial.println("--- Setup complete, entering loop ---\n");
-}
-
-
-//***************************************************************************************************
-void setup() {
-  USBSerial.begin(115200);
-  delay(100); // Allow time for Serial to initialize
-
-  esp_sleep_wakeup_cause_t wakeReason = esp_sleep_get_wakeup_cause();
+  expander = new EXAMPLE_CHIP_CLASS(TCA95xx_8bit,
+                                    (i2c_port_t)0, ESP_IO_EXPANDER_I2C_TCA9554_ADDRESS_000,
+                                    IIC_SCL, IIC_SDA);
+  expander->init();
+  expander->begin();
+  expander->pinMode(0, OUTPUT);
+  expander->pinMode(1, OUTPUT);
+  expander->pinMode(2, OUTPUT);
+  expander->digitalWrite(0, LOW);
+  expander->digitalWrite(1, LOW);
+  expander->digitalWrite(2, LOW);
+  delay(20);
+  expander->digitalWrite(0, HIGH);
+  expander->digitalWrite(1, HIGH);
+  expander->digitalWrite(2, HIGH);
+  
+  IIC_Bus = std::make_shared<Arduino_HWIIC>(IIC_SDA, IIC_SCL, &Wire);
+  FT3168 = std::make_unique<Arduino_FT3x68>(IIC_Bus, FT3168_DEVICE_ADDRESS, DRIVEBUS_DEFAULT_VALUE, TP_INT, Arduino_IIC_Touch_Interrupt);
+  while (FT3168->begin() == false) {
+    USBSerial.println("ERROR: FT3168 initialization fail");
+    delay(2000);
+  }
+  
+  FT3168->IIC_Write_Device_State(FT3168->Arduino_IIC_Touch::Device::TOUCH_POWER_MODE,
+                                 FT3168->Arduino_IIC_Touch::Device_Mode::TOUCH_POWER_ACTIVE);
+  
+  gfx->begin();
 
   if (wakeReason == ESP_SLEEP_WAKEUP_EXT0) {
-    // This is a Deep Sleep Wake. The ESP32's I2C driver is stuck.
-    // We MUST reset it to prevent the "i2c driver install error".
-    USBSerial.println("Deep Sleep Wake detected. Performing I2C driver reset...");
-    Wire.end();
-    delay(10);
+    USBSerial.println("Woke up from touch (Deep Sleep).");
   } else {
     USBSerial.println("Woke up from Power-On or Full Shutdown.");
   }
-  // For any other type of boot (Cold or Shutdown), we DO NOT call Wire.end().
 
-  Wire.begin(IIC_SDA, IIC_SCL);
-  delay(50); 
+  gfx->fillScreen(BLACK);
+  gfx->Display_Brightness(150);
   
-  WiFi.mode(WIFI_OFF);
+  USBSerial.println("Initializing LVGL...");
 
-  // Initialize PMIC - critical for power management
-  if (!initPMIC()) {
-      USBSerial.println("FATAL: PMIC initialization failed - cannot continue");
-      while(1) { delay(1000); }
+  // 1. Initialize the LVGL library itself
+  lv_init();
+
+  // 2. Initialize the display driver
+  lv_disp_draw_buf_init(&draw_buf, buf, NULL, screenWidth * screenHeight / 10);
+
+  /*Initialize the display*/
+  static lv_disp_drv_t disp_drv;
+  lv_disp_drv_init(&disp_drv);
+  /*Change the following line to your display resolution*/
+  disp_drv.hor_res = screenWidth;
+  disp_drv.ver_res = screenHeight;
+  disp_drv.flush_cb = my_disp_flush;
+  disp_drv.draw_buf = &draw_buf;
+  disp_drv.sw_rotate = 1;  // add for rotation
+  disp_drv.rotated = LV_DISP_ROT_90;  
+  lv_disp_t * disp = lv_disp_drv_register(&disp_drv);
+
+  /*Initialize the (dummy) input device driver*/
+  static lv_indev_drv_t indev_drv;
+  lv_indev_drv_init(&indev_drv);
+  indev_drv.type = LV_INDEV_TYPE_POINTER;
+  indev_drv.read_cb = my_touchpad_read;
+  lv_indev_drv_register(&indev_drv);
+
+  const esp_timer_create_args_t lvgl_tick_timer_args = {
+    .callback = &increase_lvgl_tick,
+    .name = "lvgl_tick"
+  };
+
+  esp_timer_handle_t lvgl_tick_timer = NULL;
+  esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer);
+  esp_timer_start_periodic(lvgl_tick_timer, LVGL_TICK_PERIOD_MS * 1000);
+
+  ui_init();
+
+  // --- Register button event handlers ---
+  lv_obj_add_event_cb(ui_ButtonLatest, buttonLatest_event_handler, LV_EVENT_CLICKED, NULL);
+  lv_obj_add_event_cb(ui_ButtonNew, buttonNew_event_handler, LV_EVENT_CLICKED, NULL);
+  lv_obj_add_event_cb(ui_ButtonBack, buttonBack_event_handler, LV_EVENT_CLICKED, NULL);
+  USBSerial.println("Button event handlers registered.");  
+
+  // --- HTTP IMAGE INTEGRATION --- Attach our custom event handler to Screen 2
+  // This will trigger our code when Screen 2 is loaded or unloaded.
+  lv_obj_add_event_cb(ui_Screen2, screen2_event_handler, LV_EVENT_ALL, NULL);
+  USBSerial.println("Attached event handler to Screen 2.");
+
+  // --- Initialize the Motion Icon Label ---
+  lv_label_set_text(ui_labelMotionIcon, LV_SYMBOL_CHARGE); // Set content to the icon
+  
+  // Force the label to use a font that is known to contain the symbols.
+  lv_obj_set_style_text_font(ui_labelMotionIcon, &lv_font_montserrat_24, 0);
+
+  lv_obj_add_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);  // Start with the icon hidden 
+
+  USBSerial.println("LVGL and UI Initialized Successfully.");
+
+  // --- HTTP IMAGE INTEGRATION --- Check PSRAM availability
+  if (psramFound()) {
+    USBSerial.println("PSRAM found: " + String(ESP.getPsramSize() / 1024 / 1024) + "MB");
+  } else {
+    USBSerial.println("FATAL: PSRAM not found - cannot continue");
+    while(1) delay(1000);
   }
 
-  // Initialize I/O Expander - needed for display control
-  if (!initIOExpander()) {
-      USBSerial.println("FATAL: I/O Expander initialization failed");
-      while(1) { delay(1000); }
-  }
+  // --- HTTP IMAGE INTEGRATION --- Initialize JPEG Decoder
+  TJpgDec.setSwapBytes(false); // The GFX library expects RGB565 format (Big Endian)
   
-  // Initialize Touch Controller
-  initTouch();
 
-  // Initialize Display Hardware
-  initDisplay();
+  // --- Step 1: Initialize all hardware sensors FIRST ---
+  if (!qmi.begin(Wire, QMI8658_L_SLAVE_ADDRESS, IIC_SDA, IIC_SCL)) {
+    USBSerial.println("Failed to find QMI8658 - check your wiring!");
+    while (1) { delay(1000); }
+  }
+  USBSerial.println("QMI8658 Initialized.");
+  qmi.configureWoM();
 
-  // Initialize LVGL
-  if (!initLVGL()) {
-      USBSerial.println("FATAL: LVGL initialization failed");
-      while(1) { delay(1000); }
-  }  
+  // --- Step 2: Gather ALL initial data from sensors ---
+  updateBatteryInfo(); // Get battery status
 
-  // Initialize UI Event Handlers
-  initUIHandlers();
-
-  // Check PSRAM availability
-  if (!initPSRAM()) {
-      USBSerial.println("FATAL: PSRAM not available - cannot continue");
-      while(1) { delay(1000); }
+  // Set allowSleep based on initial power state
+  allowSleep = !vbusPresent;  // Allow sleep if starting on battery
+  if (allowSleep) {
+      USBSerial.println("Starting on battery - sleep enabled after inactivity");
   }
 
-  // Initialize JPEG Decoder
-  initJPEGDecoder();
-
-  // Initialize IMU/Motion Sensor
-  if (!initIMU()) {
-      USBSerial.println("FATAL: IMU initialization failed");
-      while(1) { delay(1000); }
+  // Poll for initial motion state
+  USBSerial.println("Getting initial motion state...");
+  for (int i = 0; i < 5; i++) {
+    updateMotionState(); // This will populate g_isCurrentlyMoving
+    delay(20);
   }
 
-  // Initialize Battery Monitoring
-  initBattery();
-  
-  // Update UI with initial sensor data
-  updateInitialUI();
+  // --- Step 3: Update the entire UI with all the new data ---
+  updateBatteryInfoUI();
+  updateMotionStatusUI(); // Now this function has a valid g_isCurrentlyMoving state
 
-  // Configure WiFi priority (must be done before initWiFi)
-  configureWiFiPriority();
+  // --- Step 4: Force a single, complete screen refresh NOW ---
+  // This ensures both battery AND motion info are visible before the blocking WiFi code runs.
+  USBSerial.println("Forcing full UI refresh before WiFi connection...");
+  for (int i = 0; i < 15; i++) { // Increased loop slightly for good measure
+    lv_timer_handler();
+    delay(5);
+  }
 
-  // Initialize WiFi (failure handling in attemptWiFiConnection)
-  initWiFi();
-  
-  // Initialize MQTT (will retry in loop if needed)
-  initMQTT();
-  
-  // Finalize setup
-  finalizeSetup();
+  #if WIFI_PRIORITY == 1
+    primarySsid = ssid1;
+    primaryPassword = password1;
+    primaryNetworkNum = 1;
+    
+    secondarySsid = ssid2;
+    secondaryPassword = password2;
+    secondaryNetworkNum = 2;
+  #elif WIFI_PRIORITY == 2
+    primarySsid = ssid2;
+    primaryPassword = password2;
+    primaryNetworkNum = 2;
+
+    secondarySsid = ssid1;
+    secondaryPassword = password1;
+    secondaryNetworkNum = 1;
+  #else
+    #error "Invalid WIFI_PRIORITY defined. Please choose 1 or 2."
+  #endif
+
+  if (attemptWiFiConnection()) {
+    USBSerial.println("WiFi connection established successfully.");
+    
+    USBSerial.println("Allowing network stack to stabilize...");
+    // Keep UI responsive during 2-second stabilization period
+    for (int i = 0; i < 10; i++) {
+      updateMotionState();
+      updateMotionStatusUI();
+      lv_timer_handler();
+      delay(200);
+    }
+    
+    USBSerial.println("Attempting initial MQTT connection...");
+    for (int i = 0; i < 3; i++) {  // Reduced to 3 attempts
+      checkMQTT(true);  // Bypass rate limiting during setup
+      if (mqttClient.connected()) {
+        USBSerial.println("Initial MQTT connection successful!");
+        break;
+      }
+      USBSerial.print("MQTT attempt ");
+      USBSerial.print(i + 1);
+      USBSerial.println(" failed, retrying...");
+      
+      if (i < 2) {  // Don't delay after last attempt
+        // 3 second delay between attempts
+        for (int j = 0; j < 15; j++) {
+          updateMotionState();
+          updateMotionStatusUI();
+          lv_timer_handler();
+          delay(200);
+        }
+      }
+    }
+    
+    if (!mqttClient.connected()) {
+      USBSerial.println("Initial MQTT connection failed - will retry in loop");
+      // Don't set mqttSuccess to false - let loop() keep trying
+    }
+    
+  } else {
+    // This should only be reached if shutdown was somehow bypassed
+    USBSerial.println("WiFi connection failed (unexpected state).");
+  }
+
+  // --- Final status update before entering loop ---
+  updateConnectionStatusUI(); // Update with final status (e.g. MQTT Online or Offline)
+  for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
+
+  USBSerial.println("--- Setup complete, entering loop ---");
+
+  lastActivityTime = millis();
 }
 
 
@@ -2211,21 +2001,10 @@ void loop() {
               goToShutdown();
           } else {
               // No touch for 30s BUT still moving → SLEEP for quick wake
-              #ifdef CAR
-                  goToShutdown();
-              #else
-                  goToDeepSleep();
-              #endif
+              goToDeepSleep();
           }
       }
   }
 
-  // Smart delay based on system state
-  if (httpState == HTTP_RECEIVING || httpState == HTTP_REQUESTING) {
-      delay(1);  // Fast response during downloads
-  } else if (lv_scr_act() == ui_Screen2 && imageDisplayTimeoutActive) {
-      delay(5);  // Moderate when displaying image
-  } else {
-      delay(10); // Longer delay when idle saves more power
-  }
+  delay(1); // A small delay to yield time to other tasks.
 }
