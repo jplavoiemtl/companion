@@ -252,7 +252,6 @@ bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap) 
 // secure connection method.
 bool requestImage(const char* endpoint_type) {
     USBSerial.println("=== requestImage() ENTRY ===");
-    printMemoryStats("Entry state");
 
     // A small delay can help the system stabilize memory before a large allocation
     delay(10); 
@@ -285,9 +284,7 @@ bool requestImage(const char* endpoint_type) {
 
         url = String(IMAGE_SERVER_REMOTE) + String(endpoint_type) + "?token=" + String(API_TOKEN);
         USBSerial.println("Initiating HTTPS GET: " + url);
-
-        printMemoryStats("Before HTTPS begin");
-        
+       
         // Configure the secure client with the now-verified remote server's CA certificate
         httpsClient.setCACert(remote_server_ca_cert);
 
@@ -296,7 +293,6 @@ bool requestImage(const char* endpoint_type) {
         
         if (!beginResult) {
             USBSerial.println("FATAL: httpClient.begin() failed for HTTPS!");
-            printMemoryStats("HTTPS begin failure");
             httpState = HTTP_ERROR;
             return false;
         }
@@ -306,17 +302,13 @@ bool requestImage(const char* endpoint_type) {
         // === HTTP Connection for local access (ssid1) ===
         url = String(IMAGE_SERVER_BASE) + String(endpoint_type);
         USBSerial.println("Initiating HTTP GET: " + url);
-
-        // ADD THIS:
-        printMemoryStats("Before HTTP begin");
-        
+       
         // Begin standard HTTP connection
         bool beginResult = httpClient.begin(url);
         
         // ADD THIS:
         if (!beginResult) {
             USBSerial.println("FATAL: httpClient.begin() failed for HTTP!");
-            printMemoryStats("HTTP begin failure");
             httpState = HTTP_ERROR;
             return false;
         }
@@ -329,13 +321,10 @@ bool requestImage(const char* endpoint_type) {
     httpClient.setConnectTimeout(HTTP_TIMEOUT_MS);
     httpClient.setTimeout(HTTP_TIMEOUT_MS);
     
-    USBSerial.println("DEBUG: Starting httpClient.GET()...");
     int httpCode = httpClient.GET();
-    USBSerial.printf("DEBUG: httpClient.GET() finished with code: %d\n", httpCode);
     
     if (httpCode != HTTP_CODE_OK) {
         USBSerial.printf("FATAL: HTTP GET failed with code: %d\n", httpCode);  // ENHANCED
-        printMemoryStats("HTTP GET failure");                                   // NEW
         httpClient.end();
         httpState = HTTP_ERROR;
         return false;
@@ -370,14 +359,11 @@ bool requestImage(const char* endpoint_type) {
         image_buffer_psram = nullptr;
         delay(10);
     }
-    
-    printMemoryStats("Before JPEG allocation");
-    
+       
     jpeg_buffer_psram = (uint8_t*)ps_malloc(contentLength);
     if (!jpeg_buffer_psram) {
         USBSerial.println("FATAL: Failed to allocate PSRAM for JPEG buffer");
         USBSerial.printf("Requested size: %d bytes\n", contentLength);
-        printMemoryStats("JPEG allocation failure");
         httpClient.end();
         httpState = HTTP_ERROR;
         return false;
@@ -393,7 +379,6 @@ bool requestImage(const char* endpoint_type) {
     httpState = HTTP_RECEIVING;
     
     USBSerial.println("Starting to receive image data...");
-    printMemoryStats("Before returning true");
     USBSerial.println("=== requestImage() EXIT SUCCESS ===");    
     return true;
 }
@@ -459,15 +444,12 @@ void processHTTPResponse() {
 
     // Allocate PSRAM buffer for the decoded RGB565 image
     size_t imageBufferSize = screenWidth * screenHeight * sizeof(uint16_t);
-    
-    printMemoryStats("Before image buffer allocation");
-    
+       
     image_buffer_psram = (uint16_t*)ps_malloc(imageBufferSize);
     
     if (!image_buffer_psram) {
       USBSerial.println("FATAL: PSRAM allocation failed for decoded image buffer");
       USBSerial.printf("Requested size: %d bytes\n", imageBufferSize);
-      printMemoryStats("Image buffer allocation failure");
       
       free(jpeg_buffer_psram);
       jpeg_buffer_psram = nullptr;
@@ -475,10 +457,6 @@ void processHTTPResponse() {
       httpState = HTTP_ERROR;
       return;
     }
-    
-    USBSerial.printf("Successfully allocated image_buffer_psram: %d bytes at 0x%08X\n", 
-                     imageBufferSize, (uint32_t)image_buffer_psram);
-    printMemoryStats("After image buffer allocation");
 
     // Set up the decoder
     TJpgDec.setJpgScale(1);
