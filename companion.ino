@@ -14,10 +14,8 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
-// --- HTTP IMAGE INTEGRATION --- New includes
 #include <HTTPClient.h>
 #include <TJpg_Decoder.h>
-// --- HTTP IMAGE INTEGRATION --- End of new includes
 
 // QMI8658 Register Addresses
 #define QMI8658_CTRL2       0x03
@@ -1715,8 +1713,6 @@ void initTouch() {
 /****************************************************************************************************
  * Initialize Display Hardware
  * Sets up display controller and basic configuration
- * @param wakeReason Wake reason from handleWakeReason()
- * @return true if successful, false otherwise
  */
 void initDisplay() {
     gfx->begin();
@@ -1864,10 +1860,174 @@ bool initIMU() {
     return true;
 }
 
+/****************************************************************************************************
+ * Initialize Battery Monitoring
+ * Reads initial battery state and configures sleep policy
+ */
+void initBattery() {
+    USBSerial.println("--- Initializing Battery Monitoring ---");
+    
+    // Get initial battery readings
+    updateBatteryInfo();
+    
+    // Display initial state
+    USBSerial.printf("Battery: %s%% (%.2fV)\n", 
+                     batteryPercent.c_str(), 
+                     batteryVoltage);
+    USBSerial.printf("USB Power: %s\n", vbusPresent ? "CONNECTED" : "DISCONNECTED");
+    USBSerial.printf("Battery: %s\n", batteryConnected ? "PRESENT" : "NOT DETECTED");
+    
+    // Set sleep policy based on initial power state
+    allowSleep = !vbusPresent;
+    if (allowSleep) {
+        USBSerial.println("Starting on battery - sleep enabled after inactivity");
+    } else {
+        USBSerial.println("USB power detected - sleep disabled");
+    }
+    
+    USBSerial.println("Battery monitoring initialization complete");
+}
 
+/****************************************************************************************************
+ * Update UI with initial sensor data
+ * Must be called after battery and IMU initialization
+ */
+void updateInitialUI() {
+    USBSerial.println("--- Updating Initial UI ---");
+    
+    // Update UI with all sensor data
+    updateBatteryInfoUI();
+    updateMotionStatusUI();
+    
+    // Force a complete screen refresh before WiFi connection
+    USBSerial.println("Forcing full UI refresh before WiFi connection...");
+    for (int i = 0; i < 15; i++) {
+        lv_timer_handler();
+        delay(5);
+    }
+    
+    USBSerial.println("Initial UI update complete");
+}
 
+/****************************************************************************************************
+ * Configure WiFi Network Priority
+ * Sets primary and secondary network based on WIFI_PRIORITY
+ */
+void configureWiFiPriority() {
+    USBSerial.println("--- Configuring WiFi Priority ---");
+    
+    #if WIFI_PRIORITY == 1
+        primarySsid = ssid1;
+        primaryPassword = password1;
+        primaryNetworkNum = 1;
+        
+        secondarySsid = ssid2;
+        secondaryPassword = password2;
+        secondaryNetworkNum = 2;
+    #elif WIFI_PRIORITY == 2
+        primarySsid = ssid2;
+        primaryPassword = password2;
+        primaryNetworkNum = 2;
 
+        secondarySsid = ssid1;
+        secondaryPassword = password1;
+        secondaryNetworkNum = 1;
+    #else
+        #error "Invalid WIFI_PRIORITY defined. Please choose 1 or 2."
+    #endif
+    
+    USBSerial.printf("Primary network: %d, Secondary network: %d\n", 
+                     primaryNetworkNum, secondaryNetworkNum);
+}
 
+/****************************************************************************************************
+ * Initialize WiFi Connection
+ * Attempts connection with fallback to secondary network
+ * 
+ * IMPORTANT: The following must be done in setup() BEFORE calling this function:
+ * 1. WiFi.mode(WIFI_OFF) - to disable WiFi radio during hardware init
+ * 2. configureWiFiPriority() - to set primary/secondary network variables
+ */
+void initWiFi() {
+    USBSerial.println("--- Initializing WiFi ---");
+    
+    // Attempt connection (network priority was already configured in setup)
+    if (!attemptWiFiConnection()) {
+        USBSerial.println("WiFi connection failed (unexpected state).");
+    }
+    
+    USBSerial.println("WiFi connection established successfully.");
+    
+    // Allow network stack to stabilize
+    USBSerial.println("Allowing network stack to stabilize...");
+    for (int i = 0; i < 10; i++) {
+        updateMotionState();
+        updateMotionStatusUI();
+        lv_timer_handler();
+        delay(200);
+    }
+    
+    USBSerial.println("WiFi initialization complete");
+}
+
+/****************************************************************************************************
+ * Initialize MQTT Connection
+ * Attempts initial connection with retry logic
+ */
+void initMQTT() {
+    USBSerial.println("--- Initializing MQTT ---");
+    
+    if (WiFi.status() != WL_CONNECTED) {
+        USBSerial.println("WARNING: Cannot initialize MQTT - WiFi not connected");
+    }
+    
+    USBSerial.println("Attempting initial MQTT connection...");
+    
+    for (int i = 0; i < 3; i++) {
+        checkMQTT(true);  // Bypass rate limiting during setup
+        
+        if (mqttClient.connected()) {
+            USBSerial.println("Initial MQTT connection successful!");
+            return;  // Exit function immediately on success
+        }
+        
+        USBSerial.print("MQTT attempt ");
+        USBSerial.print(i + 1);
+        USBSerial.println(" failed, retrying...");
+        
+        if (i < 2) {  // Don't delay after last attempt
+            // 3 second delay between attempts
+            for (int j = 0; j < 15; j++) {
+                updateMotionState();
+                updateMotionStatusUI();
+                lv_timer_handler();
+                delay(200);
+            }
+        }
+    }
+    
+    USBSerial.println("Initial MQTT connection failed - will retry in loop");
+}
+
+/****************************************************************************************************
+ * Finalize Setup
+ * Updates UI with final status and prepares for main loop
+ */
+void finalizeSetup() {
+    // Update connection status UI
+    updateConnectionStatusUI();
+    
+    // Final UI refresh
+    for (int i = 0; i < 5; i++) { 
+        lv_timer_handler(); 
+        delay(5); 
+    }
+    
+    // Set initial activity timestamp
+    lastActivityTime = millis();
+    
+    USBSerial.println("--- Setup complete, entering loop ---\n");
+}
 
 
 //***************************************************************************************************
@@ -1935,103 +2095,23 @@ void setup() {
       while(1) { delay(1000); }
   }
 
-
+  // Initialize Battery Monitoring
+  initBattery();
   
+  // Update UI with initial sensor data
+  updateInitialUI();
 
+  // Configure WiFi priority (must be done before initWiFi)
+  configureWiFiPriority();
 
-
-  // --- Step 2: Gather ALL initial data from sensors ---
-  updateBatteryInfo(); // Get battery status
-
-  // Set allowSleep based on initial power state
-  allowSleep = !vbusPresent;  // Allow sleep if starting on battery
-  if (allowSleep) {
-      USBSerial.println("Starting on battery - sleep enabled after inactivity");
-  }
-
-  // --- Step 3: Update the entire UI with all the new data ---
-  updateBatteryInfoUI();
-  updateMotionStatusUI(); // Now this function has a valid g_isCurrentlyMoving state
-
-  // --- Step 4: Force a single, complete screen refresh NOW ---
-  // This ensures both battery AND motion info are visible before the blocking WiFi code runs.
-  USBSerial.println("Forcing full UI refresh before WiFi connection...");
-  for (int i = 0; i < 15; i++) { // Increased loop slightly for good measure
-    lv_timer_handler();
-    delay(5);
-  }
-
-  #if WIFI_PRIORITY == 1
-    primarySsid = ssid1;
-    primaryPassword = password1;
-    primaryNetworkNum = 1;
-    
-    secondarySsid = ssid2;
-    secondaryPassword = password2;
-    secondaryNetworkNum = 2;
-  #elif WIFI_PRIORITY == 2
-    primarySsid = ssid2;
-    primaryPassword = password2;
-    primaryNetworkNum = 2;
-
-    secondarySsid = ssid1;
-    secondaryPassword = password1;
-    secondaryNetworkNum = 1;
-  #else
-    #error "Invalid WIFI_PRIORITY defined. Please choose 1 or 2."
-  #endif
-
-  if (attemptWiFiConnection()) {
-    USBSerial.println("WiFi connection established successfully.");
-    
-    USBSerial.println("Allowing network stack to stabilize...");
-    // Keep UI responsive during 2-second stabilization period
-    for (int i = 0; i < 10; i++) {
-      updateMotionState();
-      updateMotionStatusUI();
-      lv_timer_handler();
-      delay(200);
-    }
-    
-    USBSerial.println("Attempting initial MQTT connection...");
-    for (int i = 0; i < 3; i++) {  // Reduced to 3 attempts
-      checkMQTT(true);  // Bypass rate limiting during setup
-      if (mqttClient.connected()) {
-        USBSerial.println("Initial MQTT connection successful!");
-        break;
-      }
-      USBSerial.print("MQTT attempt ");
-      USBSerial.print(i + 1);
-      USBSerial.println(" failed, retrying...");
-      
-      if (i < 2) {  // Don't delay after last attempt
-        // 3 second delay between attempts
-        for (int j = 0; j < 15; j++) {
-          updateMotionState();
-          updateMotionStatusUI();
-          lv_timer_handler();
-          delay(200);
-        }
-      }
-    }
-    
-    if (!mqttClient.connected()) {
-      USBSerial.println("Initial MQTT connection failed - will retry in loop");
-      // Don't set mqttSuccess to false - let loop() keep trying
-    }
-    
-  } else {
-    // This should only be reached if shutdown was somehow bypassed
-    USBSerial.println("WiFi connection failed (unexpected state).");
-  }
-
-  // --- Final status update before entering loop ---
-  updateConnectionStatusUI(); // Update with final status (e.g. MQTT Online or Offline)
-  for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
-
-  USBSerial.println("--- Setup complete, entering loop ---");
-
-  lastActivityTime = millis();
+  // Initialize WiFi (failure handling in attemptWiFiConnection)
+  initWiFi();
+  
+  // Initialize MQTT (will retry in loop if needed)
+  initMQTT();
+  
+  // Finalize setup
+  finalizeSetup();
 }
 
 
