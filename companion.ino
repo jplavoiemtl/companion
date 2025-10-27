@@ -1609,8 +1609,6 @@ void goToShutdown() {
  * Configures charging, voltage rails, and ADC
  */
 void initPMIC() {
-    // USBSerial.println("--- Initializing PMIC (AXP2101) ---");
-    
     if (!pmic.init()) {
         USBSerial.println("ERROR: PMIC AXP2101 failed to initialize!");
     }
@@ -1639,8 +1637,6 @@ void initPMIC() {
  * Sets up GPIO pins for LCD control
  */
 void initIOExpander() {
-    // USBSerial.println("--- Initializing I/O Expander ---");
-    
     // Create the expander object but remove the pin parameters from the I/O Expander constructor
     // to avoid the problem that your I2C bus was being initialized twice
     expander = new EXAMPLE_CHIP_CLASS(TCA95xx_8bit,
@@ -1663,8 +1659,6 @@ void initIOExpander() {
     expander->digitalWrite(0, HIGH);
     expander->digitalWrite(1, HIGH);
     expander->digitalWrite(2, HIGH);
-    
-    // USBSerial.println("I/O Expander initialization complete");
 }
 
 /****************************************************************************************************
@@ -1672,8 +1666,6 @@ void initIOExpander() {
  * Sets up I2C communication with capacitive touch panel
  */
 void initTouch() {
-    // USBSerial.println("--- Initializing Touch Controller ---");
-    
     IIC_Bus = std::make_shared<Arduino_HWIIC>(IIC_SDA, IIC_SCL, &Wire);
     FT3168 = std::make_unique<Arduino_FT3x68>(IIC_Bus, FT3168_DEVICE_ADDRESS, DRIVEBUS_DEFAULT_VALUE, TP_INT, Arduino_IIC_Touch_Interrupt);
     while (FT3168->begin() == false) {
@@ -1683,8 +1675,6 @@ void initTouch() {
     
     FT3168->IIC_Write_Device_State(FT3168->Arduino_IIC_Touch::Device::TOUCH_POWER_MODE,
                                   FT3168->Arduino_IIC_Touch::Device_Mode::TOUCH_POWER_ACTIVE);
-    
-    // USBSerial.println("Touch controller initialization complete");
 }
 
 /****************************************************************************************************
@@ -1703,8 +1693,6 @@ void initDisplay() {
  * Sets up display buffers, input devices, timers, and loads UI
  */
 void initLVGL() {
-    // USBSerial.println("--- Initializing LVGL ---");
-    
     // 1. Initialize the LVGL library itself
     lv_init();
 
@@ -1755,8 +1743,6 @@ void initLVGL() {
  * Registers button callbacks and configures UI elements
  */
 void initUIHandlers() {
-    // USBSerial.println("--- Initializing UI Event Handlers ---");
-    
     // Register button event handlers
     lv_obj_add_event_cb(ui_ButtonLatest, buttonLatest_event_handler, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_ButtonNew, buttonNew_event_handler, LV_EVENT_CLICKED, NULL);
@@ -1772,8 +1758,6 @@ void initUIHandlers() {
     lv_obj_set_style_text_font(ui_labelMotionIcon, &lv_font_montserrat_24, 0);
     lv_obj_add_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);  // Start hidden
     USBSerial.println("  Motion icon configured");
-
-    // USBSerial.println("UI event handlers initialization complete");
 }
 
 /****************************************************************************************************
@@ -1781,8 +1765,6 @@ void initUIHandlers() {
  * @return true if PSRAM available, false otherwise
  */
 bool initPSRAM() {
-    // USBSerial.println("--- Checking PSRAM ---");
-    
     if (psramFound()) {
         USBSerial.println("PSRAM found: " + String(ESP.getPsramSize() / 1024 / 1024) + "MB");
         return true;
@@ -1796,12 +1778,8 @@ bool initPSRAM() {
  * Initialize JPEG Decoder
  */
 void initJPEGDecoder() {
-    // USBSerial.println("--- Initializing JPEG Decoder ---");
-    
     // The GFX library expects RGB565 format (Big Endian)
     TJpgDec.setSwapBytes(false);
-    
-    // USBSerial.println("JPEG decoder initialization complete");
 }
 
 /****************************************************************************************************
@@ -1809,8 +1787,6 @@ void initJPEGDecoder() {
  * Configures accelerometer and Wake-on-Motion
  */
 void initIMU() {
-    // USBSerial.println("--- Initializing IMU (QMI8658) ---");
-    
     if (!qmi.begin(Wire, QMI8658_L_SLAVE_ADDRESS, IIC_SDA, IIC_SCL)) {
         USBSerial.println("FATAL: Failed to find QMI8658 - check your wiring!");
         while(1) { delay(1000); }
@@ -1825,10 +1801,6 @@ void initIMU() {
         updateMotionState(); // This will populate g_isCurrentlyMoving
         delay(20);
     }
-    
-    //USBSerial.printf("Initial motion state: %s\n", 
-    //                 g_isCurrentlyMoving ? "MOVING" : "STATIONARY");
-    // USBSerial.println("IMU initialization complete");
 }
 
 /****************************************************************************************************
@@ -1836,17 +1808,8 @@ void initIMU() {
  * Reads initial battery state and configures sleep policy
  */
 void initBattery() {
-    // USBSerial.println("--- Initializing Battery Monitoring ---");
-    
     // Get initial battery readings
     updateBatteryInfo();
-    
-    // Display initial state
-    //USBSerial.printf("Battery: %s%% (%.2fV)\n", 
-    //                 batteryPercent.c_str(), 
-    //                 batteryVoltage);
-    //USBSerial.printf("USB Power: %s\n", vbusPresent ? "CONNECTED" : "DISCONNECTED");
-    //USBSerial.printf("Battery: %s\n", batteryConnected ? "PRESENT" : "NOT DETECTED");
     
     // Set sleep policy based on initial power state
     allowSleep = !vbusPresent;
@@ -1856,7 +1819,6 @@ void initBattery() {
         USBSerial.println("USB power detected - sleep disabled");
     }
     
-    // USBSerial.println("Battery monitoring initialization complete");
 }
 
 /****************************************************************************************************
@@ -1864,8 +1826,6 @@ void initBattery() {
  * Must be called after battery and IMU initialization
  */
 void updateInitialUI() {
-    // USBSerial.println("--- Updating Initial UI ---");
-    
     // Update UI with all sensor data
     updateBatteryInfoUI();
     updateMotionStatusUI();
@@ -1876,17 +1836,13 @@ void updateInitialUI() {
         lv_timer_handler();
         delay(5);
     }
-    
-    // USBSerial.println("Initial UI update complete");
 }
 
 /****************************************************************************************************
  * Configure WiFi Network Priority
  * Sets primary and secondary network based on WIFI_PRIORITY
  */
-void configureWiFiPriority() {
-    // USBSerial.println("--- Configuring WiFi Priority ---");
-    
+void configureWiFiPriority() {  
     #if WIFI_PRIORITY == 1
         primarySsid = ssid1;
         primaryPassword = password1;
@@ -1906,9 +1862,6 @@ void configureWiFiPriority() {
     #else
         #error "Invalid WIFI_PRIORITY defined. Please choose 1 or 2."
     #endif
-    
-    // USBSerial.printf("Primary network: %d, Secondary network: %d\n", 
-    //                 primaryNetworkNum, secondaryNetworkNum);
 }
 
 /****************************************************************************************************
@@ -1920,8 +1873,6 @@ void configureWiFiPriority() {
  * 2. configureWiFiPriority() - to set primary/secondary network variables
  */
 void initWiFiMQTT() {
-    // USBSerial.println("--- Initializing WiFi & MQTT ---");
-
     if (attemptWiFiConnection()) {
       USBSerial.println("WiFi connection established successfully.");
       
@@ -1965,7 +1916,6 @@ void initWiFiMQTT() {
       // This should only be reached if shutdown was somehow bypassed
       USBSerial.println("WiFi connection failed (unexpected state).");
     }    
-    // USBSerial.println("WiFi & MQTT initialization complete");
 }
 
 /****************************************************************************************************
