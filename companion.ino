@@ -1865,57 +1865,73 @@ void configureWiFiPriority() {
 }
 
 /****************************************************************************************************
- * Initialize WiFi & MQTT Connection
+ * Initialize WiFi Connection
  * Attempts connection with fallback to secondary network
  * 
  * IMPORTANT: The following must be done in setup() BEFORE calling this function:
  * 1. WiFi.mode(WIFI_OFF) - to disable WiFi radio during hardware init
  * 2. configureWiFiPriority() - to set primary/secondary network variables
  */
-void initWiFiMQTT() {
-    if (attemptWiFiConnection()) {
-      USBSerial.println("WiFi connection established successfully.");
-      
-      USBSerial.println("Allowing network stack to stabilize...");
-      // Keep UI responsive during 2-second stabilization period
-      for (int i = 0; i < 10; i++) {
+void initWiFi() {
+    USBSerial.println("--- Initializing WiFi ---");
+    
+    // Attempt connection (network priority was already configured in setup)
+    if (!attemptWiFiConnection()) {
+        USBSerial.println("WiFi connection failed (unexpected state).");
+    }
+    
+    USBSerial.println("WiFi connection established successfully.");
+    
+    // Allow network stack to stabilize
+    USBSerial.println("Allowing network stack to stabilize...");
+    for (int i = 0; i < 10; i++) {
         updateMotionState();
         updateMotionStatusUI();
         lv_timer_handler();
         delay(200);
-      }
-      
-      USBSerial.println("Attempting initial MQTT connection...");
-      for (int i = 0; i < 3; i++) {  // Reduced to 3 attempts
+    }
+    
+    USBSerial.println("WiFi initialization complete");
+}
+
+/****************************************************************************************************
+ * Initialize MQTT Connection
+ * Attempts initial connection with retry logic
+ */
+void initMQTT() {
+    USBSerial.println("--- Initializing MQTT ---");
+    
+    if (WiFi.status() != WL_CONNECTED) {
+        USBSerial.println("WARNING: Cannot initialize MQTT - WiFi not connected");
+        return;  // Exit early - no point trying MQTT without WiFi
+    }
+    
+    USBSerial.println("Attempting initial MQTT connection...");
+    
+    for (int i = 0; i < 3; i++) {
         checkMQTT(true);  // Bypass rate limiting during setup
+        
         if (mqttClient.connected()) {
-          USBSerial.println("Initial MQTT connection successful!");
-          break;
+            USBSerial.println("Initial MQTT connection successful!");
+            return;  // Exit function immediately on success
         }
+        
         USBSerial.print("MQTT attempt ");
         USBSerial.print(i + 1);
         USBSerial.println(" failed, retrying...");
         
         if (i < 2) {  // Don't delay after last attempt
-          // 3 second delay between attempts
-          for (int j = 0; j < 15; j++) {
-            updateMotionState();
-            updateMotionStatusUI();
-            lv_timer_handler();
-            delay(200);
-          }
+            // 3 second delay between attempts
+            for (int j = 0; j < 15; j++) {
+                updateMotionState();
+                updateMotionStatusUI();
+                lv_timer_handler();
+                delay(200);
+            }
         }
-      }
-      
-      if (!mqttClient.connected()) {
-        USBSerial.println("Initial MQTT connection failed - will retry in loop");
-        // Don't set mqttSuccess to false - let loop() keep trying
-      }
-      
-    } else {
-      // This should only be reached if shutdown was somehow bypassed
-      USBSerial.println("WiFi connection failed (unexpected state).");
-    }    
+    }
+    
+    USBSerial.println("Initial MQTT connection failed - will retry in loop");
 }
 
 /****************************************************************************************************
@@ -2001,8 +2017,11 @@ void setup() {
   // Configure WiFi priority (must be done before initWiFi)
   configureWiFiPriority();
 
-  // Initialize WiFi & MQTT
-  initWiFiMQTT();
+  // Initialize WiFi (failure handling in attemptWiFiConnection)
+  initWiFi();
+  
+  // Initialize MQTT (will retry in loop if needed)
+  initMQTT();
 
   // Finalize setup
   finalizeSetup();
