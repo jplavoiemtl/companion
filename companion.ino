@@ -14,10 +14,8 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
-// --- HTTP IMAGE INTEGRATION --- New includes
 #include <HTTPClient.h>
 #include <TJpg_Decoder.h>
-// --- HTTP IMAGE INTEGRATION --- End of new includes
 
 // QMI8658 Register Addresses
 #define QMI8658_CTRL2       0x03
@@ -1166,9 +1164,8 @@ bool attemptWiFiConnection() {
  * This function should be called continuously. It polls the IMU, updates the
  * global 'g_isCurrentlyMoving' variable instantly upon motion, and returns
  * true only after the full STATIONARY_TIMEOUT has elapsed.
- * @return true if the device has been stationary for the full timeout, false otherwise.
  */
-bool updateMotionState() {
+void updateMotionState() {
   static const unsigned long MOTION_CHECK_INTERVAL = 100; // Poll every 100ms
 
   static unsigned long lastMotionCheckTime = 0;
@@ -1213,9 +1210,7 @@ bool updateMotionState() {
     }
   }
 
-  // No shutdown logic here - Task 6 will use g_isCurrentlyMoving to decide
   // This function now only updates the motion state flag
-  return false; // Not yet time to shut down
 }
 
 
@@ -1602,9 +1597,9 @@ void goToShutdown() {
 }
 
 
-//***************************************************************************************************
-// INITIALIZATION HELPER FUNCTIONS
 /****************************************************************************************************
+ * INITIALIZATION HELPER FUNCTIONS
+ *
  * Initialize PMIC (AXP2101) - Power Management IC
  * Configures charging, voltage rails, and ADC
  */
@@ -1637,8 +1632,8 @@ void initPMIC() {
  * Sets up GPIO pins for LCD control
  */
 void initIOExpander() {
-    // Create the expander object but remove the pin parameters from the I/O Expander constructor
-    // to avoid the problem that your I2C bus was being initialized twice
+    // This is creating an error with the pin parameters from the I/O Expander constructor
+    // But after extensive testing, it works correctly at runtime.
     expander = new EXAMPLE_CHIP_CLASS(TCA95xx_8bit,
                                       (i2c_port_t)0, ESP_IO_EXPANDER_I2C_TCA9554_ADDRESS_000,
                                       IIC_SCL, IIC_SDA);
@@ -1954,11 +1949,12 @@ void finalizeSetup() {
     USBSerial.println("--- Setup complete, entering loop ---\n");
 }
 
+
 //***************************************************************************************************
 //***************************************************************************************************
 void setup() {
   USBSerial.begin(115200);
-  // delay(3000); // Allow time for Serial to initialize
+  // delay(3000); // Allow time for Serial to initialize and see debug messages
 
   esp_sleep_wakeup_cause_t wakeReason = esp_sleep_get_wakeup_cause();
 
@@ -1978,23 +1974,17 @@ void setup() {
   
   WiFi.mode(WIFI_OFF);
 
-  // Initialize PMIC - critical for power management
-  initPMIC();
+  initPMIC(); // Initialize PMIC - critical for power management
   
-  // Initialize I/O Expander - needed for display control
-  initIOExpander();
+  initIOExpander(); // Initialize I/O Expander - needed for display control
 
-  // Initialize Touch Controller
-  initTouch();
+  initTouch();  // Initialize Touch Controller
 
-  // Initialize Display Hardware
-  initDisplay();
+  initDisplay();  // Initialize Display Hardware
 
-  // Initialize LVGL
-  initLVGL();
+  initLVGL(); // Initialize LVGL
 
-  // Initialize UI Event Handlers
-  initUIHandlers();
+  initUIHandlers(); // Initialize UI Event Handlers
 
   // Check PSRAM availability
   if (!initPSRAM()) {
@@ -2002,30 +1992,23 @@ void setup() {
       while(1) { delay(1000); }
   }  
 
-  // Initialize JPEG Decoder
-  initJPEGDecoder();
+  initJPEGDecoder();  // Initialize JPEG Decoder
 
-  // Initialize IMU/Motion Sensor
-  initIMU();
+  initIMU();  // Initialize IMU/Motion Sensor
 
-  // Initialize Battery Monitoring
-  initBattery();
+  initBattery();  // Initialize Battery Monitoring
 
-  // Update UI with initial sensor data
-  updateInitialUI();
+  updateInitialUI();  // Update UI with initial sensor data
 
-  // Configure WiFi priority (must be done before initWiFi)
-  configureWiFiPriority();
+  configureWiFiPriority();  // Configure WiFi priority (must be done before initWiFi)
 
-  // Initialize WiFi (failure handling in attemptWiFiConnection)
-  initWiFi();
+  initWiFi(); // Initialize WiFi (failure handling in attemptWiFiConnection)
   
-  // Initialize MQTT (will retry in loop if needed)
-  initMQTT();
+  initMQTT(); // Initialize MQTT (will retry in loop if needed)
 
-  // Finalize setup
   finalizeSetup();
 }
+
 
 //***************************************************************************************************
 //***************************************************************************************************
