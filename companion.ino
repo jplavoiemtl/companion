@@ -87,10 +87,10 @@ unsigned long lastImuPrintTime = 0;
 struct {
   float x, y, z;
 } acc, gyr;
-const float MOTION_THRESHOLD = 0.1;  // Adjust sensitivity (m/s²) 0.3
+const float MOTION_THRESHOLD = 0.1;  // Adjust sensitivity (m/s²)
 bool motionDetected = false;
 float lastAccelMagnitude = 0;
-const float GYRO_MOTION_THRESHOLD = 2.0;  // degrees/second change threshold
+const float GYRO_MOTION_THRESHOLD = 3.0;  // degrees/second change threshold 2.0
 float lastGyroMagnitude = 0;
 
 // --- Global Objects ---
@@ -714,14 +714,14 @@ void callbackMqtt(char* topic, byte* payload, unsigned int length) {
     }
     // Power handling
     else if (topicString == HILO_POWER) {
-        USBSerial.print("Power: ");
-        USBSerial.println(payloadString);
+        //USBSerial.print("Power: ");
+        //USBSerial.println(payloadString);
         updatePowerDisplay(payloadString);
     }
     // Energy handling
     else if (topicString == HILO_ENERGY) {
-        USBSerial.print("Energy: ");
-        USBSerial.println(payloadString);
+        //USBSerial.print("Energy: ");
+        //USBSerial.println(payloadString);
         updateEnergyDisplay(payloadString);
     }
 }
@@ -2025,10 +2025,8 @@ void loop() {
   lv_timer_handler();
 
   // --- Task 1: Update motion state ---
-  // Read IMU data once per loop
-  updateImuData();
+  updateImuData();  // Read IMU data once per loop
   updateMotionState(); // Just update the motion flag, no shutdown decision
-  //updateMotionStatusUI(); // Update the UI icon
 
   // --- Task 2: Handle MQTT communications if connected ---
   if (WiFi.status() == WL_CONNECTED) {
@@ -2106,20 +2104,15 @@ void loop() {
     }
   }
 
-  // --- Task 8:  Print IMU data periodically when not busy with HTTP
-  if (!(httpState == HTTP_RECEIVING || httpState == HTTP_REQUESTING)) {
-    unsigned long currentMillis = millis();
-    unsigned long elapsed = currentMillis - lastImuPrintTime;
-    
-    if (elapsed >= IMU_PRINT_INTERVAL) {
-      lastImuPrintTime = currentMillis;  // ← Update FIRST to prevent double-fire
-      
-      if (elapsed > IMU_PRINT_INTERVAL + 500) {
-        USBSerial.printf("WARNING: IMU print delayed by %lu ms (expected %lu ms)\n", 
-                        elapsed, IMU_PRINT_INTERVAL);
-      }      
-      readImuData();
-    }
+  // --- Task 8: Print IMU data periodically
+  unsigned long currentMillis = millis();
+  unsigned long elapsed = currentMillis - lastImuPrintTime;
+  
+  if (elapsed >= IMU_PRINT_INTERVAL) {
+    lastImuPrintTime = currentMillis;
+    //USBSerial.printf("DEBUG: elapsed=%lu, currentMillis=%lu, lastImuPrintTime=%lu\n", 
+    //                elapsed, currentMillis, lastImuPrintTime);
+    readImuData();
   }
 
   // --- Task 9: Check for user inactivity to trigger deep sleep if allowed to sleep ---
