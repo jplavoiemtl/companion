@@ -86,6 +86,7 @@ public:
 
 // Create the global object immediately after defining the class
 QMI8658_WoM_Handler qmi;
+SensorQMI8658 qmiSensor;  // Separate sensor object for continuous readings
 
 // =================  CONFIGURATION =================
 // Change this value to 1 or 2 to set the connection priority.
@@ -137,6 +138,13 @@ unsigned long lastMqttAttempt = 0;
 const unsigned long MQTT_RECONNECT_INTERVAL = 15000;  // 15 seconds between reconnection attempts
 bool mqttConnection = false;
 bool mqttSuccess = false;                 //MQTT succeeded once at start to keep reconnecting only if successful
+
+// --- IMU Management ---
+const unsigned long IMU_PRINT_INTERVAL = 1000;  // Print IMU data every 100ms (adjust as needed)
+unsigned long lastImuPrintTime = 0;
+struct {
+  float x, y, z;
+} acc, gyr;
 
 // --- Global Objects ---
 HWCDC USBSerial;
@@ -1596,6 +1604,15 @@ void goToShutdown() {
   }
 }
 
+//***************************************************************************************************
+void printImuData() {
+  if (qmiSensor.getDataReady()) {
+    if (qmiSensor.getAccelerometer(acc.x, acc.y, acc.z) && qmiSensor.getGyroscope(gyr.x, gyr.y, gyr.z)) {
+      USBSerial.printf("IMU - Accel: X=%.2f Y=%.2f Z=%.2f m/s² | Gyro: X=%.2f Y=%.2f Z=%.2f °/s\n", 
+                       acc.x, acc.y, acc.z, gyr.x, gyr.y, gyr.z);
+    }
+  }
+}
 
 /****************************************************************************************************
  * INITIALIZATION HELPER FUNCTIONS
@@ -1796,6 +1813,22 @@ void initIMU() {
         updateMotionState(); // This will populate g_isCurrentlyMoving
         delay(20);
     }
+
+    if (!qmiSensor.begin(Wire, QMI8658_L_SLAVE_ADDRESS, IIC_SDA, IIC_SCL)) {
+      Serial.println("Failed to find QMI8658 - check your wiring!");
+      while (1) {
+        delay(1000);
+      }
+    }
+
+    qmiSensor.configAccelerometer(SensorQMI8658::ACC_RANGE_4G, SensorQMI8658::ACC_ODR_1000Hz, SensorQMI8658::LPF_MODE_0);
+    qmiSensor.enableAccelerometer();
+
+    qmiSensor.configGyroscope(
+      SensorQMI8658::GYR_RANGE_512DPS,   // GYR_RANGE_16DPS / GYR_RANGE_32DPS / GYR_RANGE_64DPS / GYR_RANGE_128DPS / GYR_RANGE_256DPS / GYR_RANGE_512DPS / GYR_RANGE_1024DPS
+      SensorQMI8658::GYR_ODR_1793_6Hz,   // GYR_ODR_7174_4Hz / GYR_ODR_3587_2Hz / GYR_ODR_1793_6Hz / GYR_ODR_896_8Hz / GYR_ODR_448_4Hz / GYR_ODR_224_2Hz / GYR_ODR_112_1Hz / GYR_ODR_56_05Hz / GYR_ODR_28_025H
+      SensorQMI8658::LPF_MODE_0);        // LPF_MODE_0 (2.66% of ODR) / LPF_MODE_1 (3.63% of ODR) / LPF_MODE_2 (5.39% of ODR) / LPF_MODE_3 (13.37% of ODR): JPL: 239.8HZ
+    qmiSensor.enableGyroscope();  
 }
 
 /****************************************************************************************************
@@ -2104,7 +2137,15 @@ void loop() {
     }
   }
 
-  // --- Task 8: Check for user inactivity to trigger deep sleep if allowed to sleep ---
+  // --- Task 8:  Print IMU data periodically when not busy with HTTP
+  if (!(httpState == HTTP_RECEIVING || httpState == HTTP_REQUESTING)) {
+    if (millis() - lastImuPrintTime >= IMU_PRINT_INTERVAL) {
+      lastImuPrintTime = millis();
+      printImuData();
+    }
+  }
+
+  // --- Task 9: Check for user inactivity to trigger deep sleep if allowed to sleep ---
   if (millis() - lastActivityTime > INACTIVITY_TIMEOUT && allowSleep) {
       
       if (usbWasEverPresent && !vbusPresent) {
