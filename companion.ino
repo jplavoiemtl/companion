@@ -28,65 +28,7 @@
 // Forward-declare the USBSerial object so our class can see it.
 extern HWCDC USBSerial;
 
-// Helper class to access and add low-level register functions
-class QMI8658_WoM_Handler : public SensorQMI8658 {
-private:
-  // We add our own I2C communication functions because we cannot
-  // access the private members of the base class.
-  void writeRegister(uint8_t reg, uint8_t value) {
-    // FINAL FIX: We use the known I2C address constant directly, since
-    // we cannot get the address from the object itself.
-    Wire.beginTransmission(QMI8658_L_SLAVE_ADDRESS);
-    Wire.write(reg);
-    Wire.write(value);
-    Wire.endTransmission();
-  }
-
-  uint8_t readRegister(uint8_t reg) {
-    // Use the known I2C address constant here as well.
-    Wire.beginTransmission(QMI8658_L_SLAVE_ADDRESS);
-    Wire.write(reg);
-    Wire.endTransmission(false); // Send repeated start
-    Wire.requestFrom((uint8_t)QMI8658_L_SLAVE_ADDRESS, (uint8_t)1);
-    if (Wire.available()) {
-      return Wire.read();
-    }
-    return 0; // Return 0 on error
-  }
-
-public:
-  void configureWoM() {
-    USBSerial.println("Configuring Wake on Motion (WoM)...");
-    // These calls refer to the functions we just added above.
-    writeRegister(QMI8658_CTRL7, 0x00);
-    delay(50);
-    uint8_t ctrl2_value = 0b00011101; // 4g range, 21Hz ODR
-    writeRegister(QMI8658_CTRL2, ctrl2_value);
-    delay(10);
-    writeRegister(QMI8658_CAL1_L, 50); // ~50mg threshold. More sensitive: 20, less: 100
-    delay(10);
-    uint8_t cal1_h_value = 0b01000000; // Use INT2, initial value 0
-    writeRegister(QMI8658_CAL1_H, cal1_h_value);
-    delay(10);
-    writeRegister(QMI8658_CTRL9, 0x08); // Execute WoM command
-    delay(50);
-    writeRegister(QMI8658_CTRL7, 0x01); // Enable accelerometer
-    delay(50);
-    USBSerial.println("WoM configured and active. Waiting for motion...");
-  }
-
-  uint8_t readStatus1() {
-    return readRegister(QMI8658_STATUS1);
-  }
-
-  void disableIMU() {
-    writeRegister(QMI8658_CTRL7, 0x00);
-  }
-};
-
-// Create the global object immediately after defining the class
-QMI8658_WoM_Handler qmi;
-SensorQMI8658 qmiSensor;  // Separate sensor object for continuous readings
+SensorQMI8658 qmi;
 
 // =================  CONFIGURATION =================
 // Change this value to 1 or 2 to set the connection priority.
@@ -139,12 +81,17 @@ const unsigned long MQTT_RECONNECT_INTERVAL = 15000;  // 15 seconds between reco
 bool mqttConnection = false;
 bool mqttSuccess = false;                 //MQTT succeeded once at start to keep reconnecting only if successful
 
-// --- IMU Management ---
-const unsigned long IMU_PRINT_INTERVAL = 1000;  // Print IMU data every 100ms (adjust as needed)
+// --- IMU Management and motion detection ---
+const unsigned long IMU_PRINT_INTERVAL = 2000;  // Print IMU data every 100ms (adjust as needed)
 unsigned long lastImuPrintTime = 0;
 struct {
   float x, y, z;
 } acc, gyr;
+const float MOTION_THRESHOLD = 0.1;  // Adjust sensitivity (m/s²) 0.3
+bool motionDetected = false;
+float lastAccelMagnitude = 0;
+const float GYRO_MOTION_THRESHOLD = 2.0;  // degrees/second change threshold
+float lastGyroMagnitude = 0;
 
 // --- Global Objects ---
 HWCDC USBSerial;
@@ -1190,34 +1137,32 @@ void updateMotionState() {
   if (currentTime - lastMotionCheckTime >= MOTION_CHECK_INTERVAL) {
     lastMotionCheckTime = currentTime;
 
-    // Check the IMU hardware flag for a motion event
-    uint8_t status1 = qmi.readStatus1();
-    bool motionHardwareFlag = (status1 & 0b00000100);
+    // Use gyroscope data for motion detection (already read in acc, gyr structs)
+    float gyroMagnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
 
-    if (motionHardwareFlag) {
-      // Motion was just detected
+    // Detect motion by comparing gyro magnitude change
+    bool motionDetectedNow = (abs(gyroMagnitude - lastGyroMagnitude) > GYRO_MOTION_THRESHOLD);
+    lastGyroMagnitude = gyroMagnitude;
+
+    if (motionDetectedNow) {
       if (!g_isCurrentlyMoving) {
         USBSerial.println("Movement Detected!");
         g_isCurrentlyMoving = true;
 
-        // Publish MQTT motion event 
         if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
           mqttClient.publish(MOTION_TOPIC, "1");
           lastMotionTXTime = millis();
           USBSerial.println("TX motion MQTT: Moving (immediate)");
         }
       }
-      // Every time motion is detected, reset the stationary timer
       lastMotionTime = currentTime;
     } else {
-      // No motion was detected in this check
       if (g_isCurrentlyMoving && (currentTime - lastMotionTime > MOTION_TIMEOUT)) {
         USBSerial.println("Movement Stopped.");
         g_isCurrentlyMoving = false;
       }
     }
   }
-
   // This function now only updates the motion state flag
 }
 
@@ -1575,7 +1520,9 @@ void goToShutdown() {
       FT3168->IIC_Write_Device_State(Arduino_IIC_Touch::Device::TOUCH_POWER_MODE,
                                      Arduino_IIC_Touch::Device_Mode::TOUCH_POWER_HIBERNATE);
   }
-  qmi.disableIMU();
+
+  qmi.disableAccelerometer();
+  qmi.disableGyroscope();
   delay(50);
 
   // 4. Power down internal MCU systems.
@@ -1604,15 +1551,22 @@ void goToShutdown() {
   }
 }
 
+
 //***************************************************************************************************
-void printImuData() {
-  if (qmiSensor.getDataReady()) {
-    if (qmiSensor.getAccelerometer(acc.x, acc.y, acc.z) && qmiSensor.getGyroscope(gyr.x, gyr.y, gyr.z)) {
-      USBSerial.printf("IMU - Accel: X=%.2f Y=%.2f Z=%.2f m/s² | Gyro: X=%.2f Y=%.2f Z=%.2f °/s\n", 
-                       acc.x, acc.y, acc.z, gyr.x, gyr.y, gyr.z);
-    }
+void readImuData() {
+  USBSerial.printf("IMU - Accel: X=%.2f Y=%.2f Z=%.2f m/s² | Gyro: X=%.2f Y=%.2f Z=%.2f °/s\n", 
+                   acc.x, acc.y, acc.z, gyr.x, gyr.y, gyr.z);
+}
+
+
+//***************************************************************************************************
+void updateImuData() {
+  if (qmi.getDataReady()) {
+    qmi.getAccelerometer(acc.x, acc.y, acc.z);
+    qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
   }
 }
+
 
 /****************************************************************************************************
  * INITIALIZATION HELPER FUNCTIONS
@@ -1805,7 +1759,6 @@ void initIMU() {
     }
     
     USBSerial.println("QMI8658 Initialized.");
-    qmi.configureWoM();
 
     // Poll for initial motion state
     USBSerial.println("Getting initial motion state...");
@@ -1814,21 +1767,35 @@ void initIMU() {
         delay(20);
     }
 
-    if (!qmiSensor.begin(Wire, QMI8658_L_SLAVE_ADDRESS, IIC_SDA, IIC_SCL)) {
-      Serial.println("Failed to find QMI8658 - check your wiring!");
-      while (1) {
-        delay(1000);
-      }
-    }
+    qmi.configAccelerometer(SensorQMI8658::ACC_RANGE_4G, SensorQMI8658::ACC_ODR_1000Hz, SensorQMI8658::LPF_MODE_0);
+    qmi.enableAccelerometer();
 
-    qmiSensor.configAccelerometer(SensorQMI8658::ACC_RANGE_4G, SensorQMI8658::ACC_ODR_1000Hz, SensorQMI8658::LPF_MODE_0);
-    qmiSensor.enableAccelerometer();
-
-    qmiSensor.configGyroscope(
+    qmi.configGyroscope(
       SensorQMI8658::GYR_RANGE_512DPS,   // GYR_RANGE_16DPS / GYR_RANGE_32DPS / GYR_RANGE_64DPS / GYR_RANGE_128DPS / GYR_RANGE_256DPS / GYR_RANGE_512DPS / GYR_RANGE_1024DPS
       SensorQMI8658::GYR_ODR_1793_6Hz,   // GYR_ODR_7174_4Hz / GYR_ODR_3587_2Hz / GYR_ODR_1793_6Hz / GYR_ODR_896_8Hz / GYR_ODR_448_4Hz / GYR_ODR_224_2Hz / GYR_ODR_112_1Hz / GYR_ODR_56_05Hz / GYR_ODR_28_025H
       SensorQMI8658::LPF_MODE_0);        // LPF_MODE_0 (2.66% of ODR) / LPF_MODE_1 (3.63% of ODR) / LPF_MODE_2 (5.39% of ODR) / LPF_MODE_3 (13.37% of ODR): JPL: 239.8HZ
-    qmiSensor.enableGyroscope();  
+    qmi.enableGyroscope();  
+
+    USBSerial.println("Accelerometer and Gyroscope configured for continuous reading");
+
+    // Give IMU time to stabilize
+    delay(100);
+
+    // Initialize motion detection baseline
+    USBSerial.println("Initializing motion detection baseline...");
+    for (int i = 0; i < 10; i++) {
+      if (qmi.getDataReady()) {
+        // Initialize motion detection baseline with GYROSCOPE
+        if (qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
+          lastGyroMagnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
+          USBSerial.printf("Gyro baseline set: %.2f °/s\n", lastGyroMagnitude);
+          break;
+        }
+      }
+      delay(10);
+    }
+
+    USBSerial.println("Motion detection ready");
 }
 
 /****************************************************************************************************
@@ -2058,8 +2025,10 @@ void loop() {
   lv_timer_handler();
 
   // --- Task 1: Update motion state ---
+  // Read IMU data once per loop
+  updateImuData();
   updateMotionState(); // Just update the motion flag, no shutdown decision
-  updateMotionStatusUI(); // Update the UI icon
+  //updateMotionStatusUI(); // Update the UI icon
 
   // --- Task 2: Handle MQTT communications if connected ---
   if (WiFi.status() == WL_CONNECTED) {
@@ -2139,9 +2108,17 @@ void loop() {
 
   // --- Task 8:  Print IMU data periodically when not busy with HTTP
   if (!(httpState == HTTP_RECEIVING || httpState == HTTP_REQUESTING)) {
-    if (millis() - lastImuPrintTime >= IMU_PRINT_INTERVAL) {
-      lastImuPrintTime = millis();
-      printImuData();
+    unsigned long currentMillis = millis();
+    unsigned long elapsed = currentMillis - lastImuPrintTime;
+    
+    if (elapsed >= IMU_PRINT_INTERVAL) {
+      lastImuPrintTime = currentMillis;  // ← Update FIRST to prevent double-fire
+      
+      if (elapsed > IMU_PRINT_INTERVAL + 500) {
+        USBSerial.printf("WARNING: IMU print delayed by %lu ms (expected %lu ms)\n", 
+                        elapsed, IMU_PRINT_INTERVAL);
+      }      
+      readImuData();
     }
   }
 
