@@ -87,10 +87,10 @@ unsigned long lastImuPrintTime = 0;
 struct {
   float x, y, z;
 } acc, gyr;
-const float MOTION_THRESHOLD = 0.1;  // Adjust sensitivity (m/s²)
+const float ACCEL_MOTION_THRESHOLD = 0.1;  // Adjust sensitivity (m/s²)
 bool motionDetected = false;
 float lastAccelMagnitude = 0;
-const float GYRO_MOTION_THRESHOLD = 1.95;  // 3.0 not sensitive enough, 2.0 better, 1.9 trigger while immobile
+const float GYRO_MOTION_THRESHOLD = 4.5;  // 3.0 not sensitive enough, 2.0 better, 1.9 trigger while immobile
 float lastGyroMagnitude = 0;
 
 // --- Global Objects ---
@@ -1121,49 +1121,58 @@ bool attemptWiFiConnection() {
  * true only after the full STATIONARY_TIMEOUT has elapsed.
  */
 void updateMotionState() {
-  static const unsigned long MOTION_CHECK_INTERVAL = 100; // Poll every 100ms
-
+  static const unsigned long MOTION_CHECK_INTERVAL = 100;
   static unsigned long lastMotionCheckTime = 0;
-  static unsigned long lastMotionTime = 0; // Initialize at 0, will be set on first loop
+  static unsigned long lastMotionTime = 0;
+  static int motionCounter = 0;  // NEW: Count consecutive motion detections
+  const int MOTION_CONFIRM_COUNT = 2;  // NEW: Require 2 consecutive detections
 
-  // Initialize lastMotionTime on the first run to avoid immediate shutdown on boot
   if (lastMotionTime == 0) {
       lastMotionTime = millis();
   }
   
   unsigned long currentTime = millis();
 
-  // Poll the IMU at a fixed interval
   if (currentTime - lastMotionCheckTime >= MOTION_CHECK_INTERVAL) {
     lastMotionCheckTime = currentTime;
 
-    // Use gyroscope data for motion detection (already read in acc, gyr structs)
+    // Calculate accelerometer magnitude and change
+    float accelMagnitude = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+    float accelChange = abs(accelMagnitude - lastAccelMagnitude);
+    lastAccelMagnitude = accelMagnitude;
+    
+    // Calculate gyroscope magnitude and change
     float gyroMagnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
-
-    // Detect motion by comparing gyro magnitude change
-    bool motionDetectedNow = (abs(gyroMagnitude - lastGyroMagnitude) > GYRO_MOTION_THRESHOLD);
+    float gyroChange = abs(gyroMagnitude - lastGyroMagnitude);
     lastGyroMagnitude = gyroMagnitude;
 
-    if (motionDetectedNow) {
-      if (!g_isCurrentlyMoving) {
-        USBSerial.println("Movement Detected!");
-        g_isCurrentlyMoving = true;
+    // Motion detected if EITHER sensor exceeds its threshold
+    bool motionThisReading = (accelChange > ACCEL_MOTION_THRESHOLD) || (gyroChange > GYRO_MOTION_THRESHOLD);
 
-        if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
-          mqttClient.publish(MOTION_TOPIC, "1");
-          lastMotionTXTime = millis();
-          USBSerial.println("TX motion MQTT: Moving (immediate)");
+    if (motionThisReading) {
+      motionCounter++;
+      // Only trigger motion event after consecutive detections
+      if (motionCounter >= MOTION_CONFIRM_COUNT) {
+        if (!g_isCurrentlyMoving) {
+          USBSerial.printf("Movement Detected! (Accel: %.2f, Gyro: %.2f)\n", accelChange, gyroChange);
+          g_isCurrentlyMoving = true;
+
+          if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
+            mqttClient.publish(MOTION_TOPIC, "1");
+            lastMotionTXTime = millis();
+            USBSerial.println("TX motion MQTT: Moving (immediate)");
+          }
         }
+        lastMotionTime = currentTime;
       }
-      lastMotionTime = currentTime;
     } else {
+      motionCounter = 0;  // Reset counter if no motion detected
       if (g_isCurrentlyMoving && (currentTime - lastMotionTime > MOTION_TIMEOUT)) {
         USBSerial.println("Movement Stopped.");
         g_isCurrentlyMoving = false;
       }
     }
   }
-  // This function now only updates the motion state flag
 }
 
 
@@ -1554,26 +1563,31 @@ void goToShutdown() {
 //***************************************************************************************************
 void reinitializeMotionBaseline() {
   // Take multiple readings and average them for a stable baseline
+  float accelSum = 0;
   float gyroSum = 0;
   int validReadings = 0;
   
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 20; i++) {
     if (qmi.getDataReady()) {
-      if (qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
+      if (qmi.getAccelerometer(acc.x, acc.y, acc.z) && qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
+        float accelMag = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
         float gyroMag = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
+        accelSum += accelMag;
         gyroSum += gyroMag;
         validReadings++;
       }
     }
-    delay(10);  // Wait 10ms between readings
+    delay(20);
   }
   
   if (validReadings > 0) {
+    lastAccelMagnitude = accelSum / validReadings;
     lastGyroMagnitude = gyroSum / validReadings;
-    //USBSerial.printf("Motion baseline reset: %.2f °/s (averaged from %d readings)\n", 
-    //                 lastGyroMagnitude, validReadings);
+    USBSerial.printf("Motion baseline reset: Accel=%.2f m/s², Gyro=%.2f °/s (averaged from %d readings)\n", 
+                     lastAccelMagnitude, lastGyroMagnitude, validReadings);
   } 
 }
+
 
 //***************************************************************************************************
 void readImuData() {
