@@ -90,7 +90,7 @@ struct {
 const float MOTION_THRESHOLD = 0.1;  // Adjust sensitivity (m/s²)
 bool motionDetected = false;
 float lastAccelMagnitude = 0;
-const float GYRO_MOTION_THRESHOLD = 3.0;  // degrees/second change threshold 2.0
+const float GYRO_MOTION_THRESHOLD = 1.95;  // 3.0 not sensitive enough, 2.0 better, 1.9 trigger while immobile
 float lastGyroMagnitude = 0;
 
 // --- Global Objects ---
@@ -1551,6 +1551,29 @@ void goToShutdown() {
   }
 }
 
+//***************************************************************************************************
+void reinitializeMotionBaseline() {
+  // Take multiple readings and average them for a stable baseline
+  float gyroSum = 0;
+  int validReadings = 0;
+  
+  for (int i = 0; i < 10; i++) {
+    if (qmi.getDataReady()) {
+      if (qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
+        float gyroMag = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
+        gyroSum += gyroMag;
+        validReadings++;
+      }
+    }
+    delay(10);  // Wait 10ms between readings
+  }
+  
+  if (validReadings > 0) {
+    lastGyroMagnitude = gyroSum / validReadings;
+    //USBSerial.printf("Motion baseline reset: %.2f °/s (averaged from %d readings)\n", 
+    //                 lastGyroMagnitude, validReadings);
+  } 
+}
 
 //***************************************************************************************************
 void readImuData() {
@@ -1782,20 +1805,7 @@ void initIMU() {
     delay(100);
 
     // Initialize motion detection baseline
-    USBSerial.println("Initializing motion detection baseline...");
-    for (int i = 0; i < 10; i++) {
-      if (qmi.getDataReady()) {
-        // Initialize motion detection baseline with GYROSCOPE
-        if (qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
-          lastGyroMagnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
-          USBSerial.printf("Gyro baseline set: %.2f °/s\n", lastGyroMagnitude);
-          break;
-        }
-      }
-      delay(10);
-    }
-
-    USBSerial.println("Motion detection ready");
+    reinitializeMotionBaseline();
 }
 
 /****************************************************************************************************
@@ -2005,6 +2015,8 @@ void setup() {
   initWiFi(); // Initialize WiFi (failure handling in attemptWiFiConnection)
   
   initMQTT(); // Initialize MQTT (will retry in loop if needed)
+
+  reinitializeMotionBaseline();
 
   finalizeSetup();
 }
