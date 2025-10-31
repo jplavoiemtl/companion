@@ -87,10 +87,10 @@ unsigned long lastImuPrintTime = 0;
 struct {
   float x, y, z;
 } acc, gyr;
-const float ACCEL_MOTION_THRESHOLD = 0.1;  // Adjust sensitivity (m/s²)
+const float ACCEL_MOTION_THRESHOLD = 0.04;  // Adjust sensitivity (m/s²) 0.05
 bool motionDetected = false;
 float lastAccelMagnitude = 0;
-const float GYRO_MOTION_THRESHOLD = 4.5;  // 3.0 not sensitive enough, 2.0 better, 1.9 trigger while immobile
+const float GYRO_MOTION_THRESHOLD = 4.7;  // 4.5 trigger while immobile
 float lastGyroMagnitude = 0;
 
 // --- Global Objects ---
@@ -1113,19 +1113,10 @@ bool attemptWiFiConnection() {
 
 
 //***************************************************************************************************
-/**
- * @brief Checks motion state and updates a global variable.
- *
- * This function should be called continuously. It polls the IMU, updates the
- * global 'g_isCurrentlyMoving' variable instantly upon motion, and returns
- * true only after the full STATIONARY_TIMEOUT has elapsed.
- */
 void updateMotionState() {
   static const unsigned long MOTION_CHECK_INTERVAL = 100;
   static unsigned long lastMotionCheckTime = 0;
   static unsigned long lastMotionTime = 0;
-  static int motionCounter = 0;  // NEW: Count consecutive motion detections
-  const int MOTION_CONFIRM_COUNT = 2;  // NEW: Require 2 consecutive detections
 
   if (lastMotionTime == 0) {
       lastMotionTime = millis();
@@ -1147,26 +1138,21 @@ void updateMotionState() {
     lastGyroMagnitude = gyroMagnitude;
 
     // Motion detected if EITHER sensor exceeds its threshold
-    bool motionThisReading = (accelChange > ACCEL_MOTION_THRESHOLD) || (gyroChange > GYRO_MOTION_THRESHOLD);
+    bool motionDetectedNow = (accelChange > ACCEL_MOTION_THRESHOLD) || (gyroChange > GYRO_MOTION_THRESHOLD);
 
-    if (motionThisReading) {
-      motionCounter++;
-      // Only trigger motion event after consecutive detections
-      if (motionCounter >= MOTION_CONFIRM_COUNT) {
-        if (!g_isCurrentlyMoving) {
-          USBSerial.printf("Movement Detected! (Accel: %.2f, Gyro: %.2f)\n", accelChange, gyroChange);
-          g_isCurrentlyMoving = true;
+    if (motionDetectedNow) {
+      if (!g_isCurrentlyMoving) {
+        USBSerial.printf("Movement Detected! (Accel: %.2f, Gyro: %.2f)\n", accelChange, gyroChange);
+        g_isCurrentlyMoving = true;
 
-          if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
-            mqttClient.publish(MOTION_TOPIC, "1");
-            lastMotionTXTime = millis();
-            USBSerial.println("TX motion MQTT: Moving (immediate)");
-          }
+        if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
+          mqttClient.publish(MOTION_TOPIC, "1");
+          lastMotionTXTime = millis();
+          USBSerial.println("TX motion MQTT: Moving (immediate)");
         }
-        lastMotionTime = currentTime;
       }
+      lastMotionTime = currentTime;
     } else {
-      motionCounter = 0;  // Reset counter if no motion detected
       if (g_isCurrentlyMoving && (currentTime - lastMotionTime > MOTION_TIMEOUT)) {
         USBSerial.println("Movement Stopped.");
         g_isCurrentlyMoving = false;
