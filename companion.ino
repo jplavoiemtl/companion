@@ -50,6 +50,7 @@ SensorQMI8658 qmi;
 const char HILO_POWER[] = "ha/hilo_meter_power";
 const char HILO_ENERGY[] = "hilo_energie";
 const char MOTION_TOPIC[] = "companion/motion";
+const char IMU_TOPIC[] = "companion/imu";
 
 // Generic pointers that will be assigned based on WIFI_PRIORITY
 const char* primarySsid;
@@ -87,11 +88,25 @@ unsigned long lastImuPrintTime = 0;
 struct {
   float x, y, z;
 } acc, gyr;
-const float ACCEL_MOTION_THRESHOLD = 0.04;  // Adjust sensitivity (m/s²) 0.05
+const float ACCEL_MOTION_THRESHOLD = 0.04;  // Adjust sensitivity (m/s²) 0.05 
 bool motionDetected = false;
 float lastAccelMagnitude = 0;
-const float GYRO_MOTION_THRESHOLD = 4.7;  // 4.5 trigger while immobile
+const float GYRO_MOTION_THRESHOLD = 4.7;  // 4.5 trigger while immobile, may have to increase to avoid false positives
 float lastGyroMagnitude = 0;
+// Peak magnitude tracking for IMU data
+struct {
+  float x, y, z;
+  float magnitude;
+} acc_peak, gyr_peak;
+
+bool imuPeakInitialized = false;
+// Current change values for motion detection
+float currentAccelChange = 0;
+float currentGyroChange = 0;
+// Peak change values during interval
+float peakAccelChange = 0;
+float peakGyroChange = 0;
+
 
 // --- Global Objects ---
 HWCDC USBSerial;
@@ -1137,6 +1152,14 @@ void updateMotionState() {
     float gyroChange = abs(gyroMagnitude - lastGyroMagnitude);
     lastGyroMagnitude = gyroMagnitude;
 
+    // Store current changes for MQTT transmission
+    currentAccelChange = accelChange;
+    currentGyroChange = gyroChange;
+
+    // Track peak changes during interval
+    if (accelChange > peakAccelChange) peakAccelChange = accelChange;
+    if (gyroChange > peakGyroChange) peakGyroChange = gyroChange;
+
     // Motion detected if EITHER sensor exceeds its threshold
     bool motionDetectedNow = (accelChange > ACCEL_MOTION_THRESHOLD) || (gyroChange > GYRO_MOTION_THRESHOLD);
 
@@ -1577,8 +1600,40 @@ void reinitializeMotionBaseline() {
 
 //***************************************************************************************************
 void readImuData() {
-  USBSerial.printf("IMU - Accel: X=%.2f Y=%.2f Z=%.2f m/s² | Gyro: X=%.2f Y=%.2f Z=%.2f °/s\n", 
-                   acc.x, acc.y, acc.z, gyr.x, gyr.y, gyr.z);
+  // Publish to MQTT if connected and not receiving HTTP data
+  if (mqttClient.connected() && imuPeakInitialized && 
+      httpState != HTTP_RECEIVING) {
+    // Create JSON payload with both peak magnitudes and change values
+    char payload[350];
+    snprintf(payload, sizeof(payload), 
+            "{\"accel_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
+            "\"gyro_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
+            "\"accel_change\":%.2f,\"gyro_change\":%.2f}", 
+            acc_peak.x, acc_peak.y, acc_peak.z, acc_peak.magnitude,
+            gyr_peak.x, gyr_peak.y, gyr_peak.z, gyr_peak.magnitude,
+            peakAccelChange, peakGyroChange); 
+    
+    // Publish to IMU topic
+    mqttClient.publish(IMU_TOPIC, payload);
+    
+    // Print the MQTT message to serial
+    USBSerial.printf("IMU MQTT: %s\n", payload);
+
+    // Reset peak changes for next cycle
+    peakAccelChange = 0;
+    peakGyroChange = 0;    
+    
+    // Reset peaks for next cycle with current values
+    acc_peak.x = acc.x;
+    acc_peak.y = acc.y;
+    acc_peak.z = acc.z;
+    acc_peak.magnitude = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+    
+    gyr_peak.x = gyr.x;
+    gyr_peak.y = gyr.y;
+    gyr_peak.z = gyr.z;
+    gyr_peak.magnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
+  }
 }
 
 
@@ -1587,6 +1642,41 @@ void updateImuData() {
   if (qmi.getDataReady()) {
     qmi.getAccelerometer(acc.x, acc.y, acc.z);
     qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
+    
+    // Calculate current magnitudes
+    float accelMagnitude = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+    float gyroMagnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
+    
+    // Initialize peaks on first reading
+    if (!imuPeakInitialized) {
+      acc_peak.x = acc.x;
+      acc_peak.y = acc.y;
+      acc_peak.z = acc.z;
+      acc_peak.magnitude = accelMagnitude;
+      
+      gyr_peak.x = gyr.x;
+      gyr_peak.y = gyr.y;
+      gyr_peak.z = gyr.z;
+      gyr_peak.magnitude = gyroMagnitude;
+      
+      imuPeakInitialized = true;
+    } else {
+      // Update accelerometer peak if current magnitude is higher
+      if (accelMagnitude > acc_peak.magnitude) {
+        acc_peak.x = acc.x;
+        acc_peak.y = acc.y;
+        acc_peak.z = acc.z;
+        acc_peak.magnitude = accelMagnitude;
+      }
+      
+      // Update gyroscope peak if current magnitude is higher
+      if (gyroMagnitude > gyr_peak.magnitude) {
+        gyr_peak.x = gyr.x;
+        gyr_peak.y = gyr.y;
+        gyr_peak.z = gyr.z;
+        gyr_peak.magnitude = gyroMagnitude;
+      }
+    }
   }
 }
 
