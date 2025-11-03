@@ -88,6 +88,7 @@ unsigned long lastImuPrintTime = 0;
 struct {
   float x, y, z;
 } acc, gyr;
+
 const float ACCEL_MOTION_THRESHOLD = 0.04;  // Adjust sensitivity (m/s²) 0.05 
 bool motionDetected = false;
 float lastAccelMagnitude = 0;
@@ -99,6 +100,12 @@ struct {
   float magnitude;
 } acc_peak, gyr_peak;
 
+// Peak tracking for display updates (100ms interval)
+struct {
+  float x, y, z;  // x=vertical, y=horizontal, z=up
+  float magnitude;
+} acc_disp_peak;
+
 bool imuPeakInitialized = false;
 // Current change values for motion detection
 float currentAccelChange = 0;
@@ -106,6 +113,13 @@ float currentGyroChange = 0;
 // Peak change values during interval
 float peakAccelChange = 0;
 float peakGyroChange = 0;
+
+// IMU Calibration - Rotation Matrix for Inertial Reference Frame
+const float ROTATION_MATRIX[3][3] = {
+  {-0.037424, -0.135703,  0.990042},  // display_x (vertical)
+  {-0.998829, -0.025327, -0.041228},  // display_y (horizontal)
+  { 0.030670, -0.990426, -0.134596}   // up (reference)
+};
 
 
 // --- Global Objects ---
@@ -1128,6 +1142,21 @@ bool attemptWiFiConnection() {
 
 
 //***************************************************************************************************
+void applyInertialTransform(float sensor[3], float display[3]) {
+  // Transform sensor coordinates to car inertial display coordinates
+  // sensor[3]: raw accelerometer [x, y, z]
+  // display[3]: output [x_vertical, y_horizontal, up_reference]
+  
+  for (int i = 0; i < 3; i++) {
+    display[i] = 0;
+    for (int j = 0; j < 3; j++) {
+      display[i] += ROTATION_MATRIX[i][j] * sensor[j];
+    }
+  }
+}
+
+
+//***************************************************************************************************
 void updateMotionState() {
   static const unsigned long MOTION_CHECK_INTERVAL = 100;
   static unsigned long lastMotionCheckTime = 0;
@@ -1181,6 +1210,26 @@ void updateMotionState() {
         g_isCurrentlyMoving = false;
       }
     }
+
+    // === G-METER DISPLAY UPDATE ===
+    // Transform accelerometer peak to inertial display coordinates
+    float sensor_accel[3] = {acc_disp_peak.x, acc_disp_peak.y, acc_disp_peak.z};
+    float display_accel[3];
+    
+    applyInertialTransform(sensor_accel, display_accel);
+    
+    // TODO: Update G-meter display here
+    // updateGMeterDisplay(display_accel[0], display_accel[1]);
+    
+    // Debug output (optional, can remove later)
+    USBSerial.printf("G-meter: Vert=%.2f, Horiz=%.2f, Up=%.2f\n", 
+                     display_accel[0], display_accel[1], display_accel[2]);
+    
+    // Reset display peak to zero for next 100ms interval
+    acc_disp_peak.x = 0;
+    acc_disp_peak.y = 0;
+    acc_disp_peak.z = 0;
+    acc_disp_peak.magnitude = 0;    
   }
 }
 
@@ -1622,17 +1671,12 @@ void readImuData() {
     // Reset peak changes for next cycle
     peakAccelChange = 0;
     peakGyroChange = 0;    
-    
-    // Reset peaks for next cycle with current values
-    acc_peak.x = acc.x;
-    acc_peak.y = acc.y;
-    acc_peak.z = acc.z;
-    acc_peak.magnitude = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
-    
-    gyr_peak.x = gyr.x;
-    gyr_peak.y = gyr.y;
-    gyr_peak.z = gyr.z;
-    gyr_peak.magnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
+
+    // Reset IMU peaks after publishing  
+    acc_peak.x = 0;
+    acc_peak.y = 0;
+    acc_peak.z = 0;      
+    acc_peak.magnitude = 0;
   }
 }
 
@@ -1658,6 +1702,11 @@ void updateImuData() {
       gyr_peak.y = gyr.y;
       gyr_peak.z = gyr.z;
       gyr_peak.magnitude = gyroMagnitude;
+
+      acc_disp_peak.x = acc.x;
+      acc_disp_peak.y = acc.y;
+      acc_disp_peak.z = acc.z;
+      acc_disp_peak.magnitude = accelMagnitude;      
       
       imuPeakInitialized = true;
     } else {
@@ -1676,6 +1725,14 @@ void updateImuData() {
         gyr_peak.z = gyr.z;
         gyr_peak.magnitude = gyroMagnitude;
       }
+
+      // Update display accelerometer peak if current magnitude is higher
+      if (accelMagnitude > acc_disp_peak.magnitude) {
+        acc_disp_peak.x = acc.x;
+        acc_disp_peak.y = acc.y;
+        acc_disp_peak.z = acc.z;
+        acc_disp_peak.magnitude = accelMagnitude;
+      }  
     }
   }
 }
@@ -2206,14 +2263,11 @@ void loop() {
     }
   }
 
-  // --- Task 8: Print IMU data periodically
+  // --- Task 9: Send IMU data via MQTT (2000ms interval)
   unsigned long currentMillis = millis();
-  unsigned long elapsed = currentMillis - lastImuPrintTime;
   
-  if (elapsed >= IMU_PRINT_INTERVAL) {
+  if (currentMillis - lastImuPrintTime >= IMU_PRINT_INTERVAL) {
     lastImuPrintTime = currentMillis;
-    //USBSerial.printf("DEBUG: elapsed=%lu, currentMillis=%lu, lastImuPrintTime=%lu\n", 
-    //                elapsed, currentMillis, lastImuPrintTime);
     readImuData();
   }
 
