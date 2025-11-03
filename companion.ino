@@ -94,17 +94,25 @@ bool motionDetected = false;
 float lastAccelMagnitude = 0;
 const float GYRO_MOTION_THRESHOLD = 4.7;  // 4.5 trigger while immobile, may have to increase to avoid false positives
 float lastGyroMagnitude = 0;
-// Peak magnitude tracking for IMU data
+
+// Peak magnitude tracking for IMU data (2-second MQTT interval)
 struct {
   float x, y, z;
   float magnitude;
-} acc_peak, gyr_peak;
+} acc_peak = {0.0, 0.0, 0.0, 0.0}, gyr_peak = {0.0, 0.0, 0.0, 0.0};
 
 // Peak tracking for display updates (100ms interval)
 struct {
-  float x, y, z;  // x=vertical, y=horizontal, z=up
+  float x, y, z;
   float magnitude;
-} acc_disp_peak;
+} acc_disp_peak = {0.0, 0.0, 0.0, 0.0};
+
+// Inertial display coordinates (transformed via rotation matrix)
+struct {
+  float vert;   // Vertical (display X - negative = down/accel, positive = up/brake)
+  float horiz;  // Horizontal (display Y - negative = turn left/dot right, positive = turn right/dot left)
+  float up;     // Up reference (display Z - should stay ~1g)
+} acc_inertial = {0.0, 0.0, 0.0};
 
 bool imuPeakInitialized = false;
 // Current change values for motion detection
@@ -1218,12 +1226,17 @@ void updateMotionState() {
     
     applyInertialTransform(sensor_accel, display_accel);
     
+    // Store transformed values in global structure for MQTT and display
+    acc_inertial.vert = display_accel[0];
+    acc_inertial.horiz = display_accel[1];
+    acc_inertial.up = display_accel[2];
+    
     // TODO: Update G-meter display here
-    // updateGMeterDisplay(display_accel[0], display_accel[1]);
+    // updateGMeterDisplay(acc_inertial.vert, acc_inertial.horiz);
     
     // Debug output (optional, can remove later)
-    USBSerial.printf("G-meter: Vert=%.2f, Horiz=%.2f, Up=%.2f\n", 
-                     display_accel[0], display_accel[1], display_accel[2]);
+    // USBSerial.printf("G-meter: Vert=%.2f, Horiz=%.2f, Up=%.2f\n", 
+    //                  acc_inertial.vert, acc_inertial.horiz, acc_inertial.up);
     
     // Reset display peak to zero for next 100ms interval
     acc_disp_peak.x = 0;
@@ -1650,23 +1663,26 @@ void reinitializeMotionBaseline() {
 //***************************************************************************************************
 void readImuData() {
   // Publish to MQTT if connected and not receiving HTTP data
-  if (mqttClient.connected() && imuPeakInitialized && 
-      httpState != HTTP_RECEIVING) {
-    // Create JSON payload with both peak magnitudes and change values
-    char payload[350];
+  if (mqttClient.connected() && imuPeakInitialized) {     
+
+    // Create JSON payload with both peak magnitudes, change values, and display peaks
+    char payload[450];  // Increased buffer size to accommodate new fields
     snprintf(payload, sizeof(payload), 
             "{\"accel_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
             "\"gyro_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
-            "\"accel_change\":%.2f,\"gyro_change\":%.2f}", 
+            "\"accel_change\":%.2f,\"gyro_change\":%.2f,"
+            "\"inertial\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f}}", 
             acc_peak.x, acc_peak.y, acc_peak.z, acc_peak.magnitude,
             gyr_peak.x, gyr_peak.y, gyr_peak.z, gyr_peak.magnitude,
-            peakAccelChange, peakGyroChange); 
+            peakAccelChange, peakGyroChange,
+            acc_inertial.vert, acc_inertial.horiz, acc_inertial.up); 
     
     // Publish to IMU topic
-    mqttClient.publish(IMU_TOPIC, payload);
+    if (ENABLE_MOTION_MQTT) {
+      mqttClient.publish(IMU_TOPIC, payload);
+    }
     
-    // Print the MQTT message to serial
-    USBSerial.printf("IMU MQTT: %s\n", payload);
+    USBSerial.println(payload);
 
     // Reset peak changes for next cycle
     peakAccelChange = 0;
