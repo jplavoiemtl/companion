@@ -129,6 +129,10 @@ const float ROTATION_MATRIX[3][3] = {
   { 0.030670, -0.990426, -0.134596}   // up (reference)
 };
 
+// G-Meter Display Constants
+#define WIDTH_DISPLAY 448
+#define HEIGHT_DISPLAY 368
+#define G_SCALE_DISPLAY 0.6  // Max G-force shown at edge of circle
 
 // --- Global Objects ---
 HWCDC USBSerial;
@@ -1150,6 +1154,27 @@ bool attemptWiFiConnection() {
 
 
 //***************************************************************************************************
+void updateGMeterDisplay(float vert, float horiz) {
+  // Calculate display coordinates using your formulas
+  // Center: (224, 184)
+  // Scale factor: display dimension / (2 × G_SCALE)
+  
+  int x_display = (WIDTH_DISPLAY / 2) - (int)((WIDTH_DISPLAY * horiz) / (2.0 * G_SCALE_DISPLAY));
+  int y_display = (HEIGHT_DISPLAY / 2) - (int)((HEIGHT_DISPLAY * vert) / (2.0 * G_SCALE_DISPLAY));
+  
+  // Clamp to screen boundaries to prevent out-of-bounds drawing
+  x_display = constrain(x_display, 0, WIDTH_DISPLAY - 1);
+  y_display = constrain(y_display, 0, HEIGHT_DISPLAY - 1);
+  
+  // TODO: Update your G-meter UI widget here
+  // lv_obj_set_pos(ui_gMeterDot, x_display, y_display);
+  
+  // USBSerial.printf("G-Meter: vert=%.2f, horiz=%.2f → x=%d, y=%d\n", 
+  ///                 vert, horiz, x_display, y_display);
+}
+
+
+//***************************************************************************************************
 void applyInertialTransform(float sensor[3], float display[3]) {
   // Transform sensor coordinates to car inertial display coordinates
   // sensor[3]: raw accelerometer [x, y, z]
@@ -1219,7 +1244,14 @@ void updateMotionState() {
       }
     }
 
-    // === G-METER DISPLAY UPDATE ===
+    // === G-METER INERTIAL DISPLAY layout ===
+    // 
+    //                          + vert. UP (braking)
+    //                                  |
+    // + horiz. LEFT (right turn)  ---- O ---- - horiz. RIGHT (left turn) 
+    //                                  |
+    //                        - vert. DOWN (accelerating)
+    //
     // Transform accelerometer peak to inertial display coordinates
     float sensor_accel[3] = {acc_disp_peak.x, acc_disp_peak.y, acc_disp_peak.z};
     float display_accel[3];
@@ -1232,11 +1264,7 @@ void updateMotionState() {
     acc_inertial.up = display_accel[2];
     
     // TODO: Update G-meter display here
-    // updateGMeterDisplay(acc_inertial.vert, acc_inertial.horiz);
-    
-    // Debug output (optional, can remove later)
-    // USBSerial.printf("G-meter: Vert=%.2f, Horiz=%.2f, Up=%.2f\n", 
-    //                  acc_inertial.vert, acc_inertial.horiz, acc_inertial.up);
+    updateGMeterDisplay(acc_inertial.vert, acc_inertial.horiz);   
     
     // Reset display peak to zero for next 100ms interval
     acc_disp_peak.x = 0;
