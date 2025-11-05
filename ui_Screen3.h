@@ -15,9 +15,10 @@ extern void ui_Screen3_screen_init(void);
 extern void ui_Screen3_screen_destroy(void);
 extern void ui_event_Screen3(lv_event_t * e);
 extern lv_obj_t * ui_Screen3;
-extern lv_obj_t * ui_screen3Text1;
+extern lv_obj_t * ui_screen3braking;
 extern void ui_event_Button3(lv_event_t * e);
 extern lv_obj_t * ui_Button3;
+extern lv_obj_t * ui_screen3accel;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

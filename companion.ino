@@ -539,9 +539,10 @@ bool requestLatestImage() {
         return false;
     }
     
-    // Only respond if we're on Screen1 (prevent unexpected transitions)
-    if (lv_scr_act() != ui_Screen1) {
-        USBSerial.println("Not on Screen1, ignoring image request");
+  // Only respond if we're on Screen1 or Screen3 (prevent unexpected transitions)
+    lv_obj_t * current_screen = lv_scr_act();
+    if (current_screen != ui_Screen1 && current_screen != ui_Screen3) {
+        USBSerial.println("Not on Screen1 or Screen3, ignoring image request");
         return false;
     }
     
@@ -631,15 +632,24 @@ void buttonGmeter_event_handler(lv_event_t * e) {
     
     if (code == LV_EVENT_CLICKED) {
         USBSerial.println("G-meter button clicked");
-        
+
         // Load Screen3
-        lv_disp_load_scr(ui_Screen3);
+        lv_disp_load_scr(ui_Screen3);        
+        
+        // Prevent multiple creation - check if objects already exist
+        if (ui_gMeterCircle != NULL) {
+            USBSerial.println("G-meter objects already exist, skipping creation");
+            lv_disp_load_scr(ui_Screen3);
+            return;
+        }        
         
         // Create G-meter display elements
-        // Calculate center position
+        // Calculate center position and circle dimensions
         int center_x = WIDTH_DISPLAY / 2;   // 224
         int center_y = HEIGHT_DISPLAY / 2;  // 184
         int radius = HEIGHT_DISPLAY / 2;    // 184 (circle diameter = 368)
+        int circle_left = (WIDTH_DISPLAY - HEIGHT_DISPLAY) / 2;  // 40
+        int circle_right = circle_left + HEIGHT_DISPLAY;         // 408
         
         // 1. Create green circle outline
         ui_gMeterCircle = lv_obj_create(ui_Screen3);
@@ -647,35 +657,103 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         lv_obj_set_pos(ui_gMeterCircle, center_x - radius, center_y - radius);
         lv_obj_set_style_radius(ui_gMeterCircle, LV_RADIUS_CIRCLE, LV_PART_MAIN);
         lv_obj_set_style_bg_opa(ui_gMeterCircle, LV_OPA_TRANSP, LV_PART_MAIN);  // Transparent fill
-        lv_obj_set_style_border_color(ui_gMeterCircle, lv_color_hex(0x00FF00), LV_PART_MAIN);  // Green
-        lv_obj_set_style_border_width(ui_gMeterCircle, 2, LV_PART_MAIN);
+        lv_obj_set_style_border_color(ui_gMeterCircle, lv_color_hex(0xFF8000), LV_PART_MAIN);  // Green
+        lv_obj_set_style_border_width(ui_gMeterCircle, 4, LV_PART_MAIN);
         lv_obj_set_style_border_opa(ui_gMeterCircle, LV_OPA_COVER, LV_PART_MAIN);
         lv_obj_clear_flag(ui_gMeterCircle, LV_OBJ_FLAG_SCROLLABLE);
         
-        // 2. Create vertical axis (green line)
+        // 2. Create vertical axis (green line) - full height inside circle
         ui_gMeterAxisV = lv_line_create(ui_Screen3);
         static lv_point_t line_points_v[] = {{center_x, 0}, {center_x, HEIGHT_DISPLAY}};
         lv_line_set_points(ui_gMeterAxisV, line_points_v, 2);
         lv_obj_set_style_line_color(ui_gMeterAxisV, lv_color_hex(0x00FF00), LV_PART_MAIN);  // Green
-        lv_obj_set_style_line_width(ui_gMeterAxisV, 1, LV_PART_MAIN);
+        lv_obj_set_style_line_width(ui_gMeterAxisV, 2, LV_PART_MAIN);
         
-        // 3. Create horizontal axis (green line)
+        // 3. Create horizontal axis (green line) - constrained to circle width
         ui_gMeterAxisH = lv_line_create(ui_Screen3);
-        static lv_point_t line_points_h[] = {{0, center_y}, {WIDTH_DISPLAY, center_y}};
+        static lv_point_t line_points_h[] = {{circle_left, center_y}, {circle_right, center_y}};
         lv_line_set_points(ui_gMeterAxisH, line_points_h, 2);
         lv_obj_set_style_line_color(ui_gMeterAxisH, lv_color_hex(0x00FF00), LV_PART_MAIN);  // Green
-        lv_obj_set_style_line_width(ui_gMeterAxisH, 1, LV_PART_MAIN);
+        lv_obj_set_style_line_width(ui_gMeterAxisH, 2, LV_PART_MAIN);
         
-        // 4. Create red dot (initially at center)
+        // 4. Create tick marks at 0.1g intervals
+        // Calculate pixel spacing: 0.1g interval out of 0.6g total range
+        float g_per_tick = 0.1;
+        float pixels_per_g = radius / G_SCALE_DISPLAY;  // 184 / 0.6 = 306.67 pixels per g
+        int tick_spacing = (int)(pixels_per_g * g_per_tick);  // ~31 pixels per 0.1g
+        int tick_length = 15;  // Length of tick mark
+        
+        // Create tick marks on vertical axis (horizontal lines)
+        for (int i = 1; i <= 6; i++) {  // 6 ticks: 0.1g to 0.6g
+            int offset = i * tick_spacing;
+            
+            // Tick above center (negative y, braking)
+            lv_obj_t * tick_up = lv_line_create(ui_Screen3);
+            static lv_point_t tick_points_up[6][2];
+            tick_points_up[i-1][0].x = center_x - tick_length / 2;
+            tick_points_up[i-1][0].y = center_y - offset;
+            tick_points_up[i-1][1].x = center_x + tick_length / 2;
+            tick_points_up[i-1][1].y = center_y - offset;
+            lv_line_set_points(tick_up, tick_points_up[i-1], 2);
+            lv_obj_set_style_line_color(tick_up, lv_color_hex(0x00FF00), LV_PART_MAIN);
+            lv_obj_set_style_line_width(tick_up, 1, LV_PART_MAIN);
+            
+            // Tick below center (positive y, accelerating)
+            lv_obj_t * tick_down = lv_line_create(ui_Screen3);
+            static lv_point_t tick_points_down[6][2];
+            tick_points_down[i-1][0].x = center_x - tick_length / 2;
+            tick_points_down[i-1][0].y = center_y + offset;
+            tick_points_down[i-1][1].x = center_x + tick_length / 2;
+            tick_points_down[i-1][1].y = center_y + offset;
+            lv_line_set_points(tick_down, tick_points_down[i-1], 2);
+            lv_obj_set_style_line_color(tick_down, lv_color_hex(0x00FF00), LV_PART_MAIN);
+            lv_obj_set_style_line_width(tick_down, 1, LV_PART_MAIN);
+        }
+        
+        // Create tick marks on horizontal axis (vertical lines)
+        for (int i = 1; i <= 6; i++) {  // 6 ticks: 0.1g to 0.6g
+            int offset = i * tick_spacing;
+            
+            // Tick left of center (negative x, right turn)
+            lv_obj_t * tick_left = lv_line_create(ui_Screen3);
+            static lv_point_t tick_points_left[6][2];
+            tick_points_left[i-1][0].x = center_x - offset;
+            tick_points_left[i-1][0].y = center_y - tick_length / 2;
+            tick_points_left[i-1][1].x = center_x - offset;
+            tick_points_left[i-1][1].y = center_y + tick_length / 2;
+            lv_line_set_points(tick_left, tick_points_left[i-1], 2);
+            lv_obj_set_style_line_color(tick_left, lv_color_hex(0x00FF00), LV_PART_MAIN);
+            lv_obj_set_style_line_width(tick_left, 1, LV_PART_MAIN);
+            
+            // Tick right of center (positive x, left turn)
+            lv_obj_t * tick_right = lv_line_create(ui_Screen3);
+            static lv_point_t tick_points_right[6][2];
+            tick_points_right[i-1][0].x = center_x + offset;
+            tick_points_right[i-1][0].y = center_y - tick_length / 2;
+            tick_points_right[i-1][1].x = center_x + offset;
+            tick_points_right[i-1][1].y = center_y + tick_length / 2;
+            lv_line_set_points(tick_right, tick_points_right[i-1], 2);
+            lv_obj_set_style_line_color(tick_right, lv_color_hex(0x00FF00), LV_PART_MAIN);
+            lv_obj_set_style_line_width(tick_right, 1, LV_PART_MAIN);
+        }
+        
+        // 5. Create red dot (initially at center) - INCREASED SIZE TO 30px
         ui_gMeterDot = lv_obj_create(ui_Screen3);
-        lv_obj_set_size(ui_gMeterDot, 8, 8);
-        lv_obj_set_pos(ui_gMeterDot, center_x - 4, center_y - 4);  // Center the 8px dot
+        lv_obj_set_size(ui_gMeterDot, 30, 30);  // Increased from 8 to 30
+        lv_obj_set_pos(ui_gMeterDot, center_x - 15, center_y - 15);  // Center the 30px dot
         lv_obj_set_style_radius(ui_gMeterDot, LV_RADIUS_CIRCLE, LV_PART_MAIN);
         lv_obj_set_style_bg_color(ui_gMeterDot, lv_color_hex(0xFF0000), LV_PART_MAIN);  // Red
         lv_obj_set_style_bg_opa(ui_gMeterDot, LV_OPA_COVER, LV_PART_MAIN);
         lv_obj_set_style_border_width(ui_gMeterDot, 0, LV_PART_MAIN);  // No border
         lv_obj_clear_flag(ui_gMeterDot, LV_OBJ_FLAG_SCROLLABLE);
         
+        // This is to ensure the G-meter elements are at the back of the screen stack and 
+        // do not obscure other UI elements like buttons.
+        lv_obj_move_background(ui_gMeterCircle);
+        lv_obj_move_background(ui_gMeterAxisV);
+        lv_obj_move_background(ui_gMeterAxisH);
+        lv_obj_move_background(ui_gMeterDot);
+
         USBSerial.println("G-meter display elements created");
     }
 }
@@ -1253,25 +1331,42 @@ bool attemptWiFiConnection() {
 
 //***************************************************************************************************
 void updateGMeterDisplay(float vert, float horiz) {
-  // Calculate display coordinates
-  // Center of screen: (WIDTH_DISPLAY/2, HEIGHT_DISPLAY/2) = (224, 184)
-  // Scaling factor converts G-forces to pixels
+  // Calculate center and radius
+  int center_x = WIDTH_DISPLAY / 2;   // 224
+  int center_y = HEIGHT_DISPLAY / 2;  // 184
+  int radius = HEIGHT_DISPLAY / 2;    // 184
   
-  int x_display = (WIDTH_DISPLAY / 2) - (int)((WIDTH_DISPLAY * horiz) / (2.0 * G_SCALE_DISPLAY));
-  int y_display = (HEIGHT_DISPLAY / 2) - (int)((HEIGHT_DISPLAY * vert) / (2.0 * G_SCALE_DISPLAY));
+  // Calculate raw display coordinates (may be outside circle)
+  // Invert horiz and vert signs for inertial display
+  int x_raw = center_x - (int)((WIDTH_DISPLAY * -horiz) / (2.0 * G_SCALE_DISPLAY));
+  int y_raw = center_y - (int)((HEIGHT_DISPLAY * -vert) / (2.0 * G_SCALE_DISPLAY));
   
-  // Clamp to screen boundaries to prevent out-of-bounds drawing
-  x_display = constrain(x_display, 0, WIDTH_DISPLAY - 1);
-  y_display = constrain(y_display, 0, HEIGHT_DISPLAY - 1);
+  // Calculate distance from center
+  float dx = x_raw - center_x;
+  float dy = y_raw - center_y;
+  float distance = sqrt(dx * dx + dy * dy);
+  
+  // Constrain to circle boundary if outside
+  int x_display, y_display;
+  if (distance > radius) {
+    // Scale back to circle edge, preserving direction
+    float scale = radius / distance;
+    x_display = center_x + (int)(dx * scale);
+    y_display = center_y + (int)(dy * scale);
+  } else {
+    // Inside circle, use raw position
+    x_display = x_raw;
+    y_display = y_raw;
+  }
   
   // Update G-meter dot position (only if on Screen3 and dot exists)
   if (lv_scr_act() == ui_Screen3 && ui_gMeterDot != NULL) {
-    lv_obj_set_pos(ui_gMeterDot, x_display - 4, y_display - 4);  // Center 8px dot on coordinate
+    lv_obj_set_pos(ui_gMeterDot, x_display - 15, y_display - 15);  // Center 30px dot
   }
   
-  // Debug output (optional - can remove after testing)
-  // USBSerial.printf("G-Meter: vert=%.2f, horiz=%.2f → x=%d, y=%d\n", 
-  //                  vert, horiz, x_display, y_display);
+  // Debug output (optional - can be commented out after testing)
+  // USBSerial.printf("G-Meter: vert=%.2f, horiz=%.2f → x=%d, y=%d (dist=%.1f)\n", 
+  //                  vert, horiz, x_display, y_display, distance);
 }
 
 
@@ -1360,6 +1455,7 @@ void updateMotionState() {
     }
 
     // === G-METER INERTIAL DISPLAY layout ===
+    // These are acceleration values.  For inertial values we will invert the signs for the display.
     // 
     //                          + vert. UP (braking)
     //                                  |
