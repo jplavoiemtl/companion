@@ -107,6 +107,11 @@ struct {
   float magnitude;
 } acc_disp_peak = {0.0, 0.0, 0.0, 0.0};
 
+struct {
+  float x, y, z;
+  float magnitude;
+} gyr_disp_peak = {0.0, 0.0, 0.0, 0.0};
+
 // Inertial display coordinates (transformed via rotation matrix)
 struct {
   float vert;   // Vertical (display X - negative = down/accel, positive = up/brake)
@@ -1194,6 +1199,7 @@ void updateMotionState() {
   static const unsigned long MOTION_CHECK_INTERVAL = 100;
   static unsigned long lastMotionCheckTime = 0;
   static unsigned long lastMotionTime = 0;
+  static int startupIgnoreCount = 20; // Ignore first 20 intervals (2 seconds) for sensor stabilization
 
   if (lastMotionTime == 0) {
       lastMotionTime = millis();
@@ -1205,12 +1211,16 @@ void updateMotionState() {
     lastMotionCheckTime = currentTime;
 
     // Calculate accelerometer magnitude and change
-    float accelMagnitude = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+    float accelMagnitude = sqrt(acc_disp_peak.x * acc_disp_peak.x + 
+                                acc_disp_peak.y * acc_disp_peak.y + 
+                                acc_disp_peak.z * acc_disp_peak.z);
     float accelChange = abs(accelMagnitude - lastAccelMagnitude);
     lastAccelMagnitude = accelMagnitude;
     
     // Calculate gyroscope magnitude and change
-    float gyroMagnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
+    float gyroMagnitude = sqrt(gyr_disp_peak.x * gyr_disp_peak.x + 
+                               gyr_disp_peak.y * gyr_disp_peak.y + 
+                               gyr_disp_peak.z * gyr_disp_peak.z);
     float gyroChange = abs(gyroMagnitude - lastGyroMagnitude);
     lastGyroMagnitude = gyroMagnitude;
 
@@ -1222,25 +1232,34 @@ void updateMotionState() {
     if (accelChange > peakAccelChange) peakAccelChange = accelChange;
     if (gyroChange > peakGyroChange) peakGyroChange = gyroChange;
 
-    // Motion detected if EITHER sensor exceeds its threshold
-    bool motionDetectedNow = (accelChange > ACCEL_MOTION_THRESHOLD) || (gyroChange > GYRO_MOTION_THRESHOLD);
-
-    if (motionDetectedNow) {
-      if (!g_isCurrentlyMoving) {
-        USBSerial.printf("Movement Detected! (Accel: %.2f, Gyro: %.2f)\n", accelChange, gyroChange);
-        g_isCurrentlyMoving = true;
-
-        if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
-          mqttClient.publish(MOTION_TOPIC, "1");
-          lastMotionTXTime = millis();
-          USBSerial.println("TX motion MQTT: Moving (immediate)");
-        }
-      }
-      lastMotionTime = currentTime;
+    // Skip motion detection during startup stabilization period
+    if (startupIgnoreCount > 0) {
+      startupIgnoreCount--;
+      USBSerial.printf("Startup stabilization: %d intervals remaining (Accel: %.2f, Gyro: %.2f)\n", 
+                       startupIgnoreCount, accelChange, gyroChange);
+      
+      // Continue to G-meter display update and peak reset (skip motion detection only)
     } else {
-      if (g_isCurrentlyMoving && (currentTime - lastMotionTime > MOTION_TIMEOUT)) {
-        USBSerial.println("Movement Stopped.");
-        g_isCurrentlyMoving = false;
+      // Motion detected if EITHER sensor exceeds its threshold
+      bool motionDetectedNow = (accelChange > ACCEL_MOTION_THRESHOLD) || (gyroChange > GYRO_MOTION_THRESHOLD);
+
+      if (motionDetectedNow) {
+        if (!g_isCurrentlyMoving) {
+          USBSerial.printf("Movement Detected! (Accel: %.2f, Gyro: %.2f)\n", accelChange, gyroChange);
+          g_isCurrentlyMoving = true;
+
+          if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
+            mqttClient.publish(MOTION_TOPIC, "1");
+            lastMotionTXTime = millis();
+            USBSerial.println("TX motion MQTT: Moving (immediate)");
+          }
+        }
+        lastMotionTime = currentTime;
+      } else {
+        if (g_isCurrentlyMoving && (currentTime - lastMotionTime > MOTION_TIMEOUT)) {
+          USBSerial.println("Movement Stopped.");
+          g_isCurrentlyMoving = false;
+        }
       }
     }
 
@@ -1263,7 +1282,7 @@ void updateMotionState() {
     acc_inertial.horiz = display_accel[1];
     acc_inertial.up = display_accel[2];
     
-    // TODO: Update G-meter display here
+    // Update G-meter display
     updateGMeterDisplay(acc_inertial.vert, acc_inertial.horiz);   
     
     // Reset display peak to zero for next 100ms interval
@@ -1271,6 +1290,12 @@ void updateMotionState() {
     acc_disp_peak.y = 0;
     acc_disp_peak.z = 0;
     acc_disp_peak.magnitude = 0;    
+
+    // Reset gyroscope display peak
+    gyr_disp_peak.x = 0;
+    gyr_disp_peak.y = 0;
+    gyr_disp_peak.z = 0;
+    gyr_disp_peak.magnitude = 0;    
   }
 }
 
@@ -1721,11 +1746,18 @@ void readImuData() {
     acc_peak.y = 0;
     acc_peak.z = 0;      
     acc_peak.magnitude = 0;
+
+    // Reset gyroscope peak:
+    gyr_peak.x = 0;
+    gyr_peak.y = 0;
+    gyr_peak.z = 0;
+    gyr_peak.magnitude = 0;    
   }
 }
 
 
 //***************************************************************************************************
+// Runs every loop to update IMU data and track peaks
 void updateImuData() {
   if (qmi.getDataReady()) {
     qmi.getAccelerometer(acc.x, acc.y, acc.z);
@@ -1750,7 +1782,12 @@ void updateImuData() {
       acc_disp_peak.x = acc.x;
       acc_disp_peak.y = acc.y;
       acc_disp_peak.z = acc.z;
-      acc_disp_peak.magnitude = accelMagnitude;      
+      acc_disp_peak.magnitude = accelMagnitude;    
+      
+      gyr_disp_peak.x = gyr.x;
+      gyr_disp_peak.y = gyr.y;
+      gyr_disp_peak.z = gyr.z;
+      gyr_disp_peak.magnitude = gyroMagnitude;      
       
       imuPeakInitialized = true;
     } else {
@@ -1777,6 +1814,14 @@ void updateImuData() {
         acc_disp_peak.z = acc.z;
         acc_disp_peak.magnitude = accelMagnitude;
       }  
+
+      // Update gyroscope display peak:
+      if (gyroMagnitude > gyr_disp_peak.magnitude) {
+        gyr_disp_peak.x = gyr.x;
+        gyr_disp_peak.y = gyr.y;
+        gyr_disp_peak.z = gyr.z;
+        gyr_disp_peak.magnitude = gyroMagnitude;
+      }
     }
   }
 }
