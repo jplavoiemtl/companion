@@ -144,6 +144,12 @@ HWCDC USBSerial;
 XPowersAXP2101 pmic;
 ESP_IOExpander *expander = NULL;
 
+// --- G-Meter Display Objects ---
+lv_obj_t * ui_gMeterCircle = NULL;   // Green outline circle
+lv_obj_t * ui_gMeterAxisV = NULL;    // Vertical green line
+lv_obj_t * ui_gMeterAxisH = NULL;    // Horizontal green line
+lv_obj_t * ui_gMeterDot = NULL;      // Red moving dot
+
 // --- Global State Variables (shared between functions) ---
 bool adc_switch = false;
 String batteryPercent = "";
@@ -591,6 +597,7 @@ void buttonNew_event_handler(lv_event_t * e) {
     }
 }
 
+
 //***************************************************************************************************
 // Button event handler for "Back" image request
 void buttonBack_event_handler(lv_event_t * e) {
@@ -613,6 +620,63 @@ void buttonBack_event_handler(lv_event_t * e) {
             USBSerial.println("Failed to initiate back image request");
             requestInProgress = false;
         }
+    }
+}
+
+
+//***************************************************************************************************
+// Button event handler for G-meter display
+void buttonGmeter_event_handler(lv_event_t * e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    
+    if (code == LV_EVENT_CLICKED) {
+        USBSerial.println("G-meter button clicked");
+        
+        // Load Screen3
+        lv_disp_load_scr(ui_Screen3);
+        
+        // Create G-meter display elements
+        // Calculate center position
+        int center_x = WIDTH_DISPLAY / 2;   // 224
+        int center_y = HEIGHT_DISPLAY / 2;  // 184
+        int radius = HEIGHT_DISPLAY / 2;    // 184 (circle diameter = 368)
+        
+        // 1. Create green circle outline
+        ui_gMeterCircle = lv_obj_create(ui_Screen3);
+        lv_obj_set_size(ui_gMeterCircle, radius * 2, radius * 2);
+        lv_obj_set_pos(ui_gMeterCircle, center_x - radius, center_y - radius);
+        lv_obj_set_style_radius(ui_gMeterCircle, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(ui_gMeterCircle, LV_OPA_TRANSP, LV_PART_MAIN);  // Transparent fill
+        lv_obj_set_style_border_color(ui_gMeterCircle, lv_color_hex(0x00FF00), LV_PART_MAIN);  // Green
+        lv_obj_set_style_border_width(ui_gMeterCircle, 2, LV_PART_MAIN);
+        lv_obj_set_style_border_opa(ui_gMeterCircle, LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_clear_flag(ui_gMeterCircle, LV_OBJ_FLAG_SCROLLABLE);
+        
+        // 2. Create vertical axis (green line)
+        ui_gMeterAxisV = lv_line_create(ui_Screen3);
+        static lv_point_t line_points_v[] = {{center_x, 0}, {center_x, HEIGHT_DISPLAY}};
+        lv_line_set_points(ui_gMeterAxisV, line_points_v, 2);
+        lv_obj_set_style_line_color(ui_gMeterAxisV, lv_color_hex(0x00FF00), LV_PART_MAIN);  // Green
+        lv_obj_set_style_line_width(ui_gMeterAxisV, 1, LV_PART_MAIN);
+        
+        // 3. Create horizontal axis (green line)
+        ui_gMeterAxisH = lv_line_create(ui_Screen3);
+        static lv_point_t line_points_h[] = {{0, center_y}, {WIDTH_DISPLAY, center_y}};
+        lv_line_set_points(ui_gMeterAxisH, line_points_h, 2);
+        lv_obj_set_style_line_color(ui_gMeterAxisH, lv_color_hex(0x00FF00), LV_PART_MAIN);  // Green
+        lv_obj_set_style_line_width(ui_gMeterAxisH, 1, LV_PART_MAIN);
+        
+        // 4. Create red dot (initially at center)
+        ui_gMeterDot = lv_obj_create(ui_Screen3);
+        lv_obj_set_size(ui_gMeterDot, 8, 8);
+        lv_obj_set_pos(ui_gMeterDot, center_x - 4, center_y - 4);  // Center the 8px dot
+        lv_obj_set_style_radius(ui_gMeterDot, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(ui_gMeterDot, lv_color_hex(0xFF0000), LV_PART_MAIN);  // Red
+        lv_obj_set_style_bg_opa(ui_gMeterDot, LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_set_style_border_width(ui_gMeterDot, 0, LV_PART_MAIN);  // No border
+        lv_obj_clear_flag(ui_gMeterDot, LV_OBJ_FLAG_SCROLLABLE);
+        
+        USBSerial.println("G-meter display elements created");
     }
 }
 
@@ -680,6 +744,35 @@ void screen2_event_handler(lv_event_t * e) {
 
         // Set display back to the default landscape mode for other screens
         lv_disp_set_rotation(disp, LV_DISP_ROT_90);
+    }
+}
+
+
+//***************************************************************************************************
+// Event handler for Screen 3 (G-meter display)
+void screen3_event_handler(lv_event_t * e) {
+    lv_event_code_t code = lv_event_get_code(e);
+
+    if (code == LV_EVENT_SCREEN_UNLOAD_START) {
+        USBSerial.println("Screen 3 Unloading: Cleaning up G-meter objects");
+        
+        // Delete G-meter objects and free memory
+        if (ui_gMeterCircle != NULL) {
+            lv_obj_del(ui_gMeterCircle);
+            ui_gMeterCircle = NULL;
+        }
+        if (ui_gMeterAxisV != NULL) {
+            lv_obj_del(ui_gMeterAxisV);
+            ui_gMeterAxisV = NULL;
+        }
+        if (ui_gMeterAxisH != NULL) {
+            lv_obj_del(ui_gMeterAxisH);
+            ui_gMeterAxisH = NULL;
+        }
+        if (ui_gMeterDot != NULL) {
+            lv_obj_del(ui_gMeterDot);
+            ui_gMeterDot = NULL;
+        }
     }
 }
 
@@ -1160,9 +1253,9 @@ bool attemptWiFiConnection() {
 
 //***************************************************************************************************
 void updateGMeterDisplay(float vert, float horiz) {
-  // Calculate display coordinates using your formulas
-  // Center: (224, 184)
-  // Scale factor: display dimension / (2 × G_SCALE)
+  // Calculate display coordinates
+  // Center of screen: (WIDTH_DISPLAY/2, HEIGHT_DISPLAY/2) = (224, 184)
+  // Scaling factor converts G-forces to pixels
   
   int x_display = (WIDTH_DISPLAY / 2) - (int)((WIDTH_DISPLAY * horiz) / (2.0 * G_SCALE_DISPLAY));
   int y_display = (HEIGHT_DISPLAY / 2) - (int)((HEIGHT_DISPLAY * vert) / (2.0 * G_SCALE_DISPLAY));
@@ -1171,11 +1264,14 @@ void updateGMeterDisplay(float vert, float horiz) {
   x_display = constrain(x_display, 0, WIDTH_DISPLAY - 1);
   y_display = constrain(y_display, 0, HEIGHT_DISPLAY - 1);
   
-  // TODO: Update your G-meter UI widget here
-  // lv_obj_set_pos(ui_gMeterDot, x_display, y_display);
+  // Update G-meter dot position (only if on Screen3 and dot exists)
+  if (lv_scr_act() == ui_Screen3 && ui_gMeterDot != NULL) {
+    lv_obj_set_pos(ui_gMeterDot, x_display - 4, y_display - 4);  // Center 8px dot on coordinate
+  }
   
+  // Debug output (optional - can remove after testing)
   // USBSerial.printf("G-Meter: vert=%.2f, horiz=%.2f → x=%d, y=%d\n", 
-  ///                 vert, horiz, x_display, y_display);
+  //                  vert, horiz, x_display, y_display);
 }
 
 
@@ -1972,11 +2068,15 @@ void initUIHandlers() {
     lv_obj_add_event_cb(ui_ButtonLatest, buttonLatest_event_handler, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_ButtonNew, buttonNew_event_handler, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_ButtonBack, buttonBack_event_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_ButtonGmeter, buttonGmeter_event_handler, LV_EVENT_CLICKED, NULL);
     USBSerial.println("  Button event handlers registered");
 
     // Attach Screen 2 event handler for image loading
     lv_obj_add_event_cb(ui_Screen2, screen2_event_handler, LV_EVENT_ALL, NULL);
     USBSerial.println("  Screen 2 event handler attached");
+
+    lv_obj_add_event_cb(ui_Screen3, screen3_event_handler, LV_EVENT_ALL, NULL);
+    USBSerial.println("  Screen 3 event handler attached");    
 
     // Initialize the Motion Icon Label
     lv_label_set_text(ui_labelMotionIcon, LV_SYMBOL_CHARGE);

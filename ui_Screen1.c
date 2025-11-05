@@ -18,6 +18,7 @@ lv_obj_t * ui_ButtonNew = NULL;
 lv_obj_t * ui_labelPowerValue = NULL;
 lv_obj_t * ui_labelEnergyValue = NULL;
 lv_obj_t * ui_ActivitySpinner = NULL;
+lv_obj_t * ui_ButtonGmeter = NULL;
 // event funtions
 void ui_event_Screen1(lv_event_t * e)
 {
@@ -61,6 +62,18 @@ void ui_event_ButtonNew(lv_event_t * e)
     }
     if(event_code == LV_EVENT_CLICKED) {
         buttonNew_event_handler(e);
+    }
+}
+
+void ui_event_ButtonGmeter(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        buttonGmeter_event_handler(e);
+    }
+    if(event_code == LV_EVENT_CLICKED) {
+        activity_event_handler(e);
     }
 }
 
@@ -195,9 +208,24 @@ void ui_Screen1_screen_init(void)
     lv_obj_set_style_opa(ui_ActivitySpinner, 200, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_arc_width(ui_ActivitySpinner, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    lv_obj_set_style_arc_color(ui_ActivitySpinner, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_arc_opa(ui_ActivitySpinner, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+
+    ui_ButtonGmeter = lv_btn_create(ui_Screen1);
+    lv_obj_set_width(ui_ButtonGmeter, 192);
+    lv_obj_set_height(ui_ButtonGmeter, 176);
+    lv_obj_set_x(ui_ButtonGmeter, 123);
+    lv_obj_set_y(ui_ButtonGmeter, -99);
+    lv_obj_set_align(ui_ButtonGmeter, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_ButtonGmeter, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
+    lv_obj_clear_flag(ui_ButtonGmeter, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_set_style_bg_color(ui_ButtonGmeter, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_ButtonGmeter, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+
     lv_obj_add_event_cb(ui_ButtonLatest, ui_event_ButtonLatest, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_ButtonBack, ui_event_ButtonBack, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_ButtonNew, ui_event_ButtonNew, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_ButtonGmeter, ui_event_ButtonGmeter, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Screen1, ui_event_Screen1, LV_EVENT_ALL, NULL);
 
 }
@@ -220,5 +248,6 @@ void ui_Screen1_screen_destroy(void)
     ui_labelPowerValue = NULL;
     ui_labelEnergyValue = NULL;
     ui_ActivitySpinner = NULL;
+    ui_ButtonGmeter = NULL;
 
 }

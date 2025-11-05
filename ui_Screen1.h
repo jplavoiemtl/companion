@@ -30,6 +30,8 @@ extern lv_obj_t * ui_ButtonNew;
 extern lv_obj_t * ui_labelPowerValue;
 extern lv_obj_t * ui_labelEnergyValue;
 extern lv_obj_t * ui_ActivitySpinner;
+extern void ui_event_ButtonGmeter(lv_event_t * e);
+extern lv_obj_t * ui_ButtonGmeter;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus
