@@ -146,6 +146,7 @@ const float ROTATION_MATRIX[3][3] = {
 #define GMETER_DOT_COLOR    0xFF0000   // Red main dot
 #define GMETER_TRAIL_COLOR  0xFF0000   // Trail dots 0xFF0000 0xB8B800
 #define GMETER_CIRCLE_FILL  0x212121   // Dark gray fill 0x232323
+#define GMETER_INNER_CIRCLE_COLOR 0xFFFFFF  // White inner circle
 
 // --- Global Objects ---
 HWCDC USBSerial;
@@ -155,6 +156,7 @@ ESP_IOExpander *expander = NULL;
 // --- G-Meter Display Objects ---
 lv_obj_t * ui_gMeterContainer = NULL; // Container for G-meter elements avoid leaking memory
 lv_obj_t * ui_gMeterCircle = NULL;   // Green outline circle
+lv_obj_t * ui_gMeterInnerCircle = NULL;  // White inner circle at half radius
 lv_obj_t * ui_gMeterAxisV = NULL;    // Vertical green line
 lv_obj_t * ui_gMeterAxisH = NULL;    // Horizontal green line
 lv_obj_t * ui_gMeterDot = NULL;      // Red moving dot
@@ -704,6 +706,18 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         lv_obj_set_style_border_width(ui_gMeterCircle, 4, LV_PART_MAIN);
         lv_obj_set_style_border_opa(ui_gMeterCircle, LV_OPA_COVER, LV_PART_MAIN);
         lv_obj_clear_flag(ui_gMeterCircle, LV_OBJ_FLAG_SCROLLABLE);
+
+        // 1.5. Create white inner circle at half radius
+        int inner_radius = radius / 2;  // Half the main radius (92 pixels)
+        ui_gMeterInnerCircle = lv_obj_create(ui_gMeterContainer);
+        lv_obj_set_size(ui_gMeterInnerCircle, inner_radius * 2, inner_radius * 2);
+        lv_obj_set_pos(ui_gMeterInnerCircle, center_x - inner_radius, center_y - inner_radius);
+        lv_obj_set_style_radius(ui_gMeterInnerCircle, LV_RADIUS_CIRCLE, LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(ui_gMeterInnerCircle, LV_OPA_TRANSP, LV_PART_MAIN);  // Transparent fill
+        lv_obj_set_style_border_color(ui_gMeterInnerCircle, lv_color_hex(GMETER_INNER_CIRCLE_COLOR), LV_PART_MAIN);  // White
+        lv_obj_set_style_border_width(ui_gMeterInnerCircle, 2, LV_PART_MAIN);
+        lv_obj_set_style_border_opa(ui_gMeterInnerCircle, LV_OPA_COVER, LV_PART_MAIN);
+        lv_obj_clear_flag(ui_gMeterInnerCircle, LV_OBJ_FLAG_SCROLLABLE);        
         
         // 2. Create vertical axis (green line) - full height inside circle
         ui_gMeterAxisV = lv_line_create(ui_gMeterContainer); // Create inside the container
@@ -794,6 +808,7 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         // This is to ensure the G-meter elements are at the back of the screen stack and 
         // do not obscure other UI elements like buttons.
         lv_obj_move_background(ui_gMeterCircle);
+        lv_obj_move_foreground(ui_gMeterInnerCircle);
         lv_obj_move_foreground(ui_gMeterAxisV);
         lv_obj_move_foreground(ui_gMeterAxisH);
 
@@ -911,6 +926,7 @@ void screen3_event_handler(lv_event_t * e) {
         // Set ALL associated global pointers to NULL to prevent dangling pointer crashes.
         ui_gMeterContainer = NULL;
         ui_gMeterCircle = NULL;
+        ui_gMeterInnerCircle = NULL;
         ui_gMeterAxisV = NULL;
         ui_gMeterAxisH = NULL;
         ui_gMeterDot = NULL;
