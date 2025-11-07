@@ -2672,6 +2672,9 @@ void loop() {
     readImuData();
   }
 
+  #ifndef TEST_POWER
+  // In normal operation mode - check for inactivity to trigger sleep/shutdown 
+
   // --- Task 9: Check for user inactivity to trigger deep sleep if allowed to sleep ---
   if (millis() - lastActivityTime > INACTIVITY_TIMEOUT && allowSleep) {
       
@@ -2701,6 +2704,22 @@ void loop() {
           }
       }
   }
+
+  #else
+  // In TEST_POWER mode - with USB power and no battery to test power states
+  // --- Task 9: Check for user inactivity to trigger deep sleep or shutdown ---
+  if (millis() - lastActivityTime > INACTIVITY_TIMEOUT) {
+      if (!g_isCurrentlyMoving) {
+          // No touch for 30s AND stationary → SHUTDOWN to save max power
+          shutdownInitiated = true;
+          goToShutdown();   // 1 mA power consumption wake up by button
+      } else {
+          // No touch for 30s BUT still moving → SLEEP for quick wake
+          goToDeepSleep();  // 5 mA power consumption wake up by touch
+      }      
+  }
+
+  #endif
 
   delay(1); // A small delay to yield time to other tasks.
 }
