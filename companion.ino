@@ -1852,9 +1852,11 @@ void updateMotionStatusUI() {
     if (g_isCurrentlyMoving) {
         // Show the icon if moving
         lv_obj_clear_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_labelMotionIcon2, LV_OBJ_FLAG_HIDDEN);
     } else {
         // Hide the icon if not moving
         lv_obj_add_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(ui_labelMotionIcon2, LV_OBJ_FLAG_HIDDEN);
     }
 
     // Save the new state for the next check
@@ -1925,6 +1927,7 @@ void goToShutdown() {
   
   // Hide the motion icon as it's no longer relevant
   lv_obj_add_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_labelMotionIcon2, LV_OBJ_FLAG_HIDDEN);
 
   // Force LVGL to redraw the screen immediately
   for (int i = 0; i < 5; i++) {
@@ -2287,6 +2290,10 @@ void initUIHandlers() {
     lv_label_set_text(ui_labelMotionIcon, LV_SYMBOL_CHARGE);
     lv_obj_set_style_text_font(ui_labelMotionIcon, &lv_font_montserrat_24, 0);
     lv_obj_add_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);  // Start hidden
+
+    lv_label_set_text(ui_labelMotionIcon2, LV_SYMBOL_CHARGE);
+    lv_obj_set_style_text_font(ui_labelMotionIcon2, &lv_font_montserrat_24, 0);
+    lv_obj_add_flag(ui_labelMotionIcon2, LV_OBJ_FLAG_HIDDEN);  // Start hidden    
     USBSerial.println("  Motion icon configured");
 }
 
