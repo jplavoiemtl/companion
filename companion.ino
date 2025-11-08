@@ -145,8 +145,9 @@ const float ROTATION_MATRIX[3][3] = {
 #define GMETER_TICK_COLOR   0x00FF00   // Green tick marks
 #define GMETER_DOT_COLOR    0xFF0000   // Red main dot
 #define GMETER_TRAIL_COLOR  0xFF0000   // Trail dots 0xFF0000 0xB8B800
-#define GMETER_CIRCLE_FILL  0x212121   // Dark gray fill 0x232323
+#define GMETER_CIRCLE_FILL  0x300000   // Dark red fill 0x200000
 #define GMETER_INNER_CIRCLE_COLOR 0xFFFFFF  // White inner circle
+#define GMETER_INNER_CIRCLE_FILL 0x003200   // Green inner circle fill 0x003200
 
 // --- Global Objects ---
 HWCDC USBSerial;
@@ -160,6 +161,8 @@ lv_obj_t * ui_gMeterInnerCircle = NULL;  // White inner circle at half radius
 lv_obj_t * ui_gMeterAxisV = NULL;    // Vertical green line
 lv_obj_t * ui_gMeterAxisH = NULL;    // Horizontal green line
 lv_obj_t * ui_gMeterDot = NULL;      // Red moving dot
+
+lv_obj_t * ui_gMeterTicks[16] = {NULL};  // Store all 16 tick marks (4 × 4 directions)
 
 // Trail dots (5 additional dots behind current position)
 lv_obj_t * ui_gMeterTrail[5] = {NULL, NULL, NULL, NULL, NULL};
@@ -674,7 +677,7 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         if (ui_gMeterCircle != NULL) {
             USBSerial.println("G-meter objects already exist, skipping creation");
             return;
-        }        
+        }         
         
         // --- Create the master container object ---
         ui_gMeterContainer = lv_obj_create(ui_Screen3);
@@ -699,8 +702,7 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         lv_obj_set_size(ui_gMeterCircle, radius * 2, radius * 2);
         lv_obj_set_pos(ui_gMeterCircle, center_x - radius, center_y - radius);
         lv_obj_set_style_radius(ui_gMeterCircle, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(ui_gMeterCircle, lv_color_hex(GMETER_CIRCLE_FILL), LV_PART_MAIN);  // Dark gray fill
-        //lv_obj_set_style_bg_opa(ui_gMeterCircle, LV_OPA_30, LV_PART_MAIN);  // 30% opacity instead of 100%
+        lv_obj_set_style_bg_color(ui_gMeterCircle, lv_color_hex(GMETER_CIRCLE_FILL), LV_PART_MAIN);  
         lv_obj_set_style_bg_opa(ui_gMeterCircle, LV_OPA_COVER, LV_PART_MAIN);  // Opaque fill
         lv_obj_set_style_border_color(ui_gMeterCircle, lv_color_hex(GMETER_CIRCLE_COLOR), LV_PART_MAIN);  
         lv_obj_set_style_border_width(ui_gMeterCircle, 4, LV_PART_MAIN);
@@ -713,7 +715,8 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         lv_obj_set_size(ui_gMeterInnerCircle, inner_radius * 2, inner_radius * 2);
         lv_obj_set_pos(ui_gMeterInnerCircle, center_x - inner_radius, center_y - inner_radius);
         lv_obj_set_style_radius(ui_gMeterInnerCircle, LV_RADIUS_CIRCLE, LV_PART_MAIN);
-        lv_obj_set_style_bg_opa(ui_gMeterInnerCircle, LV_OPA_TRANSP, LV_PART_MAIN);  // Transparent fill
+        lv_obj_set_style_bg_color(ui_gMeterInnerCircle, lv_color_hex(GMETER_INNER_CIRCLE_FILL), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(ui_gMeterInnerCircle, LV_OPA_COVER, LV_PART_MAIN);
         lv_obj_set_style_border_color(ui_gMeterInnerCircle, lv_color_hex(GMETER_INNER_CIRCLE_COLOR), LV_PART_MAIN);  // White
         lv_obj_set_style_border_width(ui_gMeterInnerCircle, 2, LV_PART_MAIN);
         lv_obj_set_style_border_opa(ui_gMeterInnerCircle, LV_OPA_COVER, LV_PART_MAIN);
@@ -734,66 +737,88 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         lv_obj_set_style_line_width(ui_gMeterAxisH, 2, LV_PART_MAIN);
         
         // 4. Create tick marks at 0.1g intervals
-        // Calculate pixel spacing: 0.1g interval out of 0.6g total range
         float g_per_tick = 0.1;
-        float pixels_per_g = radius / G_SCALE_DISPLAY;  // 184 / 0.6 = 306.67 pixels per g
-        int tick_spacing = (int)(pixels_per_g * g_per_tick);  // ~31 pixels per 0.1g
-        int tick_length = 15;  // Length of tick mark
+        float pixels_per_g = radius / G_SCALE_DISPLAY;
+        int tick_spacing = (int)(pixels_per_g * g_per_tick);
+        int tick_length = 15;
+        
+        int tick_idx = 0;
+        USBSerial.printf("Starting tick creation, array size: 16\n");
         
         // Create tick marks on vertical axis (horizontal lines)
-        for (int i = 1; i <= 6; i++) {  // 6 ticks: 0.1g to 0.6g
+        for (int i = 1; i <= 4; i++) {
             int offset = i * tick_spacing;
             
             // Tick above center (negative y, braking)
-            lv_obj_t * tick_up = lv_line_create(ui_gMeterContainer); // Create inside the container
-            static lv_point_t tick_points_up[6][2];
-            tick_points_up[i-1][0].x = center_x - tick_length / 2;
-            tick_points_up[i-1][0].y = center_y - offset;
-            tick_points_up[i-1][1].x = center_x + tick_length / 2;
-            tick_points_up[i-1][1].y = center_y - offset;
-            lv_line_set_points(tick_up, tick_points_up[i-1], 2);
-            lv_obj_set_style_line_color(tick_up, lv_color_hex(GMETER_TICK_COLOR), LV_PART_MAIN);
-            lv_obj_set_style_line_width(tick_up, 1, LV_PART_MAIN);
+            if (tick_idx < 16) {  // SAFETY CHECK
+                lv_obj_t * tick_up = lv_line_create(ui_gMeterContainer);
+                static lv_point_t tick_points_up[4][2];  // CHANGED from [6] to [4]
+                tick_points_up[i-1][0].x = center_x - tick_length / 2;
+                tick_points_up[i-1][0].y = center_y - offset;
+                tick_points_up[i-1][1].x = center_x + tick_length / 2;
+                tick_points_up[i-1][1].y = center_y - offset;
+                lv_line_set_points(tick_up, tick_points_up[i-1], 2);
+                lv_obj_set_style_line_color(tick_up, lv_color_hex(GMETER_TICK_COLOR), LV_PART_MAIN);
+                lv_obj_set_style_line_width(tick_up, 1, LV_PART_MAIN);
+                
+                ui_gMeterTicks[tick_idx] = tick_up;
+                tick_idx++;
+            }
             
             // Tick below center (positive y, accelerating)
-            lv_obj_t * tick_down = lv_line_create(ui_gMeterContainer); // Create inside the container
-            static lv_point_t tick_points_down[6][2];
-            tick_points_down[i-1][0].x = center_x - tick_length / 2;
-            tick_points_down[i-1][0].y = center_y + offset;
-            tick_points_down[i-1][1].x = center_x + tick_length / 2;
-            tick_points_down[i-1][1].y = center_y + offset;
-            lv_line_set_points(tick_down, tick_points_down[i-1], 2);
-            lv_obj_set_style_line_color(tick_down, lv_color_hex(GMETER_TICK_COLOR), LV_PART_MAIN);
-            lv_obj_set_style_line_width(tick_down, 1, LV_PART_MAIN);
+            if (tick_idx < 16) {  // SAFETY CHECK
+                lv_obj_t * tick_down = lv_line_create(ui_gMeterContainer);
+                static lv_point_t tick_points_down[4][2];  // CHANGED from [6] to [4]
+                tick_points_down[i-1][0].x = center_x - tick_length / 2;
+                tick_points_down[i-1][0].y = center_y + offset;
+                tick_points_down[i-1][1].x = center_x + tick_length / 2;
+                tick_points_down[i-1][1].y = center_y + offset;
+                lv_line_set_points(tick_down, tick_points_down[i-1], 2);
+                lv_obj_set_style_line_color(tick_down, lv_color_hex(GMETER_TICK_COLOR), LV_PART_MAIN);
+                lv_obj_set_style_line_width(tick_down, 1, LV_PART_MAIN);
+                
+                ui_gMeterTicks[tick_idx] = tick_down;
+                tick_idx++;
+            }
         }
         
         // Create tick marks on horizontal axis (vertical lines)
-        for (int i = 1; i <= 6; i++) {  // 6 ticks: 0.1g to 0.6g
+        for (int i = 1; i <= 4; i++) {
             int offset = i * tick_spacing;
             
             // Tick left of center (negative x, right turn)
-            lv_obj_t * tick_left = lv_line_create(ui_gMeterContainer); // Create inside the container
-            static lv_point_t tick_points_left[6][2];
-            tick_points_left[i-1][0].x = center_x - offset;
-            tick_points_left[i-1][0].y = center_y - tick_length / 2;
-            tick_points_left[i-1][1].x = center_x - offset;
-            tick_points_left[i-1][1].y = center_y + tick_length / 2;
-            lv_line_set_points(tick_left, tick_points_left[i-1], 2);
-            lv_obj_set_style_line_color(tick_left, lv_color_hex(GMETER_TICK_COLOR), LV_PART_MAIN);
-            lv_obj_set_style_line_width(tick_left, 1, LV_PART_MAIN);
+            if (tick_idx < 16) {  // SAFETY CHECK
+                lv_obj_t * tick_left = lv_line_create(ui_gMeterContainer);
+                static lv_point_t tick_points_left[4][2];  // CHANGED from [6] to [4]
+                tick_points_left[i-1][0].x = center_x - offset;
+                tick_points_left[i-1][0].y = center_y - tick_length / 2;
+                tick_points_left[i-1][1].x = center_x - offset;
+                tick_points_left[i-1][1].y = center_y + tick_length / 2;
+                lv_line_set_points(tick_left, tick_points_left[i-1], 2);
+                lv_obj_set_style_line_color(tick_left, lv_color_hex(GMETER_TICK_COLOR), LV_PART_MAIN);
+                lv_obj_set_style_line_width(tick_left, 1, LV_PART_MAIN);
+                
+                ui_gMeterTicks[tick_idx] = tick_left;
+                tick_idx++;
+            }
             
             // Tick right of center (positive x, left turn)
-            lv_obj_t * tick_right = lv_line_create(ui_gMeterContainer); // Create inside the container
-            static lv_point_t tick_points_right[6][2];
-            tick_points_right[i-1][0].x = center_x + offset;
-            tick_points_right[i-1][0].y = center_y - tick_length / 2;
-            tick_points_right[i-1][1].x = center_x + offset;
-            tick_points_right[i-1][1].y = center_y + tick_length / 2;
-            lv_line_set_points(tick_right, tick_points_right[i-1], 2);
-            lv_obj_set_style_line_color(tick_right, lv_color_hex(GMETER_TICK_COLOR), LV_PART_MAIN);
-            lv_obj_set_style_line_width(tick_right, 1, LV_PART_MAIN);
+            if (tick_idx < 16) {  // SAFETY CHECK
+                lv_obj_t * tick_right = lv_line_create(ui_gMeterContainer);
+                static lv_point_t tick_points_right[4][2];  // CHANGED from [6] to [4]
+                tick_points_right[i-1][0].x = center_x + offset;
+                tick_points_right[i-1][0].y = center_y - tick_length / 2;
+                tick_points_right[i-1][1].x = center_x + offset;
+                tick_points_right[i-1][1].y = center_y + tick_length / 2;
+                lv_line_set_points(tick_right, tick_points_right[i-1], 2);
+                lv_obj_set_style_line_color(tick_right, lv_color_hex(GMETER_TICK_COLOR), LV_PART_MAIN);
+                lv_obj_set_style_line_width(tick_right, 1, LV_PART_MAIN);
+                
+                ui_gMeterTicks[tick_idx] = tick_right;
+                tick_idx++;
+            }
         }
-        
+
         // 5. Create red dot (initially at center) - INCREASED SIZE TO 30px
         ui_gMeterDot = lv_obj_create(ui_gMeterContainer); // Create inside the container
         lv_obj_set_size(ui_gMeterDot, 30, 30);  // Increased from 8 to 30
@@ -803,7 +828,6 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         lv_obj_set_style_bg_opa(ui_gMeterDot, LV_OPA_COVER, LV_PART_MAIN);
         lv_obj_set_style_border_width(ui_gMeterDot, 0, LV_PART_MAIN);  // No border
         lv_obj_clear_flag(ui_gMeterDot, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_move_foreground(ui_gMeterDot);  // Ensure dot is in foreground
         
         // This is to ensure the G-meter elements are at the back of the screen stack and 
         // do not obscure other UI elements like buttons.
@@ -811,6 +835,15 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         lv_obj_move_foreground(ui_gMeterInnerCircle);
         lv_obj_move_foreground(ui_gMeterAxisV);
         lv_obj_move_foreground(ui_gMeterAxisH);
+
+        // Move all tick marks to foreground (above inner circle)
+        for (int i = 0; i < tick_idx; i++) {  // Use tick_idx instead of hardcoded 16
+            if (ui_gMeterTicks[i] != NULL) {  // NULL check
+                lv_obj_move_foreground(ui_gMeterTicks[i]);
+            } 
+        }
+
+        lv_obj_move_foreground(ui_gMeterDot);  // Ensure dot is in foreground
 
         // Create 5 trail dots
         for (int i = 0; i < TRAIL_LENGTH; i++) {
