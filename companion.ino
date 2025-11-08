@@ -137,7 +137,11 @@ const float ROTATION_MATRIX[3][3] = {
 // G-Meter Display Constants
 #define WIDTH_DISPLAY 448
 #define HEIGHT_DISPLAY 368
-#define G_SCALE_DISPLAY 0.4  // Max G-force shown at edge of circle 0.4 G
+#define G_SCALE_DISPLAY 0.5  // Max G-force shown at edge of circle 0.4 G
+// Calculate number of tick marks based on G_SCALE_DISPLAY
+#define TICK_INTERVAL 0.1
+#define NUM_TICKS_PER_AXIS ((int)(G_SCALE_DISPLAY / TICK_INTERVAL))  // 0.4 / 0.1 = 4
+#define TOTAL_TICK_MARKS (NUM_TICKS_PER_AXIS * 4)  // 4 directions × ticks per direction = 16
 
 // G-Meter Color Constants - https://www.colorhexa.com/
 #define GMETER_CIRCLE_COLOR 0xFF7F00   // Orange circle outline 0xFF8000
@@ -162,7 +166,7 @@ lv_obj_t * ui_gMeterAxisV = NULL;    // Vertical green line
 lv_obj_t * ui_gMeterAxisH = NULL;    // Horizontal green line
 lv_obj_t * ui_gMeterDot = NULL;      // Red moving dot
 
-lv_obj_t * ui_gMeterTicks[16] = {NULL};  // Store all 16 tick marks (4 × 4 directions)
+lv_obj_t * ui_gMeterTicks[TOTAL_TICK_MARKS] = {NULL};  // Tick marks array
 
 // Trail dots (5 additional dots behind current position)
 lv_obj_t * ui_gMeterTrail[5] = {NULL, NULL, NULL, NULL, NULL};
@@ -737,7 +741,7 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         lv_obj_set_style_line_width(ui_gMeterAxisH, 2, LV_PART_MAIN);
         
         // 4. Create tick marks at 0.1g intervals
-        float g_per_tick = 0.1;
+        float g_per_tick = TICK_INTERVAL;
         float pixels_per_g = radius / G_SCALE_DISPLAY;
         int tick_spacing = (int)(pixels_per_g * g_per_tick);
         int tick_length = 15;
@@ -746,13 +750,13 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         USBSerial.printf("Starting tick creation, array size: 16\n");
         
         // Create tick marks on vertical axis (horizontal lines)
-        for (int i = 1; i <= 4; i++) {
+        for (int i = 1; i <= NUM_TICKS_PER_AXIS; i++) {
             int offset = i * tick_spacing;
             
             // Tick above center (negative y, braking)
-            if (tick_idx < 16) {  // SAFETY CHECK
+            if (tick_idx < TOTAL_TICK_MARKS) {  // SAFETY CHECK
                 lv_obj_t * tick_up = lv_line_create(ui_gMeterContainer);
-                static lv_point_t tick_points_up[4][2];  // CHANGED from [6] to [4]
+                static lv_point_t tick_points_up[NUM_TICKS_PER_AXIS][2];  
                 tick_points_up[i-1][0].x = center_x - tick_length / 2;
                 tick_points_up[i-1][0].y = center_y - offset;
                 tick_points_up[i-1][1].x = center_x + tick_length / 2;
@@ -766,9 +770,9 @@ void buttonGmeter_event_handler(lv_event_t * e) {
             }
             
             // Tick below center (positive y, accelerating)
-            if (tick_idx < 16) {  // SAFETY CHECK
+            if (tick_idx < TOTAL_TICK_MARKS) {  // SAFETY CHECK
                 lv_obj_t * tick_down = lv_line_create(ui_gMeterContainer);
-                static lv_point_t tick_points_down[4][2];  // CHANGED from [6] to [4]
+                static lv_point_t tick_points_down[NUM_TICKS_PER_AXIS][2];  // CHANGED from [6] to [4]
                 tick_points_down[i-1][0].x = center_x - tick_length / 2;
                 tick_points_down[i-1][0].y = center_y + offset;
                 tick_points_down[i-1][1].x = center_x + tick_length / 2;
@@ -783,13 +787,13 @@ void buttonGmeter_event_handler(lv_event_t * e) {
         }
         
         // Create tick marks on horizontal axis (vertical lines)
-        for (int i = 1; i <= 4; i++) {
+        for (int i = 1; i <= NUM_TICKS_PER_AXIS; i++) {
             int offset = i * tick_spacing;
             
             // Tick left of center (negative x, right turn)
-            if (tick_idx < 16) {  // SAFETY CHECK
+            if (tick_idx < TOTAL_TICK_MARKS) {  // SAFETY CHECK
                 lv_obj_t * tick_left = lv_line_create(ui_gMeterContainer);
-                static lv_point_t tick_points_left[4][2];  // CHANGED from [6] to [4]
+                static lv_point_t tick_points_left[NUM_TICKS_PER_AXIS][2];  // CHANGED from [6] to [4]
                 tick_points_left[i-1][0].x = center_x - offset;
                 tick_points_left[i-1][0].y = center_y - tick_length / 2;
                 tick_points_left[i-1][1].x = center_x - offset;
@@ -803,9 +807,9 @@ void buttonGmeter_event_handler(lv_event_t * e) {
             }
             
             // Tick right of center (positive x, left turn)
-            if (tick_idx < 16) {  // SAFETY CHECK
+            if (tick_idx < TOTAL_TICK_MARKS) {  // SAFETY CHECK
                 lv_obj_t * tick_right = lv_line_create(ui_gMeterContainer);
-                static lv_point_t tick_points_right[4][2];  // CHANGED from [6] to [4]
+                static lv_point_t tick_points_right[NUM_TICKS_PER_AXIS][2];  // CHANGED from [6] to [4]
                 tick_points_right[i-1][0].x = center_x + offset;
                 tick_points_right[i-1][0].y = center_y - tick_length / 2;
                 tick_points_right[i-1][1].x = center_x + offset;
@@ -864,6 +868,12 @@ void buttonGmeter_event_handler(lv_event_t * e) {
             trail_pos_y[i] = center_y;
         }
         
+        if (ui_Gscale != NULL) {
+            char gscale_text[16];  // Buffer for formatted text
+            snprintf(gscale_text, sizeof(gscale_text), "%.1f G", G_SCALE_DISPLAY);
+            lv_label_set_text(ui_Gscale, gscale_text);
+        }
+
         // Initialize stationary tracking
         last_x_display = center_x;
         last_y_display = center_y;
@@ -966,6 +976,10 @@ void screen3_event_handler(lv_event_t * e) {
 
         for (int i = 0; i < TRAIL_LENGTH; i++) {
             ui_gMeterTrail[i] = NULL;
+        }
+        // Reset tick mark pointers
+        for (int i = 0; i < TOTAL_TICK_MARKS; i++) {
+            ui_gMeterTicks[i] = NULL;
         }
     }
 }
