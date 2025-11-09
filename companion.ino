@@ -137,7 +137,7 @@ const float ROTATION_MATRIX[3][3] = {
 // G-Meter Display Constants
 #define WIDTH_DISPLAY 448
 #define HEIGHT_DISPLAY 368
-#define G_SCALE_DISPLAY 0.5  // Max G-force shown at edge of circle 0.4 G
+#define G_SCALE_DISPLAY 0.5  // Max G-force shown at edge of circle 0.5 G
 // Calculate number of tick marks based on G_SCALE_DISPLAY
 #define TICK_INTERVAL 0.1
 #define NUM_TICKS_PER_AXIS ((int)(G_SCALE_DISPLAY / TICK_INTERVAL))  // 0.4 / 0.1 = 4
@@ -145,12 +145,12 @@ const float ROTATION_MATRIX[3][3] = {
 
 // G-Meter Color Constants - https://www.colorhexa.com/
 #define GMETER_CIRCLE_COLOR 0xFF7F00   // Orange circle outline 0xFF8000
-#define GMETER_AXIS_COLOR   0x0080FF   // Green axes  0x00FF00
-#define GMETER_TICK_COLOR   0x00FF00   // Green tick marks
+#define GMETER_AXIS_COLOR   0x0080FF  
+#define GMETER_TICK_COLOR   0x00FF00  
 #define GMETER_DOT_COLOR    0xFF0000   // Red main dot
 #define GMETER_TRAIL_COLOR  0xFF0000   // Trail dots 0xFF0000 0xB8B800
 #define GMETER_CIRCLE_FILL  0x300000   // Dark red fill 0x200000
-#define GMETER_INNER_CIRCLE_COLOR 0xFFFFFF  // White inner circle
+#define GMETER_INNER_CIRCLE_COLOR 0x00FF00 // Green inner circle outline 0x00FF00
 #define GMETER_INNER_CIRCLE_FILL 0x003200   // Green inner circle fill 0x003200
 
 // --- Global Objects ---
