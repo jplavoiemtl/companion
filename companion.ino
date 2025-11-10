@@ -1591,10 +1591,6 @@ void updateMotionState() {
     currentAccelChange = accelChange;
     currentGyroChange = gyroChange;
 
-    // Track peak changes during interval
-    if (accelChange > peakAccelChange) peakAccelChange = accelChange;
-    if (gyroChange > peakGyroChange) peakGyroChange = gyroChange;
-
     // Skip motion detection during startup stabilization period
     if (startupIgnoreCount > 0) {
       startupIgnoreCount--;
@@ -1603,6 +1599,10 @@ void updateMotionState() {
       
       // Continue to G-meter display update and peak reset (skip motion detection only)
     } else {
+      // Track peak changes during interval
+      if (accelChange > peakAccelChange) peakAccelChange = accelChange;
+      if (gyroChange > peakGyroChange) peakGyroChange = gyroChange;
+
       // Motion detected if EITHER sensor exceeds its threshold
       bool motionDetectedNow = (accelChange > ACCEL_MOTION_THRESHOLD) || (gyroChange > GYRO_MOTION_THRESHOLD);
 
@@ -2077,6 +2077,11 @@ void reinitializeMotionBaseline() {
     USBSerial.printf("Motion baseline reset: Accel=%.2f m/s², Gyro=%.2f °/s (averaged from %d readings)\n", 
                      lastAccelMagnitude, lastGyroMagnitude, validReadings);
   } 
+
+  // Reset peak changes
+  peakAccelChange = 0;
+  peakGyroChange = 0;  
+
 }
 
 
@@ -2615,7 +2620,7 @@ void setup() {
 
   initJPEGDecoder();  // Initialize JPEG Decoder
 
-  initIMU();  // Initialize IMU/Motion Sensor
+  initIMU();  // Initialize IMU/Motion Sensor  
 
   initBattery();  // Initialize Battery Monitoring
 
@@ -2627,7 +2632,7 @@ void setup() {
   
   initMQTT(); // Initialize MQTT (will retry in loop if needed)
 
-  reinitializeMotionBaseline();
+  reinitializeMotionBaseline();  
 
   finalizeSetup();
 }
