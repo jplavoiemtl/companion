@@ -45,7 +45,7 @@ void ui_Screen3_screen_init(void)
     ui_screen3braking = lv_label_create(ui_Screen3);
     lv_obj_set_width(ui_screen3braking, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_screen3braking, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_screen3braking, -151);
+    lv_obj_set_x(ui_screen3braking, -156);
     lv_obj_set_y(ui_screen3braking, -163);
     lv_obj_set_align(ui_screen3braking, LV_ALIGN_CENTER);
     lv_label_set_text(ui_screen3braking, "Brake");
@@ -64,7 +64,7 @@ void ui_Screen3_screen_init(void)
     ui_screen3accel = lv_label_create(ui_Screen3);
     lv_obj_set_width(ui_screen3accel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_screen3accel, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_screen3accel, 144);
+    lv_obj_set_x(ui_screen3accel, 149);
     lv_obj_set_y(ui_screen3accel, 160);
     lv_obj_set_align(ui_screen3accel, LV_ALIGN_CENTER);
     lv_label_set_text(ui_screen3accel, "Accel");

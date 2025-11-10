@@ -137,7 +137,7 @@ const float ROTATION_MATRIX[3][3] = {
 // G-Meter Display Constants
 #define WIDTH_DISPLAY 448
 #define HEIGHT_DISPLAY 368
-#define G_SCALE_DISPLAY 0.5  // Max G-force shown at edge of circle 0.5 G
+#define G_SCALE_DISPLAY 0.4  // Max G-force shown at edge of circle 0.4 G
 // Calculate number of tick marks based on G_SCALE_DISPLAY
 #define TICK_INTERVAL 0.1
 #define NUM_TICKS_PER_AXIS ((int)(G_SCALE_DISPLAY / TICK_INTERVAL))  // 0.4 / 0.1 = 4
