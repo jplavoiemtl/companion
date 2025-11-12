@@ -159,6 +159,18 @@ unsigned long current_time = 0;
 float dt = 0.0;
 float sampling_frequency = 0.0; // Variable to hold the sampling frequency in Hz
 
+// ========== INCLINOMETER STATE VARIABLES ==========
+float pitch_angle = 0.0;              // Current pitch angle in degrees
+float roll_angle = 0.0;               // Current roll angle in degrees
+unsigned long last_inclinometer_update = 0;  // Timestamp for dt calculation
+const float INCLINOMETER_TAU = 2.0;   // Time constant in seconds (tune as needed) 4.0
+bool inclinometer_initialized = false; // Flag to track initialization state
+// Gyro bias values (to be determined during calibration)
+float gyro_bias_vert = 0.0;
+float gyro_bias_horiz = 0.0;
+float gyro_bias_up = 0.0;
+
+
 // --- Global Objects ---
 HWCDC USBSerial;
 XPowersAXP2101 pmic;
@@ -1579,6 +1591,15 @@ void updateMotionState() {
   if (currentTime - lastMotionCheckTime >= MOTION_CHECK_INTERVAL) {
     lastMotionCheckTime = currentTime;
 
+    // Update the time tracking variables for advanced complementary filter
+    current_time = micros();
+    dt = (current_time - previous_time) / 1000000.0;  // Calculate dt in seconds
+    previous_time = current_time;  // Update previous time
+
+    if (dt > 0) {
+      sampling_frequency = 1.0 / dt;  // Sampling frequency = 1 / dt
+    }  
+
     // Calculate accelerometer magnitude and change
     float accelMagnitude = sqrt(acc_disp_peak.x * acc_disp_peak.x + 
                                 acc_disp_peak.y * acc_disp_peak.y + 
@@ -1652,6 +1673,14 @@ void updateMotionState() {
     acc_inertial.horiz = display_accel[1];
     acc_inertial.up = display_accel[2];
     
+    // Transform gyroscope to car reference frame (local variables only)
+    float sensor_gyro[3] = {gyr.x, gyr.y, gyr.z};
+    float display_gyro[3];
+    applyInertialTransform(sensor_gyro, display_gyro);
+    
+    // Update inclinometer with transformed gyro values
+    updateInclinometer(display_gyro[0], display_gyro[1], display_gyro[2]);
+
     // Update G-meter display
     updateGMeterDisplay(acc_inertial.vert, acc_inertial.horiz);   
     
@@ -1667,6 +1696,189 @@ void updateMotionState() {
     gyr_disp_peak.z = 0;
     gyr_disp_peak.magnitude = 0;    
   }
+}
+
+
+//***************************************************************************************************
+// ========== INCLINOMETER FUNCTIONS ==========
+void calculateGyroBias() {
+  // Calculate gyro bias by averaging transformed gyro readings while stationary
+  Serial.println("=== Calibrating Gyro Bias (please keep stationary) ===");
+  
+  const int GYRO_BIAS_SAMPLES = 200;  // 200 samples at ~38Hz = ~5 seconds
+  float sum_vert = 0.0;
+  float sum_horiz = 0.0;
+  float sum_up = 0.0;
+  int valid_samples = 0;
+  
+  for (int i = 0; i < GYRO_BIAS_SAMPLES; i++) {
+    // Wait for new IMU data
+    unsigned long start_wait = millis();
+    while (!qmi.getDataReady() && (millis() - start_wait < 50)) {
+      delay(1);
+    }
+    
+    if (qmi.getDataReady()) {
+      // Read raw gyro
+      qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
+      
+      // Transform to car reference
+      float sensor_gyro[3] = {gyr.x, gyr.y, gyr.z};
+      float display_gyro[3];
+      applyInertialTransform(sensor_gyro, display_gyro);
+      
+      sum_vert += display_gyro[0];
+      sum_horiz += display_gyro[1];
+      sum_up += display_gyro[2];
+      valid_samples++;
+    }
+    
+    delay(10);  // Small delay between samples
+  }
+  
+  if (valid_samples > 0) {
+    gyro_bias_vert = sum_vert / valid_samples;
+    gyro_bias_horiz = sum_horiz / valid_samples;
+    gyro_bias_up = sum_up / valid_samples;
+    
+    Serial.print("  Gyro bias calculated from ");
+    Serial.print(valid_samples);
+    Serial.println(" samples:");
+    Serial.print("    vert=");
+    Serial.print(gyro_bias_vert, 3);
+    Serial.print(" °/s, horiz=");
+    Serial.print(gyro_bias_horiz, 3);
+    Serial.print(" °/s, up=");
+    Serial.print(gyro_bias_up, 3);
+    Serial.println(" °/s");
+  } else {
+    Serial.println("  WARNING: Failed to calculate gyro bias!");
+  }
+}
+
+//***************************************************************************************************
+void initializeInclinometer() {
+  // Initialize inclinometer - calculate initial angles from first gravity reading
+  // This should be called after first valid acc_inertial data is available
+  
+  // More strict validation - ensure we're close to 1G total and mostly in Z
+  float total_g = sqrt(acc_inertial.vert * acc_inertial.vert + 
+                       acc_inertial.horiz * acc_inertial.horiz + 
+                       acc_inertial.up * acc_inertial.up);
+  
+  if (abs(acc_inertial.up) > 0.8 && total_g > 0.9 && total_g < 1.1) {
+    // First, calibrate gyro bias while stationary
+    calculateGyroBias();
+    
+    // Then calculate initial angles
+    pitch_angle = atan2(-acc_inertial.vert, acc_inertial.up) * 180.0 / PI;
+    roll_angle = atan2(acc_inertial.horiz, acc_inertial.up) * 180.0 / PI;
+    
+    last_inclinometer_update = micros();
+    inclinometer_initialized = true;
+    
+    Serial.println("=== Inclinometer Initialized ===");
+    Serial.print("  acc_inertial: vert=");
+    Serial.print(acc_inertial.vert, 3);
+    Serial.print(" horiz=");
+    Serial.print(acc_inertial.horiz, 3);
+    Serial.print(" up=");
+    Serial.println(acc_inertial.up, 3);
+    Serial.print("  Initial Pitch: ");
+    Serial.print(pitch_angle, 2);
+    Serial.println("°");
+    Serial.print("  Initial Roll: ");
+    Serial.print(roll_angle, 2);
+    Serial.println("°");
+  }
+}
+
+
+//***************************************************************************************************
+void integrateGyroAngles(float dt, float gyro_vert, float gyro_horiz, float gyro_up) {
+  // Integrate gyroscope rates to update angles, removing bias
+  // Pitch rotates around Y-axis (horiz), Roll rotates around X-axis (vert)
+  float pitch_rate = gyro_horiz - gyro_bias_horiz;
+  float roll_rate = gyro_vert - gyro_bias_vert;
+  
+  pitch_angle += pitch_rate * dt;
+  roll_angle += roll_rate * dt;
+}
+
+
+//***************************************************************************************************
+void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
+  // Calculate pitch and roll from accelerometer (gravity vector)
+  // This gives the actual orientation relative to gravity
+  
+  if (abs(acc_inertial.up) > 0.1) {  // Avoid division by near-zero
+    pitch_accel = atan2(acc_inertial.vert, acc_inertial.up) * 180.0 / PI;
+    roll_accel = atan2(acc_inertial.horiz, acc_inertial.up) * 180.0 / PI;
+  } else {
+    // Near 90° pitch or roll - use current angles
+    pitch_accel = pitch_angle;
+    roll_accel = roll_angle;
+  }
+}
+
+
+//***************************************************************************************************
+void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel) {
+  // Calculate difference between gyro-predicted and accel-measured angles
+  float pitch_error = abs(pitch_angle - pitch_accel);
+  float roll_error = abs(roll_angle - roll_accel);
+  
+  // Adjust time constant based on error magnitude
+  float effective_tau = INCLINOMETER_TAU;
+  
+  // If large error and low motion, trust accelerometer more (smaller tau)
+  if (pitch_error > 5.0 || roll_error > 5.0) {
+    effective_tau = 1.0;  // Fast correction when significantly off
+  }
+  
+  // Time-based complementary filter
+  float alpha = effective_tau / (effective_tau + dt);
+  
+  // Blend gyro prediction with accelerometer measurement
+  pitch_angle = alpha * pitch_angle + (1.0 - alpha) * pitch_accel;
+  roll_angle = alpha * roll_angle + (1.0 - alpha) * roll_accel;
+  
+  // Keep angles in -180 to +180 range
+  if (pitch_angle > 180.0) pitch_angle -= 360.0;
+  if (pitch_angle < -180.0) pitch_angle += 360.0;
+  if (roll_angle > 180.0) roll_angle -= 360.0;
+  if (roll_angle < -180.0) roll_angle += 360.0;
+}
+
+
+//***************************************************************************************************
+void updateInclinometer(float gyro_vert, float gyro_horiz, float gyro_up) {
+  if (!inclinometer_initialized) {
+    // Auto-initialize on first call with valid data
+    if (abs(acc_inertial.up) > 0.5) {  // Wait for reasonable gravity reading
+      initializeInclinometer();
+    }
+    return;
+  }
+  
+  unsigned long current_time_incl = micros();
+  float dt_incl = (current_time_incl - last_inclinometer_update) / 1000000.0;  // Convert to seconds
+  
+  // Clamp dt to reasonable maximum (handles screen switches, pauses)
+  if (dt_incl > 0.1) dt_incl = 0.1;  // Max 100ms
+  if (dt_incl < 0.0001) return;  // Skip if called too quickly
+  
+  // Step 1: Predict angles using gyroscope
+  integrateGyroAngles(dt_incl, gyro_vert, gyro_horiz, gyro_up);
+  
+  // Step 2: Measure angles using accelerometer
+  float pitch_accel, roll_accel;
+  calculateAccelAngles(pitch_accel, roll_accel);
+  
+  // Step 3: Fuse predictions and measurements
+  applyComplementaryFilter(dt_incl, pitch_accel, roll_accel);
+  
+  last_inclinometer_update = current_time_incl;
 }
 
 
@@ -2134,6 +2346,15 @@ void readImuData() {
     Serial.print("Sampling freq: ");
     Serial.print(sampling_frequency);
     Serial.println(" Hz"); 
+    
+    // Output inclinometer angles for testing
+    if (inclinometer_initialized) {
+      Serial.print("Pitch: ");
+      Serial.print(pitch_angle, 2);
+      Serial.print("°  Roll: ");
+      Serial.print(roll_angle, 2);
+      Serial.println("°");
+    }        
   }
 }
 
@@ -2142,15 +2363,6 @@ void readImuData() {
 // Runs every loop to update IMU data and track peaks
 void updateImuData() {
   if (qmi.getDataReady()) {
-    // Update the time tracking variables for advanced complementary filter
-    current_time = micros();
-    dt = (current_time - previous_time) / 1000000.0;  // Calculate dt in seconds
-    previous_time = current_time;  // Update previous time
-
-    if (dt > 0) {
-      sampling_frequency = 1.0 / dt;  // Sampling frequency = 1 / dt
-    }  
-
     qmi.getAccelerometer(acc.x, acc.y, acc.z);
     qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
     
