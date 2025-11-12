@@ -1705,7 +1705,7 @@ void calculateGyroBias() {
   // Calculate gyro bias by averaging transformed gyro readings while stationary
   Serial.println("=== Calibrating Gyro Bias (please keep stationary) ===");
   
-  const int GYRO_BIAS_SAMPLES = 30;  // 50 samples at ~38Hz = ~1.3 seconds
+  const int GYRO_BIAS_SAMPLES = 30;
   float sum_vert = 0.0;
   float sum_horiz = 0.0;
   float sum_up = 0.0;
@@ -1714,11 +1714,16 @@ void calculateGyroBias() {
   for (int i = 0; i < GYRO_BIAS_SAMPLES; i++) {
     // Wait for new IMU data
     unsigned long start_wait = millis();
-    while (!qmi.getDataReady() && (millis() - start_wait < 50)) {
-      delay(1);
+    bool data_ready = false;
+    
+    while (!data_ready && (millis() - start_wait < 50)) {
+      data_ready = qmi.getDataReady();
+      if (!data_ready) {
+        delay(1);
+      }
     }
     
-    if (qmi.getDataReady()) {
+    if (data_ready) {
       // Read raw gyro
       qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
       
@@ -1732,8 +1737,6 @@ void calculateGyroBias() {
       sum_up += display_gyro[2];
       valid_samples++;
     }
-    
-    delay(10);  // Small delay between samples
   }
   
   if (valid_samples > 0) {
@@ -1755,6 +1758,7 @@ void calculateGyroBias() {
     Serial.println("  WARNING: Failed to calculate gyro bias!");
   }
 }
+
 
 //***************************************************************************************************
 void initializeInclinometer() {
