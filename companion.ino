@@ -153,6 +153,12 @@ const float ROTATION_MATRIX[3][3] = {
 #define GMETER_INNER_CIRCLE_COLOR 0x00FF00 // Green inner circle outline 0x00FF00
 #define GMETER_INNER_CIRCLE_FILL 0x003200   // Green inner circle fill 0x003200
 
+// Global variables for time tracking complementary filter
+static unsigned long previous_time = 0;
+unsigned long current_time = 0;
+float dt = 0.0;
+float sampling_frequency = 0.0; // Variable to hold the sampling frequency in Hz
+
 // --- Global Objects ---
 HWCDC USBSerial;
 XPowersAXP2101 pmic;
@@ -2124,6 +2130,10 @@ void readImuData() {
     gyr_peak.y = 0;
     gyr_peak.z = 0;
     gyr_peak.magnitude = 0;    
+
+    Serial.print("Sampling freq: ");
+    Serial.print(sampling_frequency);
+    Serial.println(" Hz"); 
   }
 }
 
@@ -2132,6 +2142,15 @@ void readImuData() {
 // Runs every loop to update IMU data and track peaks
 void updateImuData() {
   if (qmi.getDataReady()) {
+    // Update the time tracking variables for advanced complementary filter
+    current_time = micros();
+    dt = (current_time - previous_time) / 1000000.0;  // Calculate dt in seconds
+    previous_time = current_time;  // Update previous time
+
+    if (dt > 0) {
+      sampling_frequency = 1.0 / dt;  // Sampling frequency = 1 / dt
+    }  
+
     qmi.getAccelerometer(acc.x, acc.y, acc.z);
     qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
     
