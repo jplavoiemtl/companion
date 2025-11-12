@@ -1705,7 +1705,7 @@ void calculateGyroBias() {
   // Calculate gyro bias by averaging transformed gyro readings while stationary
   Serial.println("=== Calibrating Gyro Bias (please keep stationary) ===");
   
-  const int GYRO_BIAS_SAMPLES = 200;  // 200 samples at ~38Hz = ~5 seconds
+  const int GYRO_BIAS_SAMPLES = 30;  // 50 samples at ~38Hz = ~1.3 seconds
   float sum_vert = 0.0;
   float sum_horiz = 0.0;
   float sum_up = 0.0;
