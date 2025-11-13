@@ -30,6 +30,7 @@ extern "C" {
 #include "ui_Screen1.h"
 #include "ui_Screen2.h"
 #include "ui_Screen3.h"
+#include "ui_InclinometerScreen.h"
 
 ///////////////////// VARIABLES ////////////////////
 
@@ -42,6 +43,8 @@ extern lv_obj_t * ui____initial_actions0;
 LV_IMG_DECLARE(ui_img_button_latst_png);    // assets/button_latst.png
 LV_IMG_DECLARE(ui_img_button_back_png);    // assets/button_back.png
 LV_IMG_DECLARE(ui_img_button_new_png);    // assets/button_new.png
+LV_IMG_DECLARE(ui_img_1435680676);    // assets/kona-side2.png
+LV_IMG_DECLARE(ui_img_2121104240);    // assets/kona-back2.png
 
 // UI INIT
 void ui_init(void);

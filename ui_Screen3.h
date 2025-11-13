@@ -21,6 +21,8 @@ extern lv_obj_t * ui_Button3;
 extern lv_obj_t * ui_screen3accel;
 extern lv_obj_t * ui_Gscale;
 extern lv_obj_t * ui_labelMotionIcon2;
+extern void ui_event_Button1(lv_event_t * e);
+extern lv_obj_t * ui_Button1;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

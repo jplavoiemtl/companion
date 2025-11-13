@@ -169,6 +169,8 @@ bool inclinometer_initialized = false; // Flag to track initialization state
 float gyro_bias_vert = 0.0;
 float gyro_bias_horiz = 0.0;
 float gyro_bias_up = 0.0;
+unsigned long last_inclinometer_display_update = 0;
+const unsigned long INCLINOMETER_DISPLAY_INTERVAL = 500; // 200ms = 5 Hz, 500
 
 
 // --- Global Objects ---
@@ -592,10 +594,10 @@ bool requestLatestImage() {
         return false;
     }
     
-  // Only respond if we're on Screen1 or Screen3 (prevent unexpected transitions)
+  // Only respond if we're on Screen1 or Screen3 or inclinometer (prevent unexpected transitions)
     lv_obj_t * current_screen = lv_scr_act();
-    if (current_screen != ui_Screen1 && current_screen != ui_Screen3) {
-        USBSerial.println("Not on Screen1 or Screen3, ignoring image request");
+    if (current_screen != ui_Screen1 && current_screen != ui_Screen3 && current_screen != ui_InclinometerScreen) {
+        USBSerial.println("Not on Screen1 or Screen3 or inclinometer, ignoring image request");
         return false;
     }
     
@@ -1701,6 +1703,69 @@ void updateMotionState() {
 
 //***************************************************************************************************
 // ========== INCLINOMETER FUNCTIONS ==========
+void updateInclinometerDisplay() {
+  // Only update if the inclinometer screen is active
+  if (lv_scr_act() != ui_InclinometerScreen) return;
+  
+  unsigned long start_time = millis();
+
+  // Only update if inclinometer is initialized
+  if (!inclinometer_initialized) return;
+  
+  // Static variables to remember last displayed values
+  static char last_pitch_str[20] = "";
+  static char last_roll_str[20] = "";
+  static float last_pitch_rotation = 0.0;
+  static float last_roll_rotation = 0.0;
+  
+  // Format pitch string (no leading zero)
+  char pitch_str[20];
+  int pitch_int = abs((int)pitch_angle);
+  int pitch_dec = (int)(abs(pitch_angle) * 10) % 10;
+  char pitch_sign = (pitch_angle >= 0) ? '+' : '-';
+  sprintf(pitch_str, "%c%d.%d°", pitch_sign, pitch_int, pitch_dec);  // Changed %02d to %d
+  
+  // Only update label if text changed
+  if (strcmp(pitch_str, last_pitch_str) != 0) {
+    lv_label_set_text(ui_PitchLabel, pitch_str);
+    strcpy(last_pitch_str, pitch_str);
+  }
+  
+  // Only update image rotation if changed by more than 1 degree
+  if (abs(pitch_angle - last_pitch_rotation) > 1.0) {
+    lv_img_set_angle(ui_PitchCarImage, (int16_t)(pitch_angle * 10));
+    last_pitch_rotation = pitch_angle;
+  }
+  
+  // Format roll string (no leading zero)
+  char roll_str[20];
+  int roll_int = abs((int)roll_angle);
+  int roll_dec = (int)(abs(roll_angle) * 10) % 10;
+  char roll_sign = (roll_angle >= 0) ? '+' : '-';
+  sprintf(roll_str, "%c%d.%d°", roll_sign, roll_int, roll_dec);  // Changed %02d to %d
+  
+  // Only update label if text changed
+  if (strcmp(roll_str, last_roll_str) != 0) {
+    lv_label_set_text(ui_RollLabel, roll_str);
+    strcpy(last_roll_str, roll_str);
+  }
+  
+  // Only update image rotation if changed by more than 1 degree
+  if (abs(roll_angle - last_roll_rotation) > 1.0) {
+    lv_img_set_angle(ui_RollCarImage, (int16_t)(roll_angle * 10));
+    last_roll_rotation = roll_angle;
+  }
+  unsigned long end_time = millis();
+  unsigned long duration = end_time - start_time;
+  if (duration > 10) {  // Only print if took more than 10ms
+    Serial.print("Display update took: ");
+    Serial.print(duration);
+    Serial.println(" ms");
+  }
+}
+
+
+//***************************************************************************************************
 void calculateGyroBias() {
   // Calculate gyro bias by averaging transformed gyro readings while stationary
   Serial.println("=== Calibrating Gyro Bias (please keep stationary) ===");
@@ -1869,7 +1934,21 @@ void updateInclinometer(float gyro_vert, float gyro_horiz, float gyro_up) {
   float dt_incl = (current_time_incl - last_inclinometer_update) / 1000000.0;  // Convert to seconds
   
   // Clamp dt to reasonable maximum (handles screen switches, pauses)
-  if (dt_incl > 0.1) dt_incl = 0.1;  // Max 100ms
+  // If dt is too large (>30ms) or if there's very high gyro rate, skip gyro integration
+  // and use accelerometer directly to avoid integration errors
+  float gyro_magnitude = sqrt(gyro_vert*gyro_vert + gyro_horiz*gyro_horiz + gyro_up*gyro_up);
+  
+  if (dt_incl > 0.03 || (dt_incl > 0.02 && gyro_magnitude > 50.0)) {
+    // Large time gap or very fast rotation - use accelerometer only
+    float pitch_accel, roll_accel;
+    calculateAccelAngles(pitch_accel, roll_accel);
+    pitch_angle = pitch_accel;
+    roll_angle = roll_accel;
+    
+    last_inclinometer_update = current_time_incl;
+    return;
+  }
+  
   if (dt_incl < 0.0001) return;  // Skip if called too quickly
   
   // Step 1: Predict angles using gyroscope
@@ -2138,10 +2217,12 @@ void updateMotionStatusUI() {
         // Show the icon if moving
         lv_obj_clear_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(ui_labelMotionIcon2, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_labelMotionIcon3, LV_OBJ_FLAG_HIDDEN);
     } else {
         // Hide the icon if not moving
         lv_obj_add_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(ui_labelMotionIcon2, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(ui_labelMotionIcon3, LV_OBJ_FLAG_HIDDEN);
     }
 
     // Save the new state for the next check
@@ -2213,6 +2294,7 @@ void goToShutdown() {
   // Hide the motion icon as it's no longer relevant
   lv_obj_add_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(ui_labelMotionIcon2, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_labelMotionIcon3, LV_OBJ_FLAG_HIDDEN);
 
   // Force LVGL to redraw the screen immediately
   for (int i = 0; i < 5; i++) {
@@ -2596,7 +2678,12 @@ void initUIHandlers() {
 
     lv_label_set_text(ui_labelMotionIcon2, LV_SYMBOL_CHARGE);
     lv_obj_set_style_text_font(ui_labelMotionIcon2, &lv_font_montserrat_24, 0);
-    lv_obj_add_flag(ui_labelMotionIcon2, LV_OBJ_FLAG_HIDDEN);  // Start hidden    
+    lv_obj_add_flag(ui_labelMotionIcon2, LV_OBJ_FLAG_HIDDEN);  // Start hidden  
+    
+    lv_label_set_text(ui_labelMotionIcon3, LV_SYMBOL_CHARGE);
+    lv_obj_set_style_text_font(ui_labelMotionIcon3, &lv_font_montserrat_24, 0);
+    lv_obj_add_flag(ui_labelMotionIcon3, LV_OBJ_FLAG_HIDDEN);  // Start hidden     
+    
     USBSerial.println("  Motion icon configured");
 }
 
@@ -2886,6 +2973,14 @@ void loop() {
 
   // If we are not shutting down, proceed with normal operations.
   lv_timer_handler();
+  /*
+  // Throttle LVGL handler to reduce impact on IMU sampling
+  static unsigned long last_lvgl_handler = 0;
+  if (millis() - last_lvgl_handler >= 20) {  // Only call every 20ms (50 Hz max)
+    lv_timer_handler();
+    last_lvgl_handler = millis();
+  }
+  */
 
   // --- Task 1: Update motion state ---
   updateImuData();  // Read IMU data once per loop
@@ -2958,7 +3053,14 @@ void loop() {
     }
   }
 
-  // --- Task 7: Transmit motion MQTT if connected --- 
+  // --- Task 7: Update inclinometer display at 2 Hz
+  unsigned long current_millis = millis();
+  if (current_millis - last_inclinometer_display_update >= INCLINOMETER_DISPLAY_INTERVAL) {
+    updateInclinometerDisplay();
+    last_inclinometer_display_update = current_millis;
+  }
+
+  // --- Task 8: Transmit motion MQTT if connected --- 
   if (ENABLE_MOTION_MQTT && g_isCurrentlyMoving && mqttClient.connected()) {
     if (millis() - lastMotionTXTime > MOTION_TIMEOUT) {
       mqttClient.publish(MOTION_TOPIC, "1");
@@ -2969,7 +3071,6 @@ void loop() {
 
   // --- Task 9: Send IMU data via MQTT
   unsigned long currentMillis = millis();
-  
   if (currentMillis - lastImuPrintTime >= IMU_PRINT_INTERVAL) {
     lastImuPrintTime = currentMillis;
     readImuData();
@@ -2978,7 +3079,7 @@ void loop() {
   #ifndef TEST_POWER
   // In normal operation mode - check for inactivity to trigger sleep/shutdown 
 
-  // --- Task 9: Check for user inactivity to trigger deep sleep if allowed to sleep ---
+  // --- Task 10: Check for user inactivity to trigger deep sleep if allowed to sleep ---
   if (millis() - lastActivityTime > INACTIVITY_TIMEOUT && allowSleep) {
       
       if (usbWasEverPresent && !vbusPresent) {
@@ -3010,7 +3111,7 @@ void loop() {
 
   #else
   // In TEST_POWER mode - with USB power and no battery to test power states
-  // --- Task 9: Check for user inactivity to trigger deep sleep or shutdown ---
+  // --- Task 10: Check for user inactivity to trigger deep sleep or shutdown ---
   if (millis() - lastActivityTime > INACTIVITY_TIMEOUT) {
       if (!g_isCurrentlyMoving) {
           // No touch for 30s AND stationary → SHUTDOWN to save max power
