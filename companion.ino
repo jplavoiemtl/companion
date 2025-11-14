@@ -163,7 +163,7 @@ float sampling_frequency = 0.0; // Variable to hold the sampling frequency in Hz
 float pitch_angle = 0.0;              // Current pitch angle in degrees
 float roll_angle = 0.0;               // Current roll angle in degrees
 unsigned long last_inclinometer_update = 0;  // Timestamp for dt calculation
-const float INCLINOMETER_TAU = 2.0;   // Time constant in seconds (tune as needed) 4.0
+const float INCLINOMETER_TAU = 8.0;   // Time constant in seconds (tune as needed) 2.0
 bool inclinometer_initialized = false; // Flag to track initialization state
 // Gyro bias values (to be determined during calibration)
 float gyro_bias_vert = 0.0;
