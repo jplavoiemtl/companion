@@ -83,7 +83,7 @@ bool mqttConnection = false;
 bool mqttSuccess = false;                 //MQTT succeeded once at start to keep reconnecting only if successful
 
 // --- IMU Management and motion detection ---
-const unsigned long IMU_PRINT_INTERVAL = 5000;  // Print IMU data every 2s=2000 (adjust as needed)
+const unsigned long IMU_PRINT_INTERVAL = 1000;  // Print & send MQTT IMU data every 5s=5000
 unsigned long lastImuPrintTime = 0;
 struct {
   float x, y, z;
@@ -1893,16 +1893,25 @@ void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
 
 //***************************************************************************************************
 void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel) {
-  // Calculate difference between gyro-predicted and accel-measured angles
   float pitch_error = abs(pitch_angle - pitch_accel);
   float roll_error = abs(roll_angle - roll_accel);
   
-  // Adjust time constant based on error magnitude
+  // Detect dynamic acceleration
+  float total_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
+                           acc_inertial.horiz * acc_inertial.horiz + 
+                           acc_inertial.up * acc_inertial.up);
+  bool is_accelerating = (abs(total_accel - 1.0) > 0.12);  // Lower threshold for 0.2G sensitivity
+  
   float effective_tau = INCLINOMETER_TAU;
   
-  // If large error and low motion, trust accelerometer more (smaller tau)
-  if (pitch_error > 5.0 || roll_error > 5.0) {
-    effective_tau = 1.0;  // Fast correction when significantly off
+  // CRITICAL: Check acceleration FIRST, before error-based correction
+  if (is_accelerating) {
+    // During acceleration, ALWAYS use long tau regardless of error
+    effective_tau = INCLINOMETER_TAU * 5.0;  // 8.0 * 5 = 40 seconds
+  }
+  // Only do fast correction if stationary AND large error
+  else if (pitch_error > 5.0 || roll_error > 5.0) {
+    effective_tau = 2.0;
   }
   
   // Time-based complementary filter
@@ -2392,22 +2401,24 @@ void reinitializeMotionBaseline() {
 //***************************************************************************************************
 void readImuData() {
   // Publish to MQTT if connected and not receiving HTTP data
-  if (mqttClient.connected() && imuPeakInitialized) {     
+  if (imuPeakInitialized) {     
 
     // Create JSON payload with both peak magnitudes, change values, and display peaks
-    char payload[450];  // Increased buffer size to accommodate new fields
+    char payload[512];  // Increased buffer size to accommodate new fields
     snprintf(payload, sizeof(payload), 
             "{\"accel_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
             "\"gyro_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
             "\"accel_change\":%.2f,\"gyro_change\":%.2f,"
-            "\"inertial\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f}}", 
+            "\"inertial\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
+            "\"pitch\":%.2f,\"roll\":%.2f}", 
             acc_peak.x, acc_peak.y, acc_peak.z, acc_peak.magnitude,
             gyr_peak.x, gyr_peak.y, gyr_peak.z, gyr_peak.magnitude,
             peakAccelChange, peakGyroChange,
-            acc_inertial.vert, acc_inertial.horiz, acc_inertial.up); 
+            acc_inertial.vert, acc_inertial.horiz, acc_inertial.up,
+            pitch_angle, roll_angle); 
     
     // Publish to IMU topic
-    if (ENABLE_MOTION_MQTT) {
+    if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
       mqttClient.publish(IMU_TOPIC, payload);
     }
     
@@ -2431,16 +2442,7 @@ void readImuData() {
 
     Serial.print("Sampling freq: ");
     Serial.print(sampling_frequency);
-    Serial.println(" Hz"); 
-    
-    // Output inclinometer angles for testing
-    if (inclinometer_initialized) {
-      Serial.print("Pitch: ");
-      Serial.print(pitch_angle, 2);
-      Serial.print("°  Roll: ");
-      Serial.print(roll_angle, 2);
-      Serial.println("°");
-    }        
+    Serial.println(" Hz");        
   }
 }
 
