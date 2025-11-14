@@ -2400,7 +2400,7 @@ void reinitializeMotionBaseline() {
 
 //***************************************************************************************************
 void readImuData() {
-  // Publish to MQTT if connected and not receiving HTTP data
+  // Print and publish to MQTT if connected and not receiving HTTP data
   if (imuPeakInitialized) {     
 
     // Create JSON payload with both peak magnitudes, change values, and display peaks
@@ -2442,7 +2442,8 @@ void readImuData() {
 
     Serial.print("Sampling freq: ");
     Serial.print(sampling_frequency);
-    Serial.println(" Hz");        
+    Serial.println(" Hz"); 
+    Serial.println();
   }
 }
 
