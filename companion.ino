@@ -163,7 +163,7 @@ float sampling_frequency = 0.0; // Variable to hold the sampling frequency in Hz
 float pitch_angle = 0.0;              // Current pitch angle in degrees
 float roll_angle = 0.0;               // Current roll angle in degrees
 unsigned long last_inclinometer_update = 0;  // Timestamp for dt calculation
-const float INCLINOMETER_TAU = 8.0;   // Time constant in seconds (tune as needed) 4.0
+const float INCLINOMETER_TAU = 2.0;   // Time constant in seconds (tune as needed) 4.0
 bool inclinometer_initialized = false; // Flag to track initialization state
 // Gyro bias values (to be determined during calibration)
 float gyro_bias_vert = 0.0;
@@ -1892,35 +1892,17 @@ void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
 
 
 //***************************************************************************************************
-void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel, float gyro_vert, float gyro_horiz, float gyro_up) {
+void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel) {
   // Calculate difference between gyro-predicted and accel-measured angles
   float pitch_error = abs(pitch_angle - pitch_accel);
   float roll_error = abs(roll_angle - roll_accel);
   
-  // Detect if we're experiencing dynamic acceleration or rotation
-  float total_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
-                           acc_inertial.horiz * acc_inertial.horiz + 
-                           acc_inertial.up * acc_inertial.up);
-  
-  float gyro_magnitude = sqrt(gyro_vert*gyro_vert + gyro_horiz*gyro_horiz + gyro_up*gyro_up);
-  
-  // Dynamic if: acceleration differs from 1G OR significant rotation
-  bool is_dynamic = (abs(total_accel - 1.0) > 0.1) || (gyro_magnitude > 5.0);
-  
-  // Adjust time constant based on state
+  // Adjust time constant based on error magnitude
   float effective_tau = INCLINOMETER_TAU;
   
-  // Priority 1: Large error and stationary - correct quickly
-  if (!is_dynamic && (pitch_error > 3.0 || roll_error > 3.0)) {
-    effective_tau = 2.0;  // Fast correction (2 seconds to converge)
-  }
-  // Priority 2: Stationary with small error - use normal tau
-  else if (!is_dynamic) {
-    effective_tau = INCLINOMETER_TAU;  // Normal 8-second correction
-  }
-  // Priority 3: Dynamic - trust gyro heavily
-  else {
-    effective_tau = INCLINOMETER_TAU * 3.0;  // 24 seconds - mostly ignore accel
+  // If large error and low motion, trust accelerometer more (smaller tau)
+  if (pitch_error > 5.0 || roll_error > 5.0) {
+    effective_tau = 1.0;  // Fast correction when significantly off
   }
   
   // Time-based complementary filter
@@ -1951,17 +1933,23 @@ void updateInclinometer(float gyro_vert, float gyro_horiz, float gyro_up) {
   unsigned long current_time_incl = micros();
   float dt_incl = (current_time_incl - last_inclinometer_update) / 1000000.0;  // Convert to seconds
   
-  // If dt is unreasonably large (>100ms), just skip this update entirely
-  // This handles major gaps like screen switches or system pauses
-  if (dt_incl > 0.1) {
+  // Clamp dt to reasonable maximum (handles screen switches, pauses)
+  // If dt is too large (>30ms) or if there's very high gyro rate, skip gyro integration
+  // and use accelerometer directly to avoid integration errors
+  float gyro_magnitude = sqrt(gyro_vert*gyro_vert + gyro_horiz*gyro_horiz + gyro_up*gyro_up);
+  
+  if (dt_incl > 0.03 || (dt_incl > 0.02 && gyro_magnitude > 50.0)) {
+    // Large time gap or very fast rotation - use accelerometer only
+    float pitch_accel, roll_accel;
+    calculateAccelAngles(pitch_accel, roll_accel);
+    pitch_angle = pitch_accel;
+    roll_angle = roll_accel;
+    
     last_inclinometer_update = current_time_incl;
-    return;  // Skip update, keep previous angles
+    return;
   }
   
   if (dt_incl < 0.0001) return;  // Skip if called too quickly
-  
-  // Clamp dt to reasonable maximum for integration
-  if (dt_incl > 0.05) dt_incl = 0.05;  // Cap at 50ms for gyro integration
   
   // Step 1: Predict angles using gyroscope
   integrateGyroAngles(dt_incl, gyro_vert, gyro_horiz, gyro_up);
@@ -1970,9 +1958,8 @@ void updateInclinometer(float gyro_vert, float gyro_horiz, float gyro_up) {
   float pitch_accel, roll_accel;
   calculateAccelAngles(pitch_accel, roll_accel);
   
-  // Step 3: Fuse predictions and measurements
-  // Pass gyro values to the filter for dynamic detection
-  applyComplementaryFilter(dt_incl, pitch_accel, roll_accel, gyro_vert, gyro_horiz, gyro_up);
+  // Step 3: Fuse predictions and measurements to downweight drift
+  applyComplementaryFilter(dt_incl, pitch_accel, roll_accel);
   
   last_inclinometer_update = current_time_incl;
 }
