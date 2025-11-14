@@ -1896,18 +1896,20 @@ void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel) {
   float pitch_error = abs(pitch_angle - pitch_accel);
   float roll_error = abs(roll_angle - roll_accel);
   
-  // Detect dynamic acceleration
-  float total_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
-                           acc_inertial.horiz * acc_inertial.horiz + 
-                           acc_inertial.up * acc_inertial.up);
-  bool is_accelerating = (abs(total_accel - 1.0) > 0.12);  // Lower threshold for 0.2G sensitivity
+  // BETTER DETECTION: Check horizontal acceleration components directly
+  // During pure gravity (stationary): vert≈0, horiz≈0, up≈1.0
+  // During acceleration: vert and/or horiz become significant
+  float horizontal_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
+                                acc_inertial.horiz * acc_inertial.horiz);
+  
+  bool is_accelerating = (horizontal_accel > 0.08);  // >0.08G horizontal acceleration
   
   float effective_tau = INCLINOMETER_TAU;
   
   // CRITICAL: Check acceleration FIRST, before error-based correction
   if (is_accelerating) {
-    // During acceleration, ALWAYS use long tau regardless of error
-    effective_tau = INCLINOMETER_TAU * 5.0;  // 8.0 * 5 = 40 seconds
+    // During acceleration, use very long tau to ignore accelerometer
+    effective_tau = INCLINOMETER_TAU * 6.0;  // 8.0 * 6 = 48 seconds
   }
   // Only do fast correction if stationary AND large error
   else if (pitch_error > 5.0 || roll_error > 5.0) {
@@ -1942,23 +1944,17 @@ void updateInclinometer(float gyro_vert, float gyro_horiz, float gyro_up) {
   unsigned long current_time_incl = micros();
   float dt_incl = (current_time_incl - last_inclinometer_update) / 1000000.0;  // Convert to seconds
   
-  // Clamp dt to reasonable maximum (handles screen switches, pauses)
-  // If dt is too large (>30ms) or if there's very high gyro rate, skip gyro integration
-  // and use accelerometer directly to avoid integration errors
-  float gyro_magnitude = sqrt(gyro_vert*gyro_vert + gyro_horiz*gyro_horiz + gyro_up*gyro_up);
-  
-  if (dt_incl > 0.03 || (dt_incl > 0.02 && gyro_magnitude > 50.0)) {
-    // Large time gap or very fast rotation - use accelerometer only
-    float pitch_accel, roll_accel;
-    calculateAccelAngles(pitch_accel, roll_accel);
-    pitch_angle = pitch_accel;
-    roll_angle = roll_accel;
-    
+  // If dt is unreasonably large (>100ms), just skip this update entirely
+  // This handles major gaps like screen switches or system pauses
+  if (dt_incl > 0.1) {
     last_inclinometer_update = current_time_incl;
-    return;
+    return;  // Skip update, keep previous angles
   }
   
   if (dt_incl < 0.0001) return;  // Skip if called too quickly
+  
+  // Clamp dt to reasonable maximum for integration
+  if (dt_incl > 0.05) dt_incl = 0.05;  // Cap at 50ms for gyro integration
   
   // Step 1: Predict angles using gyroscope
   integrateGyroAngles(dt_incl, gyro_vert, gyro_horiz, gyro_up);
@@ -1967,7 +1963,8 @@ void updateInclinometer(float gyro_vert, float gyro_horiz, float gyro_up) {
   float pitch_accel, roll_accel;
   calculateAccelAngles(pitch_accel, roll_accel);
   
-  // Step 3: Fuse predictions and measurements to downweight drift
+  // Step 3: Fuse predictions and measurements
+  // The complementary filter handles dynamic acceleration detection
   applyComplementaryFilter(dt_incl, pitch_accel, roll_accel);
   
   last_inclinometer_update = current_time_incl;
