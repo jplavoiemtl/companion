@@ -133,6 +133,11 @@ float currentGyroChange = 0;
 float peakAccelChange = 0;
 float peakGyroChange = 0;
 
+// Gyro bias in SENSOR coordinates (before rotation matrix)
+float gyro_bias_sensor_x = 0.0;
+float gyro_bias_sensor_y = 0.0;
+float gyro_bias_sensor_z = 0.0;
+
 // IMU Calibration - Rotation Matrix for Inertial Reference Frame
 const float ROTATION_MATRIX[3][3] = {
   {-0.037424, -0.135703,  0.990042},  // display_x (vertical)
@@ -169,7 +174,7 @@ float sampling_frequency = 0.0; // Variable to hold the sampling frequency in Hz
 float pitch_angle = 0.0;              // Current pitch angle in degrees
 float roll_angle = 0.0;               // Current roll angle in degrees
 unsigned long last_inclinometer_update = 0;  // Timestamp for dt calculation
-const float INCLINOMETER_TAU = 5.0;   // Time constant in seconds (tune as needed) 2.0
+const float INCLINOMETER_TAU = 6.0;   // Time constant in seconds (tune as needed)
 bool inclinometer_initialized = false; // Flag to track initialization state
 // Gyro bias values (to be determined during calibration)
 float gyro_bias_vert = 0.0;
@@ -1681,8 +1686,13 @@ void updateMotionState() {
     acc_inertial.horiz = display_accel[1];
     acc_inertial.up = display_accel[2];
     
-    // Transform gyroscope to car reference frame (local variables only)
-    float sensor_gyro[3] = {gyr.x, gyr.y, gyr.z};
+    // Transform gyroscope to car reference frame
+    // CRITICAL: Subtract bias BEFORE transformation!
+    float sensor_gyro[3] = {
+      gyr.x - gyro_bias_sensor_x,
+      gyr.y - gyro_bias_sensor_y,
+      gyr.z - gyro_bias_sensor_z
+    };
     float display_gyro[3];
     applyInertialTransform(sensor_gyro, display_gyro);
 
@@ -1777,17 +1787,16 @@ void updateInclinometerDisplay() {
 
 //***************************************************************************************************
 void calculateGyroBias() {
-  // Calculate gyro bias by averaging transformed gyro readings while stationary
+  // Calculate gyro bias in SENSOR coordinates while stationary
   Serial.println("=== Calibrating Gyro Bias (please keep stationary) ===");
   
   const int GYRO_BIAS_SAMPLES = 200;
-  float sum_vert = 0.0;
-  float sum_horiz = 0.0;
-  float sum_up = 0.0;
+  float sum_x = 0.0;
+  float sum_y = 0.0;
+  float sum_z = 0.0;
   int valid_samples = 0;
   
   for (int i = 0; i < GYRO_BIAS_SAMPLES; i++) {
-    // Wait for new IMU data
     unsigned long start_wait = millis();
     bool data_ready = false;
     
@@ -1799,35 +1808,31 @@ void calculateGyroBias() {
     }
     
     if (data_ready) {
-      // Read raw gyro
+      // Read raw gyro - DON'T transform yet!
       qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
       
-      // Transform to car reference
-      float sensor_gyro[3] = {gyr.x, gyr.y, gyr.z};
-      float display_gyro[3];
-      applyInertialTransform(sensor_gyro, display_gyro);
-      
-      sum_vert += display_gyro[0];
-      sum_horiz += display_gyro[1];
-      sum_up += display_gyro[2];
+      sum_x += gyr.x;
+      sum_y += gyr.y;
+      sum_z += gyr.z;
       valid_samples++;
     }
   }
   
   if (valid_samples > 0) {
-    gyro_bias_vert = sum_vert / valid_samples;
-    gyro_bias_horiz = sum_horiz / valid_samples;
-    gyro_bias_up = sum_up / valid_samples;
+    // Store bias in SENSOR coordinates
+    gyro_bias_sensor_x = sum_x / valid_samples;
+    gyro_bias_sensor_y = sum_y / valid_samples;
+    gyro_bias_sensor_z = sum_z / valid_samples;
     
     Serial.print("  Gyro bias calculated from ");
     Serial.print(valid_samples);
-    Serial.println(" samples:");
-    Serial.print("    vert=");
-    Serial.print(gyro_bias_vert, 3);
-    Serial.print(" °/s, horiz=");
-    Serial.print(gyro_bias_horiz, 3);
-    Serial.print(" °/s, up=");
-    Serial.print(gyro_bias_up, 3);
+    Serial.println(" samples (sensor coordinates):");
+    Serial.print("    x=");
+    Serial.print(gyro_bias_sensor_x, 3);
+    Serial.print(" °/s, y=");
+    Serial.print(gyro_bias_sensor_y, 3);
+    Serial.print(" °/s, z=");
+    Serial.print(gyro_bias_sensor_z, 3);
     Serial.println(" °/s");
   } else {
     Serial.println("  WARNING: Failed to calculate gyro bias!");
@@ -1875,13 +1880,10 @@ void initializeInclinometer() {
 
 //***************************************************************************************************
 void integrateGyroAngles(float dt, float gyro_vert, float gyro_horiz, float gyro_up) {
-  // Integrate gyroscope rates to update angles, removing bias
-  // Pitch rotates around Y-axis (horiz), Roll rotates around X-axis (vert)
-  float pitch_rate = gyro_horiz - gyro_bias_horiz;
-  float roll_rate = gyro_vert - gyro_bias_vert;
-  
-  pitch_angle += pitch_rate * dt;
-  roll_angle += roll_rate * dt;
+  // Integrate gyroscope rates to update angles
+  // Bias already removed before transformation!
+  pitch_angle += gyro_horiz * dt;
+  roll_angle += gyro_vert * dt;
 }
 
 
@@ -1942,20 +1944,18 @@ void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel, flo
     effective_tau = 0.05;  // Very short tau, trust accel almost fully
   }
   else if (is_accelerating) {
-    // ACCELERATING (includes gentle 0.03G and normal 0.2G+)
     // Reject accelerometer contamination
     if (is_turning) {
-      effective_tau = INCLINOMETER_TAU * 3.0;  // 24s during turns
+      effective_tau = INCLINOMETER_TAU * 3.0;  // 18s during turns
     }
     else {
-      effective_tau = INCLINOMETER_TAU * 6.0;  // 48s for straight accel/braking
+      effective_tau = INCLINOMETER_TAU * 5.0;  // 30s for straight accel/braking
     }
   }
   else if (is_rotating) {
     // ROTATING but not accelerating (very rare - shouldn't happen with clean split)
-    effective_tau = INCLINOMETER_TAU;  // Normal tau = 8s
+    effective_tau = INCLINOMETER_TAU;  // Normal tau = 6s
   }
-  // Note: else case with default tau=8s is now unreachable with clean split
   
   // Time-based complementary filter
   float alpha = effective_tau / (effective_tau + dt);
