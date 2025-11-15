@@ -169,7 +169,7 @@ float sampling_frequency = 0.0; // Variable to hold the sampling frequency in Hz
 float pitch_angle = 0.0;              // Current pitch angle in degrees
 float roll_angle = 0.0;               // Current roll angle in degrees
 unsigned long last_inclinometer_update = 0;  // Timestamp for dt calculation
-const float INCLINOMETER_TAU = 8.0;   // Time constant in seconds (tune as needed) 2.0
+const float INCLINOMETER_TAU = 5.0;   // Time constant in seconds (tune as needed) 2.0
 bool inclinometer_initialized = false; // Flag to track initialization state
 // Gyro bias values (to be determined during calibration)
 float gyro_bias_vert = 0.0;
@@ -1906,14 +1906,14 @@ void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel, flo
   float pitch_error = abs(pitch_angle - pitch_accel);
   float roll_error = abs(roll_angle - roll_accel);
   
-  // CORRECT METHOD: Detect true acceleration by checking if total G deviates from 1.0
-  // When stationary (even on a slope): total G ≈ 1.0 (just gravity)
-  // When accelerating: total G ≠ 1.0 (gravity + linear acceleration)
+  // Method 1: Check horizontal acceleration (detects forward/lateral motion)
+  float horizontal_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
+                                acc_inertial.horiz * acc_inertial.horiz);
+  
+  // Method 2: Check total magnitude deviation from 1G
   float total_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
                            acc_inertial.horiz * acc_inertial.horiz + 
                            acc_inertial.up * acc_inertial.up);
-  
-  bool is_accelerating = (abs(total_accel - 1.0) > 0.08);  // >0.08G deviation from 1G
   
   // Detect if gyro shows actual rotation
   float gyro_magnitude = sqrt(gyro_vert*gyro_vert + gyro_horiz*gyro_horiz + gyro_up*gyro_up);
@@ -1923,17 +1923,27 @@ void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel, flo
   float lateral_accel = abs(acc_inertial.horiz);
   bool is_turning = (lateral_accel > 0.15);
   
-  // TRUE STATIONARY: No acceleration (total G ≈ 1.0) AND no rotation
-  bool is_stationary = (!is_accelerating && !is_rotating);
+  // CLEAN SPLIT at 0.03G threshold:
+  // Below 0.03G = stationary, Above 0.03G = accelerating
+  
+  // TRUE STATIONARY: gyro quiet AND minimal horizontal accel AND total ≈ 1G
+  bool is_stationary = (!is_rotating) && 
+                       (horizontal_accel < 0.20) && 
+                       (abs(total_accel - 0.95) < 0.08);
+  
+  // ACCELERATING: Any horizontal acceleration ≥ 0.03G
+  bool is_accelerating = (horizontal_accel >= 0.20);
   
   float effective_tau = INCLINOMETER_TAU;
   
-  // Priority 1: TRUE STATIONARY - trust accelerometer completely
+  // Apply filter based on state
   if (is_stationary) {
-    effective_tau = 0.5;  // Very short tau = trust accelerometer almost 100%
+    // TRUE STATIONARY - trust accelerometer completely
+    effective_tau = 0.05;  // Very short tau, trust accel almost fully
   }
-  // Priority 2: Accelerating
   else if (is_accelerating) {
+    // ACCELERATING (includes gentle 0.03G and normal 0.2G+)
+    // Reject accelerometer contamination
     if (is_turning) {
       effective_tau = INCLINOMETER_TAU * 3.0;  // 24s during turns
     }
@@ -1941,10 +1951,11 @@ void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel, flo
       effective_tau = INCLINOMETER_TAU * 6.0;  // 48s for straight accel/braking
     }
   }
-  // Priority 3: Rotating but not accelerating (rare - maybe turning in place)
   else if (is_rotating) {
+    // ROTATING but not accelerating (very rare - shouldn't happen with clean split)
     effective_tau = INCLINOMETER_TAU;  // Normal tau = 8s
   }
+  // Note: else case with default tau=8s is now unreachable with clean split
   
   // Time-based complementary filter
   float alpha = effective_tau / (effective_tau + dt);
