@@ -1930,23 +1930,23 @@ void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel, flo
   
   // TRUE STATIONARY: gyro quiet AND minimal horizontal accel AND total ≈ 1G
   bool is_stationary = (!is_rotating) && 
-                       (horizontal_accel < 0.20) && 
+                       (horizontal_accel < 0.15) && 
                        (abs(total_accel - 0.95) < 0.08);
   
-  // ACCELERATING: Any horizontal acceleration ≥ 0.03G
-  bool is_accelerating = (horizontal_accel >= 0.20);
+  // ACCELERATING: Any horizontal acceleration ≥ 0.15G
+  bool is_accelerating = (horizontal_accel >= 0.15);
   
   float effective_tau = INCLINOMETER_TAU;
   
   // Apply filter based on state
   if (is_stationary) {
     // TRUE STATIONARY - trust accelerometer completely
-    effective_tau = 0.05;  // Very short tau, trust accel almost fully
+    effective_tau = 0.1;  // Very short tau, trust accel almost fully
   }
   else if (is_accelerating) {
     // Reject accelerometer contamination
     if (is_turning) {
-      effective_tau = INCLINOMETER_TAU * 6.0;  // 48s during turns
+      effective_tau = INCLINOMETER_TAU * 7.0;  // 56s during turns
     }
     else {
       effective_tau = INCLINOMETER_TAU * 8.0;  // 64s for straight accel/braking
