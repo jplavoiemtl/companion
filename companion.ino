@@ -119,6 +119,12 @@ struct {
   float up;     // Up reference (display Z - should stay ~1g)
 } acc_inertial = {0.0, 0.0, 0.0};
 
+struct {
+  float vert;
+  float horiz;
+  float up;
+} gyr_inertial = {0.0, 0.0, 0.0};
+
 bool imuPeakInitialized = false;
 // Current change values for motion detection
 float currentAccelChange = 0;
@@ -1679,6 +1685,10 @@ void updateMotionState() {
     float sensor_gyro[3] = {gyr.x, gyr.y, gyr.z};
     float display_gyro[3];
     applyInertialTransform(sensor_gyro, display_gyro);
+
+    gyr_inertial.vert = display_gyro[0];
+    gyr_inertial.horiz = display_gyro[1];
+    gyr_inertial.up = display_gyro[2];
     
     // Update inclinometer with transformed gyro values
     updateInclinometer(display_gyro[0], display_gyro[1], display_gyro[2]);
@@ -1770,7 +1780,7 @@ void calculateGyroBias() {
   // Calculate gyro bias by averaging transformed gyro readings while stationary
   Serial.println("=== Calibrating Gyro Bias (please keep stationary) ===");
   
-  const int GYRO_BIAS_SAMPLES = 30;
+  const int GYRO_BIAS_SAMPLES = 200;
   float sum_vert = 0.0;
   float sum_horiz = 0.0;
   float sum_up = 0.0;
@@ -1840,7 +1850,7 @@ void initializeInclinometer() {
     calculateGyroBias();
     
     // Then calculate initial angles
-    pitch_angle = atan2(-acc_inertial.vert, acc_inertial.up) * 180.0 / PI;
+    pitch_angle = atan2(acc_inertial.vert, acc_inertial.up) * 180.0 / PI;
     roll_angle = atan2(acc_inertial.horiz, acc_inertial.up) * 180.0 / PI;
     
     last_inclinometer_update = micros();
@@ -1892,28 +1902,48 @@ void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
 
 
 //***************************************************************************************************
-void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel) {
+void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel, float gyro_vert, float gyro_horiz, float gyro_up) {
   float pitch_error = abs(pitch_angle - pitch_accel);
   float roll_error = abs(roll_angle - roll_accel);
   
-  // BETTER DETECTION: Check horizontal acceleration components directly
-  // During pure gravity (stationary): vert≈0, horiz≈0, up≈1.0
-  // During acceleration: vert and/or horiz become significant
-  float horizontal_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
-                                acc_inertial.horiz * acc_inertial.horiz);
+  // CORRECT METHOD: Detect true acceleration by checking if total G deviates from 1.0
+  // When stationary (even on a slope): total G ≈ 1.0 (just gravity)
+  // When accelerating: total G ≠ 1.0 (gravity + linear acceleration)
+  float total_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
+                           acc_inertial.horiz * acc_inertial.horiz + 
+                           acc_inertial.up * acc_inertial.up);
   
-  bool is_accelerating = (horizontal_accel > 0.08);  // >0.08G horizontal acceleration
+  bool is_accelerating = (abs(total_accel - 1.0) > 0.08);  // >0.08G deviation from 1G
+  
+  // Detect if gyro shows actual rotation
+  float gyro_magnitude = sqrt(gyro_vert*gyro_vert + gyro_horiz*gyro_horiz + gyro_up*gyro_up);
+  bool is_rotating = (gyro_magnitude > 10.0);  // >10°/s = actual rotation
+  
+  // Detect lateral acceleration (turning)
+  float lateral_accel = abs(acc_inertial.horiz);
+  bool is_turning = (lateral_accel > 0.15);
+  
+  // TRUE STATIONARY: No acceleration (total G ≈ 1.0) AND no rotation
+  bool is_stationary = (!is_accelerating && !is_rotating);
   
   float effective_tau = INCLINOMETER_TAU;
   
-  // CRITICAL: Check acceleration FIRST, before error-based correction
-  if (is_accelerating) {
-    // During acceleration, use very long tau to ignore accelerometer
-    effective_tau = INCLINOMETER_TAU * 6.0;  // 8.0 * 6 = 48 seconds
+  // Priority 1: TRUE STATIONARY - trust accelerometer completely
+  if (is_stationary) {
+    effective_tau = 0.5;  // Very short tau = trust accelerometer almost 100%
   }
-  // Only do fast correction if stationary AND large error
-  else if (pitch_error > 5.0 || roll_error > 5.0) {
-    effective_tau = 2.0;
+  // Priority 2: Accelerating
+  else if (is_accelerating) {
+    if (is_turning) {
+      effective_tau = INCLINOMETER_TAU * 3.0;  // 24s during turns
+    }
+    else {
+      effective_tau = INCLINOMETER_TAU * 6.0;  // 48s for straight accel/braking
+    }
+  }
+  // Priority 3: Rotating but not accelerating (rare - maybe turning in place)
+  else if (is_rotating) {
+    effective_tau = INCLINOMETER_TAU;  // Normal tau = 8s
   }
   
   // Time-based complementary filter
@@ -1965,7 +1995,7 @@ void updateInclinometer(float gyro_vert, float gyro_horiz, float gyro_up) {
   
   // Step 3: Fuse predictions and measurements
   // The complementary filter handles dynamic acceleration detection
-  applyComplementaryFilter(dt_incl, pitch_accel, roll_accel);
+  applyComplementaryFilter(dt_incl, pitch_accel, roll_accel, gyro_vert, gyro_horiz, gyro_up);
   
   last_inclinometer_update = current_time_incl;
 }
@@ -2401,19 +2431,21 @@ void readImuData() {
   if (imuPeakInitialized) {     
 
     // Create JSON payload with both peak magnitudes, change values, and display peaks
-    char payload[512];  // Increased buffer size to accommodate new fields
+    char payload[650];  // Increased buffer size for additional gyro fields 600
     snprintf(payload, sizeof(payload), 
             "{\"accel_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
             "\"gyro_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
             "\"accel_change\":%.2f,\"gyro_change\":%.2f,"
             "\"inertial\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
+            "\"gyro_car\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
             "\"pitch\":%.2f,\"roll\":%.2f}", 
             acc_peak.x, acc_peak.y, acc_peak.z, acc_peak.magnitude,
             gyr_peak.x, gyr_peak.y, gyr_peak.z, gyr_peak.magnitude,
             peakAccelChange, peakGyroChange,
             acc_inertial.vert, acc_inertial.horiz, acc_inertial.up,
-            pitch_angle, roll_angle); 
-    
+            gyr_inertial.vert, gyr_inertial.horiz, gyr_inertial.up,
+            pitch_angle, roll_angle);  
+
     // Publish to IMU topic
     if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
       mqttClient.publish(IMU_TOPIC, payload);
@@ -2850,6 +2882,8 @@ void initMQTT() {
     }
     
     USBSerial.println("Attempting initial MQTT connection...");
+
+    mqttClient.setBufferSize(512);  // Add this before MQTT connection attempts
     
     for (int i = 0; i < 3; i++) {
         checkMQTT(true);  // Bypass rate limiting during setup
