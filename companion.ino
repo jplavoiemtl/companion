@@ -174,7 +174,7 @@ float sampling_frequency = 0.0; // Variable to hold the sampling frequency in Hz
 float pitch_angle = 0.0;              // Current pitch angle in degrees
 float roll_angle = 0.0;               // Current roll angle in degrees
 unsigned long last_inclinometer_update = 0;  // Timestamp for dt calculation
-const float INCLINOMETER_TAU = 6.0;   // Time constant in seconds (tune as needed)
+const float INCLINOMETER_TAU = 8.0;   // Time constant in seconds (tune as needed)
 bool inclinometer_initialized = false; // Flag to track initialization state
 // Gyro bias values (to be determined during calibration)
 float gyro_bias_vert = 0.0;
@@ -1946,10 +1946,10 @@ void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel, flo
   else if (is_accelerating) {
     // Reject accelerometer contamination
     if (is_turning) {
-      effective_tau = INCLINOMETER_TAU * 3.0;  // 18s during turns
+      effective_tau = INCLINOMETER_TAU * 6.0;  // 48s during turns
     }
     else {
-      effective_tau = INCLINOMETER_TAU * 5.0;  // 30s for straight accel/braking
+      effective_tau = INCLINOMETER_TAU * 8.0;  // 64s for straight accel/braking
     }
   }
   else if (is_rotating) {
