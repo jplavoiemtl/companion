@@ -1904,31 +1904,17 @@ void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
 
 
 //***************************************************************************************************
-void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel, float gyro_vert, float gyro_horiz, float gyro_up) {
-  // Calculate horizontal acceleration
-  float horizontal_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
-                                acc_inertial.horiz * acc_inertial.horiz);
-  
-  // Calculate total acceleration
-  float total_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
-                           acc_inertial.horiz * acc_inertial.horiz + 
-                           acc_inertial.up * acc_inertial.up);
-  
-  // Detect if gyro shows rotation
-  float gyro_magnitude = sqrt(gyro_vert*gyro_vert + gyro_horiz*gyro_horiz + gyro_up*gyro_up);
-  bool is_rotating = (gyro_magnitude > 10.0);
-  
-  // Simple 2-state logic: Stationary vs. Moving
-  bool is_stationary = (!is_rotating) && 
-                       (horizontal_accel < 0.15) && 
-                       (abs(total_accel - 0.95) < 0.08);
+void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel) {
+  // Detect lateral acceleration (turning)
+  float lateral_accel = abs(acc_inertial.horiz);
+  bool is_turning = (lateral_accel > 0.20);
   
   float effective_tau;
   
-  if (is_stationary) {
-    effective_tau = 2.0;  // Fast correction at stops  0.1
+  if (is_turning) {
+    effective_tau = 10.0;  // Long tau during turns to reject lateral accel contamination
   } else {
-    effective_tau = 2.0;  // Stable during all motion  20.0
+    effective_tau = 2.0;   // Normal tau everywhere else (stops, straight accel/brake)
   }
   
   // Complementary filter
@@ -1979,7 +1965,7 @@ void updateInclinometer(float gyro_vert, float gyro_horiz, float gyro_up) {
   
   // Step 3: Fuse predictions and measurements
   // The complementary filter handles dynamic acceleration detection
-  applyComplementaryFilter(dt_incl, pitch_accel, roll_accel, gyro_vert, gyro_horiz, gyro_up);
+  applyComplementaryFilter(dt_incl, pitch_accel, roll_accel);
   
   last_inclinometer_update = current_time_incl;
 }
