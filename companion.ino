@@ -1905,62 +1905,35 @@ void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
 
 //***************************************************************************************************
 void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel, float gyro_vert, float gyro_horiz, float gyro_up) {
-  float pitch_error = abs(pitch_angle - pitch_accel);
-  float roll_error = abs(roll_angle - roll_accel);
-  
-  // Method 1: Check horizontal acceleration (detects forward/lateral motion)
+  // Calculate horizontal acceleration
   float horizontal_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
                                 acc_inertial.horiz * acc_inertial.horiz);
   
-  // Method 2: Check total magnitude deviation from 1G
+  // Calculate total acceleration
   float total_accel = sqrt(acc_inertial.vert * acc_inertial.vert + 
                            acc_inertial.horiz * acc_inertial.horiz + 
                            acc_inertial.up * acc_inertial.up);
   
-  // Detect if gyro shows actual rotation
+  // Detect if gyro shows rotation
   float gyro_magnitude = sqrt(gyro_vert*gyro_vert + gyro_horiz*gyro_horiz + gyro_up*gyro_up);
-  bool is_rotating = (gyro_magnitude > 10.0);  // >10°/s = actual rotation
+  bool is_rotating = (gyro_magnitude > 10.0);
   
-  // Detect lateral acceleration (turning)
-  float lateral_accel = abs(acc_inertial.horiz);
-  bool is_turning = (lateral_accel > 0.15);
-  
-  // CLEAN SPLIT at 0.03G threshold:
-  // Below 0.03G = stationary, Above 0.03G = accelerating
-  
-  // TRUE STATIONARY: gyro quiet AND minimal horizontal accel AND total ≈ 1G
+  // Simple 2-state logic: Stationary vs. Moving
   bool is_stationary = (!is_rotating) && 
                        (horizontal_accel < 0.15) && 
                        (abs(total_accel - 0.95) < 0.08);
   
-  // ACCELERATING: Any horizontal acceleration ≥ 0.15G
-  bool is_accelerating = (horizontal_accel >= 0.15);
+  float effective_tau;
   
-  float effective_tau = INCLINOMETER_TAU;
-  
-  // Apply filter based on state
   if (is_stationary) {
-    // TRUE STATIONARY - trust accelerometer completely
-    effective_tau = 0.1;  // Very short tau, trust accel almost fully
-  }
-  else if (is_accelerating) {
-    // Reject accelerometer contamination
-    if (is_turning) {
-      effective_tau = INCLINOMETER_TAU * 7.0;  // 56s during turns
-    }
-    else {
-      effective_tau = INCLINOMETER_TAU * 8.0;  // 64s for straight accel/braking
-    }
-  }
-  else if (is_rotating) {
-    // ROTATING but not accelerating (very rare - shouldn't happen with clean split)
-    effective_tau = INCLINOMETER_TAU;  // Normal tau = 6s
+    effective_tau = 2.0;  // Fast correction at stops  0.1
+  } else {
+    effective_tau = 2.0;  // Stable during all motion  20.0
   }
   
-  // Time-based complementary filter
+  // Complementary filter
   float alpha = effective_tau / (effective_tau + dt);
   
-  // Blend gyro prediction with accelerometer measurement
   pitch_angle = alpha * pitch_angle + (1.0 - alpha) * pitch_accel;
   roll_angle = alpha * roll_angle + (1.0 - alpha) * roll_accel;
   
