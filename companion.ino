@@ -203,6 +203,8 @@ const float BIAS_LEARN_BETA = 0.001f;   // bias IIR gain when stationary (0.0005
 const float ACCEL_MAG_THRESHOLD = 0.15f; // g deviation threshold for accel reliability
 const float GYRO_TRUST_SCALE = 0.02f;   // multiplier for gyro magnitude to scale tau
 const float MAX_GYRO_SCALE = 3.0f;      // clamp scaling factor contribution
+float last_effective_tau = 0.0f;
+float last_alpha = 0.0f;
 
 
 // --- Global Objects ---
@@ -1727,6 +1729,15 @@ void updateMotionState() {
     gyr_inertial.vert = display_gyro[0];
     gyr_inertial.horiz = display_gyro[1];
     gyr_inertial.up = display_gyro[2];
+
+    // Calculate gyroscope magnitude and change (use bias-corrected inertial gyro)
+    float gyroInstant = sqrt(gyr_inertial.vert  * gyr_inertial.vert +
+                            gyr_inertial.horiz * gyr_inertial.horiz +
+                            gyr_inertial.up    * gyr_inertial.up);
+
+    // Optional: low-pass filter it a bit for stability
+    const float GYRO_MAG_ALPHA = 0.9f;  // keep 90% old, 10% new
+    gyro_magnitude = GYRO_MAG_ALPHA * gyro_magnitude + (1.0f - GYRO_MAG_ALPHA) * gyroInstant;    
     
     // Update inclinometer with transformed gyro values
     updateInclinometer(display_gyro[0], display_gyro[1], display_gyro[2]);
@@ -1968,65 +1979,93 @@ void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
 
 
 //***************************************************************************************************
+// Centralized, adaptive complementary filter
 void applyComplementaryFilter(float dt,
                               float pitch_accel,
                               float roll_accel) {
-  // Use global gyro-predicted angles: pitch_gyro, roll_gyro
-  // Use accel_reliable, accel_magnitude, gyro_magnitude globals provided by updateMotionState()
+  if (dt <= 0.0f) return;
 
-  // 1) Determine base effective_tau from motion (your original 3-state logic)
+  // === 1) Derive inertial features (from car-frame accel & gyro) ===
+  // Forward/back accel (pitch contamination) -> vert axis
   float forward_accel = fabs(acc_inertial.vert);
+  // Lateral accel (roll contamination) -> horiz axis
   float lateral_accel = fabs(acc_inertial.horiz);
-  bool is_turning = (lateral_accel > 0.20f);
+
+  // Base motion classification (same idea as your original logic)
+  bool is_turning        = (lateral_accel > 0.20f);
   bool is_straight_accel = (!is_turning) && (forward_accel > 0.15f);
 
+  // A very simple "nearly still" heuristic
+  bool is_nearly_still = (!g_isCurrentlyMoving &&
+                          accel_reliable &&
+                          gyro_magnitude < 1.0f &&
+                          fabs(forward_accel) < 0.05f &&
+                          fabs(lateral_accel) < 0.05f);
+
+  // === 2) Choose base tau from motion state ===
   float effective_tau;
+
   if (is_turning) {
+    // Turning: lateral accel pollutes roll -> trust gyro a lot
     effective_tau = 15.0f;
   } else if (is_straight_accel) {
+    // Straight accel/braking: pitch polluted -> medium trust gyro
     effective_tau = 6.0f;
   } else {
+    // Cruising / gently moving / stopped
     effective_tau = 2.0f;
   }
 
-  // 2) Adjust tau using gyro magnitude: when rotating faster, trust gyro more
-  // gyro_magnitude is in deg/s (set in updateMotionState)
-  float gyro_scale = 1.0f + GYRO_TRUST_SCALE * gyro_magnitude;
+  // If we are very still and accel is clean, let accel correct more aggressively
+  if (is_nearly_still) {
+    effective_tau = 1.0f;   // faster convergence to true gravity
+  }
+
+  // === 3) Adjust tau with gyro magnitude (rotation speed) ===
+  // When rotating faster, gyro is more trustworthy, so increase tau
+  float gyro_scale = 1.0f + GYRO_TRUST_SCALE * gyro_magnitude;  // gyro_magnitude in deg/s
   if (gyro_scale > MAX_GYRO_SCALE) gyro_scale = MAX_GYRO_SCALE;
   effective_tau *= gyro_scale;
 
-  // 3) If accel magnitude deviates strongly from 1g, treat accel as unreliable and suppress it
+  // === 4) Suppress accel if its magnitude is not near 1g ===
+  // accel_reliable and accel_magnitude already computed in calculateAccelAngles()
   if (!accel_reliable) {
-    // Make accel corrections very slow (large tau) so gyro dominates
-    effective_tau = max(effective_tau, 30.0f);
+    // Accelerometer likely contaminated by linear motion:
+    // make tau large so accel correction becomes extremely slow
+    if (effective_tau < 30.0f) effective_tau = 30.0f;
   }
 
-  // 4) Compute alpha (complementary weight)
+  // Clamp tau to safe bounds (avoid numerical weirdness)
+  if (effective_tau < 0.2f)  effective_tau = 0.2f;
+  if (effective_tau > 60.0f) effective_tau = 60.0f;
+
+  // === 5) Compute alpha for complementary filter ===
   float alpha = effective_tau / (effective_tau + dt);
   if (alpha < 0.0f) alpha = 0.0f;
   if (alpha > 1.0f) alpha = 1.0f;
 
-  // 5) Fuse: use gyro prediction as the fast channel + accel as slow-correcting channel
+  // === 6) Fuse gyro prediction with accel tilt ===
   float fused_pitch = alpha * pitch_gyro + (1.0f - alpha) * pitch_accel;
   float fused_roll  = alpha * roll_gyro  + (1.0f - alpha) * roll_accel;
 
-  // 6) Normalize to -180..180
+  // Normalize to -180..180
   if (fused_pitch > 180.0f) fused_pitch -= 360.0f;
   if (fused_pitch < -180.0f) fused_pitch += 360.0f;
-  if (fused_roll > 180.0f) fused_roll -= 360.0f;
-  if (fused_roll < -180.0f) fused_roll += 360.0f;
+  if (fused_roll > 180.0f)  fused_roll  -= 360.0f;
+  if (fused_roll < -180.0f) fused_roll  += 360.0f;
 
-  // 7) Output fused angles to global fused state
+  // === 7) Output fused angles ===
   pitch_angle = fused_pitch;
   roll_angle  = fused_roll;
 
-  // 8) Resynchronize gyro-only angles to fused state to prevent runaway drift
-  // Option 1: immediate resync (safe)
+  // === 8) Resync gyro state to fused angles ===
+  // This prevents gyro-only integration from drifting away from the fused solution.
   pitch_gyro = fused_pitch;
   roll_gyro  = fused_roll;
 
-  // Option 2 (alternative): slowly nudge gyro state toward fused to avoid abrupt resets
-  // pitch_gyro = pitch_gyro * 0.99f + fused_pitch * 0.01f; // example small blending
+  // Optional: store tau and alpha in globals for MQTT debugging
+  last_effective_tau = effective_tau;
+  last_alpha = alpha;
 }
 
 
@@ -2507,24 +2546,26 @@ void readImuData() {
     // accel_rel      -> accel reliability flag (0 or 1) from accel_reliable
     // pitch_gyro/roll_gyro -> gyro-only integrated angles (deg)
     snprintf(payload, sizeof(payload), 
-            "{\"accel_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
-            "\"gyro_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
-            "\"accel_change\":%.2f,\"gyro_change\":%.2f,"
-            "\"inertial\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
-            "\"gyro_car\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
-            "\"pitch\":%.2f,\"roll\":%.2f,"
-            "\"accel_mag\":%.2f,\"gyro_mag\":%.2f,"
-            "\"accel_rel\":%d,"
-            "\"pitch_gyro\":%.2f,\"roll_gyro\":%.2f}", 
-            acc_peak.x, acc_peak.y, acc_peak.z, acc_peak.magnitude,
-            gyr_peak.x, gyr_peak.y, gyr_peak.z, gyr_peak.magnitude,
-            peakAccelChange, peakGyroChange,
-            acc_inertial.vert, acc_inertial.horiz, acc_inertial.up,
-            gyr_inertial.vert, gyr_inertial.horiz, gyr_inertial.up,
-            pitch_angle, roll_angle,
-            accel_magnitude, gyro_magnitude,
-            accel_reliable ? 1 : 0,
-            pitch_gyro, roll_gyro);  
+        "{\"accel_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
+        "\"gyro_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
+        "\"accel_change\":%.2f,\"gyro_change\":%.2f,"
+        "\"inertial\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
+        "\"gyro_car\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
+        "\"pitch\":%.2f,\"roll\":%.2f,"
+        "\"accel_mag\":%.2f,\"gyro_mag\":%.2f,"
+        "\"accel_rel\":%d,"
+        "\"pitch_gyro\":%.2f,\"roll_gyro\":%.2f,"
+        "\"tau\":%.2f,\"alpha\":%.3f}", 
+        acc_peak.x, acc_peak.y, acc_peak.z, acc_peak.magnitude,
+        gyr_peak.x, gyr_peak.y, gyr_peak.z, gyr_peak.magnitude,
+        peakAccelChange, peakGyroChange,
+        acc_inertial.vert, acc_inertial.horiz, acc_inertial.up,
+        gyr_inertial.vert, gyr_inertial.horiz, gyr_inertial.up,
+        pitch_angle, roll_angle,
+        accel_magnitude, gyro_magnitude,
+        accel_reliable ? 1 : 0,
+        pitch_gyro, roll_gyro,
+        last_effective_tau, last_alpha);
 
     // Publish to IMU topic
     if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
