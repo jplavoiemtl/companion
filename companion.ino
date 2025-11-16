@@ -2500,20 +2500,31 @@ void readImuData() {
   if (imuPeakInitialized) {     
 
     // Create JSON payload with both peak magnitudes, change values, and display peaks
-    char payload[650];  // Increased buffer size for additional gyro fields 600
+    char payload[650];  // Buffer size for MQTT payload
+
+    // accel_mag      -> LPF'd accel magnitude (global accel_magnitude)
+    // gyro_mag       -> gyro magnitude (global gyro_magnitude)
+    // accel_rel      -> accel reliability flag (0 or 1) from accel_reliable
+    // pitch_gyro/roll_gyro -> gyro-only integrated angles (deg)
     snprintf(payload, sizeof(payload), 
             "{\"accel_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
             "\"gyro_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
             "\"accel_change\":%.2f,\"gyro_change\":%.2f,"
             "\"inertial\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
             "\"gyro_car\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
-            "\"pitch\":%.2f,\"roll\":%.2f}", 
+            "\"pitch\":%.2f,\"roll\":%.2f,"
+            "\"accel_mag\":%.2f,\"gyro_mag\":%.2f,"
+            "\"accel_rel\":%d,"
+            "\"pitch_gyro\":%.2f,\"roll_gyro\":%.2f}", 
             acc_peak.x, acc_peak.y, acc_peak.z, acc_peak.magnitude,
             gyr_peak.x, gyr_peak.y, gyr_peak.z, gyr_peak.magnitude,
             peakAccelChange, peakGyroChange,
             acc_inertial.vert, acc_inertial.horiz, acc_inertial.up,
             gyr_inertial.vert, gyr_inertial.horiz, gyr_inertial.up,
-            pitch_angle, roll_angle);  
+            pitch_angle, roll_angle,
+            accel_magnitude, gyro_magnitude,
+            accel_reliable ? 1 : 0,
+            pitch_gyro, roll_gyro);  
 
     // Publish to IMU topic
     if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
