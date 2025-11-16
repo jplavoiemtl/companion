@@ -183,6 +183,27 @@ float gyro_bias_up = 0.0;
 unsigned long last_inclinometer_display_update = 0;
 const unsigned long INCLINOMETER_DISPLAY_INTERVAL = 500; // 200ms = 5 Hz, 500
 
+// --- Filter/estimator state (add these near other globals) ---
+float pitch_gyro = 0.0f;   // gyro-only integrated pitch (degrees)
+float roll_gyro  = 0.0f;   // gyro-only integrated roll  (degrees)
+
+// LPF state for accelerometer components (in inertial car frame)
+float acc_lp_vert = 0.0f;
+float acc_lp_horiz = 0.0f;
+float acc_lp_up = 0.0f;
+
+// Confidence flags exposed from motion detection
+bool accel_reliable = true;
+float accel_magnitude = 1.0f;   // instantaneous |a|
+float gyro_magnitude = 0.0f;    // instantaneous |omega|
+
+// Tuning parameters (adjust later if you want)
+const float ACCEL_LPF_TAU = 0.05f;      // seconds (IIR time constant for accel components)
+const float BIAS_LEARN_BETA = 0.001f;   // bias IIR gain when stationary (0.0005 - 0.005)
+const float ACCEL_MAG_THRESHOLD = 0.15f; // g deviation threshold for accel reliability
+const float GYRO_TRUST_SCALE = 0.02f;   // multiplier for gyro magnitude to scale tau
+const float MAX_GYRO_SCALE = 3.0f;      // clamp scaling factor contribution
+
 
 // --- Global Objects ---
 HWCDC USBSerial;
@@ -1664,6 +1685,13 @@ void updateMotionState() {
           g_isCurrentlyMoving = false;
         }
       }
+      // >>> INSERT NEW CODE HERE (gyro bias learning when stationary)
+      if (!g_isCurrentlyMoving && accel_reliable && (gyro_magnitude < 2.0f)) {
+        // Slowly adapt gyro bias in sensor coordinates
+        gyro_bias_sensor_x = gyro_bias_sensor_x * (1.0f - BIAS_LEARN_BETA) + gyr.x * BIAS_LEARN_BETA;
+        gyro_bias_sensor_y = gyro_bias_sensor_y * (1.0f - BIAS_LEARN_BETA) + gyr.y * BIAS_LEARN_BETA;
+        gyro_bias_sensor_z = gyro_bias_sensor_z * (1.0f - BIAS_LEARN_BETA) + gyr.z * BIAS_LEARN_BETA;
+      }
     }
 
     // === G-METER INERTIAL DISPLAY layout ===
@@ -1858,6 +1886,15 @@ void initializeInclinometer() {
     pitch_angle = atan2(acc_inertial.vert, acc_inertial.up) * 180.0 / PI;
     roll_angle = atan2(acc_inertial.horiz, acc_inertial.up) * 180.0 / PI;
     
+    // Sync gyro-only angles with the accel-derived initial orientation
+    pitch_gyro = pitch_angle;
+    roll_gyro = roll_angle;
+
+    // Initialize accel LPF state
+    acc_lp_vert = acc_inertial.vert;
+    acc_lp_horiz = acc_inertial.horiz;
+    acc_lp_up = acc_inertial.up;
+
     last_inclinometer_update = micros();
     inclinometer_initialized = true;
     
@@ -1880,54 +1917,116 @@ void initializeInclinometer() {
 
 //***************************************************************************************************
 void integrateGyroAngles(float dt, float gyro_vert, float gyro_horiz, float gyro_up) {
-  // Integrate gyroscope rates to update angles
-  // Bias already removed before transformation!
-  pitch_angle += gyro_horiz * dt;
-  roll_angle += gyro_vert * dt;
+  // Here gyro_* are already in the car/inertial frame (gyr_inertial) and bias-subtracted
+  // They are in degrees/second (QMI8658 typical)
+  if (dt <= 0.0f) return;
+
+  // Integrate gyro rates to update gyro-only angles
+  // NOTE: mapping depends on your coordinate convention; this follows your prior usage:
+  pitch_gyro += gyro_horiz * dt;
+  roll_gyro  += gyro_vert  * dt;
+
+  // Keep gyro-only angles in -180..180 range
+  if (pitch_gyro > 180.0f) pitch_gyro -= 360.0f;
+  if (pitch_gyro < -180.0f) pitch_gyro += 360.0f;
+  if (roll_gyro > 180.0f) roll_gyro -= 360.0f;
+  if (roll_gyro < -180.0f) roll_gyro += 360.0f;
 }
 
 
 //***************************************************************************************************
 void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
-  // Calculate pitch and roll from accelerometer (gravity vector)
-  // This gives the actual orientation relative to gravity
-  
-  if (abs(acc_inertial.up) > 0.1) {  // Avoid division by near-zero
-    pitch_accel = atan2(acc_inertial.vert, acc_inertial.up) * 180.0 / PI;
-    roll_accel = atan2(acc_inertial.horiz, acc_inertial.up) * 180.0 / PI;
+  // Apply simple 1-pole IIR low-pass to acc_inertial components to reduce vibration noise
+  // acc_inertial.vert/horiz/up are expected to be normalized to 'g' (approx -1..+1)
+  // Calculate LPF alpha from tau and last dt stored globally (dt from updateMotionState)
+  // dt should be reasonably small (e.g., 0.01s). Guard against zero.
+  float effective_dt = dt;
+  if (effective_dt <= 0.0f) effective_dt = 0.01f;
+  float alpha = effective_dt / (ACCEL_LPF_TAU + effective_dt); // standard 1-pole IIR alpha
+
+  // LPF the accelerometer components (inertial/car frame)
+  acc_lp_vert  = acc_lp_vert  * (1.0f - alpha) + acc_inertial.vert  * alpha;
+  acc_lp_horiz = acc_lp_horiz * (1.0f - alpha) + acc_inertial.horiz * alpha;
+  acc_lp_up    = acc_lp_up    * (1.0f - alpha) + acc_inertial.up    * alpha;
+
+  // Compute accel magnitude and reliability
+  accel_magnitude = sqrt(acc_lp_vert*acc_lp_vert + acc_lp_horiz*acc_lp_horiz + acc_lp_up*acc_lp_up);
+  float mag_err = fabs(accel_magnitude - 1.0f);
+  accel_reliable = (mag_err <= ACCEL_MAG_THRESHOLD);
+
+  // Compute accel-derived tilt angles if up component is meaningful
+  if (fabs(acc_lp_up) > 0.05f) {  // avoid division by near-zero and extreme gimbal situations
+    pitch_accel = atan2(acc_lp_vert, acc_lp_up) * 180.0f / PI;
+    roll_accel  = atan2(acc_lp_horiz, acc_lp_up) * 180.0f / PI;
   } else {
-    // Near 90° pitch or roll - use current angles
-    pitch_accel = pitch_angle;
-    roll_accel = roll_angle;
+    // If unreliable geometry, fallback to gyro angles
+    pitch_accel = pitch_gyro;
+    roll_accel  = roll_gyro;
   }
 }
 
 
+
 //***************************************************************************************************
-void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel) {
-  // Detect lateral acceleration (turning)
-  float lateral_accel = abs(acc_inertial.horiz);
-  bool is_turning = (lateral_accel > 0.20);
-  
+void applyComplementaryFilter(float dt,
+                              float pitch_accel,
+                              float roll_accel) {
+  // Use global gyro-predicted angles: pitch_gyro, roll_gyro
+  // Use accel_reliable, accel_magnitude, gyro_magnitude globals provided by updateMotionState()
+
+  // 1) Determine base effective_tau from motion (your original 3-state logic)
+  float forward_accel = fabs(acc_inertial.vert);
+  float lateral_accel = fabs(acc_inertial.horiz);
+  bool is_turning = (lateral_accel > 0.20f);
+  bool is_straight_accel = (!is_turning) && (forward_accel > 0.15f);
+
   float effective_tau;
-  
   if (is_turning) {
-    effective_tau = 10.0;  // Long tau during turns to reject lateral accel contamination
+    effective_tau = 15.0f;
+  } else if (is_straight_accel) {
+    effective_tau = 6.0f;
   } else {
-    effective_tau = 2.0;   // Normal tau everywhere else (stops, straight accel/brake)
+    effective_tau = 2.0f;
   }
-  
-  // Complementary filter
+
+  // 2) Adjust tau using gyro magnitude: when rotating faster, trust gyro more
+  // gyro_magnitude is in deg/s (set in updateMotionState)
+  float gyro_scale = 1.0f + GYRO_TRUST_SCALE * gyro_magnitude;
+  if (gyro_scale > MAX_GYRO_SCALE) gyro_scale = MAX_GYRO_SCALE;
+  effective_tau *= gyro_scale;
+
+  // 3) If accel magnitude deviates strongly from 1g, treat accel as unreliable and suppress it
+  if (!accel_reliable) {
+    // Make accel corrections very slow (large tau) so gyro dominates
+    effective_tau = max(effective_tau, 30.0f);
+  }
+
+  // 4) Compute alpha (complementary weight)
   float alpha = effective_tau / (effective_tau + dt);
-  
-  pitch_angle = alpha * pitch_angle + (1.0 - alpha) * pitch_accel;
-  roll_angle = alpha * roll_angle + (1.0 - alpha) * roll_accel;
-  
-  // Keep angles in -180 to +180 range
-  if (pitch_angle > 180.0) pitch_angle -= 360.0;
-  if (pitch_angle < -180.0) pitch_angle += 360.0;
-  if (roll_angle > 180.0) roll_angle -= 360.0;
-  if (roll_angle < -180.0) roll_angle += 360.0;
+  if (alpha < 0.0f) alpha = 0.0f;
+  if (alpha > 1.0f) alpha = 1.0f;
+
+  // 5) Fuse: use gyro prediction as the fast channel + accel as slow-correcting channel
+  float fused_pitch = alpha * pitch_gyro + (1.0f - alpha) * pitch_accel;
+  float fused_roll  = alpha * roll_gyro  + (1.0f - alpha) * roll_accel;
+
+  // 6) Normalize to -180..180
+  if (fused_pitch > 180.0f) fused_pitch -= 360.0f;
+  if (fused_pitch < -180.0f) fused_pitch += 360.0f;
+  if (fused_roll > 180.0f) fused_roll -= 360.0f;
+  if (fused_roll < -180.0f) fused_roll += 360.0f;
+
+  // 7) Output fused angles to global fused state
+  pitch_angle = fused_pitch;
+  roll_angle  = fused_roll;
+
+  // 8) Resynchronize gyro-only angles to fused state to prevent runaway drift
+  // Option 1: immediate resync (safe)
+  pitch_gyro = fused_pitch;
+  roll_gyro  = fused_roll;
+
+  // Option 2 (alternative): slowly nudge gyro state toward fused to avoid abrupt resets
+  // pitch_gyro = pitch_gyro * 0.99f + fused_pitch * 0.01f; // example small blending
 }
 
 
