@@ -2010,123 +2010,92 @@ void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
 
 //***************************************************************************************************
 // Centralized, adaptive complementary filter
-void applyComplementaryFilter(float dt,
-                              float pitch_accel,
-                              float roll_accel){
-    if (dt <= 0.0f) return;
+void applyComplementaryFilter(float dt, float pitch_accel, float roll_accel)
+{
+    // Read inertial accelerations
+    float a_vert  = acc_inertial.vert;   // forward/backward
+    float a_horiz = acc_inertial.horiz;  // lateral (turn indicator)
+    float lat_g   = fabs(a_horiz);
+    float fwd_g   = fabs(a_vert);
 
-    // ------------------------------------------------------------
-    // 1) Extract inertial accelerations in car frame
-    // ------------------------------------------------------------
-    float forward_g = fabsf(acc_inertial.vert);   // braking / accel
-    float lateral_g = fabsf(acc_inertial.horiz);  // turning
+    // -------------------------------
+    // 1. TURN DETECTION (LATERAL G ONLY)
+    // -------------------------------
+    const float TURN_SOFT  = 0.07f;   // mild curve
+    const float TURN_HARD  = 0.15f;   // strong turn
+    const float TURN_EXTREME = 0.30f; // highway belt turn
 
-    // ------------------------------------------------------------
-    // 2) Base tau depending on motion state
-    //    (turn detection uses lateral_g ONLY, as agreed)
-    // ------------------------------------------------------------
-    float tau = BASE_TAU_CRUISE;
+    const float STRAIGHT_ACCEL = 0.10f; // strong accel/braking
+    
+    float tau = 1.5f; // base
 
-    // Straight-line accel/braking (no significant turning)
-    if (lateral_g < LAT_TURN_MILD_G) {
-        if (forward_g > FWD_ACCEL_STRONG_G) {
-            tau = TAU_STRAIGHT_STRONG;      // stronger accel/brake
-        } else if (forward_g > FWD_ACCEL_MILD_G) {
-            tau = 4.0f;                     // mild accel/brake
-        } else {
-            tau = BASE_TAU_CRUISE;          // gentle cruising
-        }
+    // ================================
+    // STRONG DAMPING PROFILE
+    // ================================
+
+    // -------------------------------
+    // A) EXTREME TURNS → MAX DAMPING
+    // -------------------------------
+    if (lat_g > TURN_EXTREME) {
+        tau = 12.0f;   // strong damping, but safe
     }
 
-    // Turn detection based ONLY on lateral_g
-    if (lateral_g > LAT_TURN_MILD_G) {
-        tau = TAU_TURN_MILD;                // mild curve
-    }
-    if (lateral_g > LAT_TURN_STRONG_G) {
-        tau = TAU_TURN_STRONG;              // normal belt turn
-    }
-    if (lateral_g > LAT_TURN_EXTREME_G) {
-        tau = TAU_TURN_EXTREME;             // aggressive ramp
+    // -------------------------------
+    // B) STRONG TURNS
+    // -------------------------------
+    else if (lat_g > TURN_HARD) {
+        tau = 10.0f;
     }
 
-    // ------------------------------------------------------------
-    // 3) Accel reliability: if accel and gyro disagree a lot,
-    //    gently increase tau, but don't explode it.
-    // ------------------------------------------------------------
-    if (!accel_reliable) {
-        // accel_tilt_error_deg is typically 0..30+
-        // add some tau, but we'll clamp later
-        tau += 0.1f * accel_tilt_error_deg;   // e.g. 30° -> +3s
+    // -------------------------------
+    // C) MILD TURNS
+    // -------------------------------
+    else if (lat_g > TURN_SOFT) {
+        tau = 6.0f;
     }
 
-    // ------------------------------------------------------------
-    // 4) Gyro magnitude scaling (mild)
-    // ------------------------------------------------------------
-    if (gyro_magnitude > 2.0f) {  // ignore tiny noise
-        float gyro_scale = 1.0f + 0.01f * gyro_magnitude; // +1% per deg/s
-        if (gyro_scale > 2.0f) gyro_scale = 2.0f;         // cap at 2x
-        tau *= gyro_scale;
+    // -------------------------------
+    // D) STRAIGHT-LINE ACCEL/BRAKING
+    // Only when NOT turning
+    // -------------------------------
+    else if (fwd_g > STRAIGHT_ACCEL) {
+        tau = 12.0f;  // very strong damping during accel/brake
     }
 
-    // ------------------------------------------------------------
-    // 5) Nearly-still condition: stoplight / parked
-    //    - accel clean
-    //    - little movement
-    //    -> let accel correct drift quickly
-    // ------------------------------------------------------------
-    bool is_nearly_still =
-        (!g_isCurrentlyMoving) &&
-        accel_reliable &&
-        (gyro_magnitude < 0.8f) &&
-        (forward_g < 0.02f) &&
-        (lateral_g < 0.02f);
-
-    if (is_nearly_still) {
-        tau = NEARLY_STILL_TAU;
+    // -------------------------------
+    // E) QUIET / LEVEL / IDLE → FAST RECOVERY
+    // (accelerometer trusted more)
+    // -------------------------------
+    else if (lat_g < 0.10f && fwd_g < 0.10f) {
+        tau = 1.5f;
     }
 
-    // ------------------------------------------------------------
-    // 6) Clamp tau so we never go into "pure gyro" land
-    // ------------------------------------------------------------
-    if (tau < 0.2f)   tau = 0.2f;
-    if (tau > MAX_TAU) tau = MAX_TAU;
+    // =============================================
+    // 2. COMPLEMENTARY FILTER WITH MINIMUM CORRECTION
+    // =============================================
 
-    // ------------------------------------------------------------
-    // 7) Compute alpha from tau, then enforce a MINIMUM accel weight
-    //    Always give accel at least ACCEL_MIN_WEIGHT (e.g. 1%).
-    //    This limits gyro drift even over long turns.
-    // ------------------------------------------------------------
-    float alpha = tau / (tau + dt);       // gyro weight
-    if (alpha < 0.0f) alpha = 0.0f;
-    if (alpha > 1.0f) alpha = 1.0f;
+    // Compute alpha like normal
+    float alpha = tau / (tau + dt);
 
-    // Enforce minimum accel weight:
-    float alpha_max = 1.0f - ACCEL_MIN_WEIGHT;
-    if (alpha > alpha_max) alpha = alpha_max;
-    // (we don't limit alpha_min: when tau is small, accel can dominate)
+    // Constrain alpha so the accelerometer ALWAYS contributes some percent.
+    // This prevents gyro-only drift during long turns.
+    const float ALPHA_MAX = 0.995f;   // accel contributes ≥ 0.5%
+    const float ALPHA_MIN = 0.90f;    // accel contributes ≤ 10%
+    alpha = constrain(alpha, ALPHA_MIN, ALPHA_MAX);
 
-    // ------------------------------------------------------------
-    // 8) Fuse accelerometer & gyro angles
-    // ------------------------------------------------------------
-    float fused_pitch = alpha * pitch_gyro + (1.0f - alpha) * pitch_accel;
-    float fused_roll  = alpha * roll_gyro  + (1.0f - alpha) * roll_accel;
+    // ================================
+    // FUSE GYRO + ACCEL
+    // ================================
+    pitch_angle = alpha * pitch_angle + (1.0f - alpha) * pitch_accel;
+    roll_angle  = alpha * roll_angle  + (1.0f - alpha) * roll_accel;
 
-    // Normalize angles to [-180, +180]
-    if (fused_pitch > 180.0f) fused_pitch -= 360.0f;
-    if (fused_pitch < -180.0f) fused_pitch += 360.0f;
-    if (fused_roll  > 180.0f) fused_roll  -= 360.0f;
-    if (fused_roll  < -180.0f) fused_roll  += 360.0f;
+    // Normalize angles
+    if (pitch_angle > 180.0f) pitch_angle -= 360.0f;
+    if (pitch_angle < -180.0f) pitch_angle += 360.0f;
+    if (roll_angle > 180.0f) roll_angle -= 360.0f;
+    if (roll_angle < -180.0f) roll_angle += 360.0f;
 
-    // ------------------------------------------------------------
-    // 9) Update global angles and keep gyro state in sync
-    // ------------------------------------------------------------
-    pitch_angle = fused_pitch;
-    roll_angle  = fused_roll;
-
-    pitch_gyro = fused_pitch;
-    roll_gyro  = fused_roll;
-
-    // For logging
+    // Export tau + alpha for MQTT debug
     last_effective_tau = tau;
     last_alpha = alpha;
 }
