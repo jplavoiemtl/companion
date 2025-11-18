@@ -2028,37 +2028,71 @@ void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
 
 
 //***************************************************************************************************
-// ======================================================================
-//    TURN-FREEZE INCLINOMETER UPDATE
-// ======================================================================
-void updateInclinometerWithFreeze(float dt)
-{
+// =============================================================
+// Compute fused angles (gyro + accel) with dynamic tau
+// WITHOUT modifying global pitch_angle / roll_angle.
+// Outputs fused angles through references.
+// =============================================================
+void computeFusedAngles(float dt, float fwd_g,
+                        float &out_pitch, float &out_roll) {
+    // ---- Step 1: Gyro integration (prediction) ----
+    integrateGyroAngles(dt,
+                        gyr_inertial.vert,
+                        gyr_inertial.horiz,
+                        gyr_inertial.up);
+
+    // ---- Step 2: Accelerometer tilt measurement ----
+    float pitch_accel, roll_accel;
+    calculateAccelAngles(pitch_accel, roll_accel);
+
+    // ---- Step 3: Dynamic tau based on straight-line acceleration ----
+    float tau;
+    if (fwd_g > 0.30f)      tau = 12.0f;
+    else if (fwd_g > 0.10f) tau = 6.0f;
+    else                    tau = 1.5f;
+
+    float alpha = tau / (tau + dt);
+    alpha = constrain(alpha, 0.90f, 0.999f);
+
+    // ---- Step 4: Complementary fusion ----
+    out_pitch = alpha * pitch_angle + (1.0f - alpha) * pitch_accel;
+    out_roll  = alpha * roll_angle  + (1.0f - alpha) * roll_accel;
+
+    // ---- Step 5: Normalize ----
+    if (out_pitch > 180.0f) out_pitch -= 360.0f;
+    if (out_pitch < -180.0f) out_pitch += 360.0f;
+    if (out_roll > 180.0f)   out_roll -= 360.0f;
+    if (out_roll < -180.0f)  out_roll += 360.0f;
+
+    // ---- Debug values for MQTT ----
+    last_effective_tau = tau;
+    last_alpha         = alpha;
+}
+
+
+//***************************************************************************************************
+void updateInclinometerWithFreeze(float dt) {
     float lat_g = fabsf(acc_inertial.horiz);
     float fwd_g = fabsf(acc_inertial.vert);
+    float yaw_rate = fabsf(gyr_inertial.up);
     unsigned long now_ms = millis();
 
-    // ---- Turn-freeze thresholds ----
-    const float     TURN_FREEZE_THRESHOLD   = 0.10f;   // Enter freeze
-    const float     TURN_FREEZE_EXIT_THRESH = 0.07f;   // Exit freeze
-    const uint32_t  RECOVER_DELAY_MS        = 120;     // No blending right away
-    const uint32_t  RECOVER_BLEND_MS        = 600;     // Smooth transition
+    // ---- Thresholds ----
+    const float TURN_FREEZE_THRESHOLD     = 0.10f;
+    const float TURN_FREEZE_EXIT_THRESH   = 0.07f;
+    const float YAW_TURN_THRESHOLD        = 8.0f;   // tuned threshold
+    const uint32_t RECOVER_DELAY_MS       = 120;
+    const uint32_t RECOVER_BLEND_MS       = 600;
 
+    // ---- Real turn detection ----
+    bool is_real_turn = (lat_g > TURN_FREEZE_THRESHOLD) &&
+                        (yaw_rate > YAW_TURN_THRESHOLD);
 
     // =============================================================
     // 1. TURN-FREEZE ENTRY
     // =============================================================
-    float yaw_rate = fabsf(gyr_inertial.up);     // deg/s yaw rotation
-
-    const float YAW_TURN_THRESHOLD      = 8.0f;  // deg/s threshold for turning
-                                                // you may tune to 1.5–3.0
-
-    // NEW: Must have BOTH lateral g AND yaw rotation to count as a turn
-    bool is_real_turn = (lat_g > TURN_FREEZE_THRESHOLD) &&
-                        (yaw_rate > YAW_TURN_THRESHOLD);
-
-    if (!turn_freeze_active && is_real_turn)
-    {
-        turn_freeze_active = true;
+    if (!turn_freeze_active && is_real_turn) {
+        turn_freeze_active   = true;
         recovering_from_turn = false;
 
         frozen_pitch = pitch_angle;
@@ -2068,18 +2102,14 @@ void updateInclinometerWithFreeze(float dt)
         return;
     }
 
-
     // =============================================================
-    // 2. TURN-FREEZE ACTIVE — KEEP ANGLES FROZEN
+    // 2. TURN-FREEZE ACTIVE — freeze angles
     // =============================================================
-    if (turn_freeze_active)
-    {
+    if (turn_freeze_active) {
         pitch_angle = frozen_pitch;
         roll_angle  = frozen_roll;
 
-        // Check exit condition
-        if (lat_g < TURN_FREEZE_EXIT_THRESH)
-        {
+        if (lat_g < TURN_FREEZE_EXIT_THRESH) {
             turn_freeze_active   = false;
             recovering_from_turn = true;
 
@@ -2087,113 +2117,53 @@ void updateInclinometerWithFreeze(float dt)
             recover_start_ms    = now_ms;
         }
 
-        return;   // Still frozen
+        return;
     }
 
-
     // =============================================================
-    // 3. RECOVERY PHASE (after freeze)
+    // 3. RECOVERY PHASE — blend frozen → fused
     // =============================================================
-    if (recovering_from_turn)
-    {
+    if (recovering_from_turn) {
         unsigned long since_exit = now_ms - turn_freeze_exit_ms;
 
-        // ---- 3A. Delay period (allow accel to settle) ----
-        if (since_exit < RECOVER_DELAY_MS)
-        {
+        // ---- Delay: allow accel to settle ----
+        if (since_exit < RECOVER_DELAY_MS) {
             pitch_angle = frozen_pitch;
             roll_angle  = frozen_roll;
             return;
         }
 
-        // ---- 3B. Blending period ----
+        // ---- Compute blending factor ----
         unsigned long blend_ms =
             now_ms - (turn_freeze_exit_ms + RECOVER_DELAY_MS);
 
         float t = (float)blend_ms / (float)RECOVER_BLEND_MS;
         if (t > 1.0f) t = 1.0f;
 
-        // Step 1 — Gyro integration
-        integrateGyroAngles(dt,
-                            gyr_inertial.vert,
-                            gyr_inertial.horiz,
-                            gyr_inertial.up);
+        // ---- Compute fused pitch/roll using new helper ----
+        float fused_pitch, fused_roll;
+        computeFusedAngles(dt, fwd_g, fused_pitch, fused_roll);
 
-        // Step 2 — Accel angles
-        float pitch_accel, roll_accel;
-        calculateAccelAngles(pitch_accel, roll_accel);
-
-        // ---- Dynamic tau based on straight-line accel ----
-        float tau;
-        if (fwd_g > 0.30f)      tau = 12.0f;
-        else if (fwd_g > 0.10f) tau = 6.0f;
-        else                    tau = 2.0f;
-
-        float alpha = tau / (tau + dt);
-        alpha = constrain(alpha, 0.90f, 0.999f);
-
-        // Step 3 — Complementary fusion
-        float pitch_fused = alpha * pitch_angle + (1.0f - alpha) * pitch_accel;
-        float roll_fused  = alpha * roll_angle  + (1.0f - alpha) * roll_accel;
-
-        // Step 4 — Blend old frozen angle with fused angle
-        pitch_angle = frozen_pitch * (1.0f - t) + pitch_fused * t;
-        roll_angle  = frozen_roll  * (1.0f - t) + roll_fused  * t;
+        // ---- Blend frozen angle → fused angle ----
+        pitch_angle = frozen_pitch * (1.0f - t) + fused_pitch * t;
+        roll_angle  = frozen_roll  * (1.0f - t) + fused_roll  * t;
 
         if (t >= 1.0f)
             recovering_from_turn = false;
 
-        // Normalize angles
-        if (pitch_angle > 180.0f) pitch_angle -= 360.0f;
-        if (pitch_angle < -180.0f) pitch_angle += 360.0f;
-        if (roll_angle > 180.0f)   roll_angle -= 360.0f;
-        if (roll_angle < -180.0f)  roll_angle += 360.0f;
-
-        // Update MQTT debug values
-        last_effective_tau = tau;
-        last_alpha         = alpha;
-
         return;
     }
 
-
     // =============================================================
-    // 4. NORMAL OPERATION (no turn, no recovery)
+    // 4. NORMAL OPERATION
     // =============================================================
+    float fused_pitch, fused_roll;
+    computeFusedAngles(dt, fwd_g, fused_pitch, fused_roll);
 
-    // Step 1 — Gyro integration
-    integrateGyroAngles(dt,
-                        gyr_inertial.vert,
-                        gyr_inertial.horiz,
-                        gyr_inertial.up);
-
-    // Step 2 — Accel angles
-    float pitch_accel, roll_accel;
-    calculateAccelAngles(pitch_accel, roll_accel);
-
-    // ---- Dynamic tau based on straight accel ----
-    float tau;
-    if (fwd_g > 0.30f)      tau = 12.0f;
-    else if (fwd_g > 0.10f) tau = 6.0f;
-    else                    tau = 2.0f;
-
-    float alpha = tau / (tau + dt);
-    alpha = constrain(alpha, 0.90f, 0.999f);
-
-    // Step 3 — Complementary fusion
-    pitch_angle = alpha * pitch_angle + (1.0f - alpha) * pitch_accel;
-    roll_angle  = alpha * roll_angle  + (1.0f - alpha) * roll_accel;
-
-    // Normalize angles
-    if (pitch_angle > 180.0f) pitch_angle -= 360.0f;
-    if (pitch_angle < -180.0f) pitch_angle += 360.0f;
-    if (roll_angle > 180.0f)   roll_angle -= 360.0f;
-    if (roll_angle < -180.0f)  roll_angle += 360.0f;
-
-    // MQTT debug values
-    last_effective_tau = tau;
-    last_alpha         = alpha;
+    pitch_angle = fused_pitch;
+    roll_angle  = fused_roll;
 }
+
 
 
 //***************************************************************************************************
@@ -2656,46 +2626,68 @@ void readImuData() {
   // Print and publish to MQTT if connected and not receiving HTTP data
   if (imuPeakInitialized) {     
 
-    // Create JSON payload with both peak magnitudes, change values, and display peaks
-    char payload[650];  // Buffer size for MQTT payload
+    char payload[700];  // Slightly enlarged buffer
 
-    // accel_mag      -> LPF'd accel magnitude (global accel_magnitude)
-    // gyro_mag       -> gyro magnitude (global gyro_magnitude)
-    // accel_rel      -> accel reliability flag (0 or 1) from accel_reliable
-    // pitch_gyro/roll_gyro -> gyro-only integrated angles (deg)
+    // Turn state as human-readable string
+    const char* mode_str =
+        turn_freeze_active ? "freeze" :
+        recovering_from_turn ? "recover" :
+        "normal";
+
+    // Derived signals
+    float lat_g   = fabsf(acc_inertial.horiz);
+    float fwd_g   = fabsf(acc_inertial.vert);
+    float yaw_rate = gyr_inertial.up;
+
     snprintf(payload, sizeof(payload), 
         "{"
           "\"accel_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
           "\"gyro_peak\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f,\"mag\":%.2f},"
-          "\"accel_change\":%.2f,\"gyro_change\":%.2f,"
 
-          "\"inertial\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
-          "\"gyro_car\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
+          "\"accel_change\":%.2f,"
+          "\"gyro_change\":%.2f,"
 
-          "\"pitch\":%.2f,\"roll\":%.2f,"
-          "\"accel_mag\":%.2f,\"gyro_mag\":%.2f,"
+          "\"accel_inertial\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
+          "\"gyro_inertial\":{\"vert\":%.2f,\"horiz\":%.2f,\"up\":%.2f},"
 
-          "\"pitch_gyro\":%.2f,\"roll_gyro\":%.2f,"
+          "\"pitch\":%.2f,"
+          "\"roll\":%.2f,"
 
-          "\"tau\":%.2f,\"alpha\":%.3f,"
+          "\"accel_mag\":%.2f,"
+          "\"gyro_mag\":%.2f,"
 
-          "\"freeze\":%d,"             
-          "\"recover\":%d"              
+          "\"tau\":%.2f,"
+          "\"alpha\":%.3f,"
+
+          "\"yaw_rate\":%.2f,"
+          "\"lat_g\":%.2f,"
+          "\"fwd_g\":%.2f,"
+
+          "\"mode\":\"%s\","
+
+          "\"freeze\":%d,"
+          "\"recover\":%d"
         "}",
 
         acc_peak.x, acc_peak.y, acc_peak.z, acc_peak.magnitude,
         gyr_peak.x, gyr_peak.y, gyr_peak.z, gyr_peak.magnitude,
+
         peakAccelChange, peakGyroChange,
 
         acc_inertial.vert, acc_inertial.horiz, acc_inertial.up,
         gyr_inertial.vert, gyr_inertial.horiz, gyr_inertial.up,
 
         pitch_angle, roll_angle,
+
         accel_magnitude, gyro_magnitude,
 
-        pitch_gyro, roll_gyro,
-
         last_effective_tau, last_alpha,
+
+        yaw_rate,
+        lat_g,
+        fwd_g,
+
+        mode_str,
 
         turn_freeze_active ? 1 : 0,
         recovering_from_turn ? 1 : 0
