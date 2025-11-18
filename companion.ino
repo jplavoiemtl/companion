@@ -174,7 +174,6 @@ float sampling_frequency = 0.0; // Variable to hold the sampling frequency in Hz
 float pitch_angle = 0.0;              // Current pitch angle in degrees
 float roll_angle = 0.0;               // Current roll angle in degrees
 unsigned long last_inclinometer_update = 0;  // Timestamp for dt calculation
-const float INCLINOMETER_TAU = 8.0;   // Time constant in seconds (tune as needed)
 bool inclinometer_initialized = false; // Flag to track initialization state
 // Gyro bias values (to be determined during calibration)
 float gyro_bias_vert = 0.0;
@@ -193,40 +192,9 @@ float acc_lp_horiz = 0.0f;
 float acc_lp_up = 0.0f;
 
 // Confidence flags exposed from motion detection
-bool accel_reliable = true;
 float accel_magnitude = 1.0f;   // instantaneous |a|
 float gyro_magnitude = 0.0f;    // instantaneous |omega|
-float accel_tilt_error_deg = 0.0f;  // estimated tilt error from accel (degrees)
-
-// Thresholds – you can tweak later if needed
-const float ACCEL_MAG_THRESHOLD     = 0.20f; // allow up to ±0.20 g before suspect
-const float ACCEL_TILT_ERR_THRESHOLD = 7.0f; // deg: beyond this, accel is suspect
-
-const float ACCEL_LPF_TAU = 0.05f;      // seconds (IIR time constant for accel components)
 const float BIAS_LEARN_BETA = 0.001f;   // bias IIR gain when stationary (0.0005 - 0.005)
-const float GYRO_TRUST_SCALE = 0.02f;   // multiplier for gyro magnitude to scale tau
-const float MAX_GYRO_SCALE = 3.0f;      // clamp scaling factor contribution
-const float HIGH_TILT_ERR_DEG       = 10.0f; // very bad accel/gyro mismatch
-
-// ================================================================
-//  COMPLEMENTARY FILTER - turn-aware, with accel floor
-// ================================================================
-const float LAT_TURN_MILD_G    = 0.07f;  // ~0.07g ≈ gentle curve
-const float LAT_TURN_STRONG_G  = 0.15f;  // ~0.15g ≈ normal ramp turn
-const float LAT_TURN_EXTREME_G = 0.30f;  // ~0.30g+ ≈ aggressive curve
-
-const float FWD_ACCEL_MILD_G   = 0.05f;  // straight accel/brake (small)
-const float FWD_ACCEL_STRONG_G = 0.12f;  // stronger accel/brake
-
-const float BASE_TAU_CRUISE    = 1.5f;   // normal cruising
-const float TAU_TURN_MILD      = 4.0f;   // mild turn
-const float TAU_TURN_STRONG    = 6.0f;   // strong turn
-const float TAU_TURN_EXTREME   = 10.0f;  // very strong turn
-const float TAU_STRAIGHT_STRONG = 6.0f;  // strong straight accel/brake
-const float NEARLY_STILL_TAU   = 1.0f;   // stoplight / parked
-
-const float MAX_TAU            = 15.0f;  // don't let tau get huge (avoid gyro-only)
-const float ACCEL_MIN_WEIGHT   = 0.01f;  // always give accel at least 1% weight
 
 float last_effective_tau = 0.0f;
 float last_alpha = 0.0f;
@@ -1732,7 +1700,7 @@ void updateMotionState() {
         }
       }
       // >>> INSERT NEW CODE HERE (gyro bias learning when stationary)
-      if (!g_isCurrentlyMoving && accel_reliable && (gyro_magnitude < 2.0f)) {
+      if (!g_isCurrentlyMoving && (gyro_magnitude < 2.0f)) {
         // Slowly adapt gyro bias in sensor coordinates
         gyro_bias_sensor_x = gyro_bias_sensor_x * (1.0f - BIAS_LEARN_BETA) + gyr.x * BIAS_LEARN_BETA;
         gyro_bias_sensor_y = gyro_bias_sensor_y * (1.0f - BIAS_LEARN_BETA) + gyr.y * BIAS_LEARN_BETA;
@@ -2016,14 +1984,6 @@ void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
   // Compare accel tilt vs. gyro-predicted tilt
   float pitch_err = fabsf(pitch_accel - pitch_gyro);
   float roll_err  = fabsf(roll_accel  - roll_gyro);
-  accel_tilt_error_deg = (pitch_err > roll_err) ? pitch_err : roll_err;
-
-  // 5) Decide if accel is reliable
-  bool mag_bad  = (mag_err > ACCEL_MAG_THRESHOLD);
-  bool tilt_bad = (accel_tilt_error_deg > ACCEL_TILT_ERR_THRESHOLD);
-
-  // Accelerometer is unreliable if EITHER magnitude OR tilt is badly off
-  accel_reliable = !(mag_bad || tilt_bad);
 }
 
 
