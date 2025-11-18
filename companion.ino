@@ -83,7 +83,7 @@ bool mqttConnection = false;
 bool mqttSuccess = false;                 //MQTT succeeded once at start to keep reconnecting only if successful
 
 // --- IMU Management and motion detection ---
-const unsigned long IMU_PRINT_INTERVAL = 1000;  // Print & send MQTT IMU data every 5s=5000
+const unsigned long IMU_PRINT_INTERVAL = 5000;  // Print & send MQTT IMU data every 5s=5000
 unsigned long lastImuPrintTime = 0;
 struct {
   float x, y, z;
@@ -1606,26 +1606,34 @@ void updateGMeterDisplay(float vert, float horiz) {
       }
     }
 
-    // ------------------------------------------------------------------
-    // Display horizontal-plane G force (every ~300 ms)
-    // ------------------------------------------------------------------
-    static unsigned long last_g_display_update = 0;
-    static float g_filtered = 0.0f;   // simple smoothing
+    // ================================================================
+    //   PEAK-HOLD G-FORCE (adjustable interval)
+    // ================================================================
+    const unsigned long GMETER_PEAK_INTERVAL_MS = 2000;   // 1 second
 
-    unsigned long now = millis();
+    // Static state (retains value between calls)
+    static unsigned long last_peak_update_time = 0;
+    static float peak_g = 0.0f;
 
     // Compute horizontal-plane G magnitude
-    float g_raw = sqrtf(vert * vert + horiz * horiz);
+    float g_current = sqrtf(vert * vert + horiz * horiz);
 
-    // Low-pass filter for stability
-    g_filtered = 0.8f * g_filtered + 0.2f * g_raw;  // 20% new data
+    // Track peak value inside interval
+    if (g_current > peak_g)
+        peak_g = g_current;
 
-    // Update label ~3 Hz
-    if (now - last_g_display_update > 300) {
-        last_g_display_update = now;
+    // Update every GMETER_PEAK_INTERVAL_MS
+    unsigned long now = millis();
+    if (now - last_peak_update_time >= GMETER_PEAK_INTERVAL_MS) {
+        last_peak_update_time = now;
+
+        // Update label
         char g_text[16];
-        snprintf(g_text, sizeof(g_text), "%.02f", g_filtered);
+        snprintf(g_text, sizeof(g_text), "%.02f", peak_g);
         lv_label_set_text(ui_screen3braking, g_text);
+
+        // Reset for next window
+        peak_g = 0.0f;
     }
 
   }
