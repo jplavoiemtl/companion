@@ -1605,6 +1605,29 @@ void updateGMeterDisplay(float vert, float horiz) {
         }
       }
     }
+
+    // ------------------------------------------------------------------
+    // Display horizontal-plane G force (every ~300 ms)
+    // ------------------------------------------------------------------
+    static unsigned long last_g_display_update = 0;
+    static float g_filtered = 0.0f;   // simple smoothing
+
+    unsigned long now = millis();
+
+    // Compute horizontal-plane G magnitude
+    float g_raw = sqrtf(vert * vert + horiz * horiz);
+
+    // Low-pass filter for stability
+    g_filtered = 0.8f * g_filtered + 0.2f * g_raw;  // 20% new data
+
+    // Update label ~3 Hz
+    if (now - last_g_display_update > 300) {
+        last_g_display_update = now;
+        char g_text[16];
+        snprintf(g_text, sizeof(g_text), "%.02f", g_filtered);
+        lv_label_set_text(ui_screen3braking, g_text);
+    }
+
   }
 }
 
@@ -2041,8 +2064,8 @@ void updateInclinometerWithFreeze(float dt) {
     const float TURN_FREEZE_THRESHOLD     = 0.10f;
     const float TURN_FREEZE_EXIT_THRESH   = 0.07f;
     const float YAW_TURN_THRESHOLD        = 8.0f;   // tuned threshold
-    const uint32_t RECOVER_DELAY_MS       = 120;
-    const uint32_t RECOVER_BLEND_MS       = 600;
+    const uint32_t RECOVER_DELAY_MS       = 150;
+    const uint32_t RECOVER_BLEND_MS       = 700;
 
     // ---- Real turn detection ----
     bool is_real_turn = (lat_g > TURN_FREEZE_THRESHOLD) &&

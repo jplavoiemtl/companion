@@ -61,9 +61,9 @@ void ui_Screen3_screen_init(void)
     lv_obj_set_x(ui_screen3braking, -156);
     lv_obj_set_y(ui_screen3braking, -163);
     lv_obj_set_align(ui_screen3braking, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_screen3braking, "Brake");
+    lv_label_set_text(ui_screen3braking, "");
     lv_obj_set_style_text_align(ui_screen3braking, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui_screen3braking, &lv_font_montserrat_24, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_screen3braking, &lv_font_montserrat_36, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Button3 = lv_btn_create(ui_Screen3);
     lv_obj_set_width(ui_Button3, 213);
