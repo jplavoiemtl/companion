@@ -1,3 +1,4 @@
+#include "calibration.h"
 #include "secrets.h"
 #include <Wire.h>
 #include "SensorQMI8658.hpp"
@@ -94,27 +95,6 @@ bool motionDetected = false;
 float lastAccelMagnitude = 0;
 const float GYRO_MOTION_THRESHOLD = 4.7;  // 4.5 trigger while immobile, may have to increase to avoid false positives
 float lastGyroMagnitude = 0;
-
-// This scales your specific sensor so 1G = 1.0
-// It was determined in step 1 of the Python gravity calibration script.
-// Magnitude: 0.966 G at rest instead of 1.0 G
-/*
-=== STEP 1: Gravity Vector (Stationary) ===
-Raw gravity vector: [ 0.02962264 -0.95660377 -0.13      ]
-X: 0.030 (lateral)
-Y: -0.957 (vertical/down)
-Z: -0.130 (forward/back)
-Magnitude: 0.966
-Normalized (down direction): [ 0.03066999 -0.99042576 -0.13459632]
-*/
-const float ACC_SCALE_FACTOR = 0.966; 
-
-// IMU Calibration - Rotation Matrix for Inertial Reference Frame
-const float ROTATION_MATRIX[3][3] = {
-  {-0.037424, -0.135703,  0.990042},  // display_x (vertical)
-  {-0.998829, -0.025327, -0.041228},  // display_y (horizontal)
-  { 0.030670, -0.990426, -0.134596}   // up (reference)
-};
 
 // Peak magnitude tracking for IMU data (2-second MQTT interval)
 struct {
@@ -1540,6 +1520,35 @@ bool attemptWiFiConnection() {
 
 
 //***************************************************************************************************
+void updateCalibration() {
+  static CalibState prevCalibState = CALIB_IDLE;
+  CalibState currentState = calibGetState();
+
+  if (currentState != prevCalibState) {
+      if (currentState == CALIB_READY_TO_COMPUTE) {
+          // Calibration window finished successfully
+          if (calibComputeRotation()) {
+              calibSaveToNvs(); // SAVE to NVS immediately
+              USBSerial.println("Calibration Computed & Saved!");
+              // Update UI: "Success!"
+          } else {
+              // Update UI: "Computation Failed"
+          }
+      } else if (currentState == CALIB_ERROR) {
+            // Update UI: "Error - Try Again"
+      }
+      prevCalibState = currentState;
+  }
+  
+  // (Optional) Update Progress Bar on UI
+  if (currentState == CALIB_GRAVITY_SAMPLING || currentState == CALIB_FORWARD_SAMPLING) {
+      uint32_t remaining = calibGetRemainingMs();
+      // Update UI progress bar or countdown text
+  }
+}
+
+
+//***************************************************************************************************
 void updateGMeterDisplay(float vert, float horiz) {
   // Calculate center and radius
   int center_x = WIDTH_DISPLAY / 2;   // 224
@@ -1765,10 +1774,11 @@ void updateMotionState() {
     // Transform accelerometer peak to inertial display coordinates
 
     // Apply the scale factor (Divide raw / scale)
+    float currentScaleFactor = calibGetScaleFactor(); 
     float sensor_accel[3] = {
-        acc_disp_peak.x / ACC_SCALE_FACTOR, 
-        acc_disp_peak.y / ACC_SCALE_FACTOR, 
-        acc_disp_peak.z / ACC_SCALE_FACTOR
+        acc_disp_peak.x / currentScaleFactor, 
+        acc_disp_peak.y / currentScaleFactor, 
+        acc_disp_peak.z / currentScaleFactor
     };
     float display_accel[3];
     
@@ -2742,6 +2752,11 @@ void updateImuData() {
     qmi.getAccelerometer(acc.x, acc.y, acc.z);
     qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
     
+    // Feed raw data to calibration logic
+    // It only does math if a calibration step is actually active.
+    float raw_accel[3] = {acc.x, acc.y, acc.z};
+    calibUpdate(raw_accel);
+
     // Calculate current magnitudes
     float accelMagnitude = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
     float gyroMagnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
@@ -3034,6 +3049,9 @@ void initIMU() {
 
     // Initialize motion detection baseline
     reinitializeMotionBaseline();
+
+    calibInit();        // Initialize calibration state
+    //calibLoadFromNvs(); // Try to load Scale, Gravity, and Rotation from NVS    
 }
 
 /****************************************************************************************************
@@ -3265,18 +3283,11 @@ void loop() {
 
   // If we are not shutting down, proceed with normal operations.
   lv_timer_handler();
-  /*
-  // Throttle LVGL handler to reduce impact on IMU sampling
-  static unsigned long last_lvgl_handler = 0;
-  if (millis() - last_lvgl_handler >= 20) {  // Only call every 20ms (50 Hz max)
-    lv_timer_handler();
-    last_lvgl_handler = millis();
-  }
-  */
 
-  // --- Task 1: Update motion state ---
+  // --- Task 1: Update motion state and calibration ---
   updateImuData();  // Read IMU data once per loop
   updateMotionState(); // Just update the motion flag, no shutdown decision
+  updateCalibration();  // Update calibration logic
 
   // --- Task 2: Handle MQTT communications if connected ---
   if (WiFi.status() == WL_CONNECTED) {

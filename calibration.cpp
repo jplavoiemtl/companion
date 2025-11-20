@@ -24,6 +24,19 @@ float ROTATION_MATRIX[3][3] = {
   { 0.030670f, -0.990426f, -0.134596f}   // up (reference)
 };
 
+// This scales your specific sensor so 1G = 1.0
+// It was determined in step 1 of the Python gravity calibration script.
+// Magnitude: 0.966 G at rest instead of 1.0 G
+/*
+=== STEP 1: Gravity Vector (Stationary) ===
+Raw gravity vector: [ 0.02962264 -0.95660377 -0.13      ]
+X: 0.030 (lateral)
+Y: -0.957 (vertical/down)
+Z: -0.130 (forward/back)
+Magnitude: 0.966
+Normalized (down direction): [ 0.03066999 -0.99042576 -0.13459632]
+*/
+
 // =========================
 // INTERNAL STATE
 // =========================
@@ -216,7 +229,7 @@ void calibInit() {
   g_hasGravity = false;
   g_hasForward = false;
   g_hasRotation = false;
-  g_scaleFactor = 1.0f; // safe default
+  g_scaleFactor = 0.966f; // car module default
 }
 
 CalibState calibGetState() {
