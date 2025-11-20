@@ -95,6 +95,27 @@ float lastAccelMagnitude = 0;
 const float GYRO_MOTION_THRESHOLD = 4.7;  // 4.5 trigger while immobile, may have to increase to avoid false positives
 float lastGyroMagnitude = 0;
 
+// This scales your specific sensor so 1G = 1.0
+// It was determined in step 1 of the Python gravity calibration script.
+// Magnitude: 0.966 G at rest instead of 1.0 G
+/*
+=== STEP 1: Gravity Vector (Stationary) ===
+Raw gravity vector: [ 0.02962264 -0.95660377 -0.13      ]
+X: 0.030 (lateral)
+Y: -0.957 (vertical/down)
+Z: -0.130 (forward/back)
+Magnitude: 0.966
+Normalized (down direction): [ 0.03066999 -0.99042576 -0.13459632]
+*/
+const float ACC_SCALE_FACTOR = 0.966; 
+
+// IMU Calibration - Rotation Matrix for Inertial Reference Frame
+const float ROTATION_MATRIX[3][3] = {
+  {-0.037424, -0.135703,  0.990042},  // display_x (vertical)
+  {-0.998829, -0.025327, -0.041228},  // display_y (horizontal)
+  { 0.030670, -0.990426, -0.134596}   // up (reference)
+};
+
 // Peak magnitude tracking for IMU data (2-second MQTT interval)
 struct {
   float x, y, z;
@@ -137,13 +158,6 @@ float peakGyroChange = 0;
 float gyro_bias_sensor_x = 0.0;
 float gyro_bias_sensor_y = 0.0;
 float gyro_bias_sensor_z = 0.0;
-
-// IMU Calibration - Rotation Matrix for Inertial Reference Frame
-const float ROTATION_MATRIX[3][3] = {
-  {-0.037424, -0.135703,  0.990042},  // display_x (vertical)
-  {-0.998829, -0.025327, -0.041228},  // display_y (horizontal)
-  { 0.030670, -0.990426, -0.134596}   // up (reference)
-};
 
 // G-Meter Display Constants
 #define WIDTH_DISPLAY 448
@@ -1749,7 +1763,13 @@ void updateMotionState() {
     //                        - vert. DOWN (accelerating)
     //
     // Transform accelerometer peak to inertial display coordinates
-    float sensor_accel[3] = {acc_disp_peak.x, acc_disp_peak.y, acc_disp_peak.z};
+
+    // Apply the scale factor (Divide raw / scale)
+    float sensor_accel[3] = {
+        acc_disp_peak.x / ACC_SCALE_FACTOR, 
+        acc_disp_peak.y / ACC_SCALE_FACTOR, 
+        acc_disp_peak.z / ACC_SCALE_FACTOR
+    };
     float display_accel[3];
     
     applyInertialTransform(sensor_accel, display_accel);
