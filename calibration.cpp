@@ -70,11 +70,11 @@ static bool g_hasRotation = false;
 
 // You can tweak these durations in the future if needed.
 static const uint32_t CALIB_STATIONARY_DURATION_MS = 10000; // 10s parked is usually enough
-static const uint32_t CALIB_FORWARD_DURATION_MS    = 15000; // 15s driving
+static const uint32_t CALIB_FORWARD_DURATION_MS    = 30000; // 30s driving
 
 // Minimum number of samples to accept calibration
-static const uint32_t CALIB_MIN_STATIONARY_SAMPLES = 30;
-static const uint32_t CALIB_MIN_FORWARD_SAMPLES    = 30;
+static const uint32_t CALIB_MIN_STATIONARY_SAMPLES = 200;
+static const uint32_t CALIB_MIN_FORWARD_SAMPLES    = 200;
 
 // Threshold for accepting forward linear accel sample (in g)
 // This helps filter out engine vibration when idling before the car moves.

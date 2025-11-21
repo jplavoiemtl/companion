@@ -2,8 +2,10 @@
 secrets.h
 CHANGELOG.md
 
-# Build output
+# Build output & squareline files
 build/
+squareline/
+ui/
 
 # VSCode settings
 .vscode/
