@@ -1524,26 +1524,57 @@ void updateCalibration() {
   static CalibState prevCalibState = CALIB_IDLE;
   CalibState currentState = calibGetState();
 
+  // Detect state changes
   if (currentState != prevCalibState) {
-      if (currentState == CALIB_READY_TO_COMPUTE) {
-          // Calibration window finished successfully
-          if (calibComputeRotation()) {
-              calibSaveToNvs(); // SAVE to NVS immediately
-              USBSerial.println("Calibration Computed & Saved!");
-              // Update UI: "Success!"
-          } else {
-              // Update UI: "Computation Failed"
+      
+      // ---------------------------------------------------------
+      // CASE 1: Gravity Calibration Finished (Stationary Step)
+      // ---------------------------------------------------------
+      // The library automatically goes from GRAVITY_SAMPLING -> IDLE on success.
+      if (prevCalibState == CALIB_GRAVITY_SAMPLING && currentState == CALIB_IDLE) {
+          if (calibHasGravity()) {
+              // Save Gravity Vector and Scale Factor immediately
+              calibSaveGravityToNvs(); 
+              USBSerial.println("[Main] Gravity/Scale Saved to NVS!");
+              // TODO: Update UI: "Step 1 (Gravity) Complete!"
           }
-      } else if (currentState == CALIB_ERROR) {
-            // Update UI: "Error - Try Again"
       }
+
+      // ---------------------------------------------------------
+      // CASE 2: Forward Calibration Finished (Driving Step)
+      // ---------------------------------------------------------
+      // The library goes from FORWARD_SAMPLING -> READY_TO_COMPUTE on success.
+      else if (currentState == CALIB_READY_TO_COMPUTE) {
+          // Sampling is done. Now compute the full rotation matrix.
+          if (calibComputeRotation()) {
+              // Save Rotation Matrix immediately
+              calibSaveRotationToNvs(); 
+              USBSerial.println("[Main] Rotation Matrix Computed & Saved!");
+              // TODO: Update UI: "Calibration Success!"
+          } else {
+              USBSerial.println("[Main] Computation Logic Failed.");
+              // TODO: Update UI: "Computation Failed"
+          }
+      } 
+      
+      // ---------------------------------------------------------
+      // CASE 3: Error Occurred
+      // ---------------------------------------------------------
+      else if (currentState == CALIB_ERROR) {
+            USBSerial.println("[Main] Calibration Error occurred.");
+            // TODO: Update UI: "Error - Try Again"
+      }
+
+      // Update tracking variable
       prevCalibState = currentState;
   }
   
-  // (Optional) Update Progress Bar on UI
+  // ---------------------------------------------------------
+  // UI Progress Update (Run continuously while sampling)
+  // ---------------------------------------------------------
   if (currentState == CALIB_GRAVITY_SAMPLING || currentState == CALIB_FORWARD_SAMPLING) {
       uint32_t remaining = calibGetRemainingMs();
-      // Update UI progress bar or countdown text
+      // TODO: Update UI progress bar or countdown text using 'remaining'
   }
 }
 
@@ -3051,7 +3082,7 @@ void initIMU() {
     reinitializeMotionBaseline();
 
     calibInit();        // Initialize calibration state
-    //calibLoadFromNvs(); // Try to load Scale, Gravity, and Rotation from NVS    
+    calibLoadFromNvs(); // Try to load Scale, Gravity, and Rotation from NVS    
 }
 
 /****************************************************************************************************
@@ -3228,6 +3259,9 @@ void setup() {
   Wire.begin(IIC_SDA, IIC_SCL);
   delay(50); 
   
+  // Debug delay to allow printing to serial monitor.  Comment out for production.
+  delay(900); // Allow time for hardware to stabilize, 800
+
   USBSerial.println("\n--- Board is starting up ---");
   
   WiFi.mode(WIFI_OFF);

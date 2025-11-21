@@ -3,67 +3,103 @@
 
 #include <Arduino.h>
 
-// =========================
-// Public calibration API
-// =========================
+// ============================================================================
+// PUBLIC CALIBRATION API
+// ============================================================================
 
-// How calibration is progressing (for UI)
+// How calibration is progressing (for UI feedback)
 enum CalibState {
   CALIB_IDLE = 0,
-  CALIB_GRAVITY_SAMPLING,
-  CALIB_FORWARD_SAMPLING,
-  CALIB_READY_TO_COMPUTE,
-  CALIB_DONE,
-  CALIB_ERROR
+  CALIB_GRAVITY_SAMPLING, // Measuring stationary gravity & scale factor
+  CALIB_FORWARD_SAMPLING, // Measuring linear acceleration (driving)
+  CALIB_READY_TO_COMPUTE, // Sampling done, ready to calculate matrix
+  CALIB_DONE,             // Calibration computed successfully
+  CALIB_ERROR             // Calibration failed (instability, timeout, bad data)
 };
 
-// Call once in setup()
+// Call once in setup() to initialize internal state.
 void calibInit();
 
-// Try to load previously saved gravity, scale, & rotation from NVS.
-// Returns true if all data loaded successfully.
+// ----------------------------------------------------------------------------
+// NVS STORAGE (Load / Save)
+// ----------------------------------------------------------------------------
+
+// Try to load whatever calibration data is available in NVS.
+// This function is flexible:
+// 1. It looks for Gravity Vector & Scale Factor.
+// 2. It looks for Rotation Matrix.
+// Returns true if at least the Gravity/Scale was loaded successfully.
 bool calibLoadFromNvs();
 
-// Save current gravity, scale, & rotation to NVS.
-// (You normally call this after a successful compute step.)
-bool calibSaveToNvs();
+// Save ONLY the Gravity Vector and Scale Factor to NVS.
+// Call this immediately after calibStartGravity() finishes successfully.
+// This allows you to save the "Garage" calibration before driving.
+bool calibSaveGravityToNvs();
 
-// ---- Stationary (gravity + scale) calibration ----
+// Save ONLY the Rotation Matrix to NVS.
+// Call this after calibComputeRotation() returns true.
+bool calibSaveRotationToNvs();
+
+// ----------------------------------------------------------------------------
+// STEP 1: STATIONARY (Gravity + Scale) CALIBRATION
+// ----------------------------------------------------------------------------
 
 // Start stationary calibration (car parked, module fixed).
 // This will:
 // 1. Clear previous gravity averages.
-// 2. Calculate the Gravity Vector (down).
-// 3. Calculate the Scale Factor (magnitude of gravity).
+// 2. Sample for CALIB_STATIONARY_DURATION_MS.
+// 3. Calculate the Gravity Vector (down direction).
+// 4. Calculate the Scale Factor (magnitude of 1G for this sensor).
 void calibStartGravity();
 
-// ---- Forward calibration ----
+// ----------------------------------------------------------------------------
+// STEP 2: FORWARD (Driving) CALIBRATION
+// ----------------------------------------------------------------------------
 
 // Start forward calibration (user drives straight).
-// RULE: User must ACCELERATE FIRST from a stop.
-// Subsequent braking will be mathematically rectified to help calibration.
-// Requires a valid gravity vector (from current session or NVS) to start.
+// IMPORTANT RULE: The user must ACCELERATE FIRST from a stop.
+// The algorithm uses the first movement to define "Backward Force".
+// Any subsequent braking (Forward Force) will be automatically inverted (rectified)
+// so it improves the calibration data instead of cancelling it out.
+//
+// Prerequisite: A valid gravity vector must exist (from NVS or Step 1).
 void calibStartForward();
 
-// Abort any ongoing calibration step.
+// Abort any ongoing calibration step and reset accumulators.
 void calibAbort();
 
-// This must be called from your main loop at IMU rate,
+// ----------------------------------------------------------------------------
+// MAIN LOOP UPDATE
+// ----------------------------------------------------------------------------
+
+// This must be called from your main loop at IMU rate (e.g., 100Hz),
 // with the *raw* accelerometer values (sensor frame).
-// accel[0] = ax, accel[1] = ay, accel[2] = az (in whatever units sensor outputs).
+// accel[0] = ax, accel[1] = ay, accel[2] = az
+// (Do not divide by gravity or scale here; pass raw data).
 void calibUpdate(const float accel[3]);
 
-// After forward calibration is done, compute the full rotation matrix.
-// Returns true on success; also updates the global matrix used by your firmware.
+// ----------------------------------------------------------------------------
+// COMPUTATION
+// ----------------------------------------------------------------------------
+
+// After forward calibration is done (CALIB_READY_TO_COMPUTE),
+// call this to calculate the full rotation matrix.
+// It uses the stored gravity + forward samples (same math as the Python script).
+// Returns true on success; also updates the global ROTATION_MATRIX.
 bool calibComputeRotation();
 
-// ---- Query / UI helpers ----
-CalibState calibGetState();
-bool calibHasGravity();       // gravity vector available
-bool calibHasRotation();      // rotation matrix available
+// ----------------------------------------------------------------------------
+// QUERY / UI HELPERS
+// ----------------------------------------------------------------------------
 
-// Get the calculated scale factor (1G magnitude).
-// Use this in your main loop: raw_val / scale_factor = Gs.
+CalibState calibGetState();
+
+bool calibHasGravity();       // Is a valid gravity vector available?
+bool calibHasRotation();      // Is a valid rotation matrix available?
+
+// Get the calculated Scale Factor.
+// Use this in your main loop to normalize raw readings to 1.0G.
+// Example: float g_force = raw_reading / calibGetScaleFactor();
 float calibGetScaleFactor();
 
 // Get remaining time (ms) in the current sampling window.
@@ -80,12 +116,10 @@ bool calibGetGravity(float out[3]);
 // Row 2: up (reference)
 bool calibGetRotationMatrix(float out[3][3]);
 
-// -------------------------------
-// Rotation matrix used by firmware
-// -------------------------------
-//
+// ----------------------------------------------------------------------------
+// GLOBAL MATRIX USED BY FIRMWARE
+// ----------------------------------------------------------------------------
 // This is the matrix your code should use in applyInertialTransform().
-// It is initialized with your current "factory" matrix, and updated
+// It is initialized with your "factory" defaults, and updated dynamically
 // whenever calibComputeRotation() succeeds or calibLoadFromNvs() loads one.
-//
 extern float ROTATION_MATRIX[3][3];

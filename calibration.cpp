@@ -3,43 +3,30 @@
 #include <Preferences.h>
 #include <math.h>
 
-// =========================
-// NVS NAMESPACE / KEYS
-// =========================
+// ============================================================================
+// NVS CONFIGURATION
+// ============================================================================
 
 static Preferences prefs;
 static const char* NVS_NAMESPACE = "imuCal";
-static const char* NVS_KEY_GRAV  = "grav";   // 3 floats (gravity_raw)
-static const char* NVS_KEY_SCALE = "scale";  // 1 float (scale factor)
+static const char* NVS_KEY_GRAV  = "grav";   // 3 floats (gravity vector)
+static const char* NVS_KEY_SCALE = "scale";  // 1 float  (scale factor)
 static const char* NVS_KEY_ROT   = "rot";    // 9 floats (rotation matrix)
 
-// =========================
-// PUBLIC GLOBAL MATRIX
-// =========================
-//
+// ============================================================================
+// PUBLIC GLOBAL MATRIX (Factory Defaults)
+// ============================================================================
 // Initialize with your existing "good" matrix as a default.
+// This ensures the system works even if NVS is empty.
 float ROTATION_MATRIX[3][3] = {
   {-0.037424f, -0.135703f,  0.990042f},  // display_x (vertical)
   {-0.998829f, -0.025327f, -0.041228f},  // display_y (horizontal)
   { 0.030670f, -0.990426f, -0.134596f}   // up (reference)
 };
 
-// This scales your specific sensor so 1G = 1.0
-// It was determined in step 1 of the Python gravity calibration script.
-// Magnitude: 0.966 G at rest instead of 1.0 G
-/*
-=== STEP 1: Gravity Vector (Stationary) ===
-Raw gravity vector: [ 0.02962264 -0.95660377 -0.13      ]
-X: 0.030 (lateral)
-Y: -0.957 (vertical/down)
-Z: -0.130 (forward/back)
-Magnitude: 0.966
-Normalized (down direction): [ 0.03066999 -0.99042576 -0.13459632]
-*/
-
-// =========================
-// INTERNAL STATE
-// =========================
+// ============================================================================
+// INTERNAL STATE VARIABLES
+// ============================================================================
 
 static CalibState g_state = CALIB_IDLE;
 
@@ -53,7 +40,7 @@ static bool g_hasGravity = false;
 static float g_scaleFactor = 1.0f; // Default to 1.0 if not calibrated
 
 // Forward accumulation (driving)
-static float g_forwardSum[3] = {0, 0, 0}; // Stores the Accumulated vector (rectified)
+static float g_forwardSum[3] = {0, 0, 0};
 static uint32_t g_forwardCount = 0;
 static bool g_hasForward = false;
 
@@ -64,25 +51,25 @@ static uint32_t g_sampleDurationMs = 0;
 // Flags for successful rotation matrix computation
 static bool g_hasRotation = false;
 
-// =========================
-// CONSTANTS (durations etc.)
-// =========================
+// ============================================================================
+// CONSTANTS (Durations & Thresholds)
+// ============================================================================
 
-// You can tweak these durations in the future if needed.
-static const uint32_t CALIB_STATIONARY_DURATION_MS = 10000; // 10s parked is usually enough
-static const uint32_t CALIB_FORWARD_DURATION_MS    = 30000; // 30s driving
+// Duration to sample data for each step
+static const uint32_t CALIB_STATIONARY_DURATION_MS = 10000;  // 10s parked
+static const uint32_t CALIB_FORWARD_DURATION_MS    = 30000;  // 30s driving
 
-// Minimum number of samples to accept calibration
+// Minimum number of samples required to consider the data valid
 static const uint32_t CALIB_MIN_STATIONARY_SAMPLES = 200;
 static const uint32_t CALIB_MIN_FORWARD_SAMPLES    = 200;
 
-// Threshold for accepting forward linear accel sample (in g)
-// This helps filter out engine vibration when idling before the car moves.
+// Threshold for accepting forward linear accel sample (in Gs).
+// This filters out engine vibration when idling before the car moves.
 static const float CALIB_FORWARD_MIN_G = 0.05f;
 
-// =========================
-// SMALL VECTOR HELPERS
-// =========================
+// ============================================================================
+// VECTOR MATH HELPERS (Inline for speed)
+// ============================================================================
 
 static inline void vecClear(float v[3]) {
   v[0] = v[1] = v[2] = 0.0f;
@@ -111,22 +98,16 @@ static inline float vecNorm(const float v[3]) {
 static inline bool vecNormalize(float v[3]) {
   float n = vecNorm(v);
   if (n < 1e-6f) return false;
-  v[0] /= n;
-  v[1] /= n;
-  v[2] /= n;
+  v[0] /= n; v[1] /= n; v[2] /= n;
   return true;
 }
 
 static inline void vecScale(const float v[3], float s, float out[3]) {
-  out[0] = v[0] * s;
-  out[1] = v[1] * s;
-  out[2] = v[2] * s;
+  out[0] = v[0] * s; out[1] = v[1] * s; out[2] = v[2] * s;
 }
 
 static inline void vecSub(const float a[3], const float b[3], float out[3]) {
-  out[0] = a[0] - b[0];
-  out[1] = a[1] - b[1];
-  out[2] = a[2] - b[2];
+  out[0] = a[0] - b[0]; out[1] = a[1] - b[1]; out[2] = a[2] - b[2];
 }
 
 static inline void vecCross(const float a[3], const float b[3], float out[3]) {
@@ -135,9 +116,9 @@ static inline void vecCross(const float a[3], const float b[3], float out[3]) {
   out[2] = a[0]*b[1] - a[1]*b[0];
 }
 
-// =========================
-// NVS LOAD / SAVE
-// =========================
+// ============================================================================
+// NVS LOAD / SAVE IMPLEMENTATION
+// ============================================================================
 
 bool calibLoadFromNvs() {
   if (!prefs.begin(NVS_NAMESPACE, true)) { // read-only
@@ -145,108 +126,125 @@ bool calibLoadFromNvs() {
     return false;
   }
 
+  Serial.println("[Calib] ----------------------------------------");
+  Serial.println("[Calib] Loading Calibration from NVS...");
+
+  // 1. Attempt to load Gravity & Scale (Can exist without Rotation)
   size_t lenG = prefs.getBytesLength(NVS_KEY_GRAV);
   size_t lenS = prefs.getBytesLength(NVS_KEY_SCALE);
-  size_t lenR = prefs.getBytesLength(NVS_KEY_ROT);
 
-  bool ok = false;
-
-  // Check if all keys exist and have correct size
-  if (lenG == sizeof(float)*3 && lenS == sizeof(float) && lenR == sizeof(float)*9) {
+  if (lenG == sizeof(float)*3 && lenS == sizeof(float)) {
     float g_tmp[3];
     float s_tmp;
-    float R_tmp[3][3];
-
     prefs.getBytes(NVS_KEY_GRAV, g_tmp, sizeof(g_tmp));
     prefs.getBytes(NVS_KEY_SCALE, &s_tmp, sizeof(s_tmp));
-    prefs.getBytes(NVS_KEY_ROT, R_tmp, sizeof(R_tmp));
 
-    // Basic sanity check on gravity magnitude (should be ~1.0 if normalized,
-    // but g_gravityRaw is NOT normalized, it's the raw sensor reading).
-    // Sanity check the Scale Factor instead.
-    if (s_tmp > 0.1f && s_tmp < 20000.0f) { // Range covers floats (1.0) or raw ints (16384)
-      
-      // Load Gravity
+    // Sanity check: Scale factor shouldn't be zero or absurd
+    if (s_tmp > 0.1f && s_tmp < 20000.0f) {
       vecCopy(g_tmp, g_gravityRaw);
-      g_hasGravity = true;
-
-      // Load Scale
       g_scaleFactor = s_tmp;
+      g_hasGravity = true;
+      
+      // --- DEBUG PRINT GRAVITY ---
+      Serial.println("[Calib] [OK] Gravity & Scale loaded:");
+      Serial.printf("    Scale Factor: %.4f\n", g_scaleFactor);
+      Serial.printf("    Gravity Vec:  [% .4f, % .4f, % .4f]\n", 
+                    g_gravityRaw[0], g_gravityRaw[1], g_gravityRaw[2]);
 
-      // Load Matrix
-      for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 3; ++j) {
-          ROTATION_MATRIX[i][j] = R_tmp[i][j];
-        }
-      }
-      g_hasRotation = true;
-      ok = true;
-
-      Serial.printf("[Calib] Loaded from NVS. Scale=%.4f\n", g_scaleFactor);
     } else {
-      Serial.println("[Calib] NVS scale factor invalid, ignoring.");
+      Serial.printf("[Calib] [ERR] NVS scale factor invalid (%.4f), ignoring.\n", s_tmp);
     }
   } else {
-    Serial.println("[Calib] NVS keys missing or wrong size, no calibration loaded.");
+    Serial.println("[Calib] [INFO] No valid Gravity/Scale in NVS (New unit?).");
   }
+
+  // 2. Attempt to load Rotation Matrix (Can be loaded independently if Gravity exists)
+  size_t lenR = prefs.getBytesLength(NVS_KEY_ROT);
+  
+  if (lenR == sizeof(float)*9) {
+    float R_tmp[3][3];
+    prefs.getBytes(NVS_KEY_ROT, R_tmp, sizeof(R_tmp));
+
+    // Copy into global matrix
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        ROTATION_MATRIX[i][j] = R_tmp[i][j];
+      }
+    }
+    g_hasRotation = true;
+
+    // --- DEBUG PRINT ROTATION ---
+    Serial.println("[Calib] [OK] Rotation Matrix loaded:");
+    Serial.printf("    Row 0 (Vert): [% .4f, % .4f, % .4f]\n", 
+                  ROTATION_MATRIX[0][0], ROTATION_MATRIX[0][1], ROTATION_MATRIX[0][2]);
+    Serial.printf("    Row 1 (Horz): [% .4f, % .4f, % .4f]\n", 
+                  ROTATION_MATRIX[1][0], ROTATION_MATRIX[1][1], ROTATION_MATRIX[1][2]);
+    Serial.printf("    Row 2 (Up):   [% .4f, % .4f, % .4f]\n", 
+                  ROTATION_MATRIX[2][0], ROTATION_MATRIX[2][1], ROTATION_MATRIX[2][2]);
+
+  } else {
+    Serial.println("[Calib] [INFO] No valid Rotation Matrix in NVS (Using defaults).");
+  }
+
+  Serial.println("[Calib] ----------------------------------------");
 
   prefs.end();
-  return ok;
+  
+  // We return true if we at least have the basic gravity/scale data.
+  // It is valid to have Gravity but no Rotation (if user only did step 1).
+  return g_hasGravity;
 }
 
-bool calibSaveToNvs() {
-  // We need Gravity and Rotation to save. Scale is implied if Gravity is valid.
-  if (!g_hasGravity || !g_hasRotation) {
-    Serial.println("[Calib] Cannot save: gravity or rotation not valid.");
+bool calibSaveGravityToNvs() {
+  if (!g_hasGravity) {
+    Serial.println("[Calib] Cannot save Gravity: data invalid.");
     return false;
   }
-
-  if (!prefs.begin(NVS_NAMESPACE, false)) { // read-write
-    Serial.println("[Calib] NVS begin failed (save).");
-    return false;
-  }
+  if (!prefs.begin(NVS_NAMESPACE, false)) return false; // read-write
 
   size_t writtenG = prefs.putBytes(NVS_KEY_GRAV, g_gravityRaw, sizeof(g_gravityRaw));
   size_t writtenS = prefs.putBytes(NVS_KEY_SCALE, &g_scaleFactor, sizeof(g_scaleFactor));
-  size_t writtenR = prefs.putBytes(NVS_KEY_ROT, ROTATION_MATRIX, sizeof(float)*9);
-
+  
   prefs.end();
 
-  bool ok = (writtenG == sizeof(g_gravityRaw) && 
-             writtenS == sizeof(g_scaleFactor) && 
-             writtenR == sizeof(float)*9);
-             
-  Serial.printf("[Calib] Saved calib to NVS (ok=%d). Scale=%.4f\n", ok ? 1 : 0, g_scaleFactor);
+  bool ok = (writtenG == sizeof(g_gravityRaw) && writtenS == sizeof(g_scaleFactor));
+  Serial.printf("[Calib] Saved Gravity & Scale to NVS (ok=%d)\n", ok);
   return ok;
 }
 
-// =========================
-// API IMPLEMENTATION
-// =========================
+bool calibSaveRotationToNvs() {
+  if (!g_hasRotation) {
+    Serial.println("[Calib] Cannot save Rotation: data invalid.");
+    return false;
+  }
+  if (!prefs.begin(NVS_NAMESPACE, false)) return false; // read-write
+
+  size_t writtenR = prefs.putBytes(NVS_KEY_ROT, ROTATION_MATRIX, sizeof(float)*9);
+  
+  prefs.end();
+
+  bool ok = (writtenR == sizeof(float)*9);
+  Serial.printf("[Calib] Saved Rotation Matrix to NVS (ok=%d)\n", ok);
+  return ok;
+}
+
+// ============================================================================
+// API GETTERS / SETTERS
+// ============================================================================
 
 void calibInit() {
+  // Reset state for a clean slate (does not wipe NVS)
   g_state = CALIB_IDLE;
   g_hasGravity = false;
   g_hasForward = false;
   g_hasRotation = false;
-  g_scaleFactor = 0.966f; // car module default
+  g_scaleFactor = 0.966f; // Default safety
 }
 
-CalibState calibGetState() {
-  return g_state;
-}
-
-bool calibHasGravity() {
-  return g_hasGravity;
-}
-
-bool calibHasRotation() {
-  return g_hasRotation;
-}
-
-float calibGetScaleFactor() {
-  return g_scaleFactor;
-}
+CalibState calibGetState() { return g_state; }
+bool calibHasGravity() { return g_hasGravity; }
+bool calibHasRotation() { return g_hasRotation; }
+float calibGetScaleFactor() { return g_scaleFactor; }
 
 uint32_t calibGetRemainingMs() {
   if (g_state != CALIB_GRAVITY_SAMPLING &&
@@ -283,9 +281,9 @@ void calibAbort() {
   Serial.println("[Calib] Aborted.");
 }
 
-// -------------------------
-// Stationary (gravity) step
-// -------------------------
+// ============================================================================
+// STEP 1: STATIONARY CALIBRATION
+// ============================================================================
 
 void calibStartGravity() {
   calibAbort(); // reset all accumulators
@@ -299,13 +297,12 @@ void calibStartGravity() {
   Serial.println("[Calib] Gravity calibration started (keep car still).");
 }
 
-// -------------------------
-// Forward (driving) step
-// -------------------------
+// ============================================================================
+// STEP 2: FORWARD CALIBRATION
+// ============================================================================
 
 void calibStartForward() {
-  // We can start forward calib as long as we have a valid gravity vector
-  // (either from NVS or from a just-finished gravity calibration).
+  // We require a valid gravity vector (from Step 1 or NVS)
   if (!g_hasGravity) {
     Serial.println("[Calib] Cannot start forward calib: gravity not calibrated/loaded.");
     return;
@@ -320,72 +317,75 @@ void calibStartForward() {
   g_hasForward = false;
 
   Serial.println("[Calib] Forward calibration started.");
-  Serial.println("[Calib] RULE: Accelerate FIRST. Braking data will be auto-rectified.");
+  Serial.println("[Calib] RULE: Accelerate FIRST from a stop.");
+  Serial.println("[Calib] Braking data will be automatically rectified.");
 }
 
-// -------------------------
-// Streaming update
-// -------------------------
+// ============================================================================
+// STREAMING UPDATE (Main Logic)
+// ============================================================================
 
 void calibUpdate(const float accel[3]) {
   uint32_t now = millis();
 
-  // ============================================================
-  // STATE: GRAVITY SAMPLING (Stationary)
-  // ============================================================
+  // --------------------------------------------------------------------------
+  // LOGIC FOR STATIONARY PHASE
+  // --------------------------------------------------------------------------
   if (g_state == CALIB_GRAVITY_SAMPLING) {
     // Accumulate raw gravity over the window
     vecAdd(accel, g_gravitySum);
     g_gravityCount++;
 
     if (now - g_sampleStartMs >= g_sampleDurationMs) {
+      // End of sampling window
       if (g_gravityCount < CALIB_MIN_STATIONARY_SAMPLES) {
         Serial.println("[Calib] Gravity calibration FAILED: not enough samples.");
         g_state = CALIB_ERROR;
         return;
       }
 
-      // 1. Calculate Mean gravity vector
+      // 1. Calculate Mean gravity vector (down direction)
       g_gravityRaw[0] = g_gravitySum[0] / g_gravityCount;
       g_gravityRaw[1] = g_gravitySum[1] / g_gravityCount;
       g_gravityRaw[2] = g_gravitySum[2] / g_gravityCount;
 
-      // 2. Calculate Scale Factor (Magnitude of that vector)
+      // 2. Calculate Scale Factor (Magnitude of gravity)
+      // If sensor is perfect, this is 1.0 (or 9.8, or 16384 depending on sensor unit).
+      // We save this to normalize future readings.
       g_scaleFactor = vecNorm(g_gravityRaw);
 
-      Serial.printf("[Calib] Gravity DONE. mean=[%.4f, %.4f, %.4f], Magnitude/Scale=%.4f\n",
+      Serial.printf("[Calib] Gravity DONE. mean=[%.4f, %.4f, %.4f], Scale=%.4f\n",
                     g_gravityRaw[0], g_gravityRaw[1], g_gravityRaw[2], g_scaleFactor);
 
-      // Sanity check
+      // 3. Validate Scale Factor
       if (g_scaleFactor > 0.1f && g_scaleFactor < 20000.0f) {
-          g_hasGravity = true;
-          g_state = CALIB_IDLE;  // ready for forward step
+        g_hasGravity = true;
+        g_state = CALIB_IDLE;  // Success
       } else {
-          Serial.println("[Calib] Gravity vector invalid (mag near 0?), calibration failed.");
-          g_state = CALIB_ERROR;
-          g_scaleFactor = 1.0f; // revert to safe default
-          g_hasGravity = false;
+        Serial.println("[Calib] Gravity vector invalid (mag near 0?), calibration failed.");
+        g_scaleFactor = 1.0f; // Revert to safe default
+        g_hasGravity = false;
+        g_state = CALIB_ERROR;
       }
     }
     return;
   }
 
-  // ============================================================
-  // STATE: FORWARD SAMPLING (Driving)
-  // ============================================================
+  // --------------------------------------------------------------------------
+  // LOGIC FOR FORWARD PHASE (Rectified)
+  // --------------------------------------------------------------------------
   if (g_state == CALIB_FORWARD_SAMPLING) {
-    // Need normalized "down" direction from gravity
+    // 1. Need normalized "down" direction from gravity
     float down[3];
     vecCopy(g_gravityRaw, down);
     if (!vecNormalize(down)) {
-      Serial.println("[Calib] Forward calib error: invalid gravity vector.");
       g_state = CALIB_ERROR;
       return;
     }
 
-    // 1. Remove gravity component: a_lin = a - (a·down)*down
-    // Note: We use 'accel' (raw) here. 'down' is normalized.
-    // a_lin will be in raw units, which is fine for determining direction.
+    // 2. Isolate Linear Acceleration
+    // Project acceleration onto gravity, then subtract it.
+    // a_lin = a - (a·down)*down
     float proj = vecDot(accel, down);
     float grav_comp[3];
     vecScale(down, proj, grav_comp);
@@ -393,45 +393,42 @@ void calibUpdate(const float accel[3]) {
     float a_lin[3];
     vecSub(accel, grav_comp, a_lin);
 
+    // 3. Check Magnitude Threshold
+    // We normalize the threshold check using the known scale factor
+    // so it works regardless of sensor units.
     float lin_norm = vecNorm(a_lin);
-
-    // 2. Threshold Filter (ignore idle vibrations)
-    // We compare raw magnitude. If scale is ~1.0, CALIB_FORWARD_MIN_G works as Gs.
-    // If scale is ~16384, we need to adjust threshold? 
-    // Better approach: Normalize threshold check using the known scale factor.
     float lin_g = lin_norm / g_scaleFactor;
 
+    // Only accumulate significant movement (ignore engine idle vibration)
     if (lin_g > CALIB_FORWARD_MIN_G) {
       
-      // 3. Rectification Logic (The "Accel First" Rule)
+      // --- RECTIFICATION LOGIC (ACCEL FIRST) ---
       
       if (g_forwardCount == 0) {
-        // FIRST SAMPLE: This defines "Backward" force (Acceleration).
-        // We assume the user followed instructions and accelerated first.
+        // FIRST SAMPLE:
+        // We define this direction as "Backward Force" (Acceleration).
+        // The vector 'a_lin' is added directly to the sum.
         vecAdd(a_lin, g_forwardSum);
         g_forwardCount++;
-        // Serial.println("[Calib] First movement detected (Reference Direction).");
       } 
       else {
-        // SUBSEQUENT SAMPLES: Check alignment with the running sum.
-        // If dot product is negative, the force is opposite (Braking).
-        // We invert braking forces so they ADD to the calibration definition
-        // rather than cancelling it out.
-        
-        // Current accumulated average direction
+        // SUBSEQUENT SAMPLES:
+        // We check if this new sample points roughly in the same direction
+        // as our accumulated average, or opposite.
         float current_sum_copy[3] = {g_forwardSum[0], g_forwardSum[1], g_forwardSum[2]};
         
         float alignment = vecDot(a_lin, current_sum_copy);
         
         if (alignment >= 0) {
-            // Aligned (Acceleration). Add directly.
-            vecAdd(a_lin, g_forwardSum);
+             // Points same way (Acceleration). Add directly.
+             vecAdd(a_lin, g_forwardSum);
         } else {
-            // Opposed (Braking). Invert then Add.
-            float inverted[3];
-            vecScale(a_lin, -1.0f, inverted);
-            vecAdd(inverted, g_forwardSum);
-            // Serial.print("."); // debug indicator for rectified sample
+             // Points opposite way (Braking).
+             // Invert it so it points "Backward", then add.
+             // This means Braking data REINFORCES the calibration line.
+             float inverted[3];
+             vecScale(a_lin, -1.0f, inverted);
+             vecAdd(inverted, g_forwardSum);
         }
         g_forwardCount++;
       }
@@ -445,7 +442,7 @@ void calibUpdate(const float accel[3]) {
         return;
       }
 
-      // Calculate average of the rectified sum
+      // Calculate the average of the rectified sum
       float avg[3] = {
         g_forwardSum[0] / g_forwardCount,
         g_forwardSum[1] / g_forwardCount,
@@ -455,7 +452,7 @@ void calibUpdate(const float accel[3]) {
       Serial.printf("[Calib] Forward calibration DONE. Samples=%d, avg_lin=[%.4f, %.4f, %.4f]\n",
                     g_forwardCount, avg[0], avg[1], avg[2]);
 
-      vecCopy(avg, g_forwardSum);  // reuse g_forwardSum as the final "forward_raw" vector
+      vecCopy(avg, g_forwardSum);  // Reuse g_forwardSum to store the final vector
       g_hasForward = true;
       g_state = CALIB_READY_TO_COMPUTE;
     }
@@ -465,9 +462,9 @@ void calibUpdate(const float accel[3]) {
   // Other states: nothing to do
 }
 
-// -------------------------
-// Compute rotation matrix
-// -------------------------
+// ============================================================================
+// COMPUTE ROTATION MATRIX
+// ============================================================================
 
 bool calibComputeRotation() {
   if (!g_hasGravity || !g_hasForward) {
@@ -513,18 +510,16 @@ bool calibComputeRotation() {
   //
   // We want the INERTIAL frame (where dots move opposite to acceleration).
   //
-  // The vector 'forward_horizontal' we calculated comes from ACCELERATION forces.
   // Physics: When you accelerate Forward, the Force vector points BACKWARD.
   // So 'forward_horizontal' actually points BACKWARD relative to the car.
   //
   // To get Car-Forward in the Inertial Display Frame:
   // We want Negative Z (Forward Accel) to map to Negative Display X (Dot Down).
   //
-  // Let's stick to the matrix definition that worked in your Python script:
   // Row 0 (Display X) = -forward_horizontal (Negating the backward force -> Forward)
   // Row 1 (Display Y) = -left_unit
   // Row 2 (Display Z) = gravity_unit
-  
+  //
   ROTATION_MATRIX[0][0] = -forward_horizontal[0];
   ROTATION_MATRIX[0][1] = -forward_horizontal[1];
   ROTATION_MATRIX[0][2] = -forward_horizontal[2];
@@ -537,9 +532,24 @@ bool calibComputeRotation() {
   ROTATION_MATRIX[2][1] =  gravity_unit[1];
   ROTATION_MATRIX[2][2] =  gravity_unit[2];
 
+  // Simple orthogonality sanity checks (optional debug)
+  float dot_xy = vecDot(ROTATION_MATRIX[0], ROTATION_MATRIX[1]);
+  float dot_xz = vecDot(ROTATION_MATRIX[0], ROTATION_MATRIX[2]);
+  float dot_yz = vecDot(ROTATION_MATRIX[1], ROTATION_MATRIX[2]);
+
+  Serial.println("[Calib] Rotation matrix computed:");
+  Serial.printf("  Row0 (X): [%.6f, %.6f, %.6f]\n",
+                ROTATION_MATRIX[0][0], ROTATION_MATRIX[0][1], ROTATION_MATRIX[0][2]);
+  Serial.printf("  Row1 (Y): [%.6f, %.6f, %.6f]\n",
+                ROTATION_MATRIX[1][0], ROTATION_MATRIX[1][1], ROTATION_MATRIX[1][2]);
+  Serial.printf("  Row2 (Z): [%.6f, %.6f, %.6f]\n",
+                ROTATION_MATRIX[2][0], ROTATION_MATRIX[2][1], ROTATION_MATRIX[2][2]);
+
+  Serial.printf("  Orthogonality check: xy=%.6f xz=%.6f yz=%.6f\n",
+                dot_xy, dot_xz, dot_yz);
+
   g_hasRotation = true;
   g_state = CALIB_DONE;
-  
-  Serial.println("[Calib] Rotation matrix computed successfully.");
+
   return true;
 }
