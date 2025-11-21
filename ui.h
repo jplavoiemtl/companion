@@ -31,6 +31,7 @@ extern "C" {
 #include "ui_Screen2.h"
 #include "ui_Screen3.h"
 #include "ui_InclinometerScreen.h"
+#include "ui_calibrationScreen.h"
 
 ///////////////////// VARIABLES ////////////////////
 

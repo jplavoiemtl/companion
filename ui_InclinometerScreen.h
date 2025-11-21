@@ -13,6 +13,7 @@ extern "C" {
 // SCREEN: ui_InclinometerScreen
 extern void ui_InclinometerScreen_screen_init(void);
 extern void ui_InclinometerScreen_screen_destroy(void);
+extern void ui_event_InclinometerScreen(lv_event_t * e);
 extern lv_obj_t * ui_InclinometerScreen;
 extern lv_obj_t * ui_PitchCarImage;
 extern lv_obj_t * ui_RollCarImage;

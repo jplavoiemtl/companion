@@ -14,6 +14,19 @@ lv_obj_t * ui_labelMotionIcon3 = NULL;
 lv_obj_t * ui_Button4 = NULL;
 lv_obj_t * ui_Button5 = NULL;
 // event funtions
+void ui_event_InclinometerScreen(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        activity_event_handler(e);
+    }
+    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_LEFT) {
+        lv_indev_wait_release(lv_indev_get_act());
+        _ui_screen_change(&ui_calibrationScreen, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_calibrationScreen_screen_init);
+    }
+}
+
 void ui_event_Button4(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
@@ -119,6 +132,7 @@ void ui_InclinometerScreen_screen_init(void)
 
     lv_obj_add_event_cb(ui_Button4, ui_event_Button4, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Button5, ui_event_Button5, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_InclinometerScreen, ui_event_InclinometerScreen, LV_EVENT_ALL, NULL);
 
 }
 

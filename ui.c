@@ -37,6 +37,7 @@ void ui_init(void)
     ui_Screen2_screen_init();
     ui_Screen3_screen_init();
     ui_InclinometerScreen_screen_init();
+    ui_calibrationScreen_screen_init();
     ui____initial_actions0 = lv_obj_create(NULL);
     lv_disp_load_scr(ui_Screen1);
 }
@@ -47,4 +48,5 @@ void ui_destroy(void)
     ui_Screen2_screen_destroy();
     ui_Screen3_screen_destroy();
     ui_InclinometerScreen_screen_destroy();
+    ui_calibrationScreen_screen_destroy();
 }
