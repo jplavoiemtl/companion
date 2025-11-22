@@ -56,12 +56,12 @@ static bool g_hasRotation = false;
 // ============================================================================
 
 // Duration to sample data for each step
-static const uint32_t CALIB_STATIONARY_DURATION_MS = 10000;  // 10s parked
+static const uint32_t CALIB_STATIONARY_DURATION_MS = 5000;  // 5s parked
 static const uint32_t CALIB_FORWARD_DURATION_MS    = 30000;  // 30s driving
 
 // Minimum number of samples required to consider the data valid
-static const uint32_t CALIB_MIN_STATIONARY_SAMPLES = 200;
-static const uint32_t CALIB_MIN_FORWARD_SAMPLES    = 200;
+static const uint32_t CALIB_MIN_STATIONARY_SAMPLES = 1000;
+static const uint32_t CALIB_MIN_FORWARD_SAMPLES    = 1000;
 
 // Threshold for accepting forward linear accel sample (in Gs).
 // This filters out engine vibration when idling before the car moves.
@@ -330,6 +330,7 @@ void calibUpdate(const float accel[3]) {
 
   // --------------------------------------------------------------------------
   // LOGIC FOR STATIONARY PHASE
+  // Gravity calibration sampling frequency: 2936 / 10 seconds = 293.6 Hz
   // --------------------------------------------------------------------------
   if (g_state == CALIB_GRAVITY_SAMPLING) {
     // Accumulate raw gravity over the window
@@ -354,8 +355,10 @@ void calibUpdate(const float accel[3]) {
       // We save this to normalize future readings.
       g_scaleFactor = vecNorm(g_gravityRaw);
 
-      Serial.printf("[Calib] Gravity DONE. mean=[%.4f, %.4f, %.4f], Scale=%.4f\n",
-                    g_gravityRaw[0], g_gravityRaw[1], g_gravityRaw[2], g_scaleFactor);
+      Serial.printf("[Calib] Gravity DONE. Samples=%d, mean=[%.4f, %.4f, %.4f], Scale=%.4f\n",
+                    g_gravityCount, 
+                    g_gravityRaw[0], g_gravityRaw[1], g_gravityRaw[2], 
+                    g_scaleFactor);
 
       // 3. Validate Scale Factor
       if (g_scaleFactor > 0.1f && g_scaleFactor < 20000.0f) {

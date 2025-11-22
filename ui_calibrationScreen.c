@@ -6,12 +6,12 @@
 #include "ui.h"
 
 lv_obj_t * ui_calibrationScreen = NULL;
-lv_obj_t * ui_Label1 = NULL;
+lv_obj_t * ui_calibLabel = NULL;
 lv_obj_t * ui_gravityCalButton = NULL;
 lv_obj_t * ui_Label4 = NULL;
 lv_obj_t * ui_forwardCalButton = NULL;
 lv_obj_t * ui_Label2 = NULL;
-lv_obj_t * ui_Label5 = NULL;
+lv_obj_t * ui_calibStatusLabel = NULL;
 lv_obj_t * ui_Button6 = NULL;
 // event funtions
 void ui_event_calibrationScreen(lv_event_t * e)
@@ -20,6 +20,15 @@ void ui_event_calibrationScreen(lv_event_t * e)
 
     if(event_code == LV_EVENT_CLICKED) {
         activity_event_handler(e);
+    }
+}
+
+void ui_event_gravityCalButton(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        gravityCalButton_event_handler(e);
     }
 }
 
@@ -39,14 +48,14 @@ void ui_calibrationScreen_screen_init(void)
     ui_calibrationScreen = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_calibrationScreen, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
-    ui_Label1 = lv_label_create(ui_calibrationScreen);
-    lv_obj_set_width(ui_Label1, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_Label1, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_Label1, -8);
-    lv_obj_set_y(ui_Label1, -154);
-    lv_obj_set_align(ui_Label1, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_Label1, "IMU Calibration");
-    lv_obj_set_style_text_font(ui_Label1, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT);
+    ui_calibLabel = lv_label_create(ui_calibrationScreen);
+    lv_obj_set_width(ui_calibLabel, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_calibLabel, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_calibLabel, -8);
+    lv_obj_set_y(ui_calibLabel, -154);
+    lv_obj_set_align(ui_calibLabel, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_calibLabel, "IMU Calibration");
+    lv_obj_set_style_text_font(ui_calibLabel, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_gravityCalButton = lv_btn_create(ui_calibrationScreen);
     lv_obj_set_width(ui_gravityCalButton, 158);
@@ -80,14 +89,14 @@ void ui_calibrationScreen_screen_init(void)
     lv_label_set_text(ui_Label2, "Forward \nDrive");
     lv_obj_set_style_text_font(ui_Label2, &lv_font_montserrat_24, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_Label5 = lv_label_create(ui_calibrationScreen);
-    lv_obj_set_width(ui_Label5, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_Label5, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_Label5, -11);
-    lv_obj_set_y(ui_Label5, -38);
-    lv_obj_set_align(ui_Label5, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_Label5, "Calibration status info");
-    lv_obj_set_style_text_font(ui_Label5, &lv_font_montserrat_20, LV_PART_MAIN | LV_STATE_DEFAULT);
+    ui_calibStatusLabel = lv_label_create(ui_calibrationScreen);
+    lv_obj_set_width(ui_calibStatusLabel, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_calibStatusLabel, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_calibStatusLabel, -11);
+    lv_obj_set_y(ui_calibStatusLabel, -38);
+    lv_obj_set_align(ui_calibStatusLabel, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_calibStatusLabel, "Calibration status info");
+    lv_obj_set_style_text_font(ui_calibStatusLabel, &lv_font_montserrat_20, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Button6 = lv_btn_create(ui_calibrationScreen);
     lv_obj_set_width(ui_Button6, 444);
@@ -100,6 +109,7 @@ void ui_calibrationScreen_screen_init(void)
     lv_obj_set_style_bg_color(ui_Button6, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_Button6, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    lv_obj_add_event_cb(ui_gravityCalButton, ui_event_gravityCalButton, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Button6, ui_event_Button6, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_calibrationScreen, ui_event_calibrationScreen, LV_EVENT_ALL, NULL);
 
@@ -111,12 +121,12 @@ void ui_calibrationScreen_screen_destroy(void)
 
     // NULL screen variables
     ui_calibrationScreen = NULL;
-    ui_Label1 = NULL;
+    ui_calibLabel = NULL;
     ui_gravityCalButton = NULL;
     ui_Label4 = NULL;
     ui_forwardCalButton = NULL;
     ui_Label2 = NULL;
-    ui_Label5 = NULL;
+    ui_calibStatusLabel = NULL;
     ui_Button6 = NULL;
 
 }

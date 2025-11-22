@@ -15,6 +15,7 @@ void buttonLatest_event_handler(lv_event_t * e);
 void buttonBack_event_handler(lv_event_t * e);
 void buttonNew_event_handler(lv_event_t * e);
 void buttonGmeter_event_handler(lv_event_t * e);
+void gravityCalButton_event_handler(lv_event_t * e);
 
 #ifdef __cplusplus
 } /*extern "C"*/

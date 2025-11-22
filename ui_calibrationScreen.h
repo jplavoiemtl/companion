@@ -15,12 +15,13 @@ extern void ui_calibrationScreen_screen_init(void);
 extern void ui_calibrationScreen_screen_destroy(void);
 extern void ui_event_calibrationScreen(lv_event_t * e);
 extern lv_obj_t * ui_calibrationScreen;
-extern lv_obj_t * ui_Label1;
+extern lv_obj_t * ui_calibLabel;
+extern void ui_event_gravityCalButton(lv_event_t * e);
 extern lv_obj_t * ui_gravityCalButton;
 extern lv_obj_t * ui_Label4;
 extern lv_obj_t * ui_forwardCalButton;
 extern lv_obj_t * ui_Label2;
-extern lv_obj_t * ui_Label5;
+extern lv_obj_t * ui_calibStatusLabel;
 extern void ui_event_Button6(lv_event_t * e);
 extern lv_obj_t * ui_Button6;
 // CUSTOM VARIABLES

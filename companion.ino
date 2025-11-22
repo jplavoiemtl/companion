@@ -1520,6 +1520,59 @@ bool attemptWiFiConnection() {
 
 
 //***************************************************************************************************
+// ===========================================================
+// TIMER CALLBACK
+// ===========================================================
+void onGravityTimerExpired(lv_timer_t * timer) {
+    // Retrieve the pointer to the 'isStabilizing' flag
+    bool* pIsStabilizing = (bool*)timer->user_data;
+    
+    // Reset the flag
+    if (pIsStabilizing) {
+        *pIsStabilizing = false;
+    }
+    
+    calibStartGravity();
+    USBSerial.println("[UI] Stabilization complete. Sampling started.");
+}
+
+// ===========================================================
+// BUTTON EVENT HANDLER
+// ===========================================================
+void gravityCalButton_event_handler(lv_event_t * e) {
+    lv_event_code_t code = lv_event_get_code(e);
+
+    // Static variable INSIDE the function.
+    // It keeps its value between button clicks.
+    static bool isStabilizing = false;
+
+    if (code == LV_EVENT_CLICKED) {
+        // 1. DEBOUNCE CHECK
+        if (isStabilizing) {
+            USBSerial.println("[UI] Ignored double-click.");
+            return;
+        }
+
+        // 2. STATE CHECK
+        if (calibGetState() != CALIB_IDLE) {
+            USBSerial.println("[UI] Ignored click (Calibration already running).");
+            return;
+        }
+
+        // 3. Lock the button
+        isStabilizing = true;
+        
+        USBSerial.println("[UI] Gravity Calib Button Pressed.");
+        USBSerial.println("[UI] Waiting 1s for stabilization...");
+
+        // Create timer and PASS THE ADDRESS of our static variable
+        lv_timer_t * timer = lv_timer_create(onGravityTimerExpired, 1000, &isStabilizing);
+        lv_timer_set_repeat_count(timer, 1);
+    }
+}
+
+
+//***************************************************************************************************
 void updateCalibration() {
   static CalibState prevCalibState = CALIB_IDLE;
   CalibState currentState = calibGetState();
@@ -2998,6 +3051,7 @@ void initUIHandlers() {
     lv_obj_add_event_cb(ui_ButtonNew, buttonNew_event_handler, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_ButtonBack, buttonBack_event_handler, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_ButtonGmeter, buttonGmeter_event_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_gravityCalButton, gravityCalButton_event_handler, LV_EVENT_CLICKED, NULL);    
     USBSerial.println("  Button event handlers registered");
 
     // Attach Screen 2 event handler for image loading
