@@ -19,6 +19,7 @@ extern lv_obj_t * ui_calibLabel;
 extern void ui_event_gravityCalButton(lv_event_t * e);
 extern lv_obj_t * ui_gravityCalButton;
 extern lv_obj_t * ui_Label4;
+extern void ui_event_forwardCalButton(lv_event_t * e);
 extern lv_obj_t * ui_forwardCalButton;
 extern lv_obj_t * ui_Label2;
 extern lv_obj_t * ui_calibStatusLabel;

@@ -32,6 +32,15 @@ void ui_event_gravityCalButton(lv_event_t * e)
     }
 }
 
+void ui_event_forwardCalButton(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_CLICKED) {
+        forwardCalButton_event_handler(e);
+    }
+}
+
 void ui_event_Button6(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
@@ -110,6 +119,7 @@ void ui_calibrationScreen_screen_init(void)
     lv_obj_set_style_bg_opa(ui_Button6, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     lv_obj_add_event_cb(ui_gravityCalButton, ui_event_gravityCalButton, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_forwardCalButton, ui_event_forwardCalButton, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Button6, ui_event_Button6, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_calibrationScreen, ui_event_calibrationScreen, LV_EVENT_ALL, NULL);
 

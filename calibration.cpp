@@ -57,7 +57,7 @@ static bool g_hasRotation = false;
 
 // Duration to sample data for each step
 static const uint32_t CALIB_STATIONARY_DURATION_MS = 5000;  // 5s parked
-static const uint32_t CALIB_FORWARD_DURATION_MS    = 30000;  // 30s driving
+static const uint32_t CALIB_FORWARD_DURATION_MS    = 10000;  // 10s driving
 
 // Minimum number of samples required to consider the data valid
 static const uint32_t CALIB_MIN_STATIONARY_SAMPLES = 1000;
@@ -456,6 +456,9 @@ void calibUpdate(const float accel[3]) {
                     g_forwardCount, avg[0], avg[1], avg[2]);
 
       vecCopy(avg, g_forwardSum);  // Reuse g_forwardSum to store the final vector
+      Serial.printf("[Calib] Final Forward Vector (g_forwardSum): [%.4f, %.4f, %.4f]\n", 
+                    g_forwardSum[0], g_forwardSum[1], g_forwardSum[2]);
+
       g_hasForward = true;
       g_state = CALIB_READY_TO_COMPUTE;
     }
@@ -519,17 +522,17 @@ bool calibComputeRotation() {
   // To get Car-Forward in the Inertial Display Frame:
   // We want Negative Z (Forward Accel) to map to Negative Display X (Dot Down).
   //
-  // Row 0 (Display X) = -forward_horizontal (Negating the backward force -> Forward)
-  // Row 1 (Display Y) = -left_unit
+  // Row 0 (Display X) = forward_horizontal ( negative acceleration pushes backward toward the rear of the car)
+  // Row 1 (Display Y) = left_unit
   // Row 2 (Display Z) = gravity_unit
   //
-  ROTATION_MATRIX[0][0] = -forward_horizontal[0];
-  ROTATION_MATRIX[0][1] = -forward_horizontal[1];
-  ROTATION_MATRIX[0][2] = -forward_horizontal[2];
+  ROTATION_MATRIX[0][0] = forward_horizontal[0];
+  ROTATION_MATRIX[0][1] = forward_horizontal[1];
+  ROTATION_MATRIX[0][2] = forward_horizontal[2];
 
-  ROTATION_MATRIX[1][0] = -left_unit[0];
-  ROTATION_MATRIX[1][1] = -left_unit[1];
-  ROTATION_MATRIX[1][2] = -left_unit[2];
+  ROTATION_MATRIX[1][0] = left_unit[0];
+  ROTATION_MATRIX[1][1] = left_unit[1];
+  ROTATION_MATRIX[1][2] = left_unit[2];
 
   ROTATION_MATRIX[2][0] =  gravity_unit[0];
   ROTATION_MATRIX[2][1] =  gravity_unit[1];

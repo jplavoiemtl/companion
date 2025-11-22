@@ -1520,7 +1520,6 @@ bool attemptWiFiConnection() {
 
 
 //***************************************************************************************************
-// ===========================================================
 // TIMER CALLBACK
 // ===========================================================
 void onGravityTimerExpired(lv_timer_t * timer) {
@@ -1554,8 +1553,13 @@ void gravityCalButton_event_handler(lv_event_t * e) {
         }
 
         // 2. STATE CHECK
-        if (calibGetState() != CALIB_IDLE) {
-            USBSerial.println("[UI] Ignored click (Calibration already running).");
+        // Only block if we are actively doing something.
+        // It is OK to click if state is IDLE, DONE, or ERROR.
+        CalibState cs = calibGetState();
+        if (cs == CALIB_GRAVITY_SAMPLING || 
+            cs == CALIB_FORWARD_SAMPLING || 
+            cs == CALIB_READY_TO_COMPUTE) {
+            USBSerial.println("[UI] Ignored click (Calibration in progress).");
             return;
         }
 
@@ -1567,6 +1571,72 @@ void gravityCalButton_event_handler(lv_event_t * e) {
 
         // Create timer and PASS THE ADDRESS of our static variable
         lv_timer_t * timer = lv_timer_create(onGravityTimerExpired, 1000, &isStabilizing);
+        lv_timer_set_repeat_count(timer, 1);
+    }
+}
+
+
+//***************************************************************************************************
+// FORWARD TIMER CALLBACK
+// ===========================================================
+void onForwardTimerExpired(lv_timer_t * timer) {
+    // Retrieve the pointer to the 'isStabilizing' flag
+    bool* pIsStabilizing = (bool*)timer->user_data;
+    
+    // Reset the flag
+    if (pIsStabilizing) {
+        *pIsStabilizing = false;
+    }
+    
+    // Actually start the Forward Calibration logic
+    calibStartForward();
+    
+    USBSerial.println("[UI] Forward Sampling started. Accelerate NOW!");
+}
+
+// ===========================================================
+// FORWARD BUTTON EVENT HANDLER
+// ===========================================================
+void forwardCalButton_event_handler(lv_event_t * e) {
+    lv_event_code_t code = lv_event_get_code(e);
+
+    // Static variable INSIDE the function (unique to this button)
+    static bool isStabilizing = false;
+
+    if (code == LV_EVENT_CLICKED) {
+        // 1. DEBOUNCE CHECK
+        if (isStabilizing) {
+            USBSerial.println("[UI] Ignored double-click.");
+            return;
+        }
+
+        // 2. STATE CHECK
+        CalibState cs = calibGetState();
+        if (cs == CALIB_GRAVITY_SAMPLING || 
+            cs == CALIB_FORWARD_SAMPLING || 
+            cs == CALIB_READY_TO_COMPUTE) {
+            USBSerial.println("[UI] Ignored click (Calibration in progress).");
+            return;
+        }
+
+        // 3. PREREQUISITE CHECK (Crucial for Forward Calib)
+        // We cannot drive if we don't know which way is Down.
+        if (!calibHasGravity()) {
+            USBSerial.println("[UI] Error: Missing Gravity Data. Please do Gravity Calib first.");
+            // Optional: Update a UI Label here to warn the user
+            // lv_label_set_text(ui_LabelStatus, "Error: Do Gravity First!");
+            return;
+        }
+
+        // 4. Lock the button
+        isStabilizing = true;
+        
+        USBSerial.println("[UI] Forward Calib Button Pressed.");
+        USBSerial.println("[UI] Waiting 1s before sampling starts...");
+
+        // Create timer and PASS THE ADDRESS of our static variable
+        // We wait 1 second to give the user time to put their hand back on the wheel
+        lv_timer_t * timer = lv_timer_create(onForwardTimerExpired, 1000, &isStabilizing);
         lv_timer_set_repeat_count(timer, 1);
     }
 }
@@ -3051,7 +3121,8 @@ void initUIHandlers() {
     lv_obj_add_event_cb(ui_ButtonNew, buttonNew_event_handler, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_ButtonBack, buttonBack_event_handler, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_ButtonGmeter, buttonGmeter_event_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_gravityCalButton, gravityCalButton_event_handler, LV_EVENT_CLICKED, NULL);    
+    lv_obj_add_event_cb(ui_gravityCalButton, gravityCalButton_event_handler, LV_EVENT_CLICKED, NULL);   
+    lv_obj_add_event_cb(ui_forwardCalButton, forwardCalButton_event_handler, LV_EVENT_CLICKED, NULL); 
     USBSerial.println("  Button event handlers registered");
 
     // Attach Screen 2 event handler for image loading
@@ -3314,7 +3385,7 @@ void setup() {
   delay(50); 
   
   // Debug delay to allow printing to serial monitor.  Comment out for production.
-  delay(900); // Allow time for hardware to stabilize, 800
+  delay(900); // Allow time for hardware to stabilize
 
   USBSerial.println("\n--- Board is starting up ---");
   
