@@ -455,6 +455,8 @@ void calibUpdate(const float accel[3]) {
       Serial.printf("[Calib] Forward calibration DONE. Samples=%d, avg_lin=[%.4f, %.4f, %.4f]\n",
                     g_forwardCount, avg[0], avg[1], avg[2]);
 
+      // Store the final average back into g_forwardSum for later use
+      // Final Forward Vector points in the "Backward Force" direction towards rear of car
       vecCopy(avg, g_forwardSum);  // Reuse g_forwardSum to store the final vector
       Serial.printf("[Calib] Final Forward Vector (g_forwardSum): [%.4f, %.4f, %.4f]\n", 
                     g_forwardSum[0], g_forwardSum[1], g_forwardSum[2]);

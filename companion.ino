@@ -52,6 +52,7 @@ const char HILO_POWER[] = "ha/hilo_meter_power";
 const char HILO_ENERGY[] = "hilo_energie";
 const char MOTION_TOPIC[] = "companion/motion";
 const char IMU_TOPIC[] = "companion/imu";
+const char IMU_CALIBRATION_TOPIC[] = "companion/calibration";
 
 // Generic pointers that will be assigned based on WIFI_PRIORITY
 const char* primarySsid;
