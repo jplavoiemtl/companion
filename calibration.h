@@ -117,6 +117,23 @@ bool calibGetGravity(float out[3]);
 bool calibGetRotationMatrix(float out[3][3]);
 
 // ----------------------------------------------------------------------------
+// MQTT REPORTING
+// ----------------------------------------------------------------------------
+
+// Define the Callback signature: takes a topic and a payload
+typedef void (*MqttCallback)(const char* topic, const char* payload);
+
+// Register the callback function (connects Library to Main Sketch)
+void calibSetMqttCallback(MqttCallback cb);
+
+// Set the Car Unit flag (call this in setup based on #ifdef CAR)
+void calibSetCarUnit(bool isCar);
+
+// Manually trigger an MQTT report (e.g., at startup).
+// Sends with "new_calib": false
+void calibReportStatus();
+
+// ----------------------------------------------------------------------------
 // GLOBAL MATRIX USED BY FIRMWARE
 // ----------------------------------------------------------------------------
 // This is the matrix your code should use in applyInertialTransform().

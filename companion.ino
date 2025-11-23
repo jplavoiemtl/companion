@@ -1172,7 +1172,10 @@ void checkMQTT(bool bypassRateLimit = false) {  // ADD parameter with default va
           USBSerial.println("Failed to subscribe to image topic");
       } 
       mqttClient.subscribe(HILO_POWER, 1);
-      mqttClient.subscribe(HILO_ENERGY, 1);                               
+      mqttClient.subscribe(HILO_ENERGY, 1);  
+      
+      // Send Calibration Report on Connect
+      calibReportStatus();           
     } else {
       mqttConnection = false;
       USBSerial.print("failed, rc=");
@@ -2975,6 +2978,20 @@ void updateImuData() {
   }
 }
 
+// =============================================================
+// MQTT BRIDGE (Connects Library to Main Sketch)
+// =============================================================
+void myCalibMqttSender(const char* topic, const char* payload) {
+  // Only send if we have an active connection
+  if (mqttClient.connected()) {
+    mqttClient.publish(topic, payload);
+    USBSerial.print("[MQTT] Calibration sent: ");
+    USBSerial.println(payload);
+  } else {
+    USBSerial.println("[MQTT] Skipped calibration send (Not connected).");
+  }
+}
+
 
 /****************************************************************************************************
  * INITIALIZATION HELPER FUNCTIONS
@@ -3208,6 +3225,17 @@ void initIMU() {
     reinitializeMotionBaseline();
 
     calibInit();        // Initialize calibration state
+
+    // 1. Register the MQTT Callback
+    calibSetMqttCallback(myCalibMqttSender);
+    
+    // 2. Set the Car Unit flag based on compiler macro
+    #ifdef CAR
+      calibSetCarUnit(true);
+    #else
+      calibSetCarUnit(false);
+    #endif    
+
     calibLoadFromNvs(); // Try to load Scale, Gravity, and Rotation from NVS    
 }
 

@@ -67,6 +67,11 @@ static const uint32_t CALIB_MIN_FORWARD_SAMPLES    = 1000;
 // This filters out engine vibration when idling before the car moves.
 static const float CALIB_FORWARD_MIN_G = 0.05f;
 
+// MQTT State for sending calibration results
+static MqttCallback g_mqttCallback = NULL;
+static bool g_isCarUnit = false;
+static const char* MQTT_TOPIC_CALIB = "companion/calibration";
+
 // ============================================================================
 // VECTOR MATH HELPERS (Inline for speed)
 // ============================================================================
@@ -115,6 +120,53 @@ static inline void vecCross(const float a[3], const float b[3], float out[3]) {
   out[1] = a[2]*b[0] - a[0]*b[2];
   out[2] = a[0]*b[1] - a[1]*b[0];
 }
+
+
+// ============================================================================
+// Calibration result reporting via MQTT
+// ============================================================================
+
+static void sendCalibJson(bool isNew) {
+  // Exit if no callback registered
+  if (g_mqttCallback == NULL) return;
+
+  // 1. Prepare data
+  char jsonBuffer[512]; // Buffer for JSON string
+  
+  // 2. Format Rotation Matrix rows manually for cleanliness
+  // Row 0
+  char rot0[60];
+  snprintf(rot0, sizeof(rot0), "[%.4f,%.4f,%.4f]", 
+           ROTATION_MATRIX[0][0], ROTATION_MATRIX[0][1], ROTATION_MATRIX[0][2]);
+  // Row 1
+  char rot1[60];
+  snprintf(rot1, sizeof(rot1), "[%.4f,%.4f,%.4f]", 
+           ROTATION_MATRIX[1][0], ROTATION_MATRIX[1][1], ROTATION_MATRIX[1][2]);
+  // Row 2
+  char rot2[60];
+  snprintf(rot2, sizeof(rot2), "[%.4f,%.4f,%.4f]", 
+           ROTATION_MATRIX[2][0], ROTATION_MATRIX[2][1], ROTATION_MATRIX[2][2]);
+
+  // 3. Construct Full JSON
+  snprintf(jsonBuffer, sizeof(jsonBuffer), 
+    "{"
+      "\"car_unit\":%s,"
+      "\"new_calib\":%s,"
+      "\"scale\":%.4f,"
+      "\"gravity\":[%.4f,%.4f,%.4f],"
+      "\"rotation\":[%s,%s,%s]"
+    "}",
+    g_isCarUnit ? "true" : "false",
+    isNew ? "true" : "false",
+    g_scaleFactor,
+    g_gravityRaw[0], g_gravityRaw[1], g_gravityRaw[2],
+    rot0, rot1, rot2
+  );
+
+  // 4. Execute Callback
+  g_mqttCallback(MQTT_TOPIC_CALIB, jsonBuffer);
+}
+
 
 // ============================================================================
 // NVS LOAD / SAVE IMPLEMENTATION
@@ -208,6 +260,11 @@ bool calibSaveGravityToNvs() {
   prefs.end();
 
   bool ok = (writtenG == sizeof(g_gravityRaw) && writtenS == sizeof(g_scaleFactor));
+
+  if (ok) {
+    sendCalibJson(true); // Trigger MQTT Report (New Calib = true)
+  }
+
   Serial.printf("[Calib] Saved Gravity & Scale to NVS (ok=%d)\n", ok);
   return ok;
 }
@@ -224,6 +281,11 @@ bool calibSaveRotationToNvs() {
   prefs.end();
 
   bool ok = (writtenR == sizeof(float)*9);
+
+  if (ok) {
+    sendCalibJson(true); // Trigger MQTT Report (New Calib = true)
+  }
+
   Serial.printf("[Calib] Saved Rotation Matrix to NVS (ok=%d)\n", ok);
   return ok;
 }
@@ -560,4 +622,21 @@ bool calibComputeRotation() {
   g_state = CALIB_DONE;
 
   return true;
+}
+
+// ============================================================================
+// MQTT CALIBRATION REPORTING SETUP
+// ============================================================================
+
+void calibSetMqttCallback(MqttCallback cb) {
+  g_mqttCallback = cb;
+}
+
+void calibSetCarUnit(bool isCar) {
+  g_isCarUnit = isCar;
+}
+
+void calibReportStatus() {
+  // Trigger a report manually (not a new calibration)
+  sendCalibJson(false);
 }
