@@ -954,7 +954,7 @@ void screen2_event_handler(lv_event_t * e) {
     if (code == LV_EVENT_SCREEN_LOADED) {
         USBSerial.println("Screen 2 Loaded.");
 
-        // Check if the download already finished during the screen transition.
+        // Fix image not showned from inclinometer screen. Check if the download already finished during the screen transition.
         // If coming from a heavy screen (Inclinometer), the download might beat the transition.
         if (httpState != HTTP_COMPLETE) {
             // Download still running: Hide the widget so we don't see garbage/old image
@@ -1991,6 +1991,32 @@ void updateMotionState() {
 
 //***************************************************************************************************
 // ========== INCLINOMETER FUNCTIONS ==========
+//***************************************************************************************************
+// Event handler for Inclinometer/Calibration Screen
+// Resets the calibration UI when the user enters the screen
+void screenInclinometer_event_handler(lv_event_t * e) {
+    lv_event_code_t code = lv_event_get_code(e);
+
+    if (code == LV_EVENT_SCREEN_LOADED) {
+        // Only reset if we are NOT currently in the middle of a calibration
+        // (Just in case the user somehow switched screens during the 5s wait)
+        CalibState cs = calibGetState();
+        
+        if (cs == CALIB_IDLE || cs == CALIB_DONE || cs == CALIB_ERROR) {
+            USBSerial.println("Calibration Screen Loaded: Resetting UI elements");
+            
+            // Reset Label to Neutral
+            lv_label_set_text(ui_calibStatusLabel, "Ready to Calibrate");
+            lv_obj_set_style_text_color(ui_calibStatusLabel, lv_color_hex(0xFFFFFF), LV_PART_MAIN); // White
+            
+            // Reset Progress Bar
+            lv_bar_set_value(ui_calibProgressBar, 0, LV_ANIM_OFF);
+        }
+    }
+}
+
+
+//***************************************************************************************************
 void updateInclinometerDisplay() {
   // Only update if the inclinometer screen is active
   if (lv_scr_act() != ui_InclinometerScreen) return;
@@ -3142,10 +3168,9 @@ void initUIHandlers() {
 
     // Attach Screen 2 event handler for image loading
     lv_obj_add_event_cb(ui_Screen2, screen2_event_handler, LV_EVENT_ALL, NULL);
-    USBSerial.println("  Screen 2 event handler attached");
-
     lv_obj_add_event_cb(ui_Screen3, screen3_event_handler, LV_EVENT_ALL, NULL);
-    USBSerial.println("  Screen 3 event handler attached");    
+    lv_obj_add_event_cb(ui_InclinometerScreen, screenInclinometer_event_handler, LV_EVENT_SCREEN_LOADED, NULL);
+    USBSerial.println("  Screen event handlers registered");  
 
     // Initialize the Motion Icon Label
     lv_label_set_text(ui_labelMotionIcon, LV_SYMBOL_CHARGE);
@@ -3411,7 +3436,7 @@ void setup() {
   delay(50); 
   
   // Debug delay to allow printing to serial monitor.  Comment out for production.
-  delay(900); // Allow time for hardware to stabilize
+  // delay(900); // Allow time for hardware to stabilize
 
   USBSerial.println("\n--- Board is starting up ---");
   
