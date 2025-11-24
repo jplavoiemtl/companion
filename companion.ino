@@ -409,7 +409,6 @@ bool requestImage(const char* endpoint_type) {
         // Begin standard HTTP connection
         bool beginResult = httpClient.begin(url);
         
-        // ADD THIS:
         if (!beginResult) {
             USBSerial.println("FATAL: httpClient.begin() failed for HTTP!");
             httpState = HTTP_ERROR;
@@ -417,8 +416,6 @@ bool requestImage(const char* endpoint_type) {
         }
         USBSerial.println("HTTP begin successful");
     }
-    // --- END OF DYNAMIC CONFIGURATION ---
-
 
     // Set increased timeouts for cellular network stability
     httpClient.setConnectTimeout(HTTP_TIMEOUT_MS);
@@ -2199,7 +2196,6 @@ void calculateAccelAngles(float &pitch_accel, float &roll_accel) {
 
 
 //***************************************************************************************************
-// =============================================================
 // Compute fused angles (gyro + accel) with dynamic tau
 // WITHOUT modifying global pitch_angle / roll_angle.
 // Outputs fused angles through references.
@@ -2218,9 +2214,9 @@ void computeFusedAngles(float dt, float fwd_g,
 
     // ---- Step 3: Dynamic tau based on straight-line acceleration ----
     float tau;
-    if (fwd_g > 0.30f)      tau = 12.0f;
-    else if (fwd_g > 0.10f) tau = 6.0f;
-    else                    tau = 1.5f;
+    if (fwd_g > 0.30f)      tau = 1.5f;   // 12.0
+    else if (fwd_g > 0.10f) tau = 0.4f;   // 6.0
+    else                    tau = 0.1f;   // 1.5
 
     float alpha = tau / (tau + dt);
     alpha = constrain(alpha, 0.90f, 0.999f);
