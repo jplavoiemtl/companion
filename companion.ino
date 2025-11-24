@@ -954,8 +954,17 @@ void screen2_event_handler(lv_event_t * e) {
     if (code == LV_EVENT_SCREEN_LOADED) {
         USBSerial.println("Screen 2 Loaded.");
 
-        // Make the image widget completely transparent until image is ready
-        lv_obj_set_style_opa(ui_imgScreen2Background, LV_OPA_TRANSP, LV_PART_MAIN);
+        // Check if the download already finished during the screen transition.
+        // If coming from a heavy screen (Inclinometer), the download might beat the transition.
+        if (httpState != HTTP_COMPLETE) {
+            // Download still running: Hide the widget so we don't see garbage/old image
+            lv_obj_set_style_opa(ui_imgScreen2Background, LV_OPA_TRANSP, LV_PART_MAIN);
+        } else {
+            // Download finished during transition: Ensure image is VISIBLE and Rotation is correct
+            USBSerial.println("Race condition detected: Download finished before screen load. Forcing display.");
+            lv_obj_set_style_opa(ui_imgScreen2Background, LV_OPA_COVER, LV_PART_MAIN);
+            lv_disp_set_rotation(disp, LV_DISP_ROT_NONE); // Ensure portrait mode is set
+        }
 
         // Start the timeout timer
         screenTransitionTime = millis();
