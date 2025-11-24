@@ -2249,9 +2249,9 @@ void computeFusedAngles(float dt, float fwd_g,
 
     // ---- Step 3: Dynamic tau based on straight-line acceleration ----
     float tau;
-    if (fwd_g > 0.30f)      tau = 1.5f;   // 12.0
-    else if (fwd_g > 0.10f) tau = 0.4f;   // 6.0
-    else                    tau = 0.1f;   // 1.5
+    if (fwd_g > 0.30f)      tau = 12.0f;
+    else if (fwd_g > 0.10f) tau = 6.0f;
+    else                    tau = 2.0f;   // 1.5
 
     float alpha = tau / (tau + dt);
     alpha = constrain(alpha, 0.90f, 0.999f);
