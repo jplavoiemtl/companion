@@ -116,6 +116,10 @@ bool calibGetGravity(float out[3]);
 // Row 2: up (reference)
 bool calibGetRotationMatrix(float out[3][3]);
 
+// Get the progress of the current calibration step (0 to 100%).
+// Returns 0 if not currently sampling.
+uint8_t calibGetProgressPercent();
+
 // ----------------------------------------------------------------------------
 // MQTT REPORTING
 // ----------------------------------------------------------------------------

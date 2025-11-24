@@ -13,6 +13,7 @@ lv_obj_t * ui_forwardCalButton = NULL;
 lv_obj_t * ui_Label2 = NULL;
 lv_obj_t * ui_calibStatusLabel = NULL;
 lv_obj_t * ui_Button6 = NULL;
+lv_obj_t * ui_calibProgressBar = NULL;
 // event funtions
 void ui_event_calibrationScreen(lv_event_t * e)
 {
@@ -67,7 +68,7 @@ void ui_calibrationScreen_screen_init(void)
     lv_obj_set_style_text_font(ui_calibLabel, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_gravityCalButton = lv_btn_create(ui_calibrationScreen);
-    lv_obj_set_width(ui_gravityCalButton, 158);
+    lv_obj_set_width(ui_gravityCalButton, 143);
     lv_obj_set_height(ui_gravityCalButton, 76);
     lv_obj_set_x(ui_gravityCalButton, -114);
     lv_obj_set_y(ui_gravityCalButton, 86);
@@ -83,7 +84,7 @@ void ui_calibrationScreen_screen_init(void)
     lv_obj_set_style_text_font(ui_Label4, &lv_font_montserrat_24, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_forwardCalButton = lv_btn_create(ui_calibrationScreen);
-    lv_obj_set_width(ui_forwardCalButton, 135);
+    lv_obj_set_width(ui_forwardCalButton, 150);
     lv_obj_set_height(ui_forwardCalButton, 69);
     lv_obj_set_x(ui_forwardCalButton, 114);
     lv_obj_set_y(ui_forwardCalButton, 84);
@@ -101,22 +102,29 @@ void ui_calibrationScreen_screen_init(void)
     ui_calibStatusLabel = lv_label_create(ui_calibrationScreen);
     lv_obj_set_width(ui_calibStatusLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_calibStatusLabel, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_calibStatusLabel, -11);
-    lv_obj_set_y(ui_calibStatusLabel, -38);
+    lv_obj_set_x(ui_calibStatusLabel, -7);
+    lv_obj_set_y(ui_calibStatusLabel, -78);
     lv_obj_set_align(ui_calibStatusLabel, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_calibStatusLabel, "Calibration status info");
-    lv_obj_set_style_text_font(ui_calibStatusLabel, &lv_font_montserrat_20, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_label_set_text(ui_calibStatusLabel, "Calibration status");
+    lv_obj_set_style_text_font(ui_calibStatusLabel, &lv_font_montserrat_28, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Button6 = lv_btn_create(ui_calibrationScreen);
-    lv_obj_set_width(ui_Button6, 444);
-    lv_obj_set_height(ui_Button6, 208);
+    lv_obj_set_width(ui_Button6, 442);
+    lv_obj_set_height(ui_Button6, 142);
     lv_obj_set_x(ui_Button6, 0);
-    lv_obj_set_y(ui_Button6, -85);
+    lv_obj_set_y(ui_Button6, -114);
     lv_obj_set_align(ui_Button6, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_Button6, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
     lv_obj_clear_flag(ui_Button6, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
     lv_obj_set_style_bg_color(ui_Button6, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_Button6, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_calibProgressBar = lv_bar_create(ui_calibrationScreen);
+    lv_obj_set_width(ui_calibProgressBar, 250);
+    lv_obj_set_height(ui_calibProgressBar, 10);
+    lv_obj_set_x(ui_calibProgressBar, -6);
+    lv_obj_set_y(ui_calibProgressBar, 3);
+    lv_obj_set_align(ui_calibProgressBar, LV_ALIGN_CENTER);
 
     lv_obj_add_event_cb(ui_gravityCalButton, ui_event_gravityCalButton, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_forwardCalButton, ui_event_forwardCalButton, LV_EVENT_ALL, NULL);
@@ -138,5 +146,6 @@ void ui_calibrationScreen_screen_destroy(void)
     ui_Label2 = NULL;
     ui_calibStatusLabel = NULL;
     ui_Button6 = NULL;
+    ui_calibProgressBar = NULL;
 
 }

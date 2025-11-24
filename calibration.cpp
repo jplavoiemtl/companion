@@ -75,7 +75,6 @@ static const char* MQTT_TOPIC_CALIB = "companion/calibration";
 // ============================================================================
 // VECTOR MATH HELPERS (Inline for speed)
 // ============================================================================
-
 static inline void vecClear(float v[3]) {
   v[0] = v[1] = v[2] = 0.0f;
 }
@@ -125,7 +124,6 @@ static inline void vecCross(const float a[3], const float b[3], float out[3]) {
 // ============================================================================
 // Calibration result reporting via MQTT
 // ============================================================================
-
 static void sendCalibJson(bool isNew) {
   // Exit if no callback registered
   if (g_mqttCallback == NULL) return;
@@ -171,7 +169,6 @@ static void sendCalibJson(bool isNew) {
 // ============================================================================
 // NVS LOAD / SAVE IMPLEMENTATION
 // ============================================================================
-
 bool calibLoadFromNvs() {
   if (!prefs.begin(NVS_NAMESPACE, true)) { // read-only
     Serial.println("[Calib] NVS begin failed (load).");
@@ -290,10 +287,10 @@ bool calibSaveRotationToNvs() {
   return ok;
 }
 
+
 // ============================================================================
 // API GETTERS / SETTERS
 // ============================================================================
-
 void calibInit() {
   // Reset state for a clean slate (does not wipe NVS)
   g_state = CALIB_IDLE;
@@ -343,10 +340,10 @@ void calibAbort() {
   Serial.println("[Calib] Aborted.");
 }
 
+
 // ============================================================================
 // STEP 1: STATIONARY CALIBRATION
 // ============================================================================
-
 void calibStartGravity() {
   calibAbort(); // reset all accumulators
 
@@ -359,10 +356,10 @@ void calibStartGravity() {
   Serial.println("[Calib] Gravity calibration started (keep car still).");
 }
 
+
 // ============================================================================
 // STEP 2: FORWARD CALIBRATION
 // ============================================================================
-
 void calibStartForward() {
   // We require a valid gravity vector (from Step 1 or NVS)
   if (!g_hasGravity) {
@@ -383,10 +380,10 @@ void calibStartForward() {
   Serial.println("[Calib] Braking data will be automatically rectified.");
 }
 
+
 // ============================================================================
 // STREAMING UPDATE (Main Logic)
 // ============================================================================
-
 void calibUpdate(const float accel[3]) {
   uint32_t now = millis();
 
@@ -532,10 +529,10 @@ void calibUpdate(const float accel[3]) {
   // Other states: nothing to do
 }
 
+
 // ============================================================================
 // COMPUTE ROTATION MATRIX
 // ============================================================================
-
 bool calibComputeRotation() {
   if (!g_hasGravity || !g_hasForward) {
     Serial.println("[Calib] Cannot compute rotation: missing gravity or forward.");
@@ -624,10 +621,31 @@ bool calibComputeRotation() {
   return true;
 }
 
+
+// ============================================================================
+uint8_t calibGetProgressPercent() {
+  // If we are not sampling, progress is 0
+  if (g_state != CALIB_GRAVITY_SAMPLING && g_state != CALIB_FORWARD_SAMPLING) {
+    return 0;
+  }
+
+  uint32_t now = millis();
+  uint32_t elapsed = now - g_sampleStartMs;
+
+  // Safety clamp (shouldn't happen, but good practice)
+  if (elapsed >= g_sampleDurationMs) {
+    return 100;
+  }
+
+  // Calculate percentage using integer math
+  // (elapsed * 100) / total
+  return (uint8_t)((elapsed * 100) / g_sampleDurationMs);
+}
+
+
 // ============================================================================
 // MQTT CALIBRATION REPORTING SETUP
 // ============================================================================
-
 void calibSetMqttCallback(MqttCallback cb) {
   g_mqttCallback = cb;
 }

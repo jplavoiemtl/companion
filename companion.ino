@@ -1524,56 +1524,49 @@ bool attemptWiFiConnection() {
 
 
 //***************************************************************************************************
-// TIMER CALLBACK
+// GRAVITY TIMER CALLBACK
 // ===========================================================
 void onGravityTimerExpired(lv_timer_t * timer) {
-    // Retrieve the pointer to the 'isStabilizing' flag
     bool* pIsStabilizing = (bool*)timer->user_data;
+    if (pIsStabilizing) *pIsStabilizing = false;
     
-    // Reset the flag
-    if (pIsStabilizing) {
-        *pIsStabilizing = false;
-    }
-    
+    // Start Logic
     calibStartGravity();
+    
+    // UI Update: Active Sampling
+    lv_label_set_text(ui_calibStatusLabel, "Sampling... Do not move");
+    lv_obj_set_style_text_color(ui_calibStatusLabel, lv_color_hex(0x00BFFF), LV_PART_MAIN); // Deep Sky Blue
+    lv_bar_set_value(ui_calibProgressBar, 0, LV_ANIM_OFF);
+    
     USBSerial.println("[UI] Stabilization complete. Sampling started.");
 }
 
-// ===========================================================
-// BUTTON EVENT HANDLER
+
+//***************************************************************************************************
+// GRAVITY BUTTON EVENT HANDLER
 // ===========================================================
 void gravityCalButton_event_handler(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
-
-    // Static variable INSIDE the function.
-    // It keeps its value between button clicks.
     static bool isStabilizing = false;
 
     if (code == LV_EVENT_CLICKED) {
-        // 1. DEBOUNCE CHECK
-        if (isStabilizing) {
-            USBSerial.println("[UI] Ignored double-click.");
-            return;
-        }
+        if (isStabilizing) return;
 
-        // 2. STATE CHECK
-        // Only block if we are actively doing something.
-        // It is OK to click if state is IDLE, DONE, or ERROR.
         CalibState cs = calibGetState();
         if (cs == CALIB_GRAVITY_SAMPLING || 
             cs == CALIB_FORWARD_SAMPLING || 
             cs == CALIB_READY_TO_COMPUTE) {
-            USBSerial.println("[UI] Ignored click (Calibration in progress).");
-            return;
+            return; 
         }
 
-        // 3. Lock the button
         isStabilizing = true;
         
-        USBSerial.println("[UI] Gravity Calib Button Pressed.");
-        USBSerial.println("[UI] Waiting 1s for stabilization...");
+        // UI Update: Immediate Feedback
+        lv_label_set_text(ui_calibStatusLabel, "Stabilizing... Keep Still");
+        lv_obj_set_style_text_color(ui_calibStatusLabel, lv_color_hex(0xFFB700), LV_PART_MAIN); // Orange
+        
+        USBSerial.println("[UI] Gravity Button: Waiting 1s...");
 
-        // Create timer and PASS THE ADDRESS of our static variable
         lv_timer_t * timer = lv_timer_create(onGravityTimerExpired, 1000, &isStabilizing);
         lv_timer_set_repeat_count(timer, 1);
     }
@@ -1584,62 +1577,55 @@ void gravityCalButton_event_handler(lv_event_t * e) {
 // FORWARD TIMER CALLBACK
 // ===========================================================
 void onForwardTimerExpired(lv_timer_t * timer) {
-    // Retrieve the pointer to the 'isStabilizing' flag
     bool* pIsStabilizing = (bool*)timer->user_data;
+    if (pIsStabilizing) *pIsStabilizing = false;
     
-    // Reset the flag
-    if (pIsStabilizing) {
-        *pIsStabilizing = false;
-    }
-    
-    // Actually start the Forward Calibration logic
+    // Start Logic
     calibStartForward();
     
-    USBSerial.println("[UI] Forward Sampling started. Accelerate NOW!");
+    // UI Update: Active Sampling
+    lv_label_set_text(ui_calibStatusLabel, "ACCELERATE NOW!");
+    lv_obj_set_style_text_color(ui_calibStatusLabel, lv_color_hex(0x00BFFF), LV_PART_MAIN); // Deep Sky Blue
+    lv_bar_set_value(ui_calibProgressBar, 0, LV_ANIM_OFF);
+    
+    USBSerial.println("[UI] Forward Sampling started.");
 }
+
 
 // ===========================================================
 // FORWARD BUTTON EVENT HANDLER
 // ===========================================================
 void forwardCalButton_event_handler(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
-
-    // Static variable INSIDE the function (unique to this button)
     static bool isStabilizing = false;
 
     if (code == LV_EVENT_CLICKED) {
-        // 1. DEBOUNCE CHECK
-        if (isStabilizing) {
-            USBSerial.println("[UI] Ignored double-click.");
-            return;
-        }
+        if (isStabilizing) return;
 
-        // 2. STATE CHECK
         CalibState cs = calibGetState();
         if (cs == CALIB_GRAVITY_SAMPLING || 
             cs == CALIB_FORWARD_SAMPLING || 
             cs == CALIB_READY_TO_COMPUTE) {
-            USBSerial.println("[UI] Ignored click (Calibration in progress).");
             return;
         }
 
-        // 3. PREREQUISITE CHECK (Crucial for Forward Calib)
-        // We cannot drive if we don't know which way is Down.
+        // PREREQUISITE CHECK
         if (!calibHasGravity()) {
-            USBSerial.println("[UI] Error: Missing Gravity Data. Please do Gravity Calib first.");
-            // Optional: Update a UI Label here to warn the user
-            // lv_label_set_text(ui_LabelStatus, "Error: Do Gravity First!");
+            // UI Update: Error Feedback
+            lv_label_set_text(ui_calibStatusLabel, "Error: Do Gravity Step First!");
+            lv_obj_set_style_text_color(ui_calibStatusLabel, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
+            USBSerial.println("[UI] Error: Missing Gravity Data.");
             return;
         }
 
-        // 4. Lock the button
         isStabilizing = true;
         
-        USBSerial.println("[UI] Forward Calib Button Pressed.");
-        USBSerial.println("[UI] Waiting 1s before sampling starts...");
+        // UI Update: Immediate Feedback
+        lv_label_set_text(ui_calibStatusLabel, "Get Ready... Accel in 1s");
+        lv_obj_set_style_text_color(ui_calibStatusLabel, lv_color_hex(0xFFB700), LV_PART_MAIN); // Orange
+        
+        USBSerial.println("[UI] Forward Button: Waiting 1s...");
 
-        // Create timer and PASS THE ADDRESS of our static variable
-        // We wait 1 second to give the user time to put their hand back on the wheel
         lv_timer_t * timer = lv_timer_create(onForwardTimerExpired, 1000, &isStabilizing);
         lv_timer_set_repeat_count(timer, 1);
     }
@@ -1651,57 +1637,63 @@ void updateCalibration() {
   static CalibState prevCalibState = CALIB_IDLE;
   CalibState currentState = calibGetState();
 
-  // Detect state changes
+  // ---------------------------------------------------------
+  // 1. HANDLE STATE TRANSITIONS (Success/Failure)
+  // ---------------------------------------------------------
   if (currentState != prevCalibState) {
       
-      // ---------------------------------------------------------
-      // CASE 1: Gravity Calibration Finished (Stationary Step)
-      // ---------------------------------------------------------
-      // The library automatically goes from GRAVITY_SAMPLING -> IDLE on success.
+      // --- CASE 1: Gravity Calibration Finished ---
       if (prevCalibState == CALIB_GRAVITY_SAMPLING && currentState == CALIB_IDLE) {
           if (calibHasGravity()) {
-              // Save Gravity Vector and Scale Factor immediately
               calibSaveGravityToNvs(); 
-              USBSerial.println("[Main] Gravity/Scale Saved to NVS!");
-              // TODO: Update UI: "Step 1 (Gravity) Complete!"
+              USBSerial.println("[Main] Gravity/Scale Saved!");
+              
+              // UI Success
+              lv_label_set_text(ui_calibStatusLabel, "Gravity Step Complete!");
+              lv_obj_set_style_text_color(ui_calibStatusLabel, lv_color_hex(0x00FF00), LV_PART_MAIN); // Green
+              lv_bar_set_value(ui_calibProgressBar, 100, LV_ANIM_ON);
           }
       }
 
-      // ---------------------------------------------------------
-      // CASE 2: Forward Calibration Finished (Driving Step)
-      // ---------------------------------------------------------
-      // The library goes from FORWARD_SAMPLING -> READY_TO_COMPUTE on success.
+      // --- CASE 2: Forward Calibration Finished ---
       else if (currentState == CALIB_READY_TO_COMPUTE) {
-          // Sampling is done. Now compute the full rotation matrix.
           if (calibComputeRotation()) {
-              // Save Rotation Matrix immediately
               calibSaveRotationToNvs(); 
-              USBSerial.println("[Main] Rotation Matrix Computed & Saved!");
-              // TODO: Update UI: "Calibration Success!"
+              USBSerial.println("[Main] Rotation Saved!");
+              
+              // UI Success
+              lv_label_set_text(ui_calibStatusLabel, "Calibration Success!");
+              lv_obj_set_style_text_color(ui_calibStatusLabel, lv_color_hex(0x00FF00), LV_PART_MAIN); // Green
+              lv_bar_set_value(ui_calibProgressBar, 100, LV_ANIM_ON);
           } else {
-              USBSerial.println("[Main] Computation Logic Failed.");
-              // TODO: Update UI: "Computation Failed"
+              USBSerial.println("[Main] Computation Failed.");
+              // UI Logic Error
+              lv_label_set_text(ui_calibStatusLabel, "Computation Failed");
+              lv_obj_set_style_text_color(ui_calibStatusLabel, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
+              lv_bar_set_value(ui_calibProgressBar, 0, LV_ANIM_OFF);
           }
       } 
       
-      // ---------------------------------------------------------
-      // CASE 3: Error Occurred
-      // ---------------------------------------------------------
+      // --- CASE 3: Error Occurred ---
       else if (currentState == CALIB_ERROR) {
-            USBSerial.println("[Main] Calibration Error occurred.");
-            // TODO: Update UI: "Error - Try Again"
+            USBSerial.println("[Main] Calibration Error.");
+            
+            // UI Error
+            lv_label_set_text(ui_calibStatusLabel, "Calibration Failed - Try Again");
+            lv_obj_set_style_text_color(ui_calibStatusLabel, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
+            lv_bar_set_value(ui_calibProgressBar, 0, LV_ANIM_OFF);
       }
 
-      // Update tracking variable
       prevCalibState = currentState;
   }
   
   // ---------------------------------------------------------
-  // UI Progress Update (Run continuously while sampling)
+  // 2. HANDLE PROGRESS BAR (Continuous Update)
   // ---------------------------------------------------------
+  // Simplified: Let the library do the math!
   if (currentState == CALIB_GRAVITY_SAMPLING || currentState == CALIB_FORWARD_SAMPLING) {
-      uint32_t remaining = calibGetRemainingMs();
-      // TODO: Update UI progress bar or countdown text using 'remaining'
+      uint8_t percent = calibGetProgressPercent();
+      lv_bar_set_value(ui_calibProgressBar, percent, LV_ANIM_OFF);
   }
 }
 
