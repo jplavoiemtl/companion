@@ -218,6 +218,7 @@ const unsigned long RECOVER_BLEND_MS = 1200;  // blend back duration
 HWCDC USBSerial;
 XPowersAXP2101 pmic;
 ESP_IOExpander *expander = NULL;
+SemaphoreHandle_t i2c_mutex = NULL;
 
 // --- G-Meter Display Objects ---
 lv_obj_t * ui_gMeterContainer = NULL; // Container for G-meter elements avoid leaking memory
@@ -1085,33 +1086,42 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
   // 2. CHECK INTERRUPT FIRST - Don't use I2C bus unless hardware signaled a touch
   if (FT3168->IIC_Interrupt_Flag == true) {
     
-    // Ask the chip: "How many fingers are actually on the screen?"
-    int32_t touchPoints = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_FINGER_NUMBER);
+    // START MUTEX PROTECTION
+    if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
 
-    // If the interrupt fired (noise) but the chip sees 0 fingers...
-    if (touchPoints == 0) {
-        // ...It was a ghost! Clear the flag and ignore it.
-        FT3168->IIC_Interrupt_Flag = false;
-        data->state = LV_INDEV_STATE_REL;
-        return; 
-    }
+      // Ask the chip: "How many fingers are actually on the screen?"
+      int32_t touchPoints = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_FINGER_NUMBER);
 
-    // 3. READ COORDINATES ONLY NOW - Prevents I2C collisions with IMU/PMIC
-    int32_t touchX = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_X);
-    int32_t touchY = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_Y);
-    
-    // 4. CLEAR FLAG AFTER READING - Prevents missing events during I2C reads
-    FT3168->IIC_Interrupt_Flag = false;
+      // If the interrupt fired (noise) but the chip sees 0 fingers...
+      if (touchPoints == 0) {
+          // ...It was a ghost! Clear the flag and ignore it.
+          FT3168->IIC_Interrupt_Flag = false;
+          xSemaphoreGiveRecursive(i2c_mutex);
+          data->state = LV_INDEV_STATE_REL;
+          return; 
+      }
+
+      // 3. READ COORDINATES ONLY NOW - Prevents I2C collisions with IMU/PMIC
+      int32_t touchX = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_X);
+      int32_t touchY = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_Y);
       
-    // 5. Filter B: Reject out-of-bounds - garbage data often exceeds screen dimensions
-    if (touchX < 0 || touchX >= screenWidth || touchY < 0 || touchY >= screenHeight) {
-      return;
-    }
-    
-    // 6. VALID TOUCH - All filters passed
-    data->state = LV_INDEV_STATE_PR;
-    data->point.x = touchX;
-    data->point.y = touchY;
+      // 4. CLEAR FLAG AFTER READING - Prevents missing events during I2C reads
+      FT3168->IIC_Interrupt_Flag = false;
+
+      xSemaphoreGiveRecursive(i2c_mutex);
+        
+      // 5. Filter B: Reject out-of-bounds - garbage data often exceeds screen dimensions
+      if (touchX < 0 || touchX >= screenWidth || touchY < 0 || touchY >= screenHeight) {
+        return;
+      }
+      
+      // 6. VALID TOUCH - All filters passed
+      data->state = LV_INDEV_STATE_PR;
+      data->point.x = touchX;
+      data->point.y = touchY;
+
+    } // END MUTEX PROTECTION
+
   }
 }
 
@@ -2115,21 +2125,35 @@ void calculateGyroBias() {
     unsigned long start_wait = millis();
     bool data_ready = false;
     
+    // 1. Protect the Ready Check Loop
     while (!data_ready && (millis() - start_wait < 50)) {
-      data_ready = qmi.getDataReady();
+      
+      // Take Mutex to check status
+      if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+          data_ready = qmi.getDataReady();
+          xSemaphoreGiveRecursive(i2c_mutex); // Give back immediately
+      }
+
       if (!data_ready) {
-        delay(1);
+        delay(1); // Wait a bit before trying again
       }
     }
     
     if (data_ready) {
-      // Read raw gyro - DON'T transform yet!
-      qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
-      
-      sum_x += gyr.x;
-      sum_y += gyr.y;
-      sum_z += gyr.z;
-      valid_samples++;
+      // 2. Protect the Data Read
+      if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+          
+          // Read raw gyro - DON'T transform yet!
+          qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
+          
+          xSemaphoreGiveRecursive(i2c_mutex); // Give back immediately
+
+          // Math can happen outside the mutex
+          sum_x += gyr.x;
+          sum_y += gyr.y;
+          sum_z += gyr.z;
+          valid_samples++;
+      }
     }
   }
   
@@ -2430,22 +2454,28 @@ void Arduino_IIC_Touch_Interrupt(void) {
 
 //***************************************************************************************************
 void adcOn() {
-  pmic.enableTemperatureMeasure();
-  pmic.enableBattDetection();
-  pmic.enableVbusVoltageMeasure();
-  pmic.enableBattVoltageMeasure();
-  pmic.enableSystemVoltageMeasure();
+  if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+    pmic.enableTemperatureMeasure();
+    pmic.enableBattDetection();
+    pmic.enableVbusVoltageMeasure();
+    pmic.enableBattVoltageMeasure();
+    pmic.enableSystemVoltageMeasure();
+    xSemaphoreGiveRecursive(i2c_mutex);  
+  }
   adc_switch = true;
 }
 
 
 //***************************************************************************************************
 void adcOff() {
-  pmic.disableTemperatureMeasure();
-  pmic.disableBattDetection();
-  pmic.disableVbusVoltageMeasure();
-  pmic.disableBattVoltageMeasure();
-  pmic.disableSystemVoltageMeasure();
+  if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+    pmic.disableTemperatureMeasure();
+    pmic.disableBattDetection();
+    pmic.disableVbusVoltageMeasure();
+    pmic.disableBattVoltageMeasure();
+    pmic.disableSystemVoltageMeasure();
+    xSemaphoreGiveRecursive(i2c_mutex);  
+  }
   adc_switch = false;
 }
 
@@ -2454,8 +2484,12 @@ void adcOff() {
 void updatePowerStatus() {
   static bool prevVbusPresent = false;  // Track previous state to detect transitions
   
-  vbusPresent = pmic.isVbusIn();
-  batteryConnected = pmic.isBatteryConnect();
+  // START MUTEX PROTECTION
+  if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+      vbusPresent = pmic.isVbusIn();
+      batteryConnected = pmic.isBatteryConnect();
+      xSemaphoreGiveRecursive(i2c_mutex);
+  }
 
   // Detect USB connection (wasn't present, now is)
   if (vbusPresent && !prevVbusPresent) {
@@ -2480,25 +2514,29 @@ void updatePowerStatus() {
 void updateBatteryInfo() {
   updatePowerStatus();
 
-  if (adc_switch) {
-    batteryVoltage = pmic.getBattVoltage() / 1000.0; // Convert to volts
+  // START MUTEX PROTECTION for the rest
+  if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+    if (adc_switch) {
+      batteryVoltage = pmic.getBattVoltage() / 1000.0; // Convert to volts
 
-    if (batteryVoltage < 2.4) {
-      batteryConnected = false;
-    }
+      if (batteryVoltage < 2.4) {
+        batteryConnected = false;
+      }
 
-    if (batteryConnected) {
-      int battPercent = pmic.getBatteryPercent();
-      batteryPercent = String(battPercent) + "%";
+      if (batteryConnected) {
+        int battPercent = pmic.getBatteryPercent();
+        batteryPercent = String(battPercent) + "%";
+      } else {
+        batteryVoltage = 0.0; // Clean up the display value for the "No Battery" case.
+        batteryPercent = "N/A";
+      }
     } else {
-      batteryVoltage = 0.0; // Clean up the display value for the "No Battery" case.
+      // If ADC is off, assume no battery connection.
+      batteryConnected = false;
+      batteryVoltage = 0.0;
       batteryPercent = "N/A";
     }
-  } else {
-    // If ADC is off, assume no battery connection.
-    batteryConnected = false;
-    batteryVoltage = 0.0;
-    batteryPercent = "N/A";
+    xSemaphoreGiveRecursive(i2c_mutex);
   }
 }
 
@@ -2950,77 +2988,89 @@ void readImuData() {
 //***************************************************************************************************
 // Runs every loop to update IMU data and track peaks
 void updateImuData() {
-  if (qmi.getDataReady()) {
-    qmi.getAccelerometer(acc.x, acc.y, acc.z);
-    qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
-    
-    // Feed raw data to calibration logic
-    // It only does math if a calibration step is actually active.
-    float raw_accel[3] = {acc.x, acc.y, acc.z};
-    calibUpdate(raw_accel);
 
-    // Calculate current magnitudes
-    float accelMagnitude = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
-    float gyroMagnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
-    
-    // Initialize peaks on first reading
-    if (!imuPeakInitialized) {
-      acc_peak.x = acc.x;
-      acc_peak.y = acc.y;
-      acc_peak.z = acc.z;
-      acc_peak.magnitude = accelMagnitude;
-      
-      gyr_peak.x = gyr.x;
-      gyr_peak.y = gyr.y;
-      gyr_peak.z = gyr.z;
-      gyr_peak.magnitude = gyroMagnitude;
+  // START MUTEX PROTECTION
+  if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
 
-      acc_disp_peak.x = acc.x;
-      acc_disp_peak.y = acc.y;
-      acc_disp_peak.z = acc.z;
-      acc_disp_peak.magnitude = accelMagnitude;    
+    if (qmi.getDataReady()) {
+      qmi.getAccelerometer(acc.x, acc.y, acc.z);
+      qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
+
+      // Release Mutex immediately after reading
+      xSemaphoreGiveRecursive(i2c_mutex);       
       
-      gyr_disp_peak.x = gyr.x;
-      gyr_disp_peak.y = gyr.y;
-      gyr_disp_peak.z = gyr.z;
-      gyr_disp_peak.magnitude = gyroMagnitude;      
+      // Feed raw data to calibration logic
+      // It only does math if a calibration step is actually active.
+      float raw_accel[3] = {acc.x, acc.y, acc.z};
+      calibUpdate(raw_accel);
+
+      // Calculate current magnitudes
+      float accelMagnitude = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+      float gyroMagnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
       
-      imuPeakInitialized = true;
-    } else {
-      // Update accelerometer peak if current magnitude is higher
-      if (accelMagnitude > acc_peak.magnitude) {
+      // Initialize peaks on first reading
+      if (!imuPeakInitialized) {
         acc_peak.x = acc.x;
         acc_peak.y = acc.y;
         acc_peak.z = acc.z;
         acc_peak.magnitude = accelMagnitude;
-      }
-      
-      // Update gyroscope peak if current magnitude is higher
-      if (gyroMagnitude > gyr_peak.magnitude) {
+        
         gyr_peak.x = gyr.x;
         gyr_peak.y = gyr.y;
         gyr_peak.z = gyr.z;
         gyr_peak.magnitude = gyroMagnitude;
-      }
 
-      // Update display accelerometer peak if current magnitude is higher
-      if (accelMagnitude > acc_disp_peak.magnitude) {
         acc_disp_peak.x = acc.x;
         acc_disp_peak.y = acc.y;
         acc_disp_peak.z = acc.z;
-        acc_disp_peak.magnitude = accelMagnitude;
-      }  
-
-      // Update gyroscope display peak:
-      if (gyroMagnitude > gyr_disp_peak.magnitude) {
+        acc_disp_peak.magnitude = accelMagnitude;    
+        
         gyr_disp_peak.x = gyr.x;
         gyr_disp_peak.y = gyr.y;
         gyr_disp_peak.z = gyr.z;
-        gyr_disp_peak.magnitude = gyroMagnitude;
+        gyr_disp_peak.magnitude = gyroMagnitude;      
+        
+        imuPeakInitialized = true;
+      } else {
+        // Update accelerometer peak if current magnitude is higher
+        if (accelMagnitude > acc_peak.magnitude) {
+          acc_peak.x = acc.x;
+          acc_peak.y = acc.y;
+          acc_peak.z = acc.z;
+          acc_peak.magnitude = accelMagnitude;
+        }
+        
+        // Update gyroscope peak if current magnitude is higher
+        if (gyroMagnitude > gyr_peak.magnitude) {
+          gyr_peak.x = gyr.x;
+          gyr_peak.y = gyr.y;
+          gyr_peak.z = gyr.z;
+          gyr_peak.magnitude = gyroMagnitude;
+        }
+
+        // Update display accelerometer peak if current magnitude is higher
+        if (accelMagnitude > acc_disp_peak.magnitude) {
+          acc_disp_peak.x = acc.x;
+          acc_disp_peak.y = acc.y;
+          acc_disp_peak.z = acc.z;
+          acc_disp_peak.magnitude = accelMagnitude;
+        }  
+
+        // Update gyroscope display peak:
+        if (gyroMagnitude > gyr_disp_peak.magnitude) {
+          gyr_disp_peak.x = gyr.x;
+          gyr_disp_peak.y = gyr.y;
+          gyr_disp_peak.z = gyr.z;
+          gyr_disp_peak.magnitude = gyroMagnitude;
+        }
       }
-    }
-  }
+    } else {
+        // If data wasn't ready, we still must release the mutex
+        xSemaphoreGiveRecursive(i2c_mutex);
+    } 
+  } 
 }
+
 
 // =============================================================
 // MQTT BRIDGE (Connects Library to Main Sketch)
@@ -3441,6 +3491,7 @@ void finalizeSetup() {
 void setup() {
   USBSerial.begin(115200);
   // delay(3000); // Allow time for Serial to initialize and see debug messages
+  i2c_mutex = xSemaphoreCreateRecursiveMutex();
 
   esp_sleep_wakeup_cause_t wakeReason = esp_sleep_get_wakeup_cause();
 
