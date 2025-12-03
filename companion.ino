@@ -3505,6 +3505,9 @@ void setup() {
   // For any other type of boot (Cold or Shutdown), we DO NOT call Wire.end().
 
   Wire.begin(IIC_SDA, IIC_SCL);
+  // Set I2C timeout to 50 milliseconds. 
+  // If a sensor hangs, Wire will return an error instead of freezing the code.
+  Wire.setTimeOut(50); 
   delay(50); 
   
   // Debug delay to allow printing to serial monitor.  Comment out for production.
