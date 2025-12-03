@@ -1085,20 +1085,25 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
   // 2. CHECK INTERRUPT FIRST - Don't use I2C bus unless hardware signaled a touch
   if (FT3168->IIC_Interrupt_Flag == true) {
     
+    // Ask the chip: "How many fingers are actually on the screen?"
+    int32_t touchPoints = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_FINGER_NUMBER);
+
+    // If the interrupt fired (noise) but the chip sees 0 fingers...
+    if (touchPoints == 0) {
+        // ...It was a ghost! Clear the flag and ignore it.
+        FT3168->IIC_Interrupt_Flag = false;
+        data->state = LV_INDEV_STATE_REL;
+        return; 
+    }
+
     // 3. READ COORDINATES ONLY NOW - Prevents I2C collisions with IMU/PMIC
     int32_t touchX = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_X);
     int32_t touchY = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_Y);
     
     // 4. CLEAR FLAG AFTER READING - Prevents missing events during I2C reads
     FT3168->IIC_Interrupt_Flag = false;
-    
-    // 5. GHOST FILTERS
-    // Filter A: Reject 0,0 - electrical noise often produces zeroed data
-    if (touchX == 0 && touchY == 0) {
-      return;
-    }
-    
-    // Filter B: Reject out-of-bounds - garbage data often exceeds screen dimensions
+      
+    // 5. Filter B: Reject out-of-bounds - garbage data often exceeds screen dimensions
     if (touchX < 0 || touchX >= screenWidth || touchY < 0 || touchY >= screenHeight) {
       return;
     }
