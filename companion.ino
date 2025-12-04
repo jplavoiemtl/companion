@@ -1083,13 +1083,11 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
   // 1. DEFAULT STATE: No touch
   data->state = LV_INDEV_STATE_REL;
 
-  // --- NEW FIX START ---
   // Safety Check: If the hardware pin is stuck LOW (Active), force the flag to TRUE.
   // This un-sticks the touch controller if a previous I2C read failed/timed-out.
   if (digitalRead(TP_INT) == LOW) {
     FT3168->IIC_Interrupt_Flag = true;
   }
-  // --- NEW FIX END ---  
   
   // 2. CHECK INTERRUPT FIRST - Don't use I2C bus unless hardware signaled a touch
   if (FT3168->IIC_Interrupt_Flag == true) {
@@ -2966,9 +2964,13 @@ void readImuData() {
     if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
       mqttClient.publish(IMU_TOPIC, payload);
     }
-    
+     
     USBSerial.println(payload);
-
+    USBSerial.print("Sampling freq: ");
+    USBSerial.print(sampling_frequency);
+    USBSerial.println(" Hz"); 
+    USBSerial.println();
+ 
     // Reset peak changes for next cycle
     peakAccelChange = 0;
     peakGyroChange = 0;    
@@ -2985,10 +2987,6 @@ void readImuData() {
     gyr_peak.z = 0;
     gyr_peak.magnitude = 0;    
 
-    Serial.print("Sampling freq: ");
-    Serial.print(sampling_frequency);
-    Serial.println(" Hz"); 
-    Serial.println();
   }
 }
 
@@ -3498,6 +3496,7 @@ void finalizeSetup() {
 //***************************************************************************************************
 void setup() {
   USBSerial.begin(115200);
+
   // delay(3000); // Allow time for Serial to initialize and see debug messages
   i2c_mutex = xSemaphoreCreateRecursiveMutex();
 
