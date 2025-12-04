@@ -1082,6 +1082,14 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
   
   // 1. DEFAULT STATE: No touch
   data->state = LV_INDEV_STATE_REL;
+
+  // --- NEW FIX START ---
+  // Safety Check: If the hardware pin is stuck LOW (Active), force the flag to TRUE.
+  // This un-sticks the touch controller if a previous I2C read failed/timed-out.
+  if (digitalRead(TP_INT) == LOW) {
+    FT3168->IIC_Interrupt_Flag = true;
+  }
+  // --- NEW FIX END ---  
   
   // 2. CHECK INTERRUPT FIRST - Don't use I2C bus unless hardware signaled a touch
   if (FT3168->IIC_Interrupt_Flag == true) {
