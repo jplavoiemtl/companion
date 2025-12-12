@@ -1,5 +1,9 @@
 # Secrets
 secrets.h
+secrets.cpp
+secrets_private.h
+secrets_private.cpp
+secrets_private.*
 CHANGELOG.md
 
 # Build output & squareline files
