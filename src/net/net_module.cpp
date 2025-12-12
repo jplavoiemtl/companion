@@ -25,6 +25,7 @@ bool isSecurePort(uint16_t port) {
 void netInit(const NetConfig& c) {
   cfg = c;
   if (cfg.mqttClient) {
+    // mqttClient is owned by the sketch; we just configure it here.
     cfg.mqttClient->setBufferSize(512);
     if (cfg.mqttCallback) {
       cfg.mqttClient->setCallback(cfg.mqttCallback);

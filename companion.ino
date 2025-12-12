@@ -71,7 +71,7 @@ int secondaryNetworkNum;
 // Client instances for MQTT and HTTP/S
 WiFiClient espClient;
 WiFiClientSecure secureClient; // For secure MQTT
-PubSubClient mqttClient; // We'll assign the appropriate client in connectToWiFi
+PubSubClient mqttClient; // Single shared client; transport/server set by netConfigureMqttClient()
 
 // --- MQTT Reconnection Management ---
 
@@ -2095,6 +2095,7 @@ void setup() {
     HILO_POWER,
     HILO_ENERGY
   };
+  // Pass the single shared mqttClient instance to the net module (module does not own it).
   NetConfig netCfg{
     SERVER1,
     SERVERPORT1,

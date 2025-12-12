@@ -12,6 +12,9 @@ struct NetTopics {
 };
 
 struct NetConfig {
+  // NOTE: mqttClient is supplied by the sketch (companion.ino). We keep only a
+  // pointer here so the module operates on the single shared instance created
+  // in the sketch; we do not create or own another client.
   const char* server1;
   uint16_t serverPort1;
   const char* server2;
