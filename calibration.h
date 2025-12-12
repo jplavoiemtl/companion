@@ -1,5 +1,7 @@
 // imu_calibration.h
 #pragma once
+#ifndef CALIBRATION_H_GUARD
+#define CALIBRATION_H_GUARD
 
 #include <Arduino.h>
 
@@ -144,3 +146,5 @@ void calibReportStatus();
 // It is initialized with your "factory" defaults, and updated dynamically
 // whenever calibComputeRotation() succeeds or calibLoadFromNvs() loads one.
 extern float ROTATION_MATRIX[3][3];
+
+#endif // CALIBRATION_H_GUARD
