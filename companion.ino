@@ -20,6 +20,7 @@
 #include <WiFiClientSecure.h>
 #include "src/image/image_fetcher.h"
 #include "src/imu/imu_module.h"
+#include "src/net/net_module.h"
 
 
 // QMI8658 Register Addresses
@@ -73,10 +74,6 @@ WiFiClientSecure secureClient; // For secure MQTT
 PubSubClient mqttClient; // We'll assign the appropriate client in connectToWiFi
 
 // --- MQTT Reconnection Management ---
-unsigned long lastMqttAttempt = 0;
-const unsigned long MQTT_RECONNECT_INTERVAL = 15000;  // 15 seconds between reconnection attempts
-bool mqttConnection = false;
-bool mqttSuccess = false;                 //MQTT succeeded once at start to keep reconnecting only if successful
 
 
 // G-Meter Display Constants
@@ -582,58 +579,6 @@ void callbackMqtt(char* topic, byte* payload, unsigned int length) {
 
 
 //***************************************************************************************************
-//MQTT connection with proper reconnection logic
-void checkMQTT(bool bypassRateLimit = false) {  // ADD parameter with default value
-  yield(); 
-  if (!mqttClient.connected()) {
-    // Check if enough time has passed since last attempt
-    unsigned long currentTime = millis();
-    if (!bypassRateLimit && currentTime - lastMqttAttempt < MQTT_RECONNECT_INTERVAL) {
-      // Not enough time has passed, skip this attempt
-      return;
-    }
-    
-    lastMqttAttempt = currentTime;
-    
-    USBSerial.print("Attempting MQTT connection...");
-    
-    // Explicitly disconnect to clean up any stale connection state
-    mqttClient.disconnect();
-    delay(100);  // Brief delay to allow cleanup
-    
-    // For secure connections, we might need to reset the client state
-    // The client is already set up in connectToWiFi(), so we just attempt connection
-    
-    if (mqttClient.connect(CLIENT_ID, USERNAME, KEY)) {
-      mqttConnection = true;
-      mqttSuccess = true;
-      USBSerial.println(" connected");                                    
-      USBSerial.print("MQTT connected, rc=");                                                     
-      USBSerial.println(mqttClient.state());    
-
-      if (mqttClient.subscribe(MQTT_IMAGE_TOPIC, 1)) {  // QoS 1
-          USBSerial.print("Subscribed to topic: ");
-          USBSerial.println(MQTT_IMAGE_TOPIC);
-      } else {
-          USBSerial.println("Failed to subscribe to image topic");
-      } 
-      mqttClient.subscribe(HILO_POWER, 1);
-      mqttClient.subscribe(HILO_ENERGY, 1);  
-      
-      // Send Calibration Report on Connect
-      calibReportStatus();           
-    } else {
-      mqttConnection = false;
-      USBSerial.print("failed, rc=");
-      USBSerial.print(mqttClient.state());
-      USBSerial.print(" - will retry in ");
-      USBSerial.print(MQTT_RECONNECT_INTERVAL / 1000);
-      USBSerial.println(" seconds");
-    } 
-  }
-}
-
-
 //***************************************************************************************************
 bool connectToWiFi(int connection) {      // connection is either 1 for wifi1 or 2 for wifi2
   bool connected = false;
@@ -683,48 +628,12 @@ bool connectToWiFi(int connection) {      // connection is either 1 for wifi1 or
     USBSerial.println(WiFi.SSID());    
     USBSerial.println("IP: " + WiFi.localIP().toString());
 
-    // Disable Wi-Fi Power Save for stability
-    WiFi.setSleep(false);
-    USBSerial.println("INFO: Wi-Fi Power Save disabled for stability.");
+      // Disable Wi-Fi Power Save for stability
+      WiFi.setSleep(false);
+      USBSerial.println("INFO: Wi-Fi Power Save disabled for stability.");
 
-    // Determine secure vs non-secure based on PORT NUMBER, not connection number
-    if (connection == 1) {
-      // Check if SERVER1 uses secure port
-      if (SERVERPORT1 == 9735 || SERVERPORT1 == 8883) {
-        // Secure MQTT
-        secureClient.setCACert(ca_cert);
-        mqttClient.setClient(secureClient);
-        mqttClient.setServer(SERVER1, SERVERPORT1);
-        USBSerial.print("Using secure MQTT with TLS on port ");
-        USBSerial.println(SERVERPORT1);
-      } else {
-        // Non-secure MQTT
-        mqttClient.setClient(espClient);
-        mqttClient.setServer(SERVER1, SERVERPORT1);
-        USBSerial.print("Using standard MQTT on port ");
-        USBSerial.println(SERVERPORT1);
-      }
-    } else {
-      // connection == 2
-      // Check if SERVER2 uses secure port
-      if (SERVERPORT2 == 9735 || SERVERPORT2 == 8883) {
-        // Secure MQTT
-        secureClient.setCACert(ca_cert);
-        mqttClient.setClient(secureClient);
-        mqttClient.setServer(SERVER2, SERVERPORT2);
-        USBSerial.print("Using secure MQTT with TLS on port ");
-        USBSerial.println(SERVERPORT2);
-      } else {
-        // Non-secure MQTT
-        mqttClient.setClient(espClient);
-        mqttClient.setServer(SERVER2, SERVERPORT2);
-        USBSerial.print("Using standard MQTT on port ");
-        USBSerial.println(SERVERPORT2);
-      }
-    }
-    
-    mqttClient.setCallback(callbackMqtt);  
-    checkMQTT();     
+      netConfigureMqttClient(connection);
+      netCheckMqtt();     
   } else {
     USBSerial.println("Failed to connect to WiFi.");
   }
@@ -1346,18 +1255,6 @@ void updateInclinometerDisplay() {
     Serial.println(" ms");
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 //***************************************************************************************************
@@ -2084,13 +1981,11 @@ void initMQTT() {
     }
     
     USBSerial.println("Attempting initial MQTT connection...");
-
-    mqttClient.setBufferSize(512);  // Add this before MQTT connection attempts
     
     for (int i = 0; i < 3; i++) {
-        checkMQTT(true);  // Bypass rate limiting during setup
+        netCheckMqtt(true);  // Bypass rate limiting during setup
         
-        if (mqttClient.connected()) {
+        if (netIsMqttConnected()) {
             USBSerial.println("Initial MQTT connection successful!");
             return;  // Exit function immediately on success
         }
@@ -2195,6 +2090,25 @@ void setup() {
   };
   imageFetcherInit(imageCfg);
 
+  NetTopics netTopics{
+    MQTT_IMAGE_TOPIC,
+    HILO_POWER,
+    HILO_ENERGY
+  };
+  NetConfig netCfg{
+    SERVER1,
+    SERVERPORT1,
+    SERVER2,
+    SERVERPORT2,
+    ca_cert,
+    &mqttClient,
+    &espClient,
+    &secureClient,
+    callbackMqtt,
+    netTopics
+  };
+  netInit(netCfg);
+
   initIMU();  // Initialize IMU/Motion Sensor  
 
   initBattery();  // Initialize Battery Monitoring
@@ -2236,8 +2150,8 @@ void loop() {
   // --- Task 2: Handle MQTT communications if connected ---
   if (WiFi.status() == WL_CONNECTED) {
     mqttClient.loop();  // Always call loop() to maintain connection
-    if(mqttSuccess) {
-      checkMQTT();  // Only attempt reconnection if initial connection succeeded
+    if(netHasInitialMqttSuccess()) {
+      netCheckMqtt();  // Only attempt reconnection if initial connection succeeded
     }
   }
 
