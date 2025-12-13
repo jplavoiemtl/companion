@@ -27,7 +27,7 @@ void netInit(const NetConfig& c) {
   if (cfg.mqttClient) {
     // mqttClient is owned by the sketch; we just configure it here.
     // IMU JSON payload is ~600–700 bytes; use 1024 to avoid publish failures.
-    cfg.mqttClient->setBufferSize(1024);
+    cfg.mqttClient->setBufferSize(512);
     if (cfg.mqttCallback) {
       cfg.mqttClient->setCallback(cfg.mqttCallback);
     }
