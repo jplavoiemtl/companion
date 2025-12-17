@@ -330,82 +330,85 @@ void updateImuData() {
   // START MUTEX PROTECTION
   if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
 
-    if (qmi.getDataReady()) {
+    bool dataReady = qmi.getDataReady();
+    if (dataReady) {
       qmi.getAccelerometer(acc.x, acc.y, acc.z);
       qmi.getGyroscope(gyr.x, gyr.y, gyr.z);
+    }
 
-      // Release Mutex immediately after reading
-      xSemaphoreGiveRecursive(i2c_mutex);       
-      
-      // Feed raw data to calibration logic
-      // It only does math if a calibration step is actually active.
-      float raw_accel[3] = {acc.x, acc.y, acc.z};
-      calibUpdate(raw_accel);
+    // Always release the mutex before doing any math or returning
+    xSemaphoreGiveRecursive(i2c_mutex);
 
-      // Calculate current magnitudes
-      float accelMagnitude = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
-      float gyroMagnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
+    // No fresh data available; nothing else to do this cycle
+    if (!dataReady) {
+      return;
+    }
+
+    // Feed raw data to calibration logic
+    // It only does math if a calibration step is actually active.
+    float raw_accel[3] = {acc.x, acc.y, acc.z};
+    calibUpdate(raw_accel);
+
+    // Calculate current magnitudes
+    float accelMagnitude = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+    float gyroMagnitude = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
+    
+    // Initialize peaks on first reading
+    if (!imuPeakInitialized) {
+      acc_peak.x = acc.x;
+      acc_peak.y = acc.y;
+      acc_peak.z = acc.z;
+      acc_peak.magnitude = accelMagnitude;
       
-      // Initialize peaks on first reading
-      if (!imuPeakInitialized) {
+      gyr_peak.x = gyr.x;
+      gyr_peak.y = gyr.y;
+      gyr_peak.z = gyr.z;
+      gyr_peak.magnitude = gyroMagnitude;
+
+      acc_disp_peak.x = acc.x;
+      acc_disp_peak.y = acc.y;
+      acc_disp_peak.z = acc.z;
+      acc_disp_peak.magnitude = accelMagnitude;    
+      
+      gyr_disp_peak.x = gyr.x;
+      gyr_disp_peak.y = gyr.y;
+      gyr_disp_peak.z = gyr.z;
+      gyr_disp_peak.magnitude = gyroMagnitude;      
+      
+      imuPeakInitialized = true;
+    } else {
+      // Update accelerometer peak if current magnitude is higher
+      if (accelMagnitude > acc_peak.magnitude) {
         acc_peak.x = acc.x;
         acc_peak.y = acc.y;
         acc_peak.z = acc.z;
         acc_peak.magnitude = accelMagnitude;
-        
+      }
+      
+      // Update gyroscope peak if current magnitude is higher
+      if (gyroMagnitude > gyr_peak.magnitude) {
         gyr_peak.x = gyr.x;
         gyr_peak.y = gyr.y;
         gyr_peak.z = gyr.z;
         gyr_peak.magnitude = gyroMagnitude;
+      }
 
+      // Update display accelerometer peak if current magnitude is higher
+      if (accelMagnitude > acc_disp_peak.magnitude) {
         acc_disp_peak.x = acc.x;
         acc_disp_peak.y = acc.y;
         acc_disp_peak.z = acc.z;
-        acc_disp_peak.magnitude = accelMagnitude;    
-        
+        acc_disp_peak.magnitude = accelMagnitude;
+      }  
+
+      // Update gyroscope display peak:
+      if (gyroMagnitude > gyr_disp_peak.magnitude) {
         gyr_disp_peak.x = gyr.x;
         gyr_disp_peak.y = gyr.y;
         gyr_disp_peak.z = gyr.z;
-        gyr_disp_peak.magnitude = gyroMagnitude;      
-        
-        imuPeakInitialized = true;
-      } else {
-        // Update accelerometer peak if current magnitude is higher
-        if (accelMagnitude > acc_peak.magnitude) {
-          acc_peak.x = acc.x;
-          acc_peak.y = acc.y;
-          acc_peak.z = acc.z;
-          acc_peak.magnitude = accelMagnitude;
-        }
-        
-        // Update gyroscope peak if current magnitude is higher
-        if (gyroMagnitude > gyr_peak.magnitude) {
-          gyr_peak.x = gyr.x;
-          gyr_peak.y = gyr.y;
-          gyr_peak.z = gyr.z;
-          gyr_peak.magnitude = gyroMagnitude;
-        }
-
-        // Update display accelerometer peak if current magnitude is higher
-        if (accelMagnitude > acc_disp_peak.magnitude) {
-          acc_disp_peak.x = acc.x;
-          acc_disp_peak.y = acc.y;
-          acc_disp_peak.z = acc.z;
-          acc_disp_peak.magnitude = accelMagnitude;
-        }  
-
-        // Update gyroscope display peak:
-        if (gyroMagnitude > gyr_disp_peak.magnitude) {
-          gyr_disp_peak.x = gyr.x;
-          gyr_disp_peak.y = gyr.y;
-          gyr_disp_peak.z = gyr.z;
-          gyr_disp_peak.magnitude = gyroMagnitude;
-        }
+        gyr_disp_peak.magnitude = gyroMagnitude;
       }
-    } else {
-        // If data wasn't ready, we still must release the mutex
-        xSemaphoreGiveRecursive(i2c_mutex);
-    } 
+    }
   } 
 }
 
