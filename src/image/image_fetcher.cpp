@@ -52,9 +52,14 @@ unsigned long imageDisplayStartTime = 0;
 
 ImageFetcherConfig cfg{};
 
+// Asynchronous request tracking
+const char* pendingEndpoint = nullptr;
+
 }  // namespace
 
 // Forward declarations
+static void cleanupImageRequest();
+static void prepareForRequest();
 static bool requestImage(const char* endpoint_type);
 static void processHTTPResponse();
 static bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap);
@@ -70,6 +75,7 @@ void imageFetcherInit(const ImageFetcherConfig& config) {
   requestInProgress = false;
   screen2TimeoutActive = false;
   imageDisplayTimeoutActive = false;
+  pendingEndpoint = nullptr;
 
   // The GFX pipeline expects RGB565 (big endian); set decoder to match
   TJpgDec.setSwapBytes(false);
@@ -79,7 +85,80 @@ void imageFetcherInit(const ImageFetcherConfig& config) {
 }
 
 //***************************************************************************************************
+static void cleanupImageRequest() {
+  USBSerial.println("Cleaning up image fetcher state...");
+
+  // 1. Stop HTTP
+  httpClient.end();
+  httpsClient.stop();
+
+  // 2. Hide image if it exists to avoid LVGL accessing freed memory
+  if (cfg.imgScreen2Background) {
+    lv_obj_set_style_opa(cfg.imgScreen2Background, LV_OPA_TRANSP, LV_PART_MAIN);
+  }
+
+  // 3. Free buffers
+  if (jpeg_buffer_psram) {
+    free(jpeg_buffer_psram);
+    jpeg_buffer_psram = nullptr;
+  }
+  if (image_buffer_psram) {
+    free(image_buffer_psram);
+    image_buffer_psram = nullptr;
+  }
+
+  // 4. Reset descriptors and states
+  memset(&img_dsc, 0, sizeof(img_dsc));
+  httpState = HTTP_IDLE;
+  // Note: we don't reset requestInProgress here to allow the async transition to work
+  screen2TimeoutActive = false;
+  imageDisplayTimeoutActive = false;
+}
+
+//***************************************************************************************************
+static void prepareForRequest() {
+  USBSerial.println("Preparing UI for new image request...");
+  
+  cleanupImageRequest();
+
+  // Ensure we are on Screen 2
+  lv_obj_t* current = lv_scr_act();
+  if (current != cfg.screen2 && cfg.screen2) {
+    lv_disp_load_scr(cfg.screen2);
+  }
+
+  // Force rotation to default (90 degrees) for the UI/Loading state
+  lv_disp_t* disp = lv_disp_get_default();
+  if (disp) {
+    lv_disp_set_rotation(disp, LV_DISP_ROT_90);
+  }
+
+  // Reset loading timeout state
+  screenTransitionTime = millis();
+  screen2TimeoutActive = true;
+  imageDisplayTimeoutActive = false;
+  requestInProgress = true;
+
+  // Force an immediate UI refresh so the rotation and "Loading" state are visible 
+  // BEFORE we potentially block on the network request in the next loop.
+  lv_refr_now(NULL);
+}
+
+//***************************************************************************************************
 void imageFetcherLoop() {
+  // Handle asynchronous request triggering
+  if (pendingEndpoint != nullptr) {
+    const char* endpoint = pendingEndpoint;
+    pendingEndpoint = nullptr; // Clear it immediately
+    if (!requestImage(endpoint)) {
+      USBSerial.println("Async request failed to initiate.");
+      requestInProgress = false;
+      // If we failed and are stuck on Screen 2, maybe go back?
+      // For now we just allow the timeout to return us to Screen 1.
+    }
+    return;
+  }
+
   processHTTPResponse();
 
   // Handle Screen 2 timeouts
@@ -89,12 +168,8 @@ void imageFetcherLoop() {
       USBSerial.println("Screen 2 timeout - image loading took too long, returning to Screen 1");
 
       if (httpState != HTTP_IDLE && httpState != HTTP_COMPLETE) {
-        httpClient.end();
-        if (jpeg_buffer_psram) {
-          free(jpeg_buffer_psram);
-          jpeg_buffer_psram = nullptr;
-        }
-        httpState = HTTP_ERROR;  // Will be reset to IDLE when leaving Screen 2
+        cleanupImageRequest();
+        httpState = HTTP_ERROR; 
       }
 
       requestInProgress = false;
@@ -141,39 +216,21 @@ static bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* b
 
 //***************************************************************************************************
 static bool requestImage(const char* endpoint_type) {
-  USBSerial.println("=== requestImage() ENTRY ===");
-
-  delay(10);
-
-  if (httpState != HTTP_IDLE) {
-    USBSerial.println("HTTP request already in progress, ignoring new request.");
-    return false;
-  }
+  USBSerial.printf("=== requestImage('%s') START ===\n", endpoint_type);
 
   if (WiFi.status() != WL_CONNECTED) {
     USBSerial.println("WiFi not connected, cannot make HTTP request.");
     return false;
   }
 
-  USBSerial.printf("WiFi connected to: %s, RSSI: %d dBm\n", WiFi.SSID().c_str(), WiFi.RSSI());
-
-  lv_refr_now(NULL);
-
   String url;
   bool isSecureConnection = (WiFi.SSID() == ssid2);
 
   if (isSecureConnection) {
-    USBSerial.println("Cleaning up previous HTTPS client state...");
-    httpsClient.stop();
-    delay(10);
-
     url = String(IMAGE_SERVER_REMOTE) + String(endpoint_type) + "?token=" + String(API_TOKEN);
     USBSerial.println("Initiating HTTPS GET: " + url);
-
     httpsClient.setCACert(remote_server_ca_cert);
-
     bool beginResult = httpClient.begin(httpsClient, url);
-
     if (!beginResult) {
       USBSerial.println("FATAL: httpClient.begin() failed for HTTPS!");
       httpState = HTTP_ERROR;
@@ -182,9 +239,7 @@ static bool requestImage(const char* endpoint_type) {
   } else {
     url = String(IMAGE_SERVER_BASE) + String(endpoint_type) + "?token=" + String(API_TOKEN);
     USBSerial.println("Initiating HTTP GET: " + url);
-
     bool beginResult = httpClient.begin(url);
-
     if (!beginResult) {
       USBSerial.println("FATAL: httpClient.begin() failed for HTTP!");
       httpState = HTTP_ERROR;
@@ -217,32 +272,13 @@ static bool requestImage(const char* endpoint_type) {
     return false;
   }
 
-  if (jpeg_buffer_psram) {
-    USBSerial.println("WARNING: jpeg_buffer_psram was not null, freeing old buffer...");
-    free(jpeg_buffer_psram);
-    jpeg_buffer_psram = nullptr;
-    delay(10);
-  }
-
-  if (image_buffer_psram) {
-    USBSerial.println("WARNING: image_buffer_psram exists, freeing...");
-    free(image_buffer_psram);
-    image_buffer_psram = nullptr;
-    delay(10);
-  }
-
   jpeg_buffer_psram = static_cast<uint8_t*>(ps_malloc(contentLength));
   if (!jpeg_buffer_psram) {
     USBSerial.println("FATAL: Failed to allocate PSRAM for JPEG buffer");
-    USBSerial.printf("Requested size: %d bytes\n", contentLength);
     httpClient.end();
     httpState = HTTP_ERROR;
     return false;
   }
-
-  USBSerial.printf("Successfully allocated JPEG buffer: %d bytes at 0x%08X\n", contentLength,
-                   reinterpret_cast<uint32_t>(jpeg_buffer_psram));
-  printMemoryStats("After JPEG allocation");
 
   jpeg_buffer_size = contentLength;
   jpeg_bytes_received = 0;
@@ -250,7 +286,6 @@ static bool requestImage(const char* endpoint_type) {
   httpState = HTTP_RECEIVING;
 
   USBSerial.println("Starting to receive image data...");
-  USBSerial.println("=== requestImage() EXIT SUCCESS ===");
   return true;
 }
 
@@ -268,11 +303,7 @@ static void processHTTPResponse() {
       USBSerial.println("HTTP request timed out!");
       timeoutMessageShown = true;
     }
-    httpClient.end();
-    if (jpeg_buffer_psram) {
-      free(jpeg_buffer_psram);
-      jpeg_buffer_psram = nullptr;
-    }
+    cleanupImageRequest();
     httpState = HTTP_ERROR;
     return;
   }
@@ -283,8 +314,7 @@ static void processHTTPResponse() {
     while (stream->available() && jpeg_bytes_received < jpeg_buffer_size) {
       size_t bytesToRead =
           min(static_cast<size_t>(stream->available()), jpeg_buffer_size - jpeg_bytes_received);
-      size_t bytesRead =
-          stream->readBytes(jpeg_buffer_psram + jpeg_bytes_received, bytesToRead);
+      size_t bytesRead = stream->readBytes(jpeg_buffer_psram + jpeg_bytes_received, bytesToRead);
       jpeg_bytes_received += bytesRead;
 
       if (jpeg_bytes_received % 4096 == 0) {
@@ -307,18 +337,14 @@ static void processHTTPResponse() {
       image_buffer_psram = nullptr;
     }
 
-    size_t imageBufferSize = static_cast<size_t>(cfg.screenWidth) * cfg.screenHeight *
-                             sizeof(uint16_t);
+    size_t imageBufferSize =
+        static_cast<size_t>(cfg.screenWidth) * cfg.screenHeight * sizeof(uint16_t);
 
     image_buffer_psram = static_cast<uint16_t*>(ps_malloc(imageBufferSize));
 
     if (!image_buffer_psram) {
       USBSerial.println("FATAL: PSRAM allocation failed for decoded image buffer");
-      USBSerial.printf("Requested size: %d bytes\n", imageBufferSize);
-
-      free(jpeg_buffer_psram);
-      jpeg_buffer_psram = nullptr;
-      httpClient.end();
+      cleanupImageRequest();
       httpState = HTTP_ERROR;
       return;
     }
@@ -333,8 +359,7 @@ static void processHTTPResponse() {
 
     if (result != 0) {
       USBSerial.println("TJpgDec error code: " + String(result));
-      free(image_buffer_psram);
-      image_buffer_psram = nullptr;
+      if (image_buffer_psram) { free(image_buffer_psram); image_buffer_psram = nullptr; }
       httpState = HTTP_ERROR;
       return;
     }
@@ -363,7 +388,6 @@ static void processHTTPResponse() {
 
     imageDisplayTimeoutActive = true;
     imageDisplayStartTime = millis();
-    USBSerial.println("Image loaded successfully - starting 1-minute display timeout");
     return;
   }
 
@@ -376,39 +400,22 @@ static void processHTTPResponse() {
 
 //***************************************************************************************************
 bool requestLatestImage() {
-  if (requestInProgress || httpState != HTTP_IDLE) {
-    USBSerial.println("Request already in progress, ignoring request");
-    return false;
-  }
-
   lv_obj_t* current_screen = lv_scr_act();
-  if (current_screen != cfg.screen1 && current_screen != cfg.screen3 &&
-      current_screen != cfg.inclinometerScreen) {
-    USBSerial.println("Not on Screen1 or Screen3 or inclinometer, ignoring image request");
+  if (current_screen != cfg.screen1 && current_screen != cfg.screen2 &&
+      current_screen != cfg.screen3 && current_screen != cfg.inclinometerScreen) {
+    USBSerial.println("On unsupported screen, ignoring image request");
     return false;
   }
 
-  USBSerial.println("Initiating latest image request");
-
-  requestInProgress = true;
-  if (cfg.screen2) {
-    lv_disp_load_scr(cfg.screen2);
-  }
-
-  if (requestImage("latest")) {
-    return true;
-  } else {
-    USBSerial.println("Failed to initiate image request");
-    requestInProgress = false;
-    return false;
-  }
+  USBSerial.println("Initiating async latest image request...");
+  prepareForRequest();
+  pendingEndpoint = "latest";
+  return true;
 }
 
 //***************************************************************************************************
 void buttonLatest_event_handler(lv_event_t* e) {
-  lv_event_code_t code = lv_event_get_code(e);
-
-  if (code == LV_EVENT_CLICKED) {
+  if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
     USBSerial.println("Latest button clicked");
     requestLatestImage();
   }
@@ -416,53 +423,19 @@ void buttonLatest_event_handler(lv_event_t* e) {
 
 //***************************************************************************************************
 void buttonNew_event_handler(lv_event_t* e) {
-  lv_event_code_t code = lv_event_get_code(e);
-
-  if (code == LV_EVENT_CLICKED) {
-    USBSerial.println("New button clicked");
-
-    if (requestInProgress || httpState != HTTP_IDLE) {
-      USBSerial.println("Request already in progress, ignoring button press");
-      return;
-    }
-
-    requestInProgress = true;
-    if (cfg.screen2) {
-      lv_disp_load_scr(cfg.screen2);
-    }
-
-    if (requestImage("new")) {
-      USBSerial.println("New image request initiated, transitioning to Screen 2");
-    } else {
-      USBSerial.println("Failed to initiate new image request");
-      requestInProgress = false;
-    }
+  if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+    USBSerial.println("New button clicked, initiating async request...");
+    prepareForRequest();
+    pendingEndpoint = "new";
   }
 }
 
 //***************************************************************************************************
 void buttonBack_event_handler(lv_event_t* e) {
-  lv_event_code_t code = lv_event_get_code(e);
-
-  if (code == LV_EVENT_CLICKED) {
-    USBSerial.println("Back button clicked");
-
-    if (requestInProgress || httpState != HTTP_IDLE) {
-      USBSerial.println("Request already in progress, ignoring button press");
-      return;
-    }
-
-    requestInProgress = true;
-    if (cfg.screen2) {
-      lv_disp_load_scr(cfg.screen2);
-    }
-
-    if (requestImage("back")) {
-      USBSerial.println("Back image request initiated, transitioning to Screen 2");
-    } else {
-      USBSerial.println("Failed to initiate back image request");
-      requestInProgress = false;
-    }
+  if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+    USBSerial.println("Back button clicked, initiating async request...");
+    prepareForRequest();
+    pendingEndpoint = "back";
   }
 }
 
@@ -473,45 +446,28 @@ void screen2_event_handler(lv_event_t* e) {
 
   if (code == LV_EVENT_SCREEN_LOADED) {
     USBSerial.println("Screen 2 Loaded.");
-
     if (httpState != HTTP_COMPLETE) {
       if (cfg.imgScreen2Background) {
         lv_obj_set_style_opa(cfg.imgScreen2Background, LV_OPA_TRANSP, LV_PART_MAIN);
       }
     } else {
-      USBSerial.println(
-          "Race condition detected: Download finished before screen load. Forcing display.");
       if (cfg.imgScreen2Background) {
         lv_obj_set_style_opa(cfg.imgScreen2Background, LV_OPA_COVER, LV_PART_MAIN);
       }
       lv_disp_set_rotation(disp, LV_DISP_ROT_NONE);
     }
-
     screenTransitionTime = millis();
     screen2TimeoutActive = true;
-
     if (httpState != HTTP_COMPLETE) {
       imageDisplayTimeoutActive = false;
     }
-
-    USBSerial.println("Screen 2 timeout started (8 seconds)");
-
-    if (httpState == HTTP_REQUESTING || httpState == HTTP_RECEIVING) {
-      USBSerial.println("Request already in progress from button handler, waiting for completion");
-    } else if (httpState == HTTP_IDLE && !requestInProgress) {
-      USBSerial.println("WARNING: Screen 2 loaded but no request was initiated");
-    }
-
   } else if (code == LV_EVENT_SCREEN_UNLOAD_START) {
     USBSerial.println("Screen 2 Unloading: Freeing buffer and resetting rotation to 90 degrees.");
-
     screen2TimeoutActive = false;
     imageDisplayTimeoutActive = false;
-
     if (cfg.imgScreen2Background) {
       lv_obj_set_style_opa(cfg.imgScreen2Background, LV_OPA_TRANSP, LV_PART_MAIN);
     }
-
     if (image_buffer_psram != nullptr) {
       free(image_buffer_psram);
       image_buffer_psram = nullptr;
@@ -520,13 +476,9 @@ void screen2_event_handler(lv_event_t* e) {
       free(jpeg_buffer_psram);
       jpeg_buffer_psram = nullptr;
     }
-
     memset(&img_dsc, 0, sizeof(lv_img_dsc_t));
-
     httpState = HTTP_IDLE;
     requestInProgress = false;
-
     lv_disp_set_rotation(disp, LV_DISP_ROT_90);
   }
 }
-
