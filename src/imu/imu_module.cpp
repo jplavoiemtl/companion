@@ -197,14 +197,18 @@ void reinitializeMotionBaseline() {
   int validReadings = 0;
   
   for (int i = 0; i < 20; i++) {
-    if (qmi.getDataReady()) {
-      if (qmi.getAccelerometer(acc.x, acc.y, acc.z) && qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
-        float accelMag = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
-        float gyroMag = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
-        accelSum += accelMag;
-        gyroSum += gyroMag;
-        validReadings++;
+    // Protect each individual sample read to allow touch/other I2C to interleave
+    if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+      if (qmi.getDataReady()) {
+        if (qmi.getAccelerometer(acc.x, acc.y, acc.z) && qmi.getGyroscope(gyr.x, gyr.y, gyr.z)) {
+          float accelMag = sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+          float gyroMag = sqrt(gyr.x * gyr.x + gyr.y * gyr.y + gyr.z * gyr.z);
+          accelSum += accelMag;
+          gyroSum += gyroMag;
+          validReadings++;
+        }
       }
+      xSemaphoreGiveRecursive(i2c_mutex);
     }
     delay(20);
   }

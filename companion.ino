@@ -1372,8 +1372,13 @@ void updateBatteryInfoUI() {
   static float prevUiVoltage = -1.0f;
   static String prevUiStatus = "";
 
-  // Get the current charging state.
-  bool isCharging = pmic.isCharging();
+  // Get the current charging state with mutex protection
+  bool isCharging = false;
+  if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+      isCharging = pmic.isCharging();
+      xSemaphoreGiveRecursive(i2c_mutex);
+  }
+  
   String currentStatus = "";
 
   // Determine the current status string.
