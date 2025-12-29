@@ -12,6 +12,7 @@
 #include "secrets.h"
 #endif
 #include "ui.h"
+extern lv_obj_t* ui_previous_screen;
 
 namespace {
 
@@ -121,11 +122,16 @@ static void prepareForRequest() {
   
   cleanupImageRequest();
 
-  // Ensure we are on Screen 2
+  // Save the current screen if it's not the image screen itself (Screen 2)
   lv_obj_t* current = lv_scr_act();
   if (current != cfg.screen2 && cfg.screen2) {
-    lv_disp_load_scr(cfg.screen2);
+      ui_previous_screen = current;
+      lv_disp_load_scr(cfg.screen2);
+  } else if (current == cfg.screen2 && ui_previous_screen == NULL && cfg.screen1) {
+       // Ideally we shouldn't be here without a previous screen, but safety fallback:
+       ui_previous_screen = cfg.screen1;
   }
+
 
   // Force rotation to default (90 degrees) for the UI/Loading state
   lv_disp_t* disp = lv_disp_get_default();
@@ -176,7 +182,9 @@ void imageFetcherLoop() {
       screen2TimeoutActive = false;
       imageDisplayTimeoutActive = false;
 
-      if (cfg.screen1) {
+      if (ui_previous_screen) {
+        lv_disp_load_scr(ui_previous_screen);
+      } else if (cfg.screen1) {
         lv_disp_load_scr(cfg.screen1);
       }
     }
@@ -191,7 +199,9 @@ void imageFetcherLoop() {
         screen2TimeoutActive = false;
         imageDisplayTimeoutActive = false;
 
-        if (cfg.screen1) {
+        if (ui_previous_screen) {
+          lv_disp_load_scr(ui_previous_screen);
+        } else if (cfg.screen1) {
           lv_disp_load_scr(cfg.screen1);
         }
       }
