@@ -21,6 +21,7 @@
 #include "src/image/image_fetcher.h"
 #include "src/imu/imu_module.h"
 #include "src/net/net_module.h"
+#include "src/screen_memory/screen_memory.h"
 
 
 // QMI8658 Register Addresses
@@ -1870,7 +1871,13 @@ void initUIHandlers() {
     lv_obj_add_event_cb(ui_Screen2, screen2_event_handler, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Screen3, screen3_event_handler, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_InclinometerScreen, screenInclinometer_event_handler, LV_EVENT_SCREEN_LOADED, NULL);
-    USBSerial.println("  Screen event handlers registered");  
+    USBSerial.println("  Screen event handlers registered");
+
+    // Screen memory event handlers - persist active screen to NVS
+    lv_obj_add_event_cb(ui_Screen1, screenMemoryEventHandler, LV_EVENT_SCREEN_LOADED, NULL);
+    lv_obj_add_event_cb(ui_Screen3, screenMemoryEventHandler, LV_EVENT_SCREEN_LOADED, NULL);
+    lv_obj_add_event_cb(ui_InclinometerScreen, screenMemoryEventHandler, LV_EVENT_SCREEN_LOADED, NULL);
+    USBSerial.println("  Screen memory event handlers registered");  
 
     // Initialize the Motion Icon Label
     lv_label_set_text(ui_labelMotionIcon, LV_SYMBOL_CHARGE);
@@ -2112,6 +2119,17 @@ void setup() {
 
   initUIHandlers(); // Initialize UI Event Handlers
 
+  // Initialize screen memory - restores last active screen from NVS
+  ScreenMemoryConfig screenMemCfg{
+    &ui_Screen1,
+    &ui_Screen3,
+    &ui_InclinometerScreen,
+    ui_Screen1_screen_init,
+    ui_Screen3_screen_init,
+    ui_InclinometerScreen_screen_init
+  };
+  screenMemoryInit(screenMemCfg);
+
   // Check PSRAM availability
   if (!initPSRAM()) {
       USBSerial.println("FATAL: PSRAM not available - cannot continue");
@@ -2205,6 +2223,9 @@ void loop() {
     updateMotionStatusUI(); // 2. Update the motion icon.
     updateBatteryInfoUI(); // 3. Update the LVGL labels.
   }
+
+  // --- Task 4b: Screen Memory Update (30s debounce for NVS save) ---
+  screenMemoryUpdate();
 
   // --- Task 5 (Timed): Update Connection Status UI ---
   if (millis() - lastConnectionUpdate >= 1000) { // Check every second
