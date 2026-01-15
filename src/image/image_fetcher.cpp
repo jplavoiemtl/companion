@@ -258,9 +258,10 @@ static bool requestImage(const char* endpoint_type) {
   }
 
   httpClient.setTimeout(HTTP_TIMEOUT_MS);
-  httpClient.setConnectTimeout(HTTP_TIMEOUT_MS);
+  httpClient.setConnectTimeout(8000);  // 8 seconds - fail faster on connection issues
 
   httpState = HTTP_REQUESTING;
+  httpRequestStartTime = millis();  // Set BEFORE blocking call for timeout tracking
   USBSerial.println("Sending HTTP GET...");
   int httpCode = httpClient.GET();
 
@@ -292,7 +293,6 @@ static bool requestImage(const char* endpoint_type) {
 
   jpeg_buffer_size = contentLength;
   jpeg_bytes_received = 0;
-  httpRequestStartTime = millis();
   httpState = HTTP_RECEIVING;
 
   USBSerial.println("Starting to receive image data...");
@@ -466,8 +466,12 @@ void screen2_event_handler(lv_event_t* e) {
       }
       lv_disp_set_rotation(disp, LV_DISP_ROT_NONE);
     }
-    screenTransitionTime = millis();
-    screen2TimeoutActive = true;
+    // Only reset timeout if no request is in progress
+    // (prevents extending timeout when screen loads after blocking HTTP call)
+    if (!requestInProgress) {
+      screenTransitionTime = millis();
+      screen2TimeoutActive = true;
+    }
     if (httpState != HTTP_COMPLETE) {
       imageDisplayTimeoutActive = false;
     }
