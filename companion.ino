@@ -1517,7 +1517,14 @@ void updateConnectionStatusUI() {
     // --- A change was detected, update the label ---
     if (current_mqtt_status) {
         // Best case: MQTT is online
-        lv_label_set_text(ui_labelConnectionStatus, "MQTT Online");
+        uint16_t activePort = netGetActivePort();
+        
+        // If using secure port (9735), we are effectively Remote (even if on Connection 1 in CAR mode)
+        if (activePort == 9735 || activePort == 8883) {
+             lv_label_set_text(ui_labelConnectionStatus, "MQTT Remote");
+        } else {
+             lv_label_set_text(ui_labelConnectionStatus, "MQTT Local");
+        }
         lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0x00FF00), LV_PART_MAIN); // Green
     } else if (current_wifi_status == WL_CONNECTED) {
         // Good case: WiFi is connected, but MQTT is not (or is trying)

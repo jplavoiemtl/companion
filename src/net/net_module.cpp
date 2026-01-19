@@ -14,6 +14,7 @@ NetConfig cfg{};
 bool mqttSuccess = false;
 unsigned long lastMqttAttempt = 0;
 constexpr unsigned long MQTT_RECONNECT_INTERVAL = 15000;  // 15s between reconnection attempts
+static uint16_t activePort = 0;
 
 // Helper to decide if port is secure
 bool isSecurePort(uint16_t port) {
@@ -37,6 +38,8 @@ void netConfigureMqttClient(int connection) {
   if (!cfg.mqttClient || !cfg.wifiClient || !cfg.secureClient) return;
 
   if (connection == 1) {
+    activePort = cfg.serverPort1;
+                     
     if (isSecurePort(cfg.serverPort1)) {
       cfg.secureClient->setCACert(cfg.caCert);
       cfg.mqttClient->setClient(*cfg.secureClient);
@@ -45,6 +48,8 @@ void netConfigureMqttClient(int connection) {
     }
     cfg.mqttClient->setServer(cfg.server1, cfg.serverPort1);
   } else {
+    activePort = cfg.serverPort2;
+
     if (isSecurePort(cfg.serverPort2)) {
       cfg.secureClient->setCACert(cfg.caCert);
       cfg.mqttClient->setClient(*cfg.secureClient);
@@ -91,5 +96,10 @@ bool netIsMqttConnected() {
 
 bool netHasInitialMqttSuccess() {
   return mqttSuccess;
+}
+
+
+uint16_t netGetActivePort() {
+  return activePort;
 }
 
