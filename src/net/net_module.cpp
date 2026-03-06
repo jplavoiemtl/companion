@@ -11,7 +11,6 @@ namespace {
 NetConfig cfg{};
 
 // MQTT reconnect state
-bool mqttSuccess = false;
 unsigned long lastMqttAttempt = 0;
 constexpr unsigned long MQTT_RECONNECT_INTERVAL = 15000;  // 15s between reconnection attempts
 static uint16_t activePort = 0;
@@ -74,7 +73,6 @@ void netCheckMqtt(bool bypassRateLimit) {
     delay(100);
 
     if (cfg.mqttClient->connect(CLIENT_ID, USERNAME, KEY)) {
-      mqttSuccess = true;
       // Subscriptions
       if (cfg.topics.image) {
         cfg.mqttClient->subscribe(cfg.topics.image, 1);
@@ -92,10 +90,6 @@ void netCheckMqtt(bool bypassRateLimit) {
 
 bool netIsMqttConnected() {
   return cfg.mqttClient && cfg.mqttClient->connected();
-}
-
-bool netHasInitialMqttSuccess() {
-  return mqttSuccess;
 }
 
 

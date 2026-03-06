@@ -38,6 +38,5 @@ void netCheckMqtt(bool bypassRateLimit = false);
 
 // Accessors
 bool netIsMqttConnected();
-bool netHasInitialMqttSuccess();
 uint16_t netGetActivePort();
 
