@@ -2215,9 +2215,7 @@ void loop() {
   // --- Task 2: Handle MQTT communications if connected ---
   if (WiFi.status() == WL_CONNECTED) {
     mqttClient.loop();  // Always call loop() to maintain connection
-    if(netHasInitialMqttSuccess()) {
-      netCheckMqtt();  // Only attempt reconnection if initial connection succeeded
-    }
+    netCheckMqtt();     // Attempt reconnection (rate-limited to every 15s)
   }
 
   // --- Task 3: Process HTTP response if in progress
