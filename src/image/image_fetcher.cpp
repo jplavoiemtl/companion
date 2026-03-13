@@ -27,6 +27,7 @@ enum ImageRequestState {
 
 // --- HTTP/S configuration ---
 constexpr unsigned long HTTP_TIMEOUT_MS = 15000;
+constexpr unsigned long HTTP_SOCKET_TIMEOUT_MS = 5000;  // Socket-level timeout for GET() blocking
 constexpr size_t MAX_JPEG_SIZE = 60000;  // 60 KB
 
 // --- Screen 2 timeout management ---
@@ -257,7 +258,7 @@ static bool requestImage(const char* endpoint_type) {
     }
   }
 
-  httpClient.setTimeout(HTTP_TIMEOUT_MS);
+  httpClient.setTimeout(HTTP_SOCKET_TIMEOUT_MS);
   httpClient.setConnectTimeout(8000);  // 8 seconds - fail faster on connection issues
 
   httpState = HTTP_REQUESTING;
