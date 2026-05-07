@@ -112,9 +112,11 @@ static void cleanupImageRequest() {
   // 4. Reset descriptors and states
   memset(&img_dsc, 0, sizeof(img_dsc));
   httpState = HTTP_IDLE;
-  // Note: we don't reset requestInProgress here to allow the async transition to work
-  screen2TimeoutActive = false;
-  imageDisplayTimeoutActive = false;
+  // Note: we don't reset requestInProgress here to allow the async transition to work.
+  // Note: screen2TimeoutActive / imageDisplayTimeoutActive are intentionally NOT cleared
+  // here — clearing them would disarm the Screen-2 auto-return fallback after an HTTP
+  // error and strand the user on the green "Getting image" screen. Those flags are
+  // managed by the screen-2 timeout handler and the screen UNLOAD event.
 }
 
 //***************************************************************************************************
@@ -260,6 +262,9 @@ static bool requestImage(const char* endpoint_type) {
 
   httpClient.setTimeout(HTTP_SOCKET_TIMEOUT_MS);
   httpClient.setConnectTimeout(8000);  // 8 seconds - fail faster on connection issues
+  // Bound the TLS handshake so a stalled HTTPS endpoint can't block GET() for the
+  // 120 s default. Setter takes seconds.
+  httpsClient.setHandshakeTimeout(5);
 
   httpState = HTTP_REQUESTING;
   httpRequestStartTime = millis();  // Set BEFORE blocking call for timeout tracking
@@ -315,7 +320,9 @@ static void processHTTPResponse() {
       timeoutMessageShown = true;
     }
     cleanupImageRequest();
-    httpState = HTTP_ERROR;
+    // Leave httpState = HTTP_IDLE (set by cleanupImageRequest). Forcing it back to
+    // HTTP_ERROR here would re-enter this block on every loop iteration because
+    // httpRequestStartTime is never advanced — that produced an endless cleanup spam.
     return;
   }
 
