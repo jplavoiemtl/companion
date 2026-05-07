@@ -5,6 +5,9 @@
 #include "secrets.h"
 #endif
 #include "calibration.h"
+#include "HWCDC.h"
+
+extern HWCDC USBSerial;
 
 namespace {
 
@@ -14,6 +17,15 @@ NetConfig cfg{};
 unsigned long lastMqttAttempt = 0;
 constexpr unsigned long MQTT_RECONNECT_INTERVAL = 15000;  // 15s between reconnection attempts
 static uint16_t activePort = 0;
+
+// Give-up state. If MQTT never connects this boot, stop retrying after a budget
+// of failed attempts so the UI stays responsive. A power-cycle resets this; the
+// trade-off is that we won't recover mid-session if the broker comes back online,
+// which is acceptable for this device's frequent power-cycle pattern.
+constexpr uint8_t MAX_INITIAL_FAILURES = 5;
+uint8_t failureCount = 0;
+bool everConnected = false;
+bool giveUp = false;
 
 // Helper to decide if port is secure
 bool isSecurePort(uint16_t port) {
@@ -61,18 +73,40 @@ void netConfigureMqttClient(int connection) {
 
 void netCheckMqtt(bool bypassRateLimit) {
   if (!cfg.mqttClient) return;
+  if (giveUp) return;
 
   if (!cfg.mqttClient->connected()) {
     unsigned long currentTime = millis();
     if (!bypassRateLimit && currentTime - lastMqttAttempt < MQTT_RECONNECT_INTERVAL) {
       return;
     }
-    lastMqttAttempt = currentTime;
 
     cfg.mqttClient->disconnect();  // clean stale state
     delay(100);
 
-    if (cfg.mqttClient->connect(CLIENT_ID, USERNAME, KEY)) {
+    // Tighten timeouts so a failed attempt unblocks the main loop quickly.
+    // Defaults are catastrophic for UI responsiveness: WiFiClientSecure has a
+    // 30 s TCP connect timeout and 120 s TLS handshake timeout, and PubSubClient
+    // busy-waits (no yield) up to its socketTimeout for CONNACK.
+    if (cfg.secureClient) {
+      cfg.secureClient->setTimeout(5000);       // TCP connect, ms
+      cfg.secureClient->setHandshakeTimeout(5); // TLS handshake, seconds
+    }
+    if (cfg.wifiClient) {
+      cfg.wifiClient->setTimeout(5);            // WiFiClient, seconds
+    }
+    cfg.mqttClient->setSocketTimeout(5);        // CONNACK wait, seconds
+
+    bool ok = cfg.mqttClient->connect(CLIENT_ID, USERNAME, KEY);
+
+    // Stamp the attempt time AFTER it returns. If we stamped before, a
+    // long-blocking attempt would already have exceeded MQTT_RECONNECT_INTERVAL
+    // by the time it failed, defeating the rate limit and starving LVGL.
+    lastMqttAttempt = millis();
+
+    if (ok) {
+      everConnected = true;
+      failureCount = 0;
       // Subscriptions
       if (cfg.topics.image) {
         cfg.mqttClient->subscribe(cfg.topics.image, 1);
@@ -84,6 +118,12 @@ void netCheckMqtt(bool bypassRateLimit) {
         cfg.mqttClient->subscribe(cfg.topics.energy, 1);
       }
       calibReportStatus();
+    } else {
+      failureCount++;
+      if (!everConnected && failureCount >= MAX_INITIAL_FAILURES) {
+        giveUp = true;
+        USBSerial.println("MQTT unreachable after initial attempts; giving up until next reboot.");
+      }
     }
   }
 }
