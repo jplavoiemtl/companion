@@ -772,19 +772,31 @@ void updateInclinometer(float gyro_vert, float gyro_horiz, float gyro_up) {
   
   unsigned long current_time_incl = micros();
   float dt_incl = (current_time_incl - last_inclinometer_update) / 1000000.0;  // Convert to seconds
-  
-  // If dt is unreasonably large (>100ms), just skip this update entirely
-  // This handles major gaps like screen switches or system pauses
+
+  // Slow-tick fallback: when dt exceeds 100 ms (e.g. during the boot WiFi
+  // keep-alive sub-loops where ticks land at 100-500 ms), gyro integration
+  // would drift unacceptably. Drop the gyro path and recompute pose from the
+  // accelerometer alone — this keeps the inclinometer responsive at any
+  // cadence and converges to the correct static pose. The complementary
+  // fusion resumes naturally once the main loop runs at full speed again.
   if (dt_incl > 0.1) {
+    float pitch_accel, roll_accel;
+    calculateAccelAngles(pitch_accel, roll_accel);
+    pitch_angle = pitch_accel;
+    roll_angle  = roll_accel;
+    // Re-seed the gyro integrator so it doesn't carry forward stale drift
+    // when fast ticks resume.
+    pitch_gyro = pitch_accel;
+    roll_gyro  = roll_accel;
     last_inclinometer_update = current_time_incl;
-    return;  // Skip update, keep previous angles
+    return;
   }
-  
+
   if (dt_incl < 0.0001) return;  // Skip if called too quickly
-  
+
   // Clamp dt to reasonable maximum for integration
   if (dt_incl > 0.05) dt_incl = 0.05;  // Cap at 50ms for gyro integration
-  
+
   updateInclinometerWithFreeze(dt_incl);
 
   last_inclinometer_update = current_time_incl;
