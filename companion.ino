@@ -170,6 +170,10 @@ unsigned long usbDisconnectedTime = 0;    // Timestamp when USB was disconnected
 const unsigned long USB_GRACE_PERIOD = 30000;        // 30 seconds minimum after USB loss
 const unsigned long MAX_RUNTIME_AFTER_USB_LOSS = 180000;  // 3 minutes maximum safety limit
 
+// --- WiFi Boot State (drives "local-only" mode when WiFi never came up at boot) ---
+bool g_wifiUpAtBoot = false;          // true if attemptWiFiConnection() succeeded during setup()
+bool g_mqttConfiguredLate = false;    // true after we configure MQTT on a late WiFi-up transition
+
 // --- POINTERS for manual initialization to prevent race conditions ---
 std::shared_ptr<Arduino_IIC_DriveBus> IIC_Bus = nullptr;
 std::unique_ptr<Arduino_IIC> FT3168 = nullptr;
@@ -767,17 +771,19 @@ void trySecondSSID(int lastAttemptedConnection) {
 //***************************************************************************************************
 /**
  * @brief Attempts to connect to WiFi networks with retry logic based on power source.
- * 
+ *
  * When USB power is present (vbusPresent == true):
  *   - Retries WiFi connection up to 5 times with delays between attempts
  *   - Updates UI with retry count and status
- *   - Initiates shutdown after 5 failed attempts
- *   - Allows switching to battery mode during retry (will shutdown on next failure)
- * 
+ *   - After 5 failed attempts, returns false and lets the device run in
+ *     local-only mode (G-meter / inclinometer). The radio's background
+ *     auto-reconnect remains active.
+ *   - If USB is lost during retries, falls through to the battery-only branch.
+ *
  * When on battery power only (vbusPresent == false):
  *   - Makes 2 connection attempts (primary and secondary networks)
  *   - If both fail, initiates shutdown to conserve battery
- * 
+ *
  * @return true if WiFi connection was successful, false otherwise
  */
 bool attemptWiFiConnection() {
@@ -857,18 +863,16 @@ bool attemptWiFiConnection() {
         }
         
         // --- Check if max retries reached ---
-        if (retryCount >= MAX_RETRIES) {  // NEW: Check if we've exhausted all retries
-            USBSerial.println("Maximum retry attempts reached. Initiating shutdown...");
-            
-            // Update UI before shutdown
-            lv_label_set_text(ui_labelConnectionStatus, "No WiFi - Shutdown");
+        // On USB power, instead of shutting down we fall back to local-only mode
+        // (G-meter / inclinometer keep working). The radio's auto-reconnect remains
+        // active in the background, so WiFi may come up later in the session.
+        if (retryCount >= MAX_RETRIES) {
+            USBSerial.println("Maximum retry attempts reached. Continuing in local-only mode (USB powered).");
+
+            lv_label_set_text(ui_labelConnectionStatus, "No WiFi");
             lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
             for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
-            
-            delay(2000); // Show message briefly
-            goToShutdown(); // This function does not return
-            
-            // Code should never reach here, but just in case:
+
             return false;
         }
         
@@ -2001,23 +2005,26 @@ void configureWiFiPriority() {
  */
 void initWiFi() {
     USBSerial.println("--- Initializing WiFi ---");
-    
-    // Attempt connection (network priority was already configured in setup)
-    if (!attemptWiFiConnection()) {
-        USBSerial.println("WiFi connection failed (unexpected state).");
+
+    // Attempt connection (network priority was already configured in setup).
+    // On battery, attemptWiFiConnection() shuts the device down if both networks
+    // fail and never returns. On USB, it returns false after the retry budget
+    // is exhausted so we can continue in local-only mode.
+    bool ok = attemptWiFiConnection();
+
+    if (ok) {
+        USBSerial.println("WiFi connection established successfully.");
+        USBSerial.println("Allowing network stack to stabilize...");
+        for (int i = 0; i < 10; i++) {
+            updateMotionState();
+            updateMotionStatusUI();
+            lv_timer_handler();
+            delay(200);
+        }
+    } else {
+        USBSerial.println("WiFi unavailable; running in local-only mode.");
     }
-    
-    USBSerial.println("WiFi connection established successfully.");
-    
-    // Allow network stack to stabilize
-    USBSerial.println("Allowing network stack to stabilize...");
-    for (int i = 0; i < 10; i++) {
-        updateMotionState();
-        updateMotionStatusUI();
-        lv_timer_handler();
-        delay(200);
-    }
-    
+
     USBSerial.println("WiFi initialization complete");
 }
 
@@ -2183,8 +2190,21 @@ void setup() {
   configureWiFiPriority();  // Configure WiFi priority (must be done before initWiFi)
 
   initWiFi(); // Initialize WiFi (failure handling in attemptWiFiConnection)
-  
-  initMQTT(); // Initialize MQTT (will retry in loop if needed)
+
+  // Capture boot-time WiFi state so the loop can later detect a "WiFi came up
+  // after a failed boot" transition (see Task 2.5 in loop()).
+  g_wifiUpAtBoot = (WiFi.status() == WL_CONNECTED);
+
+  if (g_wifiUpAtBoot) {
+    initMQTT(); // Initialize MQTT (will retry in loop if needed)
+  } else {
+    USBSerial.println("Skipping MQTT init - no WiFi at boot. Forcing G-meter screen.");
+    // Override whatever screen_memory restored: Dashboard is empty without MQTT,
+    // so land on the G-meter which works offline.
+    if (ui_Screen3) {
+      lv_disp_load_scr(ui_Screen3);
+    }
+  }
 
   reinitializeMotionBaseline();  
 
@@ -2211,6 +2231,47 @@ void loop() {
   updateMotionState(); // Just update the motion flag, no shutdown decision
   updateGMeterDisplay(imuGetAccelInertialVert(), imuGetAccelInertialHoriz());
   updateCalibration();  // Update calibration logic
+
+  // --- Task 2-pre: Periodic WiFi retry when boot connection failed ---
+  // attemptWiFiConnection() gates WiFi.begin() on a successful async scan, so
+  // when the AP (e.g. iPhone hotspot) is off at boot, no association is ever
+  // attempted and ESP32's built-in auto-reconnect has nothing to re-issue.
+  // To recover when the AP appears later, we re-issue WiFi.begin() ourselves
+  // every WIFI_RETRY_INTERVAL_MS, alternating primary/secondary so HOME mode
+  // recovers regardless of which network comes back first. WiFi.begin() is
+  // non-blocking (~10 ms), so the UI is unaffected.
+  if (!g_wifiUpAtBoot && WiFi.status() != WL_CONNECTED) {
+    static unsigned long lastWifiRetryTime = 0;
+    static bool tryPrimaryNext = true;
+    constexpr unsigned long WIFI_RETRY_INTERVAL_MS = 30000;  // 30 s
+
+    if (millis() - lastWifiRetryTime > WIFI_RETRY_INTERVAL_MS) {
+      if (tryPrimaryNext) {
+        USBSerial.print("Retrying WiFi (primary): ");
+        USBSerial.println(primarySsid);
+        WiFi.begin(primarySsid, primaryPassword);
+      } else {
+        USBSerial.print("Retrying WiFi (secondary): ");
+        USBSerial.println(secondarySsid);
+        WiFi.begin(secondarySsid, secondaryPassword);
+      }
+      tryPrimaryNext = !tryPrimaryNext;
+      lastWifiRetryTime = millis();
+    }
+  }
+
+  // --- Task 2a: WiFi came up AFTER a failed boot - configure MQTT once ---
+  // netConfigureMqttClient() is normally called from connectToWiFi() on a
+  // successful initial connect. If WiFi was down at boot we never ran that path,
+  // so the mqttClient has no server set. Detect the late WiFi-up transition and
+  // configure MQTT exactly once; the existing rate-limited retry in netCheckMqtt
+  // takes over from there.
+  if (!g_wifiUpAtBoot && !g_mqttConfiguredLate && WiFi.status() == WL_CONNECTED) {
+    int conn = (WiFi.SSID() == ssid1) ? 1 : 2;
+    USBSerial.printf("WiFi up after failed boot - configuring MQTT for connection %d\n", conn);
+    netConfigureMqttClient(conn);
+    g_mqttConfiguredLate = true;
+  }
 
   // --- Task 2: Handle MQTT communications if connected ---
   if (WiFi.status() == WL_CONNECTED) {
