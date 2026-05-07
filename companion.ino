@@ -610,6 +610,43 @@ void callbackMqtt(char* topic, byte* payload, unsigned int length) {
 
 
 //***************************************************************************************************
+// Per-iteration UI/sensor work used by the keep-alive sub-loops in scanForSSID(),
+// connectToWiFi(), and the retry delay in attemptWiFiConnection(). Mirrors the
+// per-tick essentials of the main loop() so screens the user can navigate to
+// before setup() finishes (G-meter, inclinometer) stay live during the WiFi
+// retry budget. Excludes MQTT, image-fetcher, and shutdown/sleep checks - those
+// only make sense from the real loop() once setup is complete. Rate-limited
+// updates share the same global timestamps as loop(), so there is no double-update
+// once loop() takes over.
+//***************************************************************************************************
+void runBackgroundTick() {
+  updateImuData();
+  updateMotionState();
+  updateGMeterDisplay(imuGetAccelInertialVert(), imuGetAccelInertialHoriz());
+
+  if (millis() - lastBatteryUpdate >= 200) {
+    lastBatteryUpdate = millis();
+    updateBatteryInfo();
+    updateMotionStatusUI();
+    updateBatteryInfoUI();
+  }
+
+  if (millis() - lastConnectionUpdate >= 1000) {
+    lastConnectionUpdate = millis();
+    updateConnectionStatusUI();
+  }
+
+  unsigned long current_millis = millis();
+  if (current_millis - last_inclinometer_display_update >= INCLINOMETER_DISPLAY_INTERVAL) {
+    updateInclinometerDisplay();
+    last_inclinometer_display_update = current_millis;
+  }
+
+  lv_timer_handler();
+}
+
+
+//***************************************************************************************************
 //***************************************************************************************************
 bool connectToWiFi(int connection) {      // connection is either 1 for wifi1 or 2 for wifi2
   bool connected = false;
@@ -618,10 +655,8 @@ bool connectToWiFi(int connection) {      // connection is either 1 for wifi1 or
 
   for (int i = 0; i < 30 && !connected; i++) {   // Loop for a maximum of 6 seconds, 12
       USBSerial.print(".");
-      updateMotionState();      // Poll the motion sensor
-      updateMotionStatusUI();   // Update the icon's visibility
-      lv_timer_handler();       // IMPORTANT: Tell LVGL to process tasks and redraw
-      
+      runBackgroundTick();      // Keep IMU, G-meter, inclinometer, battery, and LVGL alive
+
       delay(500);
       
       // Check WiFi status and print detailed status messages
@@ -697,11 +732,9 @@ bool scanForSSID(const char* ssid) {
   // This is our "keep-alive" loop that runs while the scan is in progress.
   // WiFi.scanComplete() returns -1 while scanning.
   while (WiFi.scanComplete() == -1) {
-    
+
     // --- KEEP UI AND SENSORS ALIVE ---
-    updateMotionState();
-    updateMotionStatusUI();
-    lv_timer_handler();
+    runBackgroundTick();
 
     // Check if the scan has timed out
     if (millis() - startTime > SCAN_TIMEOUT) {
@@ -884,19 +917,16 @@ bool attemptWiFiConnection() {
         // Non-blocking delay that keeps UI responsive
         unsigned long delayStart = millis();
         while (millis() - delayStart < WIFI_RETRY_DELAY_MS) {
-            updateMotionState();
-            updateMotionStatusUI();
-            updateBatteryInfo();
-            updateBatteryInfoUI();
-            lv_timer_handler();
-            
-            // Check if USB was disconnected during the delay
+            runBackgroundTick();
+
+            // Refresh vbusPresent right before the check (runBackgroundTick only
+            // calls updateBatteryInfo, which calls updatePowerStatus, every 200 ms).
             updatePowerStatus();
             if (!vbusPresent) {
                 USBSerial.println("USB power removed during retry delay. Next attempt will be final.");
                 break; // Exit delay early, will check vbusPresent again at loop start
             }
-            
+
             delay(100); // Small delay to prevent tight loop
         }
         
@@ -2016,9 +2046,7 @@ void initWiFi() {
         USBSerial.println("WiFi connection established successfully.");
         USBSerial.println("Allowing network stack to stabilize...");
         for (int i = 0; i < 10; i++) {
-            updateMotionState();
-            updateMotionStatusUI();
-            lv_timer_handler();
+            runBackgroundTick();
             delay(200);
         }
     } else {
@@ -2057,9 +2085,7 @@ void initMQTT() {
         if (i < 2) {  // Don't delay after last attempt
             // 3 second delay between attempts
             for (int j = 0; j < 15; j++) {
-                updateMotionState();
-                updateMotionStatusUI();
-                lv_timer_handler();
+                runBackgroundTick();
                 delay(200);
             }
         }
@@ -2223,14 +2249,13 @@ void loop() {
     return; // Exit the loop immediately.
   }
 
-  // If we are not shutting down, proceed with normal operations.
-  lv_timer_handler();
-
-  // --- Task 1: Update motion state and calibration ---
-  updateImuData();  // Read IMU data once per loop
-  updateMotionState(); // Just update the motion flag, no shutdown decision
-  updateGMeterDisplay(imuGetAccelInertialVert(), imuGetAccelInertialHoriz());
-  updateCalibration();  // Update calibration logic
+  // --- Task 1: Per-tick UI / sensor work (shared with boot-time keep-alive) ---
+  // runBackgroundTick covers IMU read, motion state, G-meter dot, motion icon,
+  // battery (200 ms), connection-status label (1 s), inclinometer (500 ms),
+  // and lv_timer_handler. Anything that should also run during the WiFi-retry
+  // phase of setup() belongs in runBackgroundTick, not here.
+  runBackgroundTick();
+  updateCalibration();  // Calibration UI logic (only has effect on the calibration screen)
 
   // --- Task 2-pre: Periodic WiFi retry when boot connection failed ---
   // attemptWiFiConnection() gates WiFi.begin() on a successful async scan, so
@@ -2282,31 +2307,10 @@ void loop() {
   // --- Task 3: Process HTTP response if in progress
   imageFetcherLoop();
 
-  // --- Task 4 (Timed): Update Battery Info and UI ---
-  if (millis() - lastBatteryUpdate >= 200) {
-    lastBatteryUpdate = millis();
-    updateBatteryInfo();   // 1. Get the latest hardware data.
-    updateMotionStatusUI(); // 2. Update the motion icon.
-    updateBatteryInfoUI(); // 3. Update the LVGL labels.
-  }
-
   // --- Task 4b: Screen Memory Update (30s debounce for NVS save) ---
   screenMemoryUpdate();
 
-  // --- Task 5 (Timed): Update Connection Status UI ---
-  if (millis() - lastConnectionUpdate >= 1000) { // Check every second
-    lastConnectionUpdate = millis();
-    updateConnectionStatusUI();
-  }
-
-  // --- Task 6: Update inclinometer display at 2 Hz
-  unsigned long current_millis = millis();
-  if (current_millis - last_inclinometer_display_update >= INCLINOMETER_DISPLAY_INTERVAL) {
-    updateInclinometerDisplay();
-    last_inclinometer_display_update = current_millis;
-  }
-
-  // --- Task 8: Transmit motion MQTT if connected --- 
+  // --- Task 8: Transmit motion MQTT if connected ---
   if (ENABLE_MOTION_MQTT && g_isCurrentlyMoving && mqttClient.connected()) {
     if (millis() - lastMotionTXTime > MOTION_TIMEOUT) {
       mqttClient.publish(MOTION_TOPIC, "1");
