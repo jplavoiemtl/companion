@@ -244,25 +244,114 @@ bool calibLoadFromNvs() {
   return g_hasGravity;
 }
 
+// ----------------------------------------------------------------------------
+// Re-orthogonalize ROTATION_MATRIX so that Row 2 (up) matches the freshly
+// calibrated gravity, while preserving the previous Row 0 (forward / heading)
+// as much as possible via Gram-Schmidt projection. Lets the inclinometer
+// re-zero from a gravity-only re-calibration without requiring another
+// forward-driving step.
+//
+// Returns true on success. Returns false (and leaves ROTATION_MATRIX
+// unchanged) if the geometry is degenerate, e.g. the existing forward axis
+// is nearly parallel to the new gravity - that would mean the unit was
+// rotated ~90 deg about a horizontal axis since the last full calibration,
+// which gravity alone cannot recover.
+// ----------------------------------------------------------------------------
+static bool realignRotationMatrixToGravity() {
+  if (!g_hasGravity) return false;
+
+  // 1. New "up" = unit gravity vector.
+  float up_new[3];
+  vecCopy(g_gravityRaw, up_new);
+  if (!vecNormalize(up_new)) return false;
+
+  // 2. Old "forward" from the existing matrix.
+  float forward_old[3];
+  vecCopy(ROTATION_MATRIX[0], forward_old);
+
+  // 3. Project forward_old onto the plane perpendicular to up_new
+  //    (Gram-Schmidt: forward_new = forward_old - (forward_old . up_new) * up_new).
+  //    This yields the closest direction to forward_old that is orthogonal to
+  //    up_new, so the heading is preserved up to the small angle by which the
+  //    up axis itself moved.
+  float proj_scalar = vecDot(forward_old, up_new);
+  float parallel[3];
+  vecScale(up_new, proj_scalar, parallel);
+  float forward_new[3];
+  vecSub(forward_old, parallel, forward_new);
+
+  if (!vecNormalize(forward_new)) {
+    // Degenerate: forward_old is nearly parallel to up_new. The unit was
+    // rotated ~90 deg since last full calibration; only a forward-driving
+    // calibration can recover heading.
+    Serial.println("[Calib] WARN: cannot realign rotation matrix - forward "
+                   "direction is too close to gravity. "
+                   "Run a full (driving) calibration.");
+    return false;
+  }
+
+  // 4. New "left" = up x forward (auto-orthogonal to both, right-handed).
+  float left_new[3];
+  vecCross(up_new, forward_new, left_new);
+  if (!vecNormalize(left_new)) return false;
+
+  // 5. Write back.
+  for (int i = 0; i < 3; ++i) {
+    ROTATION_MATRIX[0][i] = forward_new[i];
+    ROTATION_MATRIX[1][i] = left_new[i];
+    ROTATION_MATRIX[2][i] = up_new[i];
+  }
+
+  g_hasRotation = true;
+
+  Serial.println("[Calib] Rotation matrix re-aligned to new gravity:");
+  Serial.printf("    Row 0 (Fwd):  [% .6f, % .6f, % .6f]\n",
+                ROTATION_MATRIX[0][0], ROTATION_MATRIX[0][1], ROTATION_MATRIX[0][2]);
+  Serial.printf("    Row 1 (Left): [% .6f, % .6f, % .6f]\n",
+                ROTATION_MATRIX[1][0], ROTATION_MATRIX[1][1], ROTATION_MATRIX[1][2]);
+  Serial.printf("    Row 2 (Up):   [% .6f, % .6f, % .6f]\n",
+                ROTATION_MATRIX[2][0], ROTATION_MATRIX[2][1], ROTATION_MATRIX[2][2]);
+
+  return true;
+}
+
+
 bool calibSaveGravityToNvs() {
   if (!g_hasGravity) {
     Serial.println("[Calib] Cannot save Gravity: data invalid.");
     return false;
   }
+
+  // Re-align ROTATION_MATRIX to the new gravity direction so the inclinometer
+  // reads ~0 deg at the calibration pose without needing the forward step.
+  // If the geometry is degenerate (Gram-Schmidt projection collapses), we
+  // skip the matrix update and persist gravity+scale alone; the user can
+  // recover by running a full forward calibration.
+  bool rotation_realigned = realignRotationMatrixToGravity();
+
   if (!prefs.begin(NVS_NAMESPACE, false)) return false; // read-write
 
   size_t writtenG = prefs.putBytes(NVS_KEY_GRAV, g_gravityRaw, sizeof(g_gravityRaw));
   size_t writtenS = prefs.putBytes(NVS_KEY_SCALE, &g_scaleFactor, sizeof(g_scaleFactor));
-  
+
+  bool writtenR_ok = true;
+  if (rotation_realigned) {
+    size_t writtenR = prefs.putBytes(NVS_KEY_ROT, ROTATION_MATRIX, sizeof(float) * 9);
+    writtenR_ok = (writtenR == sizeof(float) * 9);
+  }
+
   prefs.end();
 
-  bool ok = (writtenG == sizeof(g_gravityRaw) && writtenS == sizeof(g_scaleFactor));
+  bool ok = (writtenG == sizeof(g_gravityRaw)
+             && writtenS == sizeof(g_scaleFactor)
+             && writtenR_ok);
 
   if (ok) {
     sendCalibJson(true); // Trigger MQTT Report (New Calib = true)
   }
 
-  Serial.printf("[Calib] Saved Gravity & Scale to NVS (ok=%d)\n", ok);
+  Serial.printf("[Calib] Saved Gravity & Scale to NVS (ok=%d, rotation_realigned=%d)\n",
+                ok, rotation_realigned);
   return ok;
 }
 
