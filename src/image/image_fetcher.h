@@ -17,6 +17,11 @@ void imageFetcherInit(const ImageFetcherConfig& config);
 void imageFetcherLoop();
 bool requestLatestImage();
 
+// True from the moment a fetch is queued until it completes, fails, or times out.
+// Callers in loop() use this to defer anything that blocks for seconds at a time —
+// every millisecond spent elsewhere comes straight out of the image loading budget.
+bool imageFetcherIsBusy();
+
 #ifdef __cplusplus
 extern "C" {
 #endif

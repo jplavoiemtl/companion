@@ -1899,14 +1899,17 @@ void initLVGL() {
  * Registers button callbacks and configures UI elements
  */
 void initUIHandlers() {
-    // Register button event handlers
-    lv_obj_add_event_cb(ui_ButtonLatest, buttonLatest_event_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_ButtonNew, buttonNew_event_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_ButtonBack, buttonBack_event_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_ButtonGmeter, buttonGmeter_event_handler, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_gravityCalButton, gravityCalButton_event_handler, LV_EVENT_CLICKED, NULL);   
-    lv_obj_add_event_cb(ui_forwardCalButton, forwardCalButton_event_handler, LV_EVENT_CLICKED, NULL); 
-    USBSerial.println("  Button event handlers registered");
+    // Button event handlers are intentionally NOT registered here.
+    //
+    // The SquareLine-generated wrappers already dispatch to them on LV_EVENT_CLICKED:
+    // ui_event_ButtonLatest / ButtonNew / ButtonBack / ButtonGmeter in ui_Screen1.c, and
+    // ui_event_gravityCalButton / forwardCalButton in ui_calibrationScreen.c. Registering
+    // them a second time fired every handler twice per tap — for the image buttons that
+    // meant running prepareForRequest() and a full-screen lv_refr_now() twice for one
+    // press. If a future SquareLine regeneration drops those CALL_FUNCTION events, the
+    // buttons go dead — re-add lv_obj_add_event_cb() lines here rather than editing the
+    // generated files.
+    USBSerial.println("  Button event handlers provided by SquareLine wrappers");
 
     // Attach Screen 2 event handler for image loading
     lv_obj_add_event_cb(ui_Screen2, screen2_event_handler, LV_EVENT_ALL, NULL);
@@ -2301,7 +2304,16 @@ void loop() {
   // --- Task 2: Handle MQTT communications if connected ---
   if (WiFi.status() == WL_CONNECTED) {
     mqttClient.loop();  // Always call loop() to maintain connection
-    netCheckMqtt();     // Attempt reconnection (rate-limited to every 15s)
+
+    // Defer reconnection attempts while an image fetch is active. A failed attempt in
+    // netCheckMqtt() blocks for up to ~15 s (100 ms settle + 5 s TCP + 5 s TLS + 5 s
+    // CONNACK) and it runs immediately before imageFetcherLoop() below. One landing
+    // inside a fetch delays the HTTP start by that much, pushing the transfer past the
+    // Screen-2 deadline and losing the image — an intermittent failure, since the
+    // attempt is itself rate-limited to once every 15 s. The broker can wait.
+    if (!imageFetcherIsBusy()) {
+      netCheckMqtt();   // Attempt reconnection (rate-limited to every 15s)
+    }
   }
 
   // --- Task 3: Process HTTP response if in progress

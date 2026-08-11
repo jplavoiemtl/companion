@@ -26,12 +26,26 @@ enum ImageRequestState {
 };
 
 // --- HTTP/S configuration ---
+// These four timeouts must stay consistent with SCREEN2_LOADING_TIMEOUT below, because
+// GET() blocks the whole sketch: while it runs, neither HTTP_TIMEOUT_MS nor the Screen-2
+// deadline can be evaluated and LVGL is frozen. Worst-case blocking inside a single GET()
+// is CONNECT + HANDSHAKE + SOCKET (5 + 5 + 8 = 18 s), which must remain below the 20 s
+// Screen-2 deadline so the abort path can actually run.
 constexpr unsigned long HTTP_TIMEOUT_MS = 15000;
-constexpr unsigned long HTTP_SOCKET_TIMEOUT_MS = 5000;  // Socket-level timeout for GET() blocking
-constexpr size_t MAX_JPEG_SIZE = 60000;  // 60 KB
+constexpr unsigned long HTTP_SOCKET_TIMEOUT_MS = 8000;  // Socket-level timeout for GET() blocking
+constexpr unsigned long HTTP_CONNECT_TIMEOUT_MS = 5000;  // TCP connect
+constexpr unsigned int HTTP_HANDSHAKE_TIMEOUT_S = 5;     // TLS handshake (setter takes seconds)
+// 128 KB. PSRAM is 8 MB, so the old 60 KB cap bought nothing and silently rejected any
+// larger photo the image server happened to produce.
+constexpr size_t MAX_JPEG_SIZE = 128000;
 
 // --- Screen 2 timeout management ---
-constexpr unsigned long SCREEN2_LOADING_TIMEOUT = 8000;   // 8 seconds
+// Armed at the button press, so this single budget has to cover DNS + TCP connect + TLS
+// handshake + server think time + body download + JPEG decode. It must exceed
+// HTTP_TIMEOUT_MS (15 s) plus decode time, otherwise a transfer that the HTTP layer still
+// considers healthy gets killed by the UI layer — that was the original 8 s bug, where a
+// slow HTTPS-over-cellular connect consumed the entire budget before the body arrived.
+constexpr unsigned long SCREEN2_LOADING_TIMEOUT = 20000;  // 20 seconds
 constexpr unsigned long SCREEN2_DISPLAY_TIMEOUT = 60000;  // 1 minute
 
 // State
@@ -61,6 +75,7 @@ const char* pendingEndpoint = nullptr;
 
 // Forward declarations
 static void cleanupImageRequest();
+static void returnToPreviousScreen(const char* reason);
 static void prepareForRequest();
 static bool requestImage(const char* endpoint_type);
 static void processHTTPResponse();
@@ -120,6 +135,34 @@ static void cleanupImageRequest() {
 }
 
 //***************************************************************************************************
+// Leave the loading screen immediately instead of letting the user stare at the green
+// "Getting image" screen until SCREEN2_LOADING_TIMEOUT expires. Callers must have already
+// released any buffers; this only clears the timeout flags and navigates.
+static void returnToPreviousScreen(const char* reason) {
+  USBSerial.printf("Image request ended (%s) - returning to previous screen\n", reason);
+
+  requestInProgress = false;
+  screen2TimeoutActive = false;
+  imageDisplayTimeoutActive = false;
+
+  // If the user already navigated away (or we were never on Screen 2), don't yank them
+  // back to ui_previous_screen.
+  if (cfg.screen2 && lv_scr_act() != cfg.screen2) return;
+
+  if (ui_previous_screen) {
+    lv_disp_load_scr(ui_previous_screen);
+  } else if (cfg.screen1) {
+    lv_disp_load_scr(cfg.screen1);
+  }
+}
+
+//***************************************************************************************************
+bool imageFetcherIsBusy() {
+  return pendingEndpoint != nullptr || requestInProgress || httpState == HTTP_REQUESTING ||
+         httpState == HTTP_RECEIVING || httpState == HTTP_DECODING;
+}
+
+//***************************************************************************************************
 static void prepareForRequest() {
   USBSerial.println("Preparing UI for new image request...");
   
@@ -161,9 +204,13 @@ void imageFetcherLoop() {
     pendingEndpoint = nullptr; // Clear it immediately
     if (!requestImage(endpoint)) {
       USBSerial.println("Async request failed to initiate.");
-      requestInProgress = false;
-      // If we failed and are stuck on Screen 2, maybe go back?
-      // For now we just allow the timeout to return us to Screen 1.
+      // Most failure paths in requestImage() set HTTP_ERROR and would be picked up by the
+      // fail-fast handling in processHTTPResponse(), but the "WiFi not connected" path
+      // leaves the state IDLE. Handle the return here so every failure to even start a
+      // request leaves the loading screen immediately instead of waiting out the full
+      // SCREEN2_LOADING_TIMEOUT.
+      httpState = HTTP_IDLE;
+      returnToPreviousScreen("request failed to start");
     }
     return;
   }
@@ -172,24 +219,24 @@ void imageFetcherLoop() {
 
   // Handle Screen 2 timeouts
   if (cfg.screen2 && lv_scr_act() == cfg.screen2) {
-    // Loading timeout
-    if (screen2TimeoutActive && millis() - screenTransitionTime > SCREEN2_LOADING_TIMEOUT) {
+    // Loading timeout.
+    // HTTP_DECODING is deliberately exempt: reaching that state means the complete JPEG is
+    // already in PSRAM and all that remains is a bounded synchronous decode (~0.5 s), which
+    // processHTTPResponse() runs on the very next iteration. Cancelling here discarded a
+    // download that had fully succeeded — the finish-line race that lost images even when
+    // the network had done its job. Decode always resolves to HTTP_COMPLETE (which clears
+    // screen2TimeoutActive) or HTTP_ERROR (which fails fast), so this cannot hang.
+    if (screen2TimeoutActive && httpState != HTTP_DECODING &&
+        millis() - screenTransitionTime > SCREEN2_LOADING_TIMEOUT) {
       USBSerial.println("Screen 2 timeout - image loading took too long, returning to Screen 1");
 
       if (httpState != HTTP_IDLE && httpState != HTTP_COMPLETE) {
         cleanupImageRequest();
-        httpState = HTTP_ERROR; 
+        httpState = HTTP_ERROR;
       }
 
-      requestInProgress = false;
-      screen2TimeoutActive = false;
-      imageDisplayTimeoutActive = false;
-
-      if (ui_previous_screen) {
-        lv_disp_load_scr(ui_previous_screen);
-      } else if (cfg.screen1) {
-        lv_disp_load_scr(cfg.screen1);
-      }
+      // Flags are cleared inside returnToPreviousScreen().
+      returnToPreviousScreen("loading timeout");
     }
 
     // Display timeout (after successful load)
@@ -197,16 +244,7 @@ void imageFetcherLoop() {
       unsigned long elapsed = millis() - imageDisplayStartTime;
       if (elapsed > SCREEN2_DISPLAY_TIMEOUT) {
         USBSerial.println("Screen 2 display timeout - 1 minute elapsed, returning to Screen 1");
-
-        requestInProgress = false;
-        screen2TimeoutActive = false;
-        imageDisplayTimeoutActive = false;
-
-        if (ui_previous_screen) {
-          lv_disp_load_scr(ui_previous_screen);
-        } else if (cfg.screen1) {
-          lv_disp_load_scr(cfg.screen1);
-        }
+        returnToPreviousScreen("display timeout");
       }
     }
   }
@@ -261,29 +299,42 @@ static bool requestImage(const char* endpoint_type) {
   }
 
   httpClient.setTimeout(HTTP_SOCKET_TIMEOUT_MS);
-  httpClient.setConnectTimeout(8000);  // 8 seconds - fail faster on connection issues
+  httpClient.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
   // Bound the TLS handshake so a stalled HTTPS endpoint can't block GET() for the
   // 120 s default. Setter takes seconds.
-  httpsClient.setHandshakeTimeout(5);
+  httpsClient.setHandshakeTimeout(HTTP_HANDSHAKE_TIMEOUT_S);
 
   httpState = HTTP_REQUESTING;
   httpRequestStartTime = millis();  // Set BEFORE blocking call for timeout tracking
   USBSerial.println("Sending HTTP GET...");
   int httpCode = httpClient.GET();
+  // Connect + TLS handshake + server think time, all of it blocking. This is the phase
+  // that used to swallow the whole loading budget on the iPhone hotspot, so log it.
+  unsigned long connectMs = millis() - httpRequestStartTime;
 
   if (httpCode != HTTP_CODE_OK) {
-    USBSerial.printf("FATAL: HTTP GET failed with code: %d\n", httpCode);
+    USBSerial.printf("FATAL: HTTP GET failed with code: %d (after %lu ms)\n", httpCode, connectMs);
     httpClient.end();
     httpState = HTTP_ERROR;
     return false;
   }
 
   int contentLength = httpClient.getSize();
-  USBSerial.print("Response received, Content-Length: ");
-  USBSerial.println(contentLength);
+  USBSerial.printf("Response received in %lu ms, Content-Length: %d\n", connectMs, contentLength);
 
-  if (contentLength <= 0 || contentLength > static_cast<int>(MAX_JPEG_SIZE)) {
-    USBSerial.println("Invalid or too large content length");
+  if (contentLength <= 0) {
+    // getSize() returns -1 when the server omits Content-Length (chunked transfer).
+    // The receive loop is sized from this value, so we cannot proceed.
+    USBSerial.printf("FATAL: no usable Content-Length (%d) - chunked responses unsupported\n",
+                     contentLength);
+    httpClient.end();
+    httpState = HTTP_ERROR;
+    return false;
+  }
+
+  if (contentLength > static_cast<int>(MAX_JPEG_SIZE)) {
+    USBSerial.printf("FATAL: image too large: %d bytes (limit %u)\n", contentLength,
+                     static_cast<unsigned>(MAX_JPEG_SIZE));
     httpClient.end();
     httpState = HTTP_ERROR;
     return false;
@@ -314,7 +365,10 @@ static void processHTTPResponse() {
     return;
   }
 
-  if (millis() - httpRequestStartTime > HTTP_TIMEOUT_MS) {
+  // HTTP_DECODING is exempt for the same reason as the Screen-2 deadline: the transfer is
+  // already finished, so a network timeout no longer applies. Without this, a download that
+  // completed at 14.9 s would be freed here before the decode branch below ever ran.
+  if (httpState != HTTP_DECODING && millis() - httpRequestStartTime > HTTP_TIMEOUT_MS) {
     if (!timeoutMessageShown) {
       USBSerial.println("HTTP request timed out!");
       timeoutMessageShown = true;
@@ -323,6 +377,12 @@ static void processHTTPResponse() {
     // Leave httpState = HTTP_IDLE (set by cleanupImageRequest). Forcing it back to
     // HTTP_ERROR here would re-enter this block on every loop iteration because
     // httpRequestStartTime is never advanced — that produced an endless cleanup spam.
+    //
+    // Because this path stays IDLE rather than ERROR, the fail-fast handling in the
+    // HTTP_ERROR branch below never sees a stalled transfer. Return the user here
+    // instead, otherwise the transfer gives up at 15 s but the green screen lingers
+    // until the 20 s Screen-2 deadline.
+    returnToPreviousScreen("HTTP timeout");
     return;
   }
 
@@ -342,7 +402,9 @@ static void processHTTPResponse() {
     }
 
     if (jpeg_bytes_received >= jpeg_buffer_size) {
-      USBSerial.println("Image download complete. Starting decode...");
+      USBSerial.printf("Image download complete (%u bytes, %lu ms since button press). "
+                       "Starting decode...\n",
+                       static_cast<unsigned>(jpeg_bytes_received), millis() - screenTransitionTime);
       httpClient.end();
       httpState = HTTP_DECODING;
     }
@@ -398,7 +460,8 @@ static void processHTTPResponse() {
       lv_img_set_src(cfg.imgScreen2Background, &img_dsc);
       lv_obj_set_style_opa(cfg.imgScreen2Background, LV_OPA_COVER, LV_PART_MAIN);
     }
-    USBSerial.println("LVGL image source updated.");
+    USBSerial.printf("LVGL image source updated. Total %lu ms from button press (budget %lu ms).\n",
+                     millis() - screenTransitionTime, SCREEN2_LOADING_TIMEOUT);
 
     httpState = HTTP_COMPLETE;
     requestInProgress = false;
@@ -412,6 +475,10 @@ static void processHTTPResponse() {
   if (httpState == HTTP_ERROR) {
     httpState = HTTP_IDLE;
     requestInProgress = false;
+    // Every path that sets HTTP_ERROR is definitive — bad HTTP status, unusable
+    // Content-Length, PSRAM exhaustion, decoder failure. Nothing further is coming, so
+    // don't make the user wait out the remaining Screen-2 deadline on a green screen.
+    returnToPreviousScreen("HTTP error");
     return;
   }
 }
