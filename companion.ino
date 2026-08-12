@@ -591,7 +591,10 @@ void callbackMqtt(char* topic, byte* payload, unsigned int length) {
     // Image request handling
     if (topicString == MQTT_IMAGE_TOPIC) {
         if (payloadString == "latest") {
-            requestLatestImage();
+            // fromNotification = true: the server publishes this after serving /esp32/new, so
+            // the unit that pressed the button gets a notification for the image it already
+            // has. The fetcher drops it if an image landed a moment ago.
+            requestLatestImage(true);
         }
     }
     // Power handling

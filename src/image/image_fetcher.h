@@ -15,7 +15,11 @@ struct ImageFetcherConfig {
 
 void imageFetcherInit(const ImageFetcherConfig& config);
 void imageFetcherLoop();
-bool requestLatestImage();
+// Fetch the "latest" endpoint. Pass fromNotification = true when the request originates from
+// an MQTT push rather than a button press: such a request is dropped if an image already
+// reached the screen within the last few seconds, which suppresses the server's own
+// notification echoing back to the unit that just pressed "new".
+bool requestLatestImage(bool fromNotification = false);
 
 // True from the moment a fetch is queued until it completes, fails, or times out.
 // Callers in loop() use this to defer anything that blocks for seconds at a time —

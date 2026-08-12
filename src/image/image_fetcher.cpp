@@ -48,6 +48,17 @@ constexpr size_t MAX_JPEG_SIZE = 128000;
 constexpr unsigned long SCREEN2_LOADING_TIMEOUT = 20000;  // 20 seconds
 constexpr unsigned long SCREEN2_DISPLAY_TIMEOUT = 60000;  // 1 minute
 
+// --- Notification echo suppression ---
+// The image server publishes "latest" on the MQTT image topic once it has served /esp32/new,
+// which is how the *other* companion unit learns to refresh. The unit that pressed the button
+// receives that notification too, for the image it just downloaded. MQTT is starved for the
+// whole fetch (the blocking GET() and the receive loop never call mqttClient.loop()), so the
+// echo is delivered one loop iteration after the photo is painted: the user sees the new image
+// for a single frame, then the green loading screen returns for a second, redundant download of
+// byte-identical data. Ignore a notification that lands within this window of a successful load.
+// Button presses are never suppressed — only requestLatestImage(fromNotification = true).
+constexpr unsigned long NOTIFICATION_ECHO_WINDOW_MS = 10000;  // 10 seconds
+
 // State
 ImageRequestState httpState = HTTP_IDLE;
 HTTPClient httpClient;
@@ -65,6 +76,13 @@ unsigned long screenTransitionTime = 0;
 bool screen2TimeoutActive = false;
 bool imageDisplayTimeoutActive = false;
 unsigned long imageDisplayStartTime = 0;
+
+// Timestamp of the last image that reached the screen. 0 means "none since boot", which
+// matters because without the sentinel every millis() early in the boot would fall inside
+// NOTIFICATION_ECHO_WINDOW_MS and swallow a genuine notification. Deliberately never
+// cleared: the echo can arrive after the user has navigated away from Screen 2, and
+// honouring it there is exactly the yank-back-to-loading-screen we are suppressing.
+unsigned long lastImageLoadedTime = 0;
 
 ImageFetcherConfig cfg{};
 
@@ -92,6 +110,7 @@ void imageFetcherInit(const ImageFetcherConfig& config) {
   requestInProgress = false;
   screen2TimeoutActive = false;
   imageDisplayTimeoutActive = false;
+  lastImageLoadedTime = 0;
   pendingEndpoint = nullptr;
 
   // The GFX pipeline expects RGB565 (big endian); set decoder to match
@@ -469,6 +488,7 @@ static void processHTTPResponse() {
 
     imageDisplayTimeoutActive = true;
     imageDisplayStartTime = millis();
+    lastImageLoadedTime = imageDisplayStartTime;
     return;
   }
 
@@ -484,7 +504,17 @@ static void processHTTPResponse() {
 }
 
 //***************************************************************************************************
-bool requestLatestImage() {
+bool requestLatestImage(bool fromNotification) {
+  // See NOTIFICATION_ECHO_WINDOW_MS. Only the MQTT path passes fromNotification = true; a
+  // button press always requests, however recently the last image landed.
+  if (fromNotification && lastImageLoadedTime != 0 &&
+      millis() - lastImageLoadedTime < NOTIFICATION_ECHO_WINDOW_MS) {
+    USBSerial.printf(
+        "Ignoring 'latest' notification %lu ms after last image load (echo window %lu ms)\n",
+        millis() - lastImageLoadedTime, NOTIFICATION_ECHO_WINDOW_MS);
+    return false;
+  }
+
   lv_obj_t* current_screen = lv_scr_act();
   if (current_screen != cfg.screen1 && current_screen != cfg.screen2 &&
       current_screen != cfg.screen3 && current_screen != cfg.inclinometerScreen) {
