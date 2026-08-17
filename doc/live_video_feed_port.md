@@ -372,6 +372,55 @@ cost proportionally more before any rotation overhead is counted.
   record encryption, and the ESP32-S3 has hardware AES. Needs measuring, not assuming.
 - **`MAX_JPEG_SIZE` is already 128000** here, comfortably above any frame size considered.
 
+## Hard constraint found: only one TLS client fits
+
+Phase 1's first runs failed with `HTTP -1`. The diagnostics settled it:
+
+```text
+[VTEST] free heap 51288, largest free block 31732, free PSRAM 8310360
+[VTEST] HTTP -1 | heap before 48884, now 48480, largest block 31732
+        | TLS: SSL - Memory allocation failed
+```
+
+**Total free heap is not the constraint - contiguity is.** mbedTLS needs
+contiguous ~16 KB in and out content buffers plus its context. With ~48 KB free
+but a largest free block of only ~32 KB, a second `WiFiClientSecure` cannot get
+what it needs.
+
+The image fetcher succeeds on the identical host, port and certificate because
+its client is a **global constructed at startup**, when the heap is still
+unfragmented. Any client created later - global in another module or
+function-local, both were tried - fails.
+
+Two wrong diagnoses preceded this, worth recording so they are not repeated:
+
+1. *Total heap exhaustion.* Disproved by the Latest and Back buttons continuing to
+   work at the same ~48 KB.
+2. *The image fetcher holding its connection open.* Disproved by
+   `image_fetcher.cpp:437`, which closes the client after receiving an image.
+
+Neither guess survived contact with evidence; the `lastError()` string did the
+work that reasoning could not.
+
+### Consequence for the design
+
+`imageFetcherSecureClient()` now lends the image fetcher's client to the video
+module. Safe because the two never fetch at once - each stands down while the
+other is active.
+
+**This constrains Phase 2.** The prefetching client cannot open its own TLS
+connection; it must drive the shared one. That is a more significant difference
+from the home panel than the display or the CPU clock, because the home panel's
+prefetch design assumed a dedicated socket it could hold open. Options if sharing
+proves awkward:
+
+- Keep the shared client and serialise access, accepting that the still-image
+  path cannot fetch during a feed. Already true, via the existing guards.
+- Investigate reducing mbedTLS buffer sizes, which needs SDK configuration rather
+  than an Arduino sketch change and may not be reachable from this toolchain.
+- Reduce fragmentation by moving the 33 KB LVGL draw buffer to PSRAM. Rejected:
+  it would slow the blit, which is the thing being optimised.
+
 ## Phased plan
 
 Same approach that worked on the home panel: **measure before building.**

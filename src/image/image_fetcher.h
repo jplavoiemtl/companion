@@ -26,6 +26,19 @@ bool requestLatestImage(bool fromNotification = false);
 // every millisecond spent elsewhere comes straight out of the image loading budget.
 bool imageFetcherIsBusy();
 
+// Shared TLS client.
+//
+// This board cannot afford two. mbedTLS needs contiguous ~16 KB buffers, and
+// with roughly 48 KB free but a largest free block of only ~32 KB, a second
+// WiFiClientSecure fails its handshake with "SSL - Memory allocation failed".
+// This one is a global constructed at startup, when the heap is still
+// unfragmented, which is why it succeeds where a later one does not.
+//
+// Safe to share because only one module fetches at a time: the video module and
+// this one each stand down while the other is active.
+class WiFiClientSecure;
+WiFiClientSecure* imageFetcherSecureClient();
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -92,6 +92,13 @@ const char* pendingEndpoint = nullptr;
 
 }  // namespace
 
+//***************************************************************************************************
+// Lend the TLS client to other modules. See the note in image_fetcher.h: this
+// board has too little contiguous internal RAM for a second one.
+WiFiClientSecure* imageFetcherSecureClient() {
+  return &httpsClient;
+}
+
 // Forward declarations
 static void cleanupImageRequest();
 static void returnToPreviousScreen(const char* reason);

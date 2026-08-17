@@ -8,6 +8,7 @@
 
 #include "secrets_private.h"
 #include "ui.h"
+#include "../image/image_fetcher.h"  // for the shared TLS client
 
 #define USBSerial Serial
 
@@ -50,15 +51,17 @@ uint16_t  frameH = 0;
 lv_img_dsc_t imgDsc{};
 VideoStreamConfig cfg{};
 
-// NOTE: the HTTP and TLS clients are deliberately NOT globals here. A second
-// persistent WiFiClientSecure alongside the image fetcher's own costs internal
-// RAM this board does not have - free heap is only ~98 KB even at rest, and
-// mbedTLS wants roughly 40 KB for a handshake. They are constructed per fetch so
-// the TLS context exists only while it is needed.
+// NOTE: this module owns no TLS client. It borrows the image fetcher's via
+// imageFetcherSecureClient().
 //
-// The cost is a TLS handshake per frame, which inflates the http figure. That is
-// acceptable here: this spike measures decode and blit, and Phase 2 will use a
-// single long-lived connection.
+// Measured on this board: ~48 KB free heap but only ~32 KB in the largest
+// contiguous block. mbedTLS needs contiguous ~16 KB in/out buffers, so a second
+// WiFiClientSecure - whether global or function-local - fails its handshake with
+// "SSL - Memory allocation failed". The image fetcher's client is constructed at
+// startup while the heap is still unfragmented, which is why it succeeds.
+//
+// This is a real constraint on the port, not a workaround: Phase 2's prefetching
+// client must share the same TLS client rather than open its own.
 
 // True while the first half of the burst is running.
 inline bool rotateInDecode() { return frames < FRAMES_PER_VARIANT; }
@@ -90,10 +93,21 @@ bool videoStreamActive() {
 static bool fetchFrame(uint32_t* httpUs) {
   const uint32_t t0 = micros();
 
-  // Scoped so the TLS context is released when this returns - see the note at
-  // the top of this file about internal RAM.
+  // Borrow the image fetcher's TLS client rather than making a second one.
+  // Measured: with ~48 KB free heap but only ~32 KB in the largest contiguous
+  // block, a second WiFiClientSecure fails its handshake with
+  // "SSL - Memory allocation failed". The shared one is constructed at startup
+  // when the heap is unfragmented, which is why it works. Safe because the two
+  // modules never fetch at the same time.
+  WiFiClientSecure* secure = imageFetcherSecureClient();
+  if (!secure) {
+    USBSerial.println("[VTEST] no shared TLS client available");
+    return false;
+  }
+
+  // HTTPClient itself is cheap, so a local one is fine.
   HTTPClient httpClient;
-  WiFiClientSecure httpsClient;
+  WiFiClientSecure& httpsClient = *secure;
 
   // The companion runs on a phone hotspot, so it always uses the remote HTTPS
   // path. The token is appended but never logged - see the note in
