@@ -12,7 +12,7 @@
 #include "secrets.h"
 #endif
 #include "ui.h"
-#include "../video/video_stream.h"  // Phase 1 spike: burst trigger + stand-down guard
+#include "../video/video_stream.h"  // live feed trigger + stand-down guard
 extern lv_obj_t* ui_previous_screen;
 
 namespace {
@@ -47,7 +47,10 @@ constexpr size_t MAX_JPEG_SIZE = 128000;
 // considers healthy gets killed by the UI layer — that was the original 8 s bug, where a
 // slow HTTPS-over-cellular connect consumed the entire budget before the body arrived.
 constexpr unsigned long SCREEN2_LOADING_TIMEOUT = 20000;  // 20 seconds
-constexpr unsigned long SCREEN2_DISPLAY_TIMEOUT = 60000;  // 1 minute
+constexpr unsigned long SCREEN2_DISPLAY_TIMEOUT = 60000;  // 1 minute (button-triggered)
+// Motion path: show the still briefly, then hand over to the live feed. A still
+// says something happened; the feed says what is happening now.
+constexpr unsigned long MOTION_STILL_TIMEOUT = 10000;    // 10 s
 
 // --- Notification echo suppression ---
 // The image server publishes "latest" on the MQTT image topic once it has served /esp32/new,
@@ -85,6 +88,11 @@ unsigned long imageDisplayStartTime = 0;
 // honouring it there is exactly the yank-back-to-loading-screen we are suppressing.
 unsigned long lastImageLoadedTime = 0;
 
+// True when the current display came from a motion push rather than a button.
+// Cleared by cleanupImageRequest(), so every request starts false and only the
+// fromNotification path sets it.
+bool motionTriggered = false;
+
 ImageFetcherConfig cfg{};
 
 // Asynchronous request tracking
@@ -119,6 +127,7 @@ void imageFetcherInit(const ImageFetcherConfig& config) {
   screen2TimeoutActive = false;
   imageDisplayTimeoutActive = false;
   lastImageLoadedTime = 0;
+  motionTriggered = false;
   pendingEndpoint = nullptr;
 
   // The GFX pipeline expects RGB565 (big endian); set decoder to match
@@ -192,8 +201,12 @@ bool imageFetcherIsBusy() {
 //***************************************************************************************************
 static void prepareForRequest() {
   USBSerial.println("Preparing UI for new image request...");
-  
+
   cleanupImageRequest();
+  // Every request starts as button-triggered; requestLatestImage() opts in to the
+  // motion behaviour afterwards. Cleared here rather than in cleanupImageRequest(),
+  // which deliberately leaves the display-timeout flags alone.
+  motionTriggered = false;
 
   // Save the current screen if it's not the image screen itself (Screen 2)
   lv_obj_t* current = lv_scr_act();
@@ -274,7 +287,18 @@ void imageFetcherLoop() {
     // Display timeout (after successful load)
     if (imageDisplayTimeoutActive) {
       unsigned long elapsed = millis() - imageDisplayStartTime;
-      if (elapsed > SCREEN2_DISPLAY_TIMEOUT) {
+
+      if (motionTriggered) {
+        // Motion path: brief still, then the live feed takes over.
+        if (elapsed > MOTION_STILL_TIMEOUT) {
+          imageDisplayTimeoutActive = false;
+          motionTriggered = false;
+          USBSerial.println("Motion still shown, starting live feed");
+          if (!videoStreamStart()) {
+            returnToPreviousScreen("live feed failed to start");
+          }
+        }
+      } else if (elapsed > SCREEN2_DISPLAY_TIMEOUT) {
         USBSerial.println("Screen 2 display timeout - 1 minute elapsed, returning to Screen 1");
         returnToPreviousScreen("display timeout");
       }
@@ -550,6 +574,8 @@ bool requestLatestImage(bool fromNotification) {
 
   USBSerial.println("Initiating async latest image request...");
   prepareForRequest();
+  // Must follow prepareForRequest(), which clears the flag.
+  motionTriggered = fromNotification;
   pendingEndpoint = "latest";
   return true;
 }
@@ -565,12 +591,13 @@ void buttonLatest_event_handler(lv_event_t* e) {
 //***************************************************************************************************
 void buttonNew_event_handler(lv_event_t* e) {
   if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-    // PHASE 1 SPIKE: this button is temporarily the video measurement trigger.
-    // Restore the two commented lines below to get "new" capture back.
-    USBSerial.println("New button clicked -> starting video measurement burst");
+    // This button starts the live feed rather than requesting a fresh capture.
+    // The image archive is still populated by the motion-driven capture in
+    // Node-RED, so Latest and Back continue to see new images.
+    USBSerial.println("Live button clicked -> starting live feed");
     videoStreamStart();
 
-    // Normal behaviour:
+    // Previous behaviour, kept for reference:
     // prepareForRequest();
     // pendingEndpoint = "new";
   }
@@ -615,6 +642,9 @@ void screen2_event_handler(lv_event_t* e) {
     USBSerial.println("Screen 2 Unloading: Freeing buffer and resetting rotation to 90 degrees.");
     screen2TimeoutActive = false;
     imageDisplayTimeoutActive = false;
+    // Leaving the screen cancels a pending motion handover, so the back button
+    // during the 10 second still exits without starting the feed.
+    motionTriggered = false;
     if (cfg.imgScreen2Background) {
       lv_obj_set_style_opa(cfg.imgScreen2Background, LV_OPA_TRANSP, LV_PART_MAIN);
     }

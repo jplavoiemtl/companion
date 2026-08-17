@@ -14,9 +14,8 @@
 
 namespace {
 
-// --- Burst configuration -----------------------------------------------------
-constexpr uint32_t FRAMES_PER_VARIANT = 15;                 // 15 each way
-constexpr uint32_t TOTAL_FRAMES = FRAMES_PER_VARIANT * 2;
+// --- Feed configuration ------------------------------------------------------
+constexpr unsigned long VIDEO_DURATION_MS = 60000;          // feed length
 constexpr uint16_t REQ_HEIGHT = 360;                        // 640x360 from Frigate
 constexpr uint8_t  REQ_QUALITY = 25;
 constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~21 KB
@@ -30,16 +29,15 @@ constexpr uint16_t SRC_H = 360;
 
 // --- State -------------------------------------------------------------------
 bool active = false;
+unsigned long startMs = 0;
 uint32_t frames = 0;
 uint32_t lastFrameUs = 0;
 uint32_t startUs = 0;
 
-// Per-variant accumulators. Index 0 = rotate in decode, 1 = LVGL rotates.
-uint64_t sumHttp[2]   = {0, 0};
-uint64_t sumDecode[2] = {0, 0};
-uint64_t sumBlit[2]   = {0, 0};
-uint64_t sumFrame[2]  = {0, 0};
-uint32_t count[2]     = {0, 0};
+uint64_t sumHttp = 0;
+uint64_t sumDecode = 0;
+uint64_t sumBlit = 0;
+uint64_t sumFrame = 0;
 
 uint8_t*  jpegBuf = nullptr;
 size_t    jpegLen = 0;
@@ -69,15 +67,11 @@ VideoStreamConfig cfg{};
 // dominated 84% of the frame time.
 HTTPClient httpClient;
 
-// True while the first half of the burst is running.
-inline bool rotateInDecode() { return frames < FRAMES_PER_VARIANT; }
-inline int variantIndex() { return rotateInDecode() ? 0 : 1; }
-
 }  // namespace
 
 static bool fetchFrame(uint32_t* httpUs);
-static bool decodeFrame(bool rotate, uint32_t* decodeUs);
-static void displayFrame(bool rotated, uint32_t* blitUs);
+static bool decodeFrame(uint32_t* decodeUs);
+static void displayFrame(uint32_t* blitUs);
 static void printSummary();
 static void returnHome();
 
@@ -107,7 +101,7 @@ static bool fetchFrame(uint32_t* httpUs) {
   // modules never fetch at the same time.
   WiFiClientSecure* secure = imageFetcherSecureClient();
   if (!secure) {
-    USBSerial.println("[VTEST] no shared TLS client available");
+    USBSerial.println("Video: no shared TLS client available");
     return false;
   }
 
@@ -130,7 +124,7 @@ static bool fetchFrame(uint32_t* httpUs) {
 
   httpsClient.setCACert(remote_server_ca_cert);
   if (!httpClient.begin(httpsClient, url)) {
-    USBSerial.println("[VTEST] httpClient.begin() failed");
+    USBSerial.println("Video: httpClient.begin() failed");
     return false;
   }
   // Match the timeouts the image fetcher uses on this same host and certificate,
@@ -147,11 +141,11 @@ static bool fetchFrame(uint32_t* httpUs) {
     // fragmentation can defeat it even when total free looks sufficient.
     char tlsErr[128] = {0};
     httpsClient.lastError(tlsErr, sizeof(tlsErr));
-    USBSerial.printf("[VTEST] HTTP %d | heap before %u, now %u, largest block %u | TLS: %s\n",
+    USBSerial.printf("Video: HTTP %d | heap before %u, now %u, largest block %u | TLS: %s\n",
                      code, heapBefore, ESP.getFreeHeap(),
                      heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
                      tlsErr[0] ? tlsErr : "(none reported)");
-    USBSerial.printf("[VTEST] url host/path: %slive?height=%u&quality=%u&token=***\n",
+    USBSerial.printf("Video: url host/path: %slive?height=%u&quality=%u&token=***\n",
                      IMAGE_SERVER_REMOTE, REQ_HEIGHT, REQ_QUALITY);
     httpClient.end();
     return false;
@@ -159,7 +153,7 @@ static bool fetchFrame(uint32_t* httpUs) {
 
   const int len = httpClient.getSize();
   if (len <= 0 || len > static_cast<int>(MAX_FRAME_BYTES)) {
-    USBSerial.printf("[VTEST] bad Content-Length: %d\n", len);
+    USBSerial.printf("Video: bad Content-Length: %d\n", len);
     httpClient.end();
     return false;
   }
@@ -180,7 +174,7 @@ static bool fetchFrame(uint32_t* httpUs) {
   httpClient.end();
 
   if (got < static_cast<size_t>(len)) {
-    USBSerial.printf("[VTEST] short read: %u of %d\n", got, len);
+    USBSerial.printf("Video: short read: %u of %d\n", got, len);
     return false;
   }
 
@@ -194,18 +188,18 @@ static bool fetchFrame(uint32_t* httpUs) {
 // LV_COLOR_16_SWAP 0 in this project's lv_conf.h - the home panel uses _BE
 // because it has that set to 1. Getting this wrong gives wrong colours rather
 // than an obvious failure.
-static bool decodeFrame(bool rotate, uint32_t* decodeUs) {
+static bool decodeFrame(uint32_t* decodeUs) {
   const uint32_t t0 = micros();
 
   jpeg_dec_config_t config;
   config.output_type = JPEG_RAW_TYPE_RGB565_LE;
   // 270 rather than 90: measured on hardware, 90D came out upside down for this
   // panel's orientation. Same divisible-by-8 constraint applies either way.
-  config.rotate = rotate ? JPEG_ROTATE_270D : JPEG_ROTATE_0D;
+  config.rotate = JPEG_ROTATE_270D;
 
   jpeg_dec_handle_t* dec = jpeg_dec_open(&config);
   if (!dec) {
-    USBSerial.println("[VTEST] jpeg_dec_open failed");
+    USBSerial.println("Video: jpeg_dec_open failed");
     return false;
   }
 
@@ -219,7 +213,7 @@ static bool decodeFrame(bool rotate, uint32_t* decodeUs) {
   io.inbuf_len = jpegLen;
 
   if (jpeg_dec_parse_header(dec, &io, &info) != JPEG_ERR_OK) {
-    USBSerial.println("[VTEST] parse_header failed");
+    USBSerial.println("Video: parse_header failed");
     jpeg_dec_close(dec);
     return false;
   }
@@ -242,7 +236,7 @@ static bool decodeFrame(bool rotate, uint32_t* decodeUs) {
     decodeBufSize = decodeBuf ? needed : 0;
   }
   if (!decodeBuf) {
-    USBSerial.println("[VTEST] PSRAM alloc failed for decode buffer");
+    USBSerial.println("Video: PSRAM alloc failed for decode buffer");
     jpeg_dec_close(dec);
     return false;
   }
@@ -252,8 +246,7 @@ static bool decodeFrame(bool rotate, uint32_t* decodeUs) {
   jpeg_dec_close(dec);
 
   if (err != JPEG_ERR_OK) {
-    USBSerial.printf("[VTEST] decode failed: %d (rotate=%d)\n",
-                     static_cast<int>(err), rotate ? 1 : 0);
+    USBSerial.printf("Video: decode failed: %d\n", static_cast<int>(err));
     return false;
   }
 
@@ -272,7 +265,7 @@ static bool decodeFrame(bool rotate, uint32_t* decodeUs) {
 // Either way the widget's own size is never touched: SquareLine sizes it with
 // lv_pct(100), and setting an explicit pixel size converts it to fixed sizing,
 // which caused a white flash on the home panel.
-static void displayFrame(bool rotated, uint32_t* blitUs) {
+static void displayFrame(uint32_t* blitUs) {
   lv_disp_t* disp = lv_disp_get_default();
   if (disp) {
     lv_disp_set_rotation(disp, rotated ? LV_DISP_ROT_NONE : LV_DISP_ROT_90);
@@ -321,31 +314,16 @@ static void returnHome() {
 
 //***************************************************************************************************
 static void printSummary() {
-  USBSerial.println("\n[VTEST] ===== SUMMARY =====");
-  const char* label[2] = {"A rotate-in-decode (ROT_NONE)", "B LVGL rotates  (ROT_90)   "};
-
-  for (int v = 0; v < 2; v++) {
-    if (count[v] == 0) {
-      USBSerial.printf("[VTEST] %s : no frames\n", label[v]);
-      continue;
-    }
-    const float http   = sumHttp[v]   / 1000.0f / count[v];
-    const float decode = sumDecode[v] / 1000.0f / count[v];
-    const float blit   = sumBlit[v]   / 1000.0f / count[v];
-    const float frame  = sumFrame[v]  / 1000.0f / count[v];
-    USBSerial.printf("[VTEST] %s : n=%2u | http %6.1f | decode %6.1f | blit %6.1f | frame %6.1f ms | %.1f fps\n",
-                     label[v], count[v], http, decode, blit, frame,
-                     (frame > 0.0f) ? (1000.0f / frame) : 0.0f);
+  const float secs = (millis() - startMs) / 1000.0f;
+  if (frames == 0 || secs <= 0.0f) {
+    USBSerial.println("Video: stopped with no frames");
+    return;
   }
-
-  if (count[0] && count[1]) {
-    const float a = (sumDecode[0] + sumBlit[0]) / 1000.0f / count[0];
-    const float b = (sumDecode[1] + sumBlit[1]) / 1000.0f / count[1];
-    USBSerial.printf("[VTEST] decode+blit: A %.1f ms vs B %.1f ms -> %s is cheaper by %.1f ms\n",
-                     a, b, (a < b) ? "A" : "B", (a < b) ? (b - a) : (a - b));
-    USBSerial.printf("[VTEST] gate: <80 proceed | 80-150 lower target | >150 reconsider\n");
-  }
-  USBSerial.printf("[VTEST] free PSRAM %u, free heap %u\n",
+  USBSerial.printf("Video: %u frames in %.1fs (%.1f fps) | http %.0f | decode %.0f | blit %.0f | frame %.0f ms | PSRAM %u heap %u
+",
+                   frames, secs, frames / secs,
+                   sumHttp / 1000.0f / frames, sumDecode / 1000.0f / frames,
+                   sumBlit / 1000.0f / frames, sumFrame / 1000.0f / frames,
                    ESP.getFreePsram(), ESP.getFreeHeap());
 }
 
@@ -353,30 +331,18 @@ static void printSummary() {
 bool videoStreamStart() {
   if (active) return true;
 
+  // Allocated on first use and retained - see videoStreamStop().
   if (!jpegBuf) {
     jpegBuf = static_cast<uint8_t*>(ps_malloc(MAX_FRAME_BYTES));
     if (!jpegBuf) {
-      USBSerial.println("[VTEST] PSRAM alloc failed for JPEG buffer");
+      USBSerial.println("Video: PSRAM alloc failed for JPEG buffer");
       return false;
     }
   }
 
-  USBSerial.printf("\n[VTEST] burst start: %u frames (%u rotate-in-decode, then %u LVGL-rotate)\n",
-                   TOTAL_FRAMES, FRAMES_PER_VARIANT, FRAMES_PER_VARIANT);
-  USBSerial.printf("[VTEST] source %ux%u, height=%u quality=%u, screen %ux%u\n",
-                   SRC_W, SRC_H, REQ_HEIGHT, REQ_QUALITY, cfg.screenWidth, cfg.screenHeight);
-  // Internal heap is the constraint on this board, not PSRAM. mbedTLS wants
-  // roughly 40 KB for a handshake, so this number decides whether HTTPS can work.
-  USBSerial.printf("[VTEST] free heap %u, largest free block %u, free PSRAM %u\n",
-                   ESP.getFreeHeap(),
-                   heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
-                   ESP.getFreePsram());
-
-  for (int v = 0; v < 2; v++) {
-    sumHttp[v] = sumDecode[v] = sumBlit[v] = sumFrame[v] = 0;
-    count[v] = 0;
-  }
+  sumHttp = sumDecode = sumBlit = sumFrame = 0;
   frames = 0;
+  startMs = millis();
   startUs = micros();
   lastFrameUs = startUs;
 
@@ -396,8 +362,8 @@ void videoStreamStop() {
   printSummary();
   active = false;
 
-  // Release the kept-alive connection now that the burst is over, so the shared
-  // TLS client is idle again for the still-image path.
+  // Release the kept-alive connection so the shared TLS client is idle again for
+  // the still-image path.
   httpClient.setReuse(false);
   httpClient.end();
 
@@ -407,59 +373,44 @@ void videoStreamStop() {
     lv_img_set_offset_y(cfg.imgVideoBackground, 0);
   }
 
-  // Buffers are retained: the LVGL widget still references imgDsc, which points
-  // into decodeBuf. Freeing here would leave a dangling pointer, and clearing it
-  // with lv_img_set_src(NULL) makes LVGL log a warning on every exit. They are
-  // released only when the whole burst facility is torn down, which for a spike
-  // is never.
+  // Buffers are deliberately retained. The LVGL widget still references imgDsc,
+  // which points into decodeBuf, so freeing it would leave a dangling pointer -
+  // and clearing it with lv_img_set_src(NULL) makes LVGL log a warning on every
+  // exit. Retaining also avoids cycling ~460 KB through PSRAM on every press.
+  // Nothing is allocated at all if the feed is never used.
 }
 
 //***************************************************************************************************
 void videoStreamLoop() {
   if (!active) return;
 
-  const bool rotate = rotateInDecode();
-  const int v = variantIndex();
-
   uint32_t httpUs = 0, decodeUs = 0, blitUs = 0;
 
   if (!fetchFrame(&httpUs)) {
-    USBSerial.println("[VTEST] fetch failed, aborting burst");
+    USBSerial.println("Video: fetch failed, stopping");
     videoStreamStop();
     returnHome();
     return;
   }
 
-  if (!decodeFrame(rotate, &decodeUs)) {
-    USBSerial.println("[VTEST] decode failed, aborting burst");
+  if (!decodeFrame(&decodeUs)) {
+    USBSerial.println("Video: decode failed, stopping");
     videoStreamStop();
     returnHome();
     return;
   }
 
-  displayFrame(rotate, &blitUs);
+  displayFrame(&blitUs);
 
   const uint32_t now = micros();
-  const uint32_t frameUs = (frames == 0) ? (now - startUs) : (now - lastFrameUs);
+  sumFrame += (frames == 0) ? (now - startUs) : (now - lastFrameUs);
   lastFrameUs = now;
-
-  sumHttp[v]   += httpUs;
-  sumDecode[v] += decodeUs;
-  sumBlit[v]   += blitUs;
-  sumFrame[v]  += frameUs;
-  count[v]++;
+  sumHttp += httpUs;
+  sumDecode += decodeUs;
+  sumBlit += blitUs;
   frames++;
 
-  USBSerial.printf("[VTEST] %c %2u: http %6.1f | decode %6.1f | blit %6.1f | frame %6.1f ms | %ux%u\n",
-                   rotate ? 'A' : 'B', frames,
-                   httpUs / 1000.0f, decodeUs / 1000.0f,
-                   blitUs / 1000.0f, frameUs / 1000.0f, frameW, frameH);
-
-  if (frames == FRAMES_PER_VARIANT) {
-    USBSerial.println("[VTEST] --- switching to variant B: LVGL rotates at ROT_90 ---");
-  }
-
-  if (frames >= TOTAL_FRAMES) {
+  if (millis() - startMs >= VIDEO_DURATION_MS) {
     videoStreamStop();
     returnHome();
   }

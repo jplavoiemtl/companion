@@ -2206,7 +2206,7 @@ void setup() {
   };
   imageFetcherInit(imageCfg);
 
-  // Phase 1 spike: live video measurement burst, triggered by the New button.
+  // Live video feed, triggered by the Screen1 camera button and by a motion push.
   // Shares Screen2 with the still images. See doc/live_video_feed_port.md.
   VideoStreamConfig videoCfg{
     screenWidth,
@@ -2346,7 +2346,7 @@ void loop() {
   // --- Task 3: Process HTTP response if in progress
   imageFetcherLoop();
 
-  // Phase 1 spike: drives the video measurement burst
+  // Drives the live video feed
   videoStreamLoop();
 
   // --- Task 4b: Screen Memory Update (30s debounce for NVS save) ---
