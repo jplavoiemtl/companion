@@ -298,7 +298,9 @@ static bool requestImage(const char* endpoint_type) {
 
   if (isSecureConnection) {
     url = String(IMAGE_SERVER_REMOTE) + String(endpoint_type) + "?token=" + String(API_TOKEN);
-    USBSerial.println("Initiating HTTPS GET: " + url);
+    // Log without the token: these lines get copied out of the serial monitor.
+    USBSerial.println("Initiating HTTPS GET: " + String(IMAGE_SERVER_REMOTE) +
+                      String(endpoint_type) + "?token=***");
     httpsClient.setCACert(remote_server_ca_cert);
     bool beginResult = httpClient.begin(httpsClient, url);
     if (!beginResult) {
@@ -308,7 +310,9 @@ static bool requestImage(const char* endpoint_type) {
     }
   } else {
     url = String(IMAGE_SERVER_BASE) + String(endpoint_type) + "?token=" + String(API_TOKEN);
-    USBSerial.println("Initiating HTTP GET: " + url);
+    // Log without the token: these lines get copied out of the serial monitor.
+    USBSerial.println("Initiating HTTP GET: " + String(IMAGE_SERVER_BASE) +
+                      String(endpoint_type) + "?token=***");
     bool beginResult = httpClient.begin(url);
     if (!beginResult) {
       USBSerial.println("FATAL: httpClient.begin() failed for HTTP!");
