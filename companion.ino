@@ -2207,7 +2207,7 @@ void setup() {
   imageFetcherInit(imageCfg);
 
   // Live video feed, triggered by the Screen1 camera button and by a motion push.
-  // Shares Screen2 with the still images. See doc/live_video_feed_port.md.
+  // Shares Screen2 with the still images. See docs/live_video_feed_port.md.
   VideoStreamConfig videoCfg{
     screenWidth,
     screenHeight,

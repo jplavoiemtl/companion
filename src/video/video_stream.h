@@ -6,7 +6,7 @@
 // ============================================================================
 // Live Video Feed Module
 // ============================================================================
-// Ported from the home_panel project. See doc/live_video_feed_port.md for the
+// Ported from the home_panel project. See docs/live_video_feed_port.md for the
 // measurement history and the reasoning behind each choice.
 //
 // Displays a live view of the entrance camera by polling Frigate through the

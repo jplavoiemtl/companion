@@ -6,11 +6,13 @@
 #include <ESP32_JPEG_Library.h>
 #include <esp_heap_caps.h>
 
+#include "HWCDC.h"
 #include "secrets_private.h"
 #include "ui.h"
 #include "../image/image_fetcher.h"  // for the shared TLS client
 
-#define USBSerial Serial
+// Project module pattern - see CLAUDE.md. The other modules do the same.
+extern HWCDC USBSerial;
 
 namespace {
 

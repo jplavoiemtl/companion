@@ -206,7 +206,7 @@ return HTTP 200 from a machine on the home LAN, and they are on the same subnet.
 ### Options
 
 **A1 — proxy Frigate through Node-RED. CHOSEN.** Implemented as `/esp32/live`; the
-importable flow is in `doc/node-red/esp32_live_endpoint.json`. Five nodes on the
+importable flow is in `docs/node-red/esp32_live_endpoint.json`. Five nodes on the
 "ESP32 Companion" tab:
 
 ```text
@@ -287,7 +287,7 @@ container.
 
 ### Resolving it — done
 
-The updated proxy is version-controlled at `doc/proxy/app.py`. It previously existed only
+The updated proxy is version-controlled at `docs/proxy/app.py`. It previously existed only
 on the Pi at `/home/pi/appjpl/esp32-proxy/app.py`.
 
 Four changes, keeping the existing structure and per-endpoint style:

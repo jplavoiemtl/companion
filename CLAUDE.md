@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ESP32-S3 Touch AMOLED companion device that displays JPEG images, power/energy data via MQTT, and real-time IMU sensor data (inclinometer, G-meter). Hardware: Waveshare ESP32-S3-Touch-AMOLED-1.8 with QMI8658 IMU, AXP2101 power management.
+ESP32-S3 Touch AMOLED companion device that displays JPEG images, a live camera feed, power/energy data via MQTT, and real-time IMU sensor data (inclinometer, G-meter). Hardware: Waveshare ESP32-S3-Touch-AMOLED-1.8 with QMI8658 IMU, AXP2101 power management.
 
 ## Build Commands
 
@@ -12,14 +12,23 @@ ESP32-S3 Touch AMOLED companion device that displays JPEG images, power/energy d
 # Compile (VS Code or Arduino IDE recommended)
 arduino-cli compile --profile amoled-1-8 .
 
-# Upload
-arduino-cli upload --profile amoled-1-8 --port COM14 .
+# Upload (the board enumerates as COM4 here; COM14 in older notes was stale)
+arduino-cli upload --profile amoled-1-8 --port COM4 .
 
 # Serial monitor (115200 baud)
 arduino-cli monitor --port COM7 --config baudrate=115200
 ```
 
-Build configuration is in `sketch.yaml`. VS Code uses `.vscode/arduino.json`.
+Build configuration is in `sketch.yaml`. VS Code uses `.vscode/arduino.json`. Note
+`sketch.yaml` is **gitignored**, so profile changes live only on the local machine -
+currently `CPUFreq=240` (raised from 80) and the `ESP32_JPEG` library, both added for the
+live video feed.
+
+**Stale build trap:** after editing `companion.ino`, delete
+`build/build_amoled-1-8/sketch/companion.ino.cpp` before rebuilding. Arduino sometimes
+fails to regenerate that intermediate and silently compiles a previous version of the
+sketch, while files under `src/` update normally - so a change spanning both ships half
+applied.
 
 ## Critical Constraint: SquareLine Studio Files
 
@@ -42,6 +51,7 @@ src/
   imu/                 # QMI8658 driver, motion detection, pitch/roll
   net/                 # MQTT with dual-server failover
   screen_memory/       # Persist active screen to NVS
+  video/               # Live camera feed (Frigate via the image proxy)
 ui/                    # AUTO-GENERATED - do not edit
 squareline/            # SquareLine Studio project files
 ```
@@ -75,6 +85,7 @@ extern HWCDC USBSerial;  // Required for serial output
 - **LVGL**: 8.4.0
 - **PubSubClient**: 2.8
 - **SensorLib**: 0.3.1 (QMI8658 driver)
+- **ESP32_JPEG**: 0.0.1 (local folder, SIMD JPEG decoder for the video feed)
 
 ## Screens
 
@@ -87,6 +98,59 @@ extern HWCDC USBSerial;  // Required for serial output
 | `ui_calibrationScreen` | IMU calibration | No (temporary) |
 
 Navigation uses `ui_previous_screen` global for back button handling.
+
+`ui_Screen2` has two producers: the image fetcher (stills) and the video module (live
+feed). Only one is active at a time - `imageFetcherLoop()` returns immediately while
+`videoStreamActive()` is true, and `requestLatestImage()` refuses. Without those guards an
+MQTT push during a feed frees buffers still being rendered, which resets the board.
+
+## Live Video Feed (`src/video/`)
+
+Live view of the entrance camera. The ESP32-S3 has no hardware video decoder and the
+camera stream is H.264, so the panel polls single JPEG frames from Frigate instead.
+
+**Data path.** This board runs on a phone hotspot (`#define CAR` in `secrets_private.h`)
+and cannot reach Frigate on the home LAN, so it goes the long way round:
+
+```
+companion (cellular) -> Synology :9835 -> esp32-image-proxy (Pi:5000) -> Node-RED -> Frigate
+                                          ^ validates API_TOKEN, rate limits
+```
+
+`docs/proxy/app.py` and `docs/node-red/esp32_live_endpoint.json` are the server-side
+pieces, version-controlled here because they otherwise exist only on the Pi.
+
+**Triggers.** The Screen1 camera button starts a 60 second feed. An MQTT motion push shows
+the still for 10 seconds and then starts the same feed. Latest and Back are unchanged.
+
+**Performance.** ~1.9-2.1 fps. `decode` 46 ms, `blit` 109 ms, `http` 315-352 ms - the
+cellular round trip dominates, so the network is the limit, not the board. The 155 ms of
+decode+blit puts the hard ceiling at 6.4 fps.
+
+**Four constraints worth knowing before touching this code:**
+
+1. **Only one TLS client fits.** Internal heap is ~94 KB idle and ~50 KB with a TLS session
+   open, with a largest contiguous block of ~32 KB. mbedTLS needs contiguous ~16 KB
+   buffers, so a second `WiFiClientSecure` fails with "SSL - Memory allocation failed".
+   The video module borrows the image fetcher's via `imageFetcherSecureClient()`; they never
+   fetch at the same time.
+2. **Keep-alive is essential.** `setReuse(true)` before `begin()`, on a persistent
+   `HTTPClient`. Without it every frame pays a full handshake and `http` is 906 ms.
+3. **Decoder output must be `JPEG_RAW_TYPE_RGB565_LE`.** `LV_COLOR_16_SWAP` is 0 here; the
+   home panel has 1 and uses `_BE`. Copying that constant across gives wrong colours rather
+   than an obvious failure. Rotation is `JPEG_ROTATE_270D`, and the decoder reports
+   post-rotation dimensions in `out_info` - do not swap them again.
+4. **Never call `lv_obj_set_size()` on `ui_imgScreen2Background`.** SquareLine sizes it
+   `lv_pct(100)`; setting explicit pixels converts it to fixed sizing and causes a white
+   flash on the next visit to the screen. The crop comes from `lv_img_set_offset_*` alone.
+
+**Accepted trade-off:** the fetch is blocking, so IMU sampling drops from ~50 Hz to ~2 Hz
+for the duration of a feed, recovering immediately afterwards. Deliberate - the
+inclinometer and G-meter are not being read while someone is watching the front door. A
+non-blocking prefetching client would fix it and roughly halve the frame period.
+
+See `docs/live_video_feed_port.md` for the full measurement history, including several
+approaches that were measured and rejected.
 
 ## NVS Storage
 
