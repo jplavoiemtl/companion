@@ -493,6 +493,44 @@ Frame period becomes roughly `max(http, decode+blit)` plus overhead. With http a
 is reachable, and the network is the limit rather than the panel. Lowering quality
 from 25 to 15 would trim ~60 ms of transfer if more headroom is needed.
 
+## Phase 2 results — the feature, measured
+
+Full 60 second feed from the camera button:
+
+```text
+Video: 117 frames in 60.1s (1.9 fps) | http 352 | decode 46 | blit 109 | frame 513 ms
+Video: free PSRAM 7849308, free heap 50864
+```
+
+Visually good. 117 frames matches the 1.9 fps projected from Phase 1, and IMU
+sampling recovers to a full 50.00 Hz the moment the feed ends.
+
+### The TLS session costs ~43 KB while open
+
+```text
+during a feed:  heap 50,188
+after teardown: heap 93,792     +43 KB released
+```
+
+This also settles the memory confusion earlier in this document. The apparent
+50 KB drop between Phase 0 and Phase 1 was not the video module's footprint and
+not a leak - it was simply an open TLS session left over from an earlier image
+fetch. Two wrong theories were chased before the `lastError()` string identified
+fragmentation as the real handshake blocker.
+
+Practical consequence: internal heap sits at ~94 KB idle and ~50 KB with a TLS
+session open, and the largest contiguous block is ~32 KB. That is why only one
+`WiFiClientSecure` fits, and it is worth remembering before adding anything else
+that wants a large contiguous allocation.
+
+### Accepted trade-off
+
+IMU sampling drops to ~2 Hz for the duration of a feed, because the blocking
+fetch holds the main loop for ~350 ms per frame. Accepted deliberately: the
+inclinometer and G-meter are not being read while someone is watching the front
+door. Prefetch would fix it and roughly halve the frame period, and remains
+available as a later improvement on a working baseline.
+
 ## Phased plan
 
 Same approach that worked on the home panel: **measure before building.**
