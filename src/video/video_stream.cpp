@@ -110,16 +110,23 @@ static bool fetchFrame(uint32_t* httpUs) {
     USBSerial.println("[VTEST] httpClient.begin() failed");
     return false;
   }
-  httpClient.setTimeout(HTTP_TIMEOUT_MS);
-  httpClient.setConnectTimeout(8000);
+  // Match the timeouts the image fetcher uses on this same host and certificate,
+  // since that path is known to work. The handshake timeout in particular was
+  // missing here, and its default is very different.
+  httpClient.setTimeout(8000);          // socket
+  httpClient.setConnectTimeout(5000);   // TCP connect
+  httpsClient.setHandshakeTimeout(5);   // seconds, per the setter's units
 
   const int code = httpClient.GET();
   if (code != HTTP_CODE_OK) {
     // Report enough to tell a RAM problem from a TLS or server problem.
+    // largest free block matters: mbedTLS needs a contiguous allocation, so
+    // fragmentation can defeat it even when total free looks sufficient.
     char tlsErr[128] = {0};
     httpsClient.lastError(tlsErr, sizeof(tlsErr));
-    USBSerial.printf("[VTEST] HTTP %d | heap before %u, now %u | TLS: %s\n",
+    USBSerial.printf("[VTEST] HTTP %d | heap before %u, now %u, largest block %u | TLS: %s\n",
                      code, heapBefore, ESP.getFreeHeap(),
+                     heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
                      tlsErr[0] ? tlsErr : "(none reported)");
     USBSerial.printf("[VTEST] url host/path: %slive?height=%u&quality=%u&token=***\n",
                      IMAGE_SERVER_REMOTE, REQ_HEIGHT, REQ_QUALITY);
