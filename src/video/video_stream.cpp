@@ -266,9 +266,11 @@ static bool decodeFrame(uint32_t* decodeUs) {
 // lv_pct(100), and setting an explicit pixel size converts it to fixed sizing,
 // which caused a white flash on the home panel.
 static void displayFrame(uint32_t* blitUs) {
+  // The frame is already rotated by the decoder, so the display stays at
+  // ROT_NONE - the same orientation the still images use.
   lv_disp_t* disp = lv_disp_get_default();
   if (disp) {
-    lv_disp_set_rotation(disp, rotated ? LV_DISP_ROT_NONE : LV_DISP_ROT_90);
+    lv_disp_set_rotation(disp, LV_DISP_ROT_NONE);
   }
 
   imgDsc.header.always_zero = 0;
@@ -283,9 +285,9 @@ static void displayFrame(uint32_t* blitUs) {
   lv_img_set_src(cfg.imgVideoBackground, &imgDsc);
   lv_obj_set_style_opa(cfg.imgVideoBackground, LV_OPA_COVER, LV_PART_MAIN);
 
-  // Visible area depends on the rotation currently applied.
-  const int visibleW = rotated ? cfg.screenWidth  : cfg.screenHeight;
-  const int visibleH = rotated ? cfg.screenHeight : cfg.screenWidth;
+  // At ROT_NONE the visible area is the screen's natural orientation.
+  const int visibleW = cfg.screenWidth;
+  const int visibleH = cfg.screenHeight;
 
   const int offX = (frameW > visibleW) ? -((frameW - visibleW) / 2) : 0;
   const int offY = (frameH > visibleH) ? -((frameH - visibleH) / 2) : 0;
@@ -319,11 +321,11 @@ static void printSummary() {
     USBSerial.println("Video: stopped with no frames");
     return;
   }
-  USBSerial.printf("Video: %u frames in %.1fs (%.1f fps) | http %.0f | decode %.0f | blit %.0f | frame %.0f ms | PSRAM %u heap %u
-",
+  USBSerial.printf("Video: %u frames in %.1fs (%.1f fps) | http %.0f | decode %.0f | blit %.0f | frame %.0f ms\n",
                    frames, secs, frames / secs,
                    sumHttp / 1000.0f / frames, sumDecode / 1000.0f / frames,
-                   sumBlit / 1000.0f / frames, sumFrame / 1000.0f / frames,
+                   sumBlit / 1000.0f / frames, sumFrame / 1000.0f / frames);
+  USBSerial.printf("Video: free PSRAM %u, free heap %u\n",
                    ESP.getFreePsram(), ESP.getFreeHeap());
 }
 
