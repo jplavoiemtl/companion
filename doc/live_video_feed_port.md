@@ -329,6 +329,41 @@ editing regardless, per-frame polling with a raised limit remains preferable —
 editing the proxy turns out to be undesirable, MJPEG is the fallback that needs no proxy
 change beyond the whitelist.
 
+### Server chain verified, and the data estimate corrected
+
+The whole server path is proven working except the token leg:
+
+| Leg | Result |
+|-----------------------------|--------|
+| `/health` | reports both limits, so the new `app.py` is running |
+| proxy `/esp32/live` no token | **401** (was 404) - route registered, token checked |
+| Node-RED -> Frigate | **200, real JPEG, 640x360**, in 33-66 ms |
+| `height` / `quality` params | both take effect |
+
+**Measured data cost at `height=360`** - this corrects an earlier estimate in this document
+of 2.2 MB for 3 fps at quality 30, which was extrapolated from the home panel's smaller
+frames and was roughly half the real figure:
+
+| quality | bytes/frame | 3 fps / 60 s | 2 fps / 60 s |
+|---------|-------------|--------------|--------------|
+| 40 | 29.3 KB | 5.0 MB | 3.4 MB |
+| 30 | 24.2 KB | **4.2 MB** | 2.8 MB |
+| 25 | 21.4 KB | 3.7 MB | 2.4 MB |
+| 20 | 18.3 KB | 3.1 MB | **2.1 MB** |
+| 15 | 14.9 KB | 2.6 MB | 1.7 MB |
+
+`height=360` is not freely adjustable: 640x360 is the smallest size that both satisfies
+ESP32_JPEG's divisible-by-8 rotation constraint and still fills nearly the full 368 px
+screen width after a 90 degree rotation. Going smaller would letterbox the width. **So
+quality is the only real lever on data cost**, and both are runtime query parameters, so
+tuning needs no server change.
+
+At 368 px wide, JPEG artefacts at quality 20-25 are far less visible than they would be on
+a large display. Starting at 25 rather than 30 is worth trying.
+
+Note also that 230,400 pixels is 27% more than the home panel's 181,760, so decode will
+cost proportionally more before any rotation overhead is counted.
+
 ### Additional considerations for a remote path
 
 - **Latency** rises substantially over the internet. Prefetch exists precisely to hide
