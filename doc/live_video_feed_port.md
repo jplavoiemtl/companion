@@ -251,6 +251,57 @@ the home panel's 10 fps.
 the board is essentially never on the home network, so the feature would almost never be
 available. Rejected unless the network situation changes.
 
+### The image proxy blocks A1 as built
+
+The remote path is not Synology → Node-RED directly. There is an `esp32-image-proxy`
+container on the Pi that sits between them:
+
+```text
+Companion (cellular) -> Synology :9835 -> esp32-image-proxy (Pi:5000) -> Node-RED (Pi:1880)
+                                          ^ validates API_TOKEN, rate limits
+```
+
+**This corrects an earlier note in this document.** The `?token=` *is* enforced — by the
+proxy, not by Node-RED. An earlier probe returned 200 without a token only because it went
+straight to Node-RED on 1880 and bypassed the proxy.
+
+Probing the proxy without credentials reveals two blockers:
+
+| Probe | Result | Meaning |
+|-------------------------|----------|-------------------------------------|
+| `/health` | `{"rate_limit":"10 requests/minute","status":"healthy"}` | Rate limit is per **minute** |
+| `/esp32/latest` no token | 401 | Token enforced, path recognised |
+| `/esp32/live` no token | **404** | Path **not whitelisted** |
+| `/esp32/bogus` no token | 404 | Confirms whitelisting, not a typo |
+
+**1. The path is not whitelisted.** `/esp32/live` returns 404 rather than 401, so the proxy
+does not recognise it at all and the token never even gets checked. The Node-RED endpoint
+is unreachable from outside until the proxy learns about it.
+
+**2. The rate limit is 10 requests per minute.** A 3 fps feed is 180 requests per minute —
+**18× over the limit.** The proxy was designed for occasional still images, where 10/min is
+generous. Per-frame requests fight that design.
+
+Both live in `app.py` at `/home/pi/appjpl/esp32-proxy/app.py`, mounted read-only into the
+container.
+
+### Resolving it
+
+`app.py` needs changing either way, since the path must be whitelisted. While there:
+
+- **Whitelist `/esp32/live`** and ensure `height` and `quality` query parameters are
+  forwarded, which the endpoint depends on.
+- **Give the live path its own rate limit** — around 300/minute for 3 fps with headroom —
+  while leaving the stills at 10/minute.
+
+An alternative worth noting: Frigate's **MJPEG** endpoint would be a single request for a
+whole viewing session, costing one unit against the rate limit instead of 180. It was
+rejected for the home panel because `quality` is ignored there, locking frames at ~33 KB
+and roughly tripling the data (5.9 MB versus 2.2 MB per 60 s view). Since `app.py` needs
+editing regardless, per-frame polling with a raised limit remains preferable — but if
+editing the proxy turns out to be undesirable, MJPEG is the fallback that needs no proxy
+change beyond the whitelist.
+
 ### Additional considerations for a remote path
 
 - **Latency** rises substantially over the internet. Prefetch exists precisely to hide
