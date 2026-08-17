@@ -2,6 +2,10 @@
 
 #include <Arduino.h>
 #include <lvgl.h>
+// Needed for the shared TLS client accessor below. Cannot be forward-declared:
+// in ESP32 core 3.x WiFiClientSecure is a typedef for NetworkClientSecure, not
+// a class, so "class WiFiClientSecure;" is a compile error.
+#include <WiFiClientSecure.h>
 
 struct ImageFetcherConfig {
   uint16_t screenWidth;
@@ -36,7 +40,6 @@ bool imageFetcherIsBusy();
 //
 // Safe to share because only one module fetches at a time: the video module and
 // this one each stand down while the other is active.
-class WiFiClientSecure;
 WiFiClientSecure* imageFetcherSecureClient();
 
 #ifdef __cplusplus
