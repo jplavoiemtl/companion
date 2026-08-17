@@ -143,6 +143,12 @@ decode+blit puts the hard ceiling at 6.4 fps.
 4. **Never call `lv_obj_set_size()` on `ui_imgScreen2Background`.** SquareLine sizes it
    `lv_pct(100)`; setting explicit pixels converts it to fixed sizing and causes a white
    flash on the next visit to the screen. The crop comes from `lv_img_set_offset_*` alone.
+5. **The feed must stop when the screen is left.** `videoStreamInit()` registers a
+   `LV_EVENT_SCREEN_UNLOAD_START` handler for exactly this. Without it the feed keeps
+   running after the user navigates away and `displayFrame()` goes on forcing
+   `LV_DISP_ROT_NONE`, leaving Screen 1 rotated 90 degrees until the 60 seconds expire.
+   `displayFrame()` also bails if the video screen is not the active one, as a second line
+   of defence.
 
 **Accepted trade-off:** the fetch is blocking, so IMU sampling drops from ~50 Hz to ~2 Hz
 for the duration of a feed, recovering immediately afterwards. Deliberate - the

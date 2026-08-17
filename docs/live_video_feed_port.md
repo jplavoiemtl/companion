@@ -641,6 +641,28 @@ worth considering separately.
 4. How much LVGL heap headroom is there, given `LV_MEM_CUSTOM 0` means LVGL uses a fixed
    static pool rather than malloc?
 
+## Post-ship defect: feed did not stop on screen exit
+
+Found in use after Phase 2 shipped. Pressing the screen during a feed exited to Screen 1
+correctly, but Screen 1 then appeared rotated 90 degrees and righted itself about a minute
+later with no input.
+
+`videoStreamInit()` registered no screen-unload handler, so leaving the screen did not stop
+the feed. `videoStreamLoop()` kept fetching and `displayFrame()` kept calling
+`lv_disp_set_rotation(LV_DISP_ROT_NONE)` on a display Screen 1 now owned. The
+self-correction was the 60 second duration expiring and `returnHome()` restoring `ROT_90`.
+
+Fixed by registering the handler, plus an early return in `displayFrame()` when the video
+screen is not active. `lv_timer_handler()` is also now serviced between the blocking fetch
+and decode stages - touch was already working, so that is a responsiveness improvement
+rather than the fix.
+
+**The lesson worth carrying forward:** the home panel has this handler, and it exists there
+because that project hit the same class of problem during development. The port carried the
+*logic* across faithfully but not the *defensive* parts - and the defensive parts are
+precisely the ones earned by earlier failures. Worth checking explicitly against the source
+project when porting anything else.
+
 ## Appendix: prefetch analysis (not implemented)
 
 Evaluated after Phase 2 shipped. **Not built** - recorded so the decision can be made
