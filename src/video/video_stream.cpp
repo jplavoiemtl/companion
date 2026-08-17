@@ -199,7 +199,9 @@ static bool decodeFrame(bool rotate, uint32_t* decodeUs) {
 
   jpeg_dec_config_t config;
   config.output_type = JPEG_RAW_TYPE_RGB565_LE;
-  config.rotate = rotate ? JPEG_ROTATE_90D : JPEG_ROTATE_0D;
+  // 270 rather than 90: measured on hardware, 90D came out upside down for this
+  // panel's orientation. Same divisible-by-8 constraint applies either way.
+  config.rotate = rotate ? JPEG_ROTATE_270D : JPEG_ROTATE_0D;
 
   jpeg_dec_handle_t* dec = jpeg_dec_open(&config);
   if (!dec) {

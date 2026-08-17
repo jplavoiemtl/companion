@@ -421,6 +421,73 @@ proves awkward:
 - Reduce fragmentation by moving the 33 KB LVGL draw buffer to PSRAM. Rejected:
   it would slow the blit, which is the thing being optimised.
 
+## Phase 1 results — measured on hardware
+
+Both orientation variants working, 15 frames each in one burst.
+
+| | A: rotate in decode, ROT_NONE | B: LVGL rotates, ROT_90 |
+|--------------|-------------------------------|-------------------------|
+| decode | 47.0 ms | 42.7 ms |
+| blit | 109.0 ms | 127.6 ms |
+| decode+blit | **156.0 ms** | 170.3 ms |
+| http | 352.3 ms | 340.7 ms |
+| frame | 522.2 ms | 517.0 ms |
+| rate | 1.9 fps | 1.9 fps |
+
+**Orientation:** A needs `JPEG_ROTATE_270D`, not `90D`. At 90D the image came out
+upside down for this panel. B renders correctly as-is.
+
+**Keep-alive is worth 550 ms per frame.** Before it, every frame opened a fresh TLS
+connection and `http` measured 906 ms. With `setReuse(true)` and a persistent
+HTTPClient it dropped to ~350 ms, with frame 1 still paying 879 ms for the one
+handshake. This was by far the largest single win in the port.
+
+### Two predictions in this document were wrong
+
+**The blit is not cheaper here.** This document argued the companion's blit would
+beat the home panel's 45 ms because it avoids software rotation and uses a small
+internal-RAM draw buffer. Measured: **109 ms**, about 2.4x the home panel.
+LVGL's rotation accounts for only ~19 ms of it (A 109 vs B 128); the cost is
+elsewhere in the AMOLED draw path. The reasoning was plausible and wrong.
+
+**Decode was never the problem.** 47 ms at 240 MHz, against a worry that 80 MHz
+would make it prohibitive. Raising the clock was still the right call, but the
+bottleneck was always the network.
+
+### Where the time actually goes
+
+```text
+http    352 ms   67%   cellular round trip + ~21 KB
+blit    109 ms   21%
+decode   47 ms    9%
+other    14 ms    3%
+```
+
+### Variant A is chosen, though the margin is nearly irrelevant
+
+A is cheaper by 14.3 ms and displays at `ROT_NONE`, consistent with how the
+still images already work. But note that **once prefetch hides the network, both
+variants give the same frame rate**, because `http` (352 ms) exceeds decode+blit
+either way. A is preferred for lower CPU use rather than for frame rate.
+
+### The IMU starves during a burst
+
+Sampling frequency collapses from ~50 Hz to **1.85-1.98 Hz** while the burst
+runs. The blocking `HTTPClient::GET()` holds the main loop for ~350 ms per frame,
+so the IMU barely gets scheduled.
+
+This is a real side effect on a board whose main job is inclinometer and G-meter
+work, and it is a second reason to build prefetch: a non-blocking fetch returns
+the loop to the IMU instead of parking it. Worth re-measuring the sampling rate
+once prefetch lands.
+
+### Projected with prefetch
+
+Frame period becomes roughly `max(http, decode+blit)` plus overhead. With http at
+250-350 ms and decode+blit at 156 ms, that is **2.9-4 fps** — so the 3 fps target
+is reachable, and the network is the limit rather than the panel. Lowering quality
+from 25 to 15 would trim ~60 ms of transfer if more headroom is needed.
+
 ## Phased plan
 
 Same approach that worked on the home panel: **measure before building.**
