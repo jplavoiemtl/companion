@@ -205,7 +205,24 @@ return HTTP 200 from a machine on the home LAN, and they are on the same subnet.
 
 ### Options
 
-**A1 — proxy Frigate through Node-RED.** Add an endpoint alongside the existing
+**A1 — proxy Frigate through Node-RED. CHOSEN.** Implemented as `/esp32/live`; the
+importable flow is in `doc/node-red/esp32_live_endpoint.json`. Five nodes on the
+"ESP32 Companion" tab:
+
+```text
+http in GET /esp32/live -> Build Frigate URL -> http request -> Set image headers -> http response
+```
+
+`height` and `quality` pass through as query parameters, clamped (height 120-480, quality
+10-80, defaulting to 360 and 40). Clamping matters because this endpoint reaches an
+internal service and must not forward arbitrary values. `persist: true` keeps the
+connection to Frigate alive, which matters at several requests per second.
+
+**Frame rate lives on the panel, not here.** The endpoint serves one JPEG per request; the
+companion paces itself. The chosen target is **3 fps**, giving roughly 2.2 MB of cellular
+data per 60 second view at quality 30 — against 12.3 MB at 10 fps.
+
+**Original A1 description:** Add an endpoint alongside the existing
 `/esp32/latest`, which fetches from Frigate and returns the JPEG. Reuses the proven TLS
 and token path with **no reverse-proxy reconfiguration**. Cost: Node-RED sits in the
 per-frame path, so at 10 fps it handles 10 proxied requests per second while also running

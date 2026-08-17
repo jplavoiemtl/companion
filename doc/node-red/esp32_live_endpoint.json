@@ -1,0 +1,92 @@
+[
+  {
+    "id": "live5a1b2c3d000001",
+    "type": "http in",
+    "z": "359c5c1a72299a26",
+    "name": "GET /esp32/live",
+    "url": "/esp32/live",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 1880,
+    "wires": [
+      [
+        "live5a1b2c3d000002"
+      ]
+    ]
+  },
+  {
+    "id": "live5a1b2c3d000002",
+    "type": "function",
+    "z": "359c5c1a72299a26",
+    "name": "Build Frigate URL",
+    "func": "// Thin authenticated proxy to Frigate's snapshot API.\n// The companion runs on a phone hotspot and cannot reach Frigate on the LAN,\n// so this endpoint gives it a route through the existing remote HTTPS server.\n//\n// height and quality are pass-through so the panel can tune frame size without\n// touching Node-RED. Both are clamped: this endpoint reaches an internal service,\n// so it must not forward arbitrary values.\n\nconst CAMERA = \"avant\";\nconst BASE = \"http://192.168.1.133:5000\";\n\nfunction clampInt(v, lo, hi, dflt) {\n    const n = parseInt(v, 10);\n    if (isNaN(n)) return dflt;\n    return Math.min(hi, Math.max(lo, n));\n}\n\nconst q = msg.req.query || {};\nconst height = clampInt(q.height, 120, 480, 360);\nconst quality = clampInt(q.quality, 10, 80, 40);\n\n// Frigate's resize parameter is `height`, not `h` - `h` is silently ignored.\nmsg.url = BASE + \"/api/\" + CAMERA + \"/latest.jpg\"\n        + \"?height=\" + height + \"&quality=\" + quality;\n\nmsg.frigateHeight = height;\nmsg.frigateQuality = quality;\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 370,
+    "y": 1880,
+    "wires": [
+      [
+        "live5a1b2c3d000003"
+      ]
+    ]
+  },
+  {
+    "id": "live5a1b2c3d000003",
+    "type": "http request",
+    "z": "359c5c1a72299a26",
+    "name": "Fetch from Frigate",
+    "method": "GET",
+    "ret": "bin",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": true,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 590,
+    "y": 1880,
+    "wires": [
+      [
+        "live5a1b2c3d000004"
+      ]
+    ]
+  },
+  {
+    "id": "live5a1b2c3d000004",
+    "type": "function",
+    "z": "359c5c1a72299a26",
+    "name": "Set image headers",
+    "func": "// Return the JPEG straight through. no-store matters: this is a live frame and\n// must never be served from a cache.\nif (!Buffer.isBuffer(msg.payload) || msg.payload.length < 100) {\n    msg.statusCode = 502;\n    msg.headers = { \"Content-Type\": \"text/plain\" };\n    msg.payload = \"Frigate returned no image\";\n    return msg;\n}\n\nmsg.statusCode = 200;\nmsg.headers = {\n    \"Content-Type\": \"image/jpeg\",\n    \"Content-Length\": msg.payload.length,\n    \"Cache-Control\": \"no-store\",\n    \"X-Frigate-Height\": String(msg.frigateHeight),\n    \"X-Frigate-Quality\": String(msg.frigateQuality)\n};\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 810,
+    "y": 1880,
+    "wires": [
+      [
+        "live5a1b2c3d000005"
+      ]
+    ]
+  },
+  {
+    "id": "live5a1b2c3d000005",
+    "type": "http response",
+    "z": "359c5c1a72299a26",
+    "name": "Return frame",
+    "statusCode": "",
+    "headers": {},
+    "x": 1020,
+    "y": 1880,
+    "wires": []
+  }
+]
