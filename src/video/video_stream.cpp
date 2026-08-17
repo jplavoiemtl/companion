@@ -50,8 +50,15 @@ uint16_t  frameH = 0;
 lv_img_dsc_t imgDsc{};
 VideoStreamConfig cfg{};
 
-HTTPClient httpClient;
-WiFiClientSecure httpsClient;
+// NOTE: the HTTP and TLS clients are deliberately NOT globals here. A second
+// persistent WiFiClientSecure alongside the image fetcher's own costs internal
+// RAM this board does not have - free heap is only ~98 KB even at rest, and
+// mbedTLS wants roughly 40 KB for a handshake. They are constructed per fetch so
+// the TLS context exists only while it is needed.
+//
+// The cost is a TLS handshake per frame, which inflates the http figure. That is
+// acceptable here: this spike measures decode and blit, and Phase 2 will use a
+// single long-lived connection.
 
 // True while the first half of the burst is running.
 inline bool rotateInDecode() { return frames < FRAMES_PER_VARIANT; }
@@ -83,6 +90,11 @@ bool videoStreamActive() {
 static bool fetchFrame(uint32_t* httpUs) {
   const uint32_t t0 = micros();
 
+  // Scoped so the TLS context is released when this returns - see the note at
+  // the top of this file about internal RAM.
+  HTTPClient httpClient;
+  WiFiClientSecure httpsClient;
+
   // The companion runs on a phone hotspot, so it always uses the remote HTTPS
   // path. The token is appended but never logged - see the note in
   // image_fetcher.cpp about serial output being copied into chat.
@@ -90,6 +102,8 @@ static bool fetchFrame(uint32_t* httpUs) {
              + "?height=" + String(REQ_HEIGHT)
              + "&quality=" + String(REQ_QUALITY)
              + "&token=" + String(API_TOKEN);
+
+  const uint32_t heapBefore = ESP.getFreeHeap();
 
   httpsClient.setCACert(remote_server_ca_cert);
   if (!httpClient.begin(httpsClient, url)) {
@@ -101,7 +115,14 @@ static bool fetchFrame(uint32_t* httpUs) {
 
   const int code = httpClient.GET();
   if (code != HTTP_CODE_OK) {
-    USBSerial.printf("[VTEST] HTTP %d from /esp32/live\n", code);
+    // Report enough to tell a RAM problem from a TLS or server problem.
+    char tlsErr[128] = {0};
+    httpsClient.lastError(tlsErr, sizeof(tlsErr));
+    USBSerial.printf("[VTEST] HTTP %d | heap before %u, now %u | TLS: %s\n",
+                     code, heapBefore, ESP.getFreeHeap(),
+                     tlsErr[0] ? tlsErr : "(none reported)");
+    USBSerial.printf("[VTEST] url host/path: %slive?height=%u&quality=%u&token=***\n",
+                     IMAGE_SERVER_REMOTE, REQ_HEIGHT, REQ_QUALITY);
     httpClient.end();
     return false;
   }
@@ -308,6 +329,12 @@ bool videoStreamStart() {
                    TOTAL_FRAMES, FRAMES_PER_VARIANT, FRAMES_PER_VARIANT);
   USBSerial.printf("[VTEST] source %ux%u, height=%u quality=%u, screen %ux%u\n",
                    SRC_W, SRC_H, REQ_HEIGHT, REQ_QUALITY, cfg.screenWidth, cfg.screenHeight);
+  // Internal heap is the constraint on this board, not PSRAM. mbedTLS wants
+  // roughly 40 KB for a handshake, so this number decides whether HTTPS can work.
+  USBSerial.printf("[VTEST] free heap %u, largest free block %u, free PSRAM %u\n",
+                   ESP.getFreeHeap(),
+                   heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
+                   ESP.getFreePsram());
 
   for (int v = 0; v < 2; v++) {
     sumHttp[v] = sumDecode[v] = sumBlit[v] = sumFrame[v] = 0;
