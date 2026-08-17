@@ -640,3 +640,120 @@ worth considering separately.
    chain?
 4. How much LVGL heap headroom is there, given `LV_MEM_CUSTOM 0` means LVGL uses a fixed
    static pool rather than malloc?
+
+## Appendix: prefetch analysis (not implemented)
+
+Evaluated after Phase 2 shipped. **Not built** - recorded so the decision can be made
+without redoing the analysis.
+
+### What it would buy
+
+Current frame budget, measured:
+
+```text
+http    315-352 ms   blocking, holds the main loop
+decode   46 ms
+blit    109 ms
+other   ~10 ms
+        =========
+        ~515 ms  ->  1.9 fps,  IMU ~2 Hz
+```
+
+Prefetch issues the request for frame N+1 immediately after N's body is read, so the
+network overlaps with the 155 ms of decode and blit instead of adding to it.
+
+**Projected 2.8-3.1 fps and IMU around 25 Hz.** The IMU figure follows from the loop being
+blocked only by decode+blit (155 ms of a ~330 ms frame, so roughly half the time) rather
+than by the network as well.
+
+### The payoff depends on one number we have not measured
+
+`http` is only recorded as a single figure here. It is really two:
+
+- **TTFB** - request out, cellular round trip, Synology + proxy + Node-RED + Frigate, first
+  byte back. **Overlaps freely** with decode and blit.
+- **transfer** - the ~21 KB body. Overlaps only up to one TCP receive window (~5.7 KB on
+  the Arduino ESP32 core), because `jpeg_dec_process` and `lv_refr_now` are uninterruptible
+  and cannot drain the socket while running.
+
+Two plausible splits give:
+
+| TTFB | transfer | projected frame | rate |
+|------|----------|-----------------|------|
+| 250 ms | 100 ms | ~333 ms | 3.0 fps |
+| 200 ms | 150 ms | ~319 ms | 3.1 fps |
+| 150 ms | 200 ms | ~365 ms | 2.7 fps |
+
+**Measure the split before building anything.** It is about ten lines on the existing
+blocking implementation: timestamp when `GET()` returns (headers in) against when the body
+finishes. The home panel has exactly this instrumentation and it is what justified building
+prefetch there. If TTFB turns out to be small and transfer large, prefetch buys much less
+than the table suggests.
+
+### What would change in the code
+
+`fetchFrame()` is currently one blocking function: `HTTPClient::begin()`, `GET()`, then a
+read loop. It would split into two non-blocking halves, mirroring the home panel:
+
+- `sendRequest()` - write the GET and return immediately
+- `pollResponse()` - incremental header parse then body read; returns working / complete /
+  error
+
+**HTTPClient has to go for the video path.** `GET()` blocks until response headers arrive,
+which is precisely what prefetch must avoid. That means driving the shared
+`WiFiClientSecure` directly and hand-rolling:
+
+- the connect and TLS handshake (blocking once per feed, ~880 ms - acceptable)
+- the request line and headers
+- status line and `Content-Length` parsing, incrementally across loop iterations
+- keep-alive, which becomes simply "do not close"
+
+`videoStreamLoop()` inverts: poll, and when a frame completes, **send the next request
+before** decoding and displaying the one just received.
+
+Host, port and path would need to be separate values rather than the single
+`IMAGE_SERVER_REMOTE` URL string, since a raw client takes host and port. That means new
+entries in `secrets_private.h`, which is gitignored - the same arrangement the home panel
+uses.
+
+Estimated 150-200 lines changed in `video_stream.cpp`.
+
+### Why this is harder here than on the home panel
+
+The home panel's prefetching client speaks **plain HTTP on its own socket**. Here it would
+speak **HTTP over TLS on a socket shared with the image fetcher**. Three consequences:
+
+1. **Two different drivers on one client.** The image fetcher uses `HTTPClient::begin(httpsClient, url)`;
+   the video path would drive the same object raw. If the video path ever leaves the socket
+   mid-response, the next still-image fetch inherits a corrupted stream. Every exit path -
+   normal end, error, back button, timeout - must `stop()` the client.
+2. **Manual header parsing through an encrypted stream.** Workable, since `available()` and
+   `read()` return decrypted bytes, but there is no HTTPClient to fall back on for edge
+   cases.
+3. **No OTA on this board.** Every iteration is a USB flash. The home panel's prefetch took
+   two build fixes and several runs even with OTA.
+
+This would be the riskiest code in either project.
+
+### Cheaper alternatives
+
+**Lower the quality.** `quality=15` instead of 25 is 14.9 KB against 21.4 KB, so roughly
+30% less transfer. Worth perhaps 30-45 ms, taking 1.9 to about 2.1 fps. One character
+changed, no risk, and at 368 px wide the artefacts are hard to see. **Does nothing for the
+IMU.**
+
+**Accept the current behaviour.** 1.9 fps is usable for identifying someone at the door, and
+the IMU recovers the instant the feed ends. The inclinometer and G-meter are not being read
+while someone watches the front door - which is why this trade-off was accepted in the first
+place.
+
+**Do not bother trying to spread the blit.** Letting the main loop's `lv_timer_handler()`
+render incrementally instead of calling `lv_refr_now()` looks like it would free the loop,
+but LVGL 8 processes the whole invalid-area list within a single refresh call, so the 109 ms
+block would remain. Unverified, but the mechanism argues against it.
+
+### Recommendation
+
+Only pursue this if 1.9 fps or the IMU drop actually becomes annoying in use. If it does,
+**measure the TTFB/transfer split first** - ten lines, one flash - and let that number decide
+whether the 150-200 line rewrite is justified.
