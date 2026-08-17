@@ -22,6 +22,7 @@
 #include "src/imu/imu_module.h"
 #include "src/net/net_module.h"
 #include "src/screen_memory/screen_memory.h"
+#include "src/video/video_stream.h"
 
 
 // QMI8658 Register Addresses
@@ -2205,6 +2206,17 @@ void setup() {
   };
   imageFetcherInit(imageCfg);
 
+  // Phase 1 spike: live video measurement burst, triggered by the New button.
+  // Shares Screen2 with the still images. See doc/live_video_feed_port.md.
+  VideoStreamConfig videoCfg{
+    screenWidth,
+    screenHeight,
+    ui_Screen1,
+    ui_Screen2,
+    ui_imgScreen2Background
+  };
+  videoStreamInit(videoCfg);
+
   NetTopics netTopics{
     MQTT_IMAGE_TOPIC,
     HILO_POWER,
@@ -2333,6 +2345,9 @@ void loop() {
 
   // --- Task 3: Process HTTP response if in progress
   imageFetcherLoop();
+
+  // Phase 1 spike: drives the video measurement burst
+  videoStreamLoop();
 
   // --- Task 4b: Screen Memory Update (30s debounce for NVS save) ---
   screenMemoryUpdate();

@@ -12,6 +12,7 @@
 #include "secrets.h"
 #endif
 #include "ui.h"
+#include "../video/video_stream.h"  // Phase 1 spike: burst trigger + stand-down guard
 extern lv_obj_t* ui_previous_screen;
 
 namespace {
@@ -217,6 +218,11 @@ static void prepareForRequest() {
 
 //***************************************************************************************************
 void imageFetcherLoop() {
+  // Stand down entirely while the video burst runs. It shares Screen2, so the
+  // timeout checks in this function would otherwise act on a screen this module
+  // does not currently own.
+  if (videoStreamActive()) return;
+
   // Handle asynchronous request triggering
   if (pendingEndpoint != nullptr) {
     const char* endpoint = pendingEndpoint;
@@ -509,6 +515,15 @@ static void processHTTPResponse() {
 
 //***************************************************************************************************
 bool requestLatestImage(bool fromNotification) {
+  // Stand down while the video burst owns the screen. This is reached straight
+  // from the MQTT callback, so without this guard a push arriving mid-burst runs
+  // prepareForRequest() -> cleanup and frees buffers the video module is still
+  // rendering from. That reset the board on the home panel.
+  if (videoStreamActive()) {
+    USBSerial.println("Video burst active, ignoring image request");
+    return false;
+  }
+
   // See NOTIFICATION_ECHO_WINDOW_MS. Only the MQTT path passes fromNotification = true; a
   // button press always requests, however recently the last image landed.
   if (fromNotification && lastImageLoadedTime != 0 &&
@@ -543,9 +558,14 @@ void buttonLatest_event_handler(lv_event_t* e) {
 //***************************************************************************************************
 void buttonNew_event_handler(lv_event_t* e) {
   if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-    USBSerial.println("New button clicked, initiating async request...");
-    prepareForRequest();
-    pendingEndpoint = "new";
+    // PHASE 1 SPIKE: this button is temporarily the video measurement trigger.
+    // Restore the two commented lines below to get "new" capture back.
+    USBSerial.println("New button clicked -> starting video measurement burst");
+    videoStreamStart();
+
+    // Normal behaviour:
+    // prepareForRequest();
+    // pendingEndpoint = "new";
   }
 }
 
