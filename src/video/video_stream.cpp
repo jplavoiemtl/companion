@@ -62,6 +62,12 @@ VideoStreamConfig cfg{};
 //
 // This is a real constraint on the port, not a workaround: Phase 2's prefetching
 // client must share the same TLS client rather than open its own.
+//
+// The HTTPClient itself is cheap in RAM, so it IS a module global - it has to be,
+// because keep-alive only works if the same instance persists across frames.
+// Measured: with a fresh handshake per frame, http was 906 ms over cellular and
+// dominated 84% of the frame time.
+HTTPClient httpClient;
 
 // True while the first half of the burst is running.
 inline bool rotateInDecode() { return frames < FRAMES_PER_VARIANT; }
@@ -105,8 +111,6 @@ static bool fetchFrame(uint32_t* httpUs) {
     return false;
   }
 
-  // HTTPClient itself is cheap, so a local one is fine.
-  HTTPClient httpClient;
   WiFiClientSecure& httpsClient = *secure;
 
   // The companion runs on a phone hotspot, so it always uses the remote HTTPS
@@ -118,6 +122,11 @@ static bool fetchFrame(uint32_t* httpUs) {
              + "&token=" + String(API_TOKEN);
 
   const uint32_t heapBefore = ESP.getFreeHeap();
+
+  // Keep the TLS session open between frames. Must be set before begin(), which
+  // latches the flag. This is the single biggest win available: a handshake per
+  // frame cost 906 ms over cellular.
+  httpClient.setReuse(true);
 
   httpsClient.setCACert(remote_server_ca_cert);
   if (!httpClient.begin(httpsClient, url)) {
@@ -213,9 +222,13 @@ static bool decodeFrame(bool rotate, uint32_t* decodeUs) {
     return false;
   }
 
-  // Rotation swaps the output dimensions.
-  frameW = rotate ? static_cast<uint16_t>(info.height) : static_cast<uint16_t>(info.width);
-  frameH = rotate ? static_cast<uint16_t>(info.width)  : static_cast<uint16_t>(info.height);
+  // Use the reported dimensions as-is. ESP32_JPEG already accounts for rotation
+  // in out_info, so a 640x360 source decoded with JPEG_ROTATE_90D reports
+  // 360x640. Swapping them here as well double-swapped the descriptor: LVGL was
+  // told 640x360 while the buffer held 360x640, which rendered as an
+  // unrecognisable image with wrong colours.
+  frameW = static_cast<uint16_t>(info.width);
+  frameH = static_cast<uint16_t>(info.height);
 
   size_t needed = static_cast<size_t>(info.width) * info.height * sizeof(uint16_t);
   needed = (needed + 15u) & ~static_cast<size_t>(15u);
@@ -380,6 +393,11 @@ void videoStreamStop() {
 
   printSummary();
   active = false;
+
+  // Release the kept-alive connection now that the burst is over, so the shared
+  // TLS client is idle again for the still-image path.
+  httpClient.setReuse(false);
+  httpClient.end();
 
   if (cfg.imgVideoBackground) {
     lv_obj_set_style_opa(cfg.imgVideoBackground, LV_OPA_TRANSP, LV_PART_MAIN);
