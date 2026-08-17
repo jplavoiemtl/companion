@@ -2126,6 +2126,13 @@ void finalizeSetup() {
 void setup() {
   USBSerial.begin(115200);
 
+  // Boot banner. The CPU frequency is logged deliberately: the profile changed
+  // from 80 to 240 MHz for the live video feed, and this is how you confirm the
+  // running firmware actually has it rather than assuming it built and flashed.
+  delay(200);  // let USB CDC attach so the banner is not lost
+  USBSerial.printf("\n=== Companion boot === CPU %u MHz | heap %u | PSRAM %u\n",
+                   getCpuFrequencyMhz(), ESP.getFreeHeap(), ESP.getFreePsram());
+
   // delay(3000); // Allow time for Serial to initialize and see debug messages
   i2c_mutex = xSemaphoreCreateRecursiveMutex();
 
