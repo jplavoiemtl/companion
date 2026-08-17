@@ -30,3 +30,6 @@ sketch.yaml
 *.tmp
 *.bak
 *.swp
+
+# Python bytecode (e.g. from syntax-checking doc/proxy/app.py)
+__pycache__/
