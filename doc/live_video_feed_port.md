@@ -285,7 +285,34 @@ generous. Per-frame requests fight that design.
 Both live in `app.py` at `/home/pi/appjpl/esp32-proxy/app.py`, mounted read-only into the
 container.
 
-### Resolving it
+### Resolving it — done
+
+The updated proxy is version-controlled at `doc/proxy/app.py`. It previously existed only
+on the Pi at `/home/pi/appjpl/esp32-proxy/app.py`.
+
+Four changes, keeping the existing structure and per-endpoint style:
+
+1. **`/esp32/live` route added**, forwarding only `height` and `quality` through to
+   Node-RED, which clamps them.
+2. **`RATE_LIMIT_LIVE`** (env var, default 400/minute) separate from the stills' 10/minute.
+   3 fps is 180/minute sustained; 400 covers the panel running faster than expected or two
+   sessions overlapping in the sliding window, while still bounding the endpoint.
+3. **Separate rate-limit bucket.** `request_counts` is now keyed by `(ip, bucket)`. Without
+   this the live traffic and the still endpoints shared one per-IP allowance, so a minute of
+   video would lock out the Latest and Back buttons. **This was the subtle part** — a higher
+   limit alone would not have fixed it.
+4. **Per-request logging suppressed for the live bucket.** At a few frames per second the
+   existing INFO lines would produce hundreds of entries a minute and bury everything else.
+   Failures are still logged.
+
+`require_token` now works both bare and with arguments, so the six existing endpoints are
+untouched.
+
+Verified: the file compiles, and the shipped `check_rate_limit` was exercised directly —
+the default bucket blocks at 10 while the live bucket remains available, confirming the
+separation.
+
+### If the proxy could not be changed
 
 `app.py` needs changing either way, since the path must be whitelisted. While there:
 
