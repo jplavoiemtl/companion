@@ -2117,7 +2117,12 @@ void finalizeSetup() {
     // Set initial activity timestamp
     lastActivityTime = millis();
     
-    USBSerial.println("--- Setup complete, entering loop ---\n");
+    // Repeat the boot banner here. The one at the top of setup() prints before
+    // USB CDC has attached, so it is invisible unless the monitor was already
+    // open across a reset. This copy lands after WiFi and MQTT are up, which is
+    // when the monitor is realistically watching.
+    USBSerial.printf("--- Setup complete: CPU %u MHz | heap %u | PSRAM %u ---\n\n",
+                     getCpuFrequencyMhz(), ESP.getFreeHeap(), ESP.getFreePsram());
 }
 
 
