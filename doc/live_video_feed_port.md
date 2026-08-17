@@ -35,14 +35,14 @@ Four things make it fast enough:
 | Board | JC3248W535EN | Waveshare AMOLED 1.8" (SH8601) | — |
 | Display stack | `esp_bsp` + `lv_port` | `Arduino_GFX` + `my_disp_flush` | Rewrite blit integration |
 | Resolution | 480×320 landscape | 368×448 portrait | New geometry |
-| CPU clock | 240 MHz | **80 MHz → changing to 240** | Decision made, see below |
+| CPU clock | 240 MHz | **240 MHz** (was 80, changed in Phase 0) | Done |
 | ESP32 core | 3.0.2 | 3.1.3 | Probably none |
 | LVGL | 8.4.0 | 8.4.0 | None |
 | `LV_COLOR_16_SWAP` | 1 | **0** | **Decoder output must be LE, not BE** |
 | `LV_MEM_CUSTOM` | 1 (malloc) | 0 (LVGL static heap) | Watch LVGL heap headroom |
 | LVGL draw buffer | Full screen, PSRAM | **1/10 screen, internal RAM** | Likely faster |
 | Image orientation | Fixed `ROT_90`, toggling corrupts | **Toggled: `ROT_90` UI, `ROT_NONE` image** | Central design question |
-| JPEG decoder | ESP32_JPEG + TJpg | **TJpg only** | Must add ESP32_JPEG |
+| JPEG decoder | ESP32_JPEG + TJpg | ESP32_JPEG + TJpg (added in Phase 0) | Done |
 | Flashing | OTA (ElegantOTA) | **USB only** | Slower iteration |
 | Motion/button split | Had to be added | **Already exists** | Head start |
 | Screen power module | Yes (night dimming) | No | One less interaction |
@@ -181,14 +181,96 @@ buffers the video module is still rendering from. **This reset the home panel's 
 Two guards are needed: an early return in `requestLatestImage()`, and an early return in
 `imageFetcherLoop()` because the two modules share Screen2.
 
+## Blocking issue: the companion cannot reach Frigate
+
+**Found after Phase 0, from a serial log.** The port plan assumed a LAN path to Frigate
+that does not exist on this board.
+
+`secrets_private.h` contains `#define CAR`, described in the header as *"Car module: ONLY
+uses iPhone (both ssid1 and ssid2 = iPhone)"*. In practice the companion runs on a phone
+hotspot:
+
+```text
+Attempting to connect to primary network: iphone-jp
+IP: 172.20.10.2
+Initiating HTTPS GET: https://<remote-image-server>/esp32/latest?token=***
+```
+
+It is on `172.20.10.x`, not the home LAN, and fetches images through the remote HTTPS
+server over the internet. **Frigate is LAN-only at `<frigate-host>:5000` with no
+authentication, so the companion cannot reach it.**
+
+Both LAN services are confirmed up and mutually reachable — Node-RED and Frigate each
+return HTTP 200 from a machine on the home LAN, and they are on the same subnet.
+
+### Options
+
+**A1 — proxy Frigate through Node-RED.** Add an endpoint alongside the existing
+`/esp32/latest`, which fetches from Frigate and returns the JPEG. Reuses the proven TLS
+and token path with **no reverse-proxy reconfiguration**. Cost: Node-RED sits in the
+per-frame path, so at 10 fps it handles 10 proxied requests per second while also running
+the house automation.
+
+**A2 — reverse-proxy route straight to Frigate.** Fewer hops and Node-RED stays out of it,
+which is architecturally better for a video stream. Requires reverse-proxy configuration,
+and the proxy must enforce authentication because Frigate's port 5000 has none.
+
+**B — reduce the frame rate for the cellular case.** Independent of A1/A2 and probably
+wanted regardless. Data cost per view:
+
+| Rate | Duration | Frame size | Data per view |
+|------|----------|------------|---------------|
+| 10 fps | 60 s | 20.5 KB | **12.3 MB** |
+| 3 fps | 60 s | 20.5 KB | 3.7 MB |
+| 3 fps | 60 s | 12 KB (q=30) | **2.2 MB** |
+| 2 fps | 30 s | 12 KB (q=30) | 0.7 MB |
+
+12 MB of cellular data per button press is hard to justify. At 3 fps you can still see who
+is at the door, and the use case here — checking the front door while away from home —
+does not need smooth motion. A lower rate is arguably a *better* fit for this board than
+the home panel's 10 fps.
+
+**C — only enable the feed on the home LAN.** Simple and honest, but with `#define CAR`
+the board is essentially never on the home network, so the feature would almost never be
+available. Rejected unless the network situation changes.
+
+### Additional considerations for a remote path
+
+- **Latency** rises substantially over the internet. Prefetch exists precisely to hide
+  latency, so this should absorb better than it sounds.
+- **TLS per frame.** The connection is kept alive so there is no repeated handshake, only
+  record encryption, and the ESP32-S3 has hardware AES. Needs measuring, not assuming.
+- **`MAX_JPEG_SIZE` is already 128000** here, comfortably above any frame size considered.
+
 ## Phased plan
 
 Same approach that worked on the home panel: **measure before building.**
 
-### Phase 0 — toolchain
+### Phase 0 — toolchain — COMPLETE
 
-Change the CPU clock, add ESP32_JPEG, confirm the project still builds and the existing
-features still work. No video code yet.
+Changed the CPU clock, added ESP32_JPEG, confirmed the project still builds and the
+existing features still work. No video code.
+
+**Verified on hardware at 240 MHz:**
+
+```text
+Sampling freq: 50.00 Hz | CPU 240 MHz | heap 98680 | PSRAM 8373372
+```
+
+- All screens work: images, G-meter, inclinometer
+- Image buttons work end to end (35 KB fetch, decode, display, 2.2 s of a 20 s budget)
+- IMU sampling is *better* at 240 MHz — around 47-50 Hz, up from before
+- Power draw is higher as expected, board otherwise fine
+- No I2C errors
+
+**Memory baseline for the video work:** 8.37 MB PSRAM free, 98 KB internal heap free.
+PSRAM is ample; internal heap is tighter than the home panel's ~180 KB, so **video buffers
+must go in PSRAM**, which is where they belong anyway.
+
+**Serial visibility.** The boot banner is impractical to catch on this board: USB CDC
+attaches after it prints and the battery means the board is usually already running before
+the monitor opens. The clock, heap and PSRAM therefore ride along on the periodic
+`Sampling freq:` line so they can be read at any time.
 
 ### Phase 1 — measurement spike
 
