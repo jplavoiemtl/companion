@@ -493,7 +493,7 @@ Frame period becomes roughly `max(http, decode+blit)` plus overhead. With http a
 is reachable, and the network is the limit rather than the panel. Lowering quality
 from 25 to 15 would trim ~60 ms of transfer if more headroom is needed.
 
-## Phase 2 results — the feature, measured
+## Phase 2 results — COMPLETE, both paths measured
 
 Full 60 second feed from the camera button:
 
@@ -522,6 +522,30 @@ Practical consequence: internal heap sits at ~94 KB idle and ~50 KB with a TLS
 session open, and the largest contiguous block is ~32 KB. That is why only one
 `WiFiClientSecure` fits, and it is worth remembering before adding anything else
 that wants a large contiguous allocation.
+
+### Motion chain verified
+
+```text
+Initiating HTTPS GET: .../esp32/latest?token=***
+Image download complete (34328 bytes, 1131 ms since button press)
+LVGL image source updated. Total 1268 ms from button press
+... ~10 s ...
+Motion still shown, starting live feed
+Video: 127 frames in 60.4s (2.1 fps) | http 315 | decode 46 | blit 109 | frame 475 ms
+```
+
+The still appears, holds 10 seconds, hands over to the feed, and the panel returns
+to the previous screen after 60 seconds.
+
+**The chained feed runs slightly faster** than the button-triggered one - 2.1 fps
+with http at 315 ms, against 1.9 fps and 352 ms - because the still fetch has
+already warmed the TLS session, so the feed's first frame skips the handshake.
+
+**329 KB more PSRAM is held during a chained feed** (7.52 MB free versus 7.85 MB).
+That is image_fetcher's still buffer, 368x448x2 = 329,728 bytes, still allocated
+because the chain goes still to video with no cleanup in between. Released on
+Screen 2 unload. Harmless against 7.5 MB free, and the same behaviour the home
+panel has.
 
 ### Accepted trade-off
 
