@@ -76,12 +76,33 @@ static bool decodeFrame(uint32_t* decodeUs);
 static void displayFrame(uint32_t* blitUs);
 static void printSummary();
 static void returnHome();
+static void screenVideo_event_handler(lv_event_t* e);
 
 //***************************************************************************************************
 void videoStreamInit(const VideoStreamConfig& config) {
   cfg = config;
   active = false;
   memset(&imgDsc, 0, sizeof(imgDsc));
+
+  // Leaving the screen must stop the feed. Without this the feed kept running
+  // after the user navigated away, and displayFrame() went on forcing
+  // LV_DISP_ROT_NONE, so Screen 1 appeared rotated 90 degrees until the feed's
+  // 60 seconds expired and returnHome() restored ROT_90.
+  if (cfg.screenVideo) {
+    lv_obj_add_event_cb(cfg.screenVideo, screenVideo_event_handler,
+                        LV_EVENT_SCREEN_UNLOAD_START, NULL);
+  }
+}
+
+//***************************************************************************************************
+// Any departure from the video screen ends the feed - the back button, or
+// anything else that changes screens.
+static void screenVideo_event_handler(lv_event_t* e) {
+  if (lv_event_get_code(e) != LV_EVENT_SCREEN_UNLOAD_START) return;
+  if (active) {
+    USBSerial.println("Video: screen left, stopping feed");
+    videoStreamStop();
+  }
 }
 
 //***************************************************************************************************
@@ -268,6 +289,13 @@ static bool decodeFrame(uint32_t* decodeUs) {
 // lv_pct(100), and setting an explicit pixel size converts it to fixed sizing,
 // which caused a white flash on the home panel.
 static void displayFrame(uint32_t* blitUs) {
+  // Never touch the display while another screen owns it. Forcing rotation from
+  // here after the user had navigated away is what left Screen 1 sideways.
+  if (cfg.screenVideo && lv_scr_act() != cfg.screenVideo) {
+    *blitUs = 0;
+    return;
+  }
+
   // The frame is already rotated by the decoder, so the display stays at
   // ROT_NONE - the same orientation the still images use.
   lv_disp_t* disp = lv_disp_get_default();
@@ -397,12 +425,27 @@ void videoStreamLoop() {
     return;
   }
 
+  // Let LVGL run between the blocking stages. The touch controller is only
+  // sampled inside lv_timer_handler(), and the fetch above blocks for ~350 ms,
+  // so with one call per frame a quick tap on the back button could land
+  // entirely inside a blocking section and never be seen. Servicing LVGL here
+  // and after the decode gives three sampling opportunities per frame instead of
+  // one.
+  //
+  // A tap may change screens, which fires screenVideo_event_handler and stops
+  // the feed - hence the active check before continuing.
+  lv_timer_handler();
+  if (!active) return;
+
   if (!decodeFrame(&decodeUs)) {
     USBSerial.println("Video: decode failed, stopping");
     videoStreamStop();
     returnHome();
     return;
   }
+
+  lv_timer_handler();
+  if (!active) return;
 
   displayFrame(&blitUs);
 
