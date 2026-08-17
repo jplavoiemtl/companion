@@ -421,7 +421,7 @@ proves awkward:
 - Reduce fragmentation by moving the 33 KB LVGL draw buffer to PSRAM. Rejected:
   it would slow the blit, which is the thing being optimised.
 
-## Phase 1 results — measured on hardware
+## Phase 1 results — COMPLETE, measured on hardware
 
 Both orientation variants working, 15 frames each in one burst.
 
@@ -435,7 +435,12 @@ Both orientation variants working, 15 frames each in one burst.
 | rate | 1.9 fps | 1.9 fps |
 
 **Orientation:** A needs `JPEG_ROTATE_270D`, not `90D`. At 90D the image came out
-upside down for this panel. B renders correctly as-is.
+upside down for this panel. **Confirmed correct with 270D on a second run**, which
+also reproduced the timings within noise (decode+blit 155.3 vs 156.0 ms). B renders
+correctly as-is.
+
+**Variant A is the decision.** Correct orientation, 15 ms cheaper, and displays at
+`ROT_NONE` like the still images already do.
 
 **Keep-alive is worth 550 ms per frame.** Before it, every frame opened a fresh TLS
 connection and `http` measured 906 ms. With `setReuse(true)` and a persistent
