@@ -304,10 +304,13 @@ void readImuData() {
     }
      
     USBSerial.println(payload);
-    USBSerial.print("Sampling freq: ");
-    USBSerial.print(sampling_frequency);
-    USBSerial.println(" Hz"); 
-    USBSerial.println();
+    // CPU frequency, heap and PSRAM ride along on this line so they can be read
+    // at any time. The boot banner is easy to miss on this board: USB CDC
+    // attaches after the banner prints, and the battery means it is often
+    // already running before the monitor is opened.
+    USBSerial.printf("Sampling freq: %.2f Hz | CPU %u MHz | heap %u | PSRAM %u\n\n",
+                     sampling_frequency, getCpuFrequencyMhz(),
+                     ESP.getFreeHeap(), ESP.getFreePsram());
  
     // Reset peak changes for next cycle
     peakAccelChange = 0;
