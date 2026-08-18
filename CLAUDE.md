@@ -121,7 +121,9 @@ companion (cellular) -> Synology :9835 -> esp32-image-proxy (Pi:5000) -> Node-RE
 pieces, version-controlled here because they otherwise exist only on the Pi.
 
 **Triggers.** The Screen1 camera button starts a 60 second feed. An MQTT motion push shows
-the still for 10 seconds and then starts the same feed. Latest and Back are unchanged.
+the still for 1 second and then starts the same feed. Latest and Back are unchanged.
+The still is deliberately brief - the frame is archived by Node-RED and remains available
+via Latest, so time spent on it is live action missed.
 
 **Performance.** ~1.9-2.1 fps. `decode` 46 ms, `blit` 109 ms, `http` 315-352 ms - the
 cellular round trip dominates, so the network is the limit, not the board. The 155 ms of

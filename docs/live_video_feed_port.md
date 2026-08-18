@@ -6,7 +6,7 @@ Port the live camera feed feature from the `home_panel` project to the companion
 
 The home panel version is finished and in production: the Screen1 camera button shows a
 live view of the entrance camera at **9.6 fps**, and a motion-detection event shows the
-captured still for 10 seconds before rolling into a 60 second live feed. See
+captured still for 1 second before rolling into a 60 second live feed. See
 `home_panel/doc/live_video_feed.md` for the full design, six measurement runs, and two
 approaches that were measured and rejected.
 
@@ -534,8 +534,9 @@ Motion still shown, starting live feed
 Video: 127 frames in 60.4s (2.1 fps) | http 315 | decode 46 | blit 109 | frame 475 ms
 ```
 
-The still appears, holds 10 seconds, hands over to the feed, and the panel returns
-to the previous screen after 60 seconds.
+The still appears, holds its display time, hands over to the feed, and the panel returns
+to the previous screen after 60 seconds. (This run was made when the still lasted 10
+seconds; it was later shortened to 1 second - see below.)
 
 **The chained feed runs slightly faster** than the button-triggered one - 2.1 fps
 with http at 315 ms, against 1.9 fps and 352 ms - because the still fetch has
@@ -662,6 +663,24 @@ because that project hit the same class of problem during development. The port 
 *logic* across faithfully but not the *defensive* parts - and the defensive parts are
 precisely the ones earned by earlier failures. Worth checking explicitly against the source
 project when porting anything else.
+
+## Still duration shortened to 1 second
+
+Changed in use, matching the home panel. The motion still was 10 seconds; it is now 1.
+
+The still only needs to signal that something was detected. The captured frame is archived
+by Node-RED regardless and stays available through the Latest button, so every extra second
+spent showing it is a second of live action missed - and the live action is the part that
+cannot be replayed.
+
+Motion cycle is now roughly 61 seconds rather than 70: still 1 s, feed 60 s, then back.
+
+**Consequence:** cancelling the handover by pressing back during the still is no longer
+practical at 1 second, so a motion event will essentially always roll into the feed. Exiting
+the feed itself still works and is the way to stop it.
+
+Note this is unrelated to `NOTIFICATION_ECHO_WINDOW_MS`, which is also 10 seconds and
+unchanged. That one suppresses the image server's notification echoing back after a fetch.
 
 ## Appendix: prefetch analysis (not implemented)
 

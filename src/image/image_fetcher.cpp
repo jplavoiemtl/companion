@@ -50,7 +50,11 @@ constexpr unsigned long SCREEN2_LOADING_TIMEOUT = 20000;  // 20 seconds
 constexpr unsigned long SCREEN2_DISPLAY_TIMEOUT = 60000;  // 1 minute (button-triggered)
 // Motion path: show the still briefly, then hand over to the live feed. A still
 // says something happened; the feed says what is happening now.
-constexpr unsigned long MOTION_STILL_TIMEOUT = 10000;    // 10 s
+// Deliberately brief: the still only needs to signal that something was detected.
+// The captured frame is archived by Node-RED regardless, so it stays available via
+// the Latest button - every extra second here is a second of live action missed.
+// Not to be confused with NOTIFICATION_ECHO_WINDOW_MS below, which is unrelated.
+constexpr unsigned long MOTION_STILL_TIMEOUT = 1000;     // 1 s
 
 // --- Notification echo suppression ---
 // The image server publishes "latest" on the MQTT image topic once it has served /esp32/new,
@@ -643,7 +647,7 @@ void screen2_event_handler(lv_event_t* e) {
     screen2TimeoutActive = false;
     imageDisplayTimeoutActive = false;
     // Leaving the screen cancels a pending motion handover, so the back button
-    // during the 10 second still exits without starting the feed.
+    // during the brief motion still exits without starting the feed.
     motionTriggered = false;
     if (cfg.imgScreen2Background) {
       lv_obj_set_style_opa(cfg.imgScreen2Background, LV_OPA_TRANSP, LV_PART_MAIN);

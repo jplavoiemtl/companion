@@ -15,7 +15,7 @@
 //
 // Behaviour:
 // - The Screen1 camera button starts a 60 second feed on Screen2
-// - A motion push over MQTT shows the still for 10 seconds, then the same feed
+// - A motion push over MQTT shows the still for 1 second, then the same feed
 // - When the 60 seconds elapse the panel returns to the previous screen
 // - Still-image requests are ignored while the feed is running
 //
