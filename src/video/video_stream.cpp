@@ -234,6 +234,8 @@ static bool fetchFrame(uint32_t* httpUs) {
   // Match the timeouts the image fetcher uses on this same host and certificate,
   // since that path is known to work. The handshake timeout in particular was
   // missing here, and its default is very different.
+  if (!HEAP_CHECK("http begin")) return false;
+
   httpClient.setTimeout(8000);          // socket
   httpClient.setConnectTimeout(5000);   // TCP connect
   httpsClient.setHandshakeTimeout(5);   // seconds, per the setter's units
@@ -255,6 +257,8 @@ static bool fetchFrame(uint32_t* httpUs) {
     return false;
   }
 
+  if (!HEAP_CHECK("http GET")) { httpClient.end(); return false; }
+
   const int len = httpClient.getSize();
   if (len <= 0 || len > static_cast<int>(MAX_FRAME_BYTES)) {
     USBSerial.printf("Video: bad Content-Length: %d\n", len);
@@ -275,7 +279,11 @@ static bool fetchFrame(uint32_t* httpUs) {
       yield();
     }
   }
+  if (!HEAP_CHECK("body read")) { httpClient.end(); return false; }
+
   httpClient.end();
+
+  if (!HEAP_CHECK("http end")) return false;
 
   if (got < static_cast<size_t>(len)) {
     USBSerial.printf("Video: short read: %u of %d\n", got, len);
