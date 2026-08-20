@@ -36,6 +36,24 @@ constexpr unsigned long VIDEO_DURATION_MS = 60000;          // feed length
 // the visible area, so surplus pixels are never read.
 constexpr uint16_t REQ_HEIGHT = 392;                        // 696x392 from Frigate
 constexpr uint8_t  REQ_QUALITY = 25;
+
+// Horizontal pan of the visible window, in pixels, as the viewer sees it.
+//
+// The frame is 392x696 against a 368x448 panel, so 248 px - about a third of the
+// camera's width - is cropped away. Centred, that is 124 px lost from each side.
+// This shifts which slice is kept, to favour one side of the scene.
+//
+// It is offY that pans horizontally, not offX: the decoder rotates the frame
+// 270 degrees, so the camera's wide axis becomes the frame's tall axis. offX
+// moves the image up and down and has only 24 px of travel.
+//
+//    0   centred, 124 px lost each side
+//  124   hard against one side, showing everything the camera sees there
+// -124   hard against the other side
+//
+// The sign that favours the door was not derived - flip it if the pan goes the
+// wrong way. Values beyond +/-124 are clamped and simply do nothing.
+constexpr int PAN_X = 124;
 constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~23 KB
 constexpr uint32_t HTTP_TIMEOUT_MS = 15000;
 
@@ -273,10 +291,11 @@ static bool decodeFrame(uint32_t* decodeUs) {
   if (frameW != loggedW || frameH != loggedH) {
     loggedW = frameW;
     loggedH = frameH;
-    USBSerial.printf("Video: frame %ux%u, panel %ux%u -> gap x=%d y=%d\n",
+    USBSerial.printf("Video: frame %ux%u, panel %ux%u -> gap x=%d y=%d, pan %d\n",
                      frameW, frameH, cfg.screenWidth, cfg.screenHeight,
                      static_cast<int>(cfg.screenWidth) - static_cast<int>(frameW),
-                     static_cast<int>(cfg.screenHeight) - static_cast<int>(frameH));
+                     static_cast<int>(cfg.screenHeight) - static_cast<int>(frameH),
+                     PAN_X);
   }
 
   size_t needed = static_cast<size_t>(info.width) * info.height * sizeof(uint16_t);
@@ -350,7 +369,18 @@ static void displayFrame(uint32_t* blitUs) {
   const int visibleH = cfg.screenHeight;
 
   const int offX = (frameW > visibleW) ? -((frameW - visibleW) / 2) : 0;
-  const int offY = (frameH > visibleH) ? -((frameH - visibleH) / 2) : 0;
+
+  // Centre the vertical crop, then apply the pan and clamp. The clamp is what
+  // makes PAN_X safe to edit: offY may never go positive or past the bottom of
+  // the frame, either of which would leave part of the widget unpainted and
+  // bring back the uncovered strip.
+  int offY = 0;
+  if (frameH > visibleH) {
+    const int minOff = -(static_cast<int>(frameH) - visibleH);   // -248 at 392x696
+    offY = minOff / 2 + PAN_X;
+    if (offY > 0) offY = 0;
+    if (offY < minOff) offY = minOff;
+  }
   lv_img_set_offset_x(cfg.imgVideoBackground, offX);
   lv_img_set_offset_y(cfg.imgVideoBackground, offY);
 

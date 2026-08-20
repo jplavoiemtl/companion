@@ -736,6 +736,32 @@ mapping and a masked blend instead of a full-cover copy. That multiplies the bli
 the largest local cost at 109 ms. Scaling upstream at Frigate is the cheap direction; the
 board should only ever crop.
 
+## Panning the crop
+
+Covering the panel from a 16:9 source means discarding 248 px of the 696 - about a third
+of the camera's width, 124 px from each side when centred. That is why the feed looks
+zoomed in compared with the full camera view.
+
+`PAN_X` in `video_stream.cpp` shifts which slice is kept, so one side of the scene can be
+favoured - the door frame, for instance. It is free: cropping selects which pixels are
+read, so panning changes nothing about decode, blit, or bytes.
+
+| `PAN_X` | `offY` | frame rows kept |
+|---------|--------|-----------------|
+| 124     | 0      | 0-447           |
+| 0       | -124   | 124-571         |
+| -124    | -248   | 248-695         |
+
+**It is `offY` that pans horizontally, not `offX`.** The decoder rotates the frame 270
+degrees, so the camera's wide axis becomes the frame's tall axis. `offX` moves the picture
+up and down in the viewer's frame of reference and has only 24 px of travel. The clue was
+that the original 8 px shortfall, which is on the frame's *width*, appeared as a
+*horizontal* band.
+
+The value is clamped to the frame, so `PAN_X` cannot be set to something that re-exposes
+the uncovered strip. Which sign favours the door was left to be settled on the bench
+rather than derived - rotation-direction reasoning on this board has been wrong before.
+
 ## Still duration shortened to 1 second
 
 Changed in use, matching the home panel. The motion still was 10 seconds; it is now 1.
