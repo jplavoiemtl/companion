@@ -34,7 +34,15 @@ constexpr unsigned long VIDEO_DURATION_MS = 60000;          // feed length
 // Cost is small: the JPEG grows ~4% (the cellular round trip dominates and
 // scales with bytes) and decode ~18%. The blit is unaffected - it is clipped to
 // the visible area, so surplus pixels are never read.
-constexpr uint16_t REQ_HEIGHT = 392;                        // 696x392 from Frigate
+// *** TEMPORARY CONTROL - was 392, see the heap corruption investigation ***
+// 360 is the known-stable value. It brings the 8 px strip back; that is expected
+// and is the price of the test. If the feed is stable at 360 the regression is
+// frame-size related; if it still crashes, the frame size is exonerated and
+// something else changed.
+//
+// Next candidate is 432 (768x432): unlike 696, 768 is a whole number of 16 px
+// MCU blocks, which 4:2:0 JPEG decodes on. 640 was aligned that way too.
+constexpr uint16_t REQ_HEIGHT = 360;                        // 640x360 from Frigate
 constexpr uint8_t  REQ_QUALITY = 25;
 
 // Horizontal pan of the visible window, in pixels, as the viewer sees it.
