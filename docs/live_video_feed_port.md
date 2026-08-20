@@ -352,10 +352,9 @@ frames and was roughly half the real figure:
 | 20 | 18.3 KB | 3.1 MB | **2.1 MB** |
 | 15 | 14.9 KB | 2.6 MB | 1.7 MB |
 
-`height=360` is not freely adjustable: 640x360 is the smallest size that both satisfies
-ESP32_JPEG's divisible-by-8 rotation constraint and still fills nearly the full 368 px
-screen width after a 90 degree rotation. Going smaller would letterbox the width. **So
-quality is the only real lever on data cost**, and both are runtime query parameters, so
+`height` is not freely adjustable - see "Closing the 8 px strip" below. It was 360 during
+these measurements and is now 392, which raises the figures in this table by about 4 %.
+**Quality is the main lever on data cost**, and both are runtime query parameters, so
 tuning needs no server change.
 
 At 368 px wide, JPEG artefacts at quality 20-25 are far less visible than they would be on
@@ -663,6 +662,57 @@ because that project hit the same class of problem during development. The port 
 *logic* across faithfully but not the *defensive* parts - and the defensive parts are
 precisely the ones earned by earlier failures. Worth checking explicitly against the source
 project when porting anything else.
+
+## Closing the 8 px strip
+
+The feed left a thin uncovered strip along one edge where the screen background showed
+through. Stills never did, because Node-RED pre-crops those to exactly 368x448.
+
+`height=360` returns 640x360, which the decoder rotates to 360x640 - **8 px narrower than
+the 368 px panel**. `displayFrame()` only crops, never pads, so `offX` stayed 0 and the
+rightmost 8 px of the widget were never painted. It reads as a horizontal band rather than
+a vertical strip because the feed forces `LV_DISP_ROT_NONE` while the UI runs at
+`LV_DISP_ROT_90`, so the display axes are swapped relative to the viewer.
+
+Confirmed on hardware by the geometry log:
+
+```text
+Video: frame 360x640, panel 368x448 -> gap x=8 y=-192
+```
+
+**The fix is `height=392`.** Frigate honours the height exactly and derives the width from
+the source aspect ratio, so 392 yields 696x392 -> rotated 392x696, covering the panel with
+12 px trimmed from each side by the existing `offX` logic.
+
+**`height=368` looks correct and is not.** It returns 654x368, and 654 % 8 != 0. The
+ESP32_JPEG header states rotation is supported only "under width % 8 == 0. height % 8 = 0
+conditions ... otherwise unsupported", so 368 would disable the rotation. Measured against
+the live server:
+
+| height | Frigate returns | width % 8 | rotated frame | gap x | usable |
+|--------|-----------------|-----------|---------------|-------|--------|
+| 360    | 640x360         | 0         | 360x640       | +8    | old, leaves the strip |
+| 368    | 654x368         | 6         | -             | 0     | no, breaks rotation |
+| 376    | 668x376         | 4         | -             | -8    | no, breaks rotation |
+| 384    | 682x384         | 2         | -             | -16   | no, breaks rotation |
+| **392**| **696x392**     | **0**     | **392x696**   | -24   | **yes, in use** |
+| 432    | 768x432         | 0         | 432x768       | -64   | yes, but 44 % more pixels |
+
+Any future change to this value must be re-checked against the divisible-by-8 rule for
+**both** returned dimensions, not just the requested height.
+
+**Cost.** JPEG grows ~4 % (22.4 -> 23.3 KB), decode ~18 %. The blit is unaffected:
+`lv_draw_sw_blend` clips to the visible area, so surplus pixels are never read. Roughly
++21 ms on a ~500 ms frame.
+
+**Rejected: `lv_img_set_zoom` to scale the 360 px frame up on the board.** Superficially
+free - no extra bytes, no extra decode - but any zoom sets `transform = true` in
+`lv_draw_sw_img.c`, which leaves the bulk-copy fast path for the branch commented "every
+pixel need to be checked one-by-one". `MAX_BUF_SIZE` is the display width, so `buf_h`
+computes to 1 and the draw runs 448 single-line strips, each with per-pixel inverse
+mapping and a masked blend instead of a full-cover copy. That multiplies the blit, already
+the largest local cost at 109 ms. Scaling upstream at Frigate is the cheap direction; the
+board should only ever crop.
 
 ## Still duration shortened to 1 second
 

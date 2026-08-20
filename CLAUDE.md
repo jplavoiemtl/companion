@@ -125,7 +125,12 @@ the still for 1 second and then starts the same feed. Latest and Back are unchan
 The still is deliberately brief - the frame is archived by Node-RED and remains available
 via Latest, so time spent on it is live action missed.
 
-**Performance.** ~1.9-2.1 fps. `decode` 46 ms, `blit` 109 ms, `http` 315-352 ms - the
+**Frame size.** The feed requests `height=392`, giving 696x392 from Frigate, rotated to
+392x696 to cover the 368x448 panel. Do not "correct" this to 368: that returns 654x368,
+and ESP32_JPEG only rotates when both dimensions are multiples of 8, so it would silently
+break. Re-check that rule against the returned width before changing it.
+
+**Performance.** ~1.9-2.1 fps measured at `height=360`; 392 costs roughly 4 % more. `decode` 46 ms, `blit` 109 ms, `http` 315-352 ms - the
 cellular round trip dominates, so the network is the limit, not the board. The 155 ms of
 decode+blit puts the hard ceiling at 6.4 fps.
 

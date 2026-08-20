@@ -18,16 +18,26 @@ namespace {
 
 // --- Feed configuration ------------------------------------------------------
 constexpr unsigned long VIDEO_DURATION_MS = 60000;          // feed length
-constexpr uint16_t REQ_HEIGHT = 360;                        // 640x360 from Frigate
+// 392, not 360. Frigate honours this exactly and derives the width from the
+// source aspect ratio, so 392 yields 696x392, which the decoder rotates to
+// 392x696. That covers the 368x448 panel with 12 px trimmed from each side.
+//
+// 360 gave 640x360 -> 360x640, eight pixels narrower than the panel, leaving an
+// uncovered strip the screen background showed through along one edge.
+//
+// The obvious 368 does NOT work: it returns 654x368, and 654 % 8 != 0. The
+// ESP32_JPEG header states rotation is only supported when both dimensions are
+// multiples of 8, so 368 would silently disable it. 392 -> 696x392 satisfies
+// both. Verified against the server; do not change without re-checking the
+// returned width against that rule.
+//
+// Cost is small: the JPEG grows ~4% (the cellular round trip dominates and
+// scales with bytes) and decode ~18%. The blit is unaffected - it is clipped to
+// the visible area, so surplus pixels are never read.
+constexpr uint16_t REQ_HEIGHT = 392;                        // 696x392 from Frigate
 constexpr uint8_t  REQ_QUALITY = 25;
-constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~21 KB
+constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~23 KB
 constexpr uint32_t HTTP_TIMEOUT_MS = 15000;
-
-// 640x360 is the smallest size that both satisfies ESP32_JPEG's
-// divisible-by-8 rotation constraint and still nearly fills the 368 px screen
-// width after a 90 degree rotation.
-constexpr uint16_t SRC_W = 640;
-constexpr uint16_t SRC_H = 360;
 
 // --- State -------------------------------------------------------------------
 bool active = false;
