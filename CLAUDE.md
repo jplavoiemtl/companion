@@ -125,13 +125,21 @@ the still for 1 second and then starts the same feed. Latest and Back are unchan
 The still is deliberately brief - the frame is archived by Node-RED and remains available
 via Latest, so time spent on it is live action missed.
 
-**Frame size.** The feed requests `height=392`, giving 696x392 from Frigate, rotated to
-392x696 to cover the 368x448 panel. Do not "correct" this to 368: that returns 654x368,
-and ESP32_JPEG only rotates when both dimensions are multiples of 8, so it would silently
-break. Re-check that rule against the returned width before changing it.
+**Frame size.** The feed requests `height=432`, giving 768x432 from Frigate, rotated to
+432x768 to cover the 368x448 panel. **Two rules bind this value:**
 
-**Performance.** ~1.9-2.1 fps. Measured at `height=392`: `decode` 52 ms, `blit` 109 ms,
-`http` 309 ms, `frame` 477 ms. The cellular round trip dominates, so the network is the
+1. Both dimensions must be multiples of **8**, or ESP32_JPEG silently disables rotation.
+   This rules out 368, which returns 654x368.
+2. The source width must be a multiple of **16**. These JPEGs are 4:2:0, so the decoder
+   works on a 16x16 MCU grid. `height=392` gives a 696 px width - 43.5 MCUs - and the
+   board began corrupting the internal heap and panicking inside `tlsf_free` a few
+   seconds into every feed. 768 is 48 MCUs exactly.
+
+Height alignment does not matter: 360 and 392 both have unaligned heights and only 392
+crashed. Check **both** rules against the returned width before changing this.
+
+**Performance.** ~1.8 fps. Measured at `height=432`: `decode` 79 ms, `blit` 109 ms,
+`http` 362 ms, `frame` 558 ms. The cellular round trip dominates, so the network is the
 limit, not the board. The 161 ms of decode+blit puts the hard ceiling at 6.2 fps.
 
 `blit` does not scale with frame size - `lv_draw_sw_blend` clips to the visible area, so

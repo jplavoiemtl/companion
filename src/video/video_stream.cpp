@@ -117,7 +117,9 @@ uint32_t startUs = 0;
 //
 // Reports once and stops the feed, so the message reaches the serial monitor
 // before the WiFi task panics.
-#define VIDEO_HEAP_DEBUG 1
+// Set to 1 to re-enable if heap corruption is ever suspected again. Costs
+// roughly 8 ms per frame. Left in place because it earned its keep once.
+#define VIDEO_HEAP_DEBUG 0
 
 #if VIDEO_HEAP_DEBUG
 bool heapReported = false;
