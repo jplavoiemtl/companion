@@ -249,6 +249,26 @@ static bool decodeFrame(uint32_t* decodeUs) {
   frameW = static_cast<uint16_t>(info.width);
   frameH = static_cast<uint16_t>(info.height);
 
+  // Geometry report, to size the request against this panel. Frigate derives the
+  // width from the source aspect ratio and knows nothing about the screen, so the
+  // rotated frame can land narrower than the panel; that shortfall is the
+  // uncovered strip the background shows through. Positive gap means uncovered,
+  // negative means cropped away. Printed only when the dimensions change, so it
+  // costs one line per feed rather than one per frame.
+  //
+  // This sits inside the decode timing window, so whichever frame prints it
+  // reports an inflated decode time. Discard that frame when measuring fps.
+  static uint16_t loggedW = 0;
+  static uint16_t loggedH = 0;
+  if (frameW != loggedW || frameH != loggedH) {
+    loggedW = frameW;
+    loggedH = frameH;
+    USBSerial.printf("Video: frame %ux%u, panel %ux%u -> gap x=%d y=%d\n",
+                     frameW, frameH, cfg.screenWidth, cfg.screenHeight,
+                     static_cast<int>(cfg.screenWidth) - static_cast<int>(frameW),
+                     static_cast<int>(cfg.screenHeight) - static_cast<int>(frameH));
+  }
+
   size_t needed = static_cast<size_t>(info.width) * info.height * sizeof(uint16_t);
   needed = (needed + 15u) & ~static_cast<size_t>(15u);
   if (needed > decodeBufSize) {
