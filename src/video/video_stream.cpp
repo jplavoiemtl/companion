@@ -34,15 +34,26 @@ constexpr unsigned long VIDEO_DURATION_MS = 60000;          // feed length
 // Cost is small: the JPEG grows ~4% (the cellular round trip dominates and
 // scales with bytes) and decode ~18%. The blit is unaffected - it is clipped to
 // the visible area, so surplus pixels are never read.
-// *** TEMPORARY CONTROL - was 392, see the heap corruption investigation ***
-// 360 is the known-stable value. It brings the 8 px strip back; that is expected
-// and is the price of the test. If the feed is stable at 360 the regression is
-// frame-size related; if it still crashes, the frame size is exonerated and
-// something else changed.
+// 432 -> 768x432 from Frigate, rotated by the decoder to 432x768.
 //
-// Next candidate is 432 (768x432): unlike 696, 768 is a whole number of 16 px
-// MCU blocks, which 4:2:0 JPEG decodes on. 640 was aligned that way too.
-constexpr uint16_t REQ_HEIGHT = 360;                        // 640x360 from Frigate
+// TWO rules constrain this value, and missing the second one cost a day of
+// crash hunting:
+//
+//  1. Both dimensions must be multiples of 8, or ESP32_JPEG silently disables
+//     rotation ("Under width % 8 == 0. height % 8 = 0 conditions, rotation
+//     enabled. Otherwise unsupported" - esp_jpeg_dec.h).
+//
+//  2. The SOURCE WIDTH must be a multiple of 16. These JPEGs are 4:2:0, so the
+//     decoder works in 16x16 MCU blocks and pads the image up to that grid.
+//     392 gave a 696 px source width - 43.5 MCUs - and the board began dying
+//     inside tlsf_free a few seconds into every feed, with internal-heap block
+//     headers overwritten. 360 (640 px wide, 40 MCUs exactly) was stable, and
+//     reverting to it made the crashes stop. Height need not be aligned: both
+//     360 and 392 have unaligned heights and only 392 crashed.
+//
+// 768 is 48 MCUs exactly. Verified against the server; re-check BOTH rules
+// against the returned width before ever changing this.
+constexpr uint16_t REQ_HEIGHT = 432;                        // 768x432 from Frigate
 constexpr uint8_t  REQ_QUALITY = 25;
 
 // Horizontal pan of the visible window, in pixels, as the viewer sees it.
