@@ -48,12 +48,13 @@ constexpr uint8_t  REQ_QUALITY = 25;
 // moves the image up and down and has only 24 px of travel.
 //
 //    0   centred, 124 px lost each side
-//  124   hard against one side, showing everything the camera sees there
-// -124   hard against the other side
+// -124   hard against the door side - measured on the bench, this is the
+//        direction that reveals the door frame
+//  124   hard against the far side
 //
-// The sign that favours the door was not derived - flip it if the pan goes the
-// wrong way. Values beyond +/-124 are clamped and simply do nothing.
-constexpr int PAN_X = 124;
+// Values beyond +/-124 are clamped and simply do nothing. Reduce the magnitude
+// to trade some of the door view back for the far side.
+constexpr int PAN_X = -124;
 constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~23 KB
 constexpr uint32_t HTTP_TIMEOUT_MS = 15000;
 

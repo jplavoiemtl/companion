@@ -746,11 +746,11 @@ zoomed in compared with the full camera view.
 favoured - the door frame, for instance. It is free: cropping selects which pixels are
 read, so panning changes nothing about decode, blit, or bytes.
 
-| `PAN_X` | `offY` | frame rows kept |
-|---------|--------|-----------------|
-| 124     | 0      | 0-447           |
-| 0       | -124   | 124-571         |
-| -124    | -248   | 248-695         |
+| `PAN_X`  | `offY` | frame rows kept | view                        |
+|----------|--------|-----------------|-----------------------------|
+| 124      | 0      | 0-447           | hard against the far side   |
+| 0        | -124   | 124-571         | centred                     |
+| **-124** | -248   | 248-695         | **door side - in use**      |
 
 **It is `offY` that pans horizontally, not `offX`.** The decoder rotates the frame 270
 degrees, so the camera's wide axis becomes the frame's tall axis. `offX` moves the picture
@@ -759,8 +759,11 @@ that the original 8 px shortfall, which is on the frame's *width*, appeared as a
 *horizontal* band.
 
 The value is clamped to the frame, so `PAN_X` cannot be set to something that re-exposes
-the uncovered strip. Which sign favours the door was left to be settled on the bench
-rather than derived - rotation-direction reasoning on this board has been wrong before.
+the uncovered strip.
+
+Which sign favours the door was settled on the bench rather than derived: 124 panned away
+from it, so the value in use is **-124**. Reduce the magnitude to trade some of the door
+view back for the far side.
 
 ## Still duration shortened to 1 second
 
