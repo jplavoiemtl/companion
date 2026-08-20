@@ -84,6 +84,39 @@ uint32_t frames = 0;
 uint32_t lastFrameUs = 0;
 uint32_t startUs = 0;
 
+// --- Heap corruption diagnostic ----------------------------------------------
+// DIAGNOSTIC ONLY - set VIDEO_HEAP_DEBUG to 0 to remove.
+//
+// The feed dies after 10-20 s inside the WiFi task's own free(), with TLSF
+// following a corrupt free-list pointer (StoreProhibited at prev_free, block
+// pointer = garbage). The internal heap is therefore already damaged by the time
+// WiFi trips over it, so the crash site identifies the victim, not the culprit.
+//
+// These checks walk the internal heap at each stage boundary to find the first
+// moment it is damaged. The check is slow - it visits every block - but at ~2 fps
+// that is affordable, and it is far cheaper than guessing.
+//
+// Reports once and stops the feed, so the message reaches the serial monitor
+// before the WiFi task panics.
+#define VIDEO_HEAP_DEBUG 1
+
+#if VIDEO_HEAP_DEBUG
+bool heapReported = false;
+
+bool heapCheck(const char* where) {
+  if (heapReported) return true;                  // already reported, stop nagging
+  if (heap_caps_check_integrity(MALLOC_CAP_INTERNAL, true)) return true;
+  heapReported = true;
+  USBSerial.printf("Video: *** INTERNAL HEAP CORRUPT after %s | frame %u | free %u | largest %u ***\n",
+                   where, frames, ESP.getFreeHeap(),
+                   heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+  return false;
+}
+#define HEAP_CHECK(w) heapCheck(w)
+#else
+#define HEAP_CHECK(w) (true)
+#endif
+
 uint64_t sumHttp = 0;
 uint64_t sumDecode = 0;
 uint64_t sumBlit = 0;
@@ -469,6 +502,10 @@ bool videoStreamStart() {
   }
   lv_refr_now(NULL);
 
+  // Baseline. If this fires, the damage predates the feed entirely and the
+  // still-image fetch or the UI is the place to look, not the video path.
+  HEAP_CHECK("feed start, before any frame");
+
   active = true;
   return true;
 }
@@ -520,6 +557,8 @@ void videoStreamLoop() {
   //
   // A tap may change screens, which fires screenVideo_event_handler and stops
   // the feed - hence the active check before continuing.
+  if (!HEAP_CHECK("fetch")) { videoStreamStop(); returnHome(); return; }
+
   lv_timer_handler();
   if (!active) return;
 
@@ -530,10 +569,14 @@ void videoStreamLoop() {
     return;
   }
 
+  if (!HEAP_CHECK("decode")) { videoStreamStop(); returnHome(); return; }
+
   lv_timer_handler();
   if (!active) return;
 
   displayFrame(&blitUs);
+
+  if (!HEAP_CHECK("blit")) { videoStreamStop(); returnHome(); return; }
 
   const uint32_t now = micros();
   sumFrame += (frames == 0) ? (now - startUs) : (now - lastFrameUs);
