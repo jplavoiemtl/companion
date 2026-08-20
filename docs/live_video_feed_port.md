@@ -757,11 +757,15 @@ read, so panning changes nothing about decode, blit, or bytes.
 (12 top, 12 bottom), so it has **+/-12 px of travel, about 3 % of the view**. Enough for a
 nudge, not a reframe.
 
-| `PAN_Y` | `offX` | frame columns kept |
-|---------|--------|--------------------|
-| 12      | 0      | 0-367              |
-| 0       | -12    | 12-379             |
-| -12     | -24    | 24-391             |
+| `PAN_Y`  | `offX` | frame columns kept | view                  |
+|----------|--------|--------------------|-----------------------|
+| **12**   | 0      | 0-367              | **in use**            |
+| 0        | -12    | 12-379             | centred               |
+| -12      | -24    | 24-391             | opposite edge         |
+
+`PAN_Y = 12` was right on the first try - full travel toward the wanted edge, and 12 px
+turned out to be the whole adjustment needed, so the larger `REQ_HEIGHT` options below
+were not required.
 
 For real vertical travel the frame must be taller relative to the panel, which means a
 larger `REQ_HEIGHT` from the valid list: **432** gives +/-32 px, **464** gives +/-48. Both

@@ -54,7 +54,7 @@ constexpr uint8_t  REQ_QUALITY = 25;
 //
 // Values beyond +/-124 are clamped and simply do nothing. Reduce the magnitude
 // to trade some of the door view back for the far side.
-constexpr int PAN_X = -30;
+constexpr int PAN_X = -30;  //-124 max towards the door, 0 centred, +124 max towards far side
 
 // Vertical pan, same idea on the other axis - and far more limited.
 //
@@ -73,7 +73,7 @@ constexpr int PAN_X = -30;
 // For real vertical travel the frame has to be taller relative to the panel,
 // which means a larger REQ_HEIGHT: 432 gives +/-32 px, 464 gives +/-48. Both
 // satisfy the divisible-by-8 rule, and both cost bytes and decode time.
-constexpr int PAN_Y = 12; //-124 max towards the door, 0 centred, +124 max towards far side
+constexpr int PAN_Y = 12; 
 constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~23 KB
 constexpr uint32_t HTTP_TIMEOUT_MS = 15000;
 
