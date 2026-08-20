@@ -130,9 +130,13 @@ via Latest, so time spent on it is live action missed.
 and ESP32_JPEG only rotates when both dimensions are multiples of 8, so it would silently
 break. Re-check that rule against the returned width before changing it.
 
-**Performance.** ~1.9-2.1 fps measured at `height=360`; 392 costs roughly 4 % more. `decode` 46 ms, `blit` 109 ms, `http` 315-352 ms - the
-cellular round trip dominates, so the network is the limit, not the board. The 155 ms of
-decode+blit puts the hard ceiling at 6.4 fps.
+**Performance.** ~1.9-2.1 fps. Measured at `height=392`: `decode` 52 ms, `blit` 109 ms,
+`http` 309 ms, `frame` 477 ms. The cellular round trip dominates, so the network is the
+limit, not the board. The 161 ms of decode+blit puts the hard ceiling at 6.2 fps.
+
+`blit` does not scale with frame size - `lv_draw_sw_blend` clips to the visible area, so
+the cropped-away pixels are never read. It measured 109 ms at both `height=360` and 392.
+Only `decode` grows with the frame (46 -> 52 ms).
 
 **Four constraints worth knowing before touching this code:**
 

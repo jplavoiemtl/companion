@@ -701,9 +701,31 @@ the live server:
 Any future change to this value must be re-checked against the divisible-by-8 rule for
 **both** returned dimensions, not just the requested height.
 
-**Cost.** JPEG grows ~4 % (22.4 -> 23.3 KB), decode ~18 %. The blit is unaffected:
-`lv_draw_sw_blend` clips to the visible area, so surplus pixels are never read. Roughly
-+21 ms on a ~500 ms frame.
+**Cost, measured on hardware:**
+
+```text
+Video: 126 frames in 60.1s (2.1 fps) | http 309 | decode 52 | blit 109 | frame 477 ms
+Video: free PSRAM 7764924, free heap 50832
+```
+
+| stage | at 360 | at 392 | note |
+|-------|--------|--------|------|
+| decode| 46 ms  | 52 ms  | +13 %, less than the +18 % pixel count - some of it is fixed header and table setup |
+| blit  | 109 ms | 109 ms | **unchanged**, as predicted |
+| http  | 315-352 ms | 309 ms | network variance, not an effect of this change - bytes went up 4 % |
+| frame | 513 ms | 477 ms | |
+
+**The blit result is the one worth remembering.** `lv_draw_sw_blend` clips to the visible
+area, so a larger source frame costs nothing to blit - the cropped pixels are never read.
+Only decode scales. That makes "over-fetch and crop" much cheaper on this board than it
+looks, and it is why upstream scaling beats any on-board zoom.
+
+Net cost of the change is about **+6 ms of decode plus ~4 % of the http time**, call it
++18 ms. The frame time fell anyway because the cellular round trip happened to be quicker
+on this run; do not read the 513 -> 477 ms as a gain from this change.
+
+PSRAM dropped 84,884 bytes when the decode buffer resized, against 84,864 predicted
+(392x696x2 - 360x640x2). The 20-byte difference is the allocator header.
 
 **Rejected: `lv_img_set_zoom` to scale the 360 px frame up on the board.** Superficially
 free - no extra bytes, no extra decode - but any zoom sets `transform = true` in
