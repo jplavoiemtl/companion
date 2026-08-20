@@ -54,7 +54,26 @@ constexpr uint8_t  REQ_QUALITY = 25;
 //
 // Values beyond +/-124 are clamped and simply do nothing. Reduce the magnitude
 // to trade some of the door view back for the far side.
-constexpr int PAN_X = -124;
+constexpr int PAN_X = -30;
+
+// Vertical pan, same idea on the other axis - and far more limited.
+//
+// The frame is only 392 wide against a 368 px panel, so just 24 px is cropped
+// on this axis: 12 from the top and 12 from the bottom. PAN_Y has +/-12 px of
+// travel, about 3 % of the view. Enough for a nudge, not a reframe.
+//
+//   12   hard against one edge, keeping frame columns 0-367
+//    0   centred
+//  -12   hard against the other edge, keeping columns 24-391
+//
+// This one is offX, because the 270 degree rotation puts the camera's short
+// axis along the frame's width. Sign not derived - flip it if it nudges the
+// wrong way, exactly as PAN_X needed.
+//
+// For real vertical travel the frame has to be taller relative to the panel,
+// which means a larger REQ_HEIGHT: 432 gives +/-32 px, 464 gives +/-48. Both
+// satisfy the divisible-by-8 rule, and both cost bytes and decode time.
+constexpr int PAN_Y = 12; //-124 max towards the door, 0 centred, +124 max towards far side
 constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~23 KB
 constexpr uint32_t HTTP_TIMEOUT_MS = 15000;
 
@@ -292,11 +311,11 @@ static bool decodeFrame(uint32_t* decodeUs) {
   if (frameW != loggedW || frameH != loggedH) {
     loggedW = frameW;
     loggedH = frameH;
-    USBSerial.printf("Video: frame %ux%u, panel %ux%u -> gap x=%d y=%d, pan %d\n",
+    USBSerial.printf("Video: frame %ux%u, panel %ux%u -> gap x=%d y=%d, pan x=%d y=%d\n",
                      frameW, frameH, cfg.screenWidth, cfg.screenHeight,
                      static_cast<int>(cfg.screenWidth) - static_cast<int>(frameW),
                      static_cast<int>(cfg.screenHeight) - static_cast<int>(frameH),
-                     PAN_X);
+                     PAN_X, PAN_Y);
   }
 
   size_t needed = static_cast<size_t>(info.width) * info.height * sizeof(uint16_t);
@@ -369,12 +388,18 @@ static void displayFrame(uint32_t* blitUs) {
   const int visibleW = cfg.screenWidth;
   const int visibleH = cfg.screenHeight;
 
-  const int offX = (frameW > visibleW) ? -((frameW - visibleW) / 2) : 0;
+  // Centre each axis, then apply the pan and clamp. The clamps are what make
+  // PAN_X and PAN_Y safe to edit: neither offset may go positive or past the
+  // far edge of the frame, either of which would leave part of the widget
+  // unpainted and bring back the uncovered strip.
+  int offX = 0;
+  if (frameW > visibleW) {
+    const int minOff = -(static_cast<int>(frameW) - visibleW);    // -24 at 392x696
+    offX = minOff / 2 + PAN_Y;
+    if (offX > 0) offX = 0;
+    if (offX < minOff) offX = minOff;
+  }
 
-  // Centre the vertical crop, then apply the pan and clamp. The clamp is what
-  // makes PAN_X safe to edit: offY may never go positive or past the bottom of
-  // the frame, either of which would leave part of the widget unpainted and
-  // bring back the uncovered strip.
   int offY = 0;
   if (frameH > visibleH) {
     const int minOff = -(static_cast<int>(frameH) - visibleH);   // -248 at 392x696

@@ -750,7 +750,23 @@ read, so panning changes nothing about decode, blit, or bytes.
 |----------|--------|-----------------|-----------------------------|
 | 124      | 0      | 0-447           | hard against the far side   |
 | 0        | -124   | 124-571         | centred                     |
-| **-124** | -248   | 248-695         | **door side - in use**      |
+| **-30**  | -154   | 154-601         | **in use, tuned by eye**    |
+| -124     | -248   | 248-695         | hard against the door side  |
+
+`PAN_Y` does the same on the other axis, with far less room: only 24 px is cropped there
+(12 top, 12 bottom), so it has **+/-12 px of travel, about 3 % of the view**. Enough for a
+nudge, not a reframe.
+
+| `PAN_Y` | `offX` | frame columns kept |
+|---------|--------|--------------------|
+| 12      | 0      | 0-367              |
+| 0       | -12    | 12-379             |
+| -12     | -24    | 24-391             |
+
+For real vertical travel the frame must be taller relative to the panel, which means a
+larger `REQ_HEIGHT` from the valid list: **432** gives +/-32 px, **464** gives +/-48. Both
+cost bytes and decode time - see the size table above - and both also widen `PAN_X`'s
+range.
 
 **It is `offY` that pans horizontally, not `offX`.** The decoder rotates the frame 270
 degrees, so the camera's wide axis becomes the frame's tall axis. `offX` moves the picture
@@ -762,8 +778,8 @@ The value is clamped to the frame, so `PAN_X` cannot be set to something that re
 the uncovered strip.
 
 Which sign favours the door was settled on the bench rather than derived: 124 panned away
-from it, so the value in use is **-124**. Reduce the magnitude to trade some of the door
-view back for the far side.
+from it, so the sign is negative. Fine-tuned by eye to **`PAN_X = -30`**, which keeps frame
+rows 154-601 - most of the door side while retaining some of the far side.
 
 ## Still duration shortened to 1 second
 
