@@ -748,10 +748,10 @@ read, so panning changes nothing about decode, blit, or bytes.
 
 | `PAN_X`  | `offY` | frame rows kept | view                        |
 |----------|--------|-----------------|-----------------------------|
-| 124      | 0      | 0-447           | hard against the far side   |
-| 0        | -124   | 124-571         | centred                     |
-| **-30**  | -154   | 154-601         | **in use, tuned by eye**    |
-| -124     | -248   | 248-695         | hard against the door side  |
+| 160      | 0      | 0-447           | hard against the far side   |
+| 0        | -160   | 160-607         | centred                     |
+| **-30**  | -190   | 190-637         | **in use, being re-tuned**  |
+| -160     | -320   | 320-767         | hard against the door side  |
 
 `PAN_Y` does the same on the other axis, with far less room: only 24 px is cropped there
 (12 top, 12 bottom), so it has **+/-12 px of travel, about 3 % of the view**. Enough for a
@@ -759,18 +759,18 @@ nudge, not a reframe.
 
 | `PAN_Y`  | `offX` | frame columns kept | view                  |
 |----------|--------|--------------------|-----------------------|
-| **12**   | 0      | 0-367              | **in use**            |
-| 0        | -12    | 12-379             | centred               |
-| -12      | -24    | 24-391             | opposite edge         |
+| 32       | 0      | 0-367              | one edge              |
+| **12**   | -20    | 20-387             | **in use**            |
+| 0        | -32    | 32-399             | centred               |
+| -32      | -64    | 64-431             | other edge            |
 
 `PAN_Y = 12` was right on the first try - full travel toward the wanted edge, and 12 px
 turned out to be the whole adjustment needed, so the larger `REQ_HEIGHT` options below
 were not required.
 
-For real vertical travel the frame must be taller relative to the panel, which means a
-larger `REQ_HEIGHT` from the valid list: **432** gives +/-32 px, **464** gives +/-48. Both
-cost bytes and decode time - see the size table above - and both also widen `PAN_X`'s
-range.
+Ranges scale with `REQ_HEIGHT`, but do not raise it just to gain travel: 440, 448 and 464
+all fail the multiple-of-16 source-width rule and corrupt the heap. **432 is the only legal
+size between 368 and 448.**
 
 **It is `offY` that pans horizontally, not `offX`.** The decoder rotates the frame 270
 degrees, so the camera's wide axis becomes the frame's tall axis. `offX` moves the picture

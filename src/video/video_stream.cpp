@@ -58,42 +58,38 @@ constexpr uint8_t  REQ_QUALITY = 25;
 
 // Horizontal pan of the visible window, in pixels, as the viewer sees it.
 //
-// The frame is 392x696 against a 368x448 panel, so 248 px - about a third of the
-// camera's width - is cropped away. Centred, that is 124 px lost from each side.
-// This shifts which slice is kept, to favour one side of the scene.
+// At 432 the frame is 432x768 against a 368x448 panel, so 320 px is cropped on
+// this axis - centred, that is 160 px lost from each side. This shifts which
+// slice is kept, to favour one side of the scene.
 //
 // It is offY that pans horizontally, not offX: the decoder rotates the frame
-// 270 degrees, so the camera's wide axis becomes the frame's tall axis. offX
-// moves the image up and down and has only 24 px of travel.
+// 270 degrees, so the camera's wide axis becomes the frame's tall axis.
 //
-//    0   centred, 124 px lost each side
-// -124   hard against the door side - measured on the bench, this is the
-//        direction that reveals the door frame
-//  124   hard against the far side
+//    160   hard against the far side, keeping frame rows 0-447
+//      0   centred, 160 px lost each side, rows 160-607
+//   -160   hard against the door side, rows 320-767
 //
-// Values beyond +/-124 are clamped and simply do nothing. Reduce the magnitude
-// to trade some of the door view back for the far side.
-constexpr int PAN_X = -30;  //-124 max towards the door, 0 centred, +124 max towards far side
+// Negative is the door direction - measured on the bench, not derived.
+// Values beyond +/-160 are clamped and simply do nothing.
+constexpr int PAN_X = -30;  //-160 max towards the door, 0 centred, +160 max towards far side
 
-// Vertical pan, same idea on the other axis - and far more limited.
+// Vertical pan, same idea on the other axis.
 //
-// The frame is only 392 wide against a 368 px panel, so just 24 px is cropped
-// on this axis: 12 from the top and 12 from the bottom. PAN_Y has +/-12 px of
-// travel, about 3 % of the view. Enough for a nudge, not a reframe.
+// The frame is 432 wide against a 368 px panel, so 64 px is cropped here: 32
+// from each edge. Travel is +/-32 px.
 //
-//   12   hard against one edge, keeping frame columns 0-367
-//    0   centred
-//  -12   hard against the other edge, keeping columns 24-391
+//     32   hard against one edge, keeping frame columns 0-367
+//      0   centred, columns 32-399
+//    -32   hard against the other edge, columns 64-431
 //
 // This one is offX, because the 270 degree rotation puts the camera's short
-// axis along the frame's width. Sign not derived - flip it if it nudges the
-// wrong way, exactly as PAN_X needed.
+// axis along the frame's width.
 //
-// For real vertical travel the frame has to be taller relative to the panel,
-// which means a larger REQ_HEIGHT: 432 gives +/-32 px, 464 gives +/-48. Both
-// satisfy the divisible-by-8 rule, and both cost bytes and decode time.
-constexpr int PAN_Y = 12; 
-constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~23 KB
+// Both ranges scale with REQ_HEIGHT, but do not raise it just to gain travel:
+// the next values up (440, 448, 464) all fail the multiple-of-16 source width
+// rule above and corrupt the heap. 432 is the only legal size in that region.
+constexpr int PAN_Y = 12;   //-32 max one way, 0 centred, +32 max the other way
+constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~27 KB
 constexpr uint32_t HTTP_TIMEOUT_MS = 15000;
 
 // --- State -------------------------------------------------------------------
