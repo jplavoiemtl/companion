@@ -803,7 +803,26 @@ the feed itself still works and is the way to stop it.
 Note this is unrelated to `NOTIFICATION_ECHO_WINDOW_MS`, which is also 10 seconds and
 unchanged. That one suppresses the image server's notification echoing back after a fetch.
 
-## Appendix: prefetch analysis (not implemented)
+## Appendix: prefetch analysis — IMPLEMENTED, and the projection was wrong
+
+**Status: built and shipped.** The analysis below is kept as written, because comparing it
+against what happened is the useful part. Two corrections:
+
+**The gain was real but smaller than projected.** 2.2 -> 2.9 fps, not the 3.5 predicted.
+Prefetch hides the round trip, not the whole of `http`: `xfer` is untouched at ~160 ms
+because nothing reads the socket during decode and blit. The projection assumed all of
+`http` would disappear behind the rendering, and only the latency half can.
+
+**A mid-frame drain does not recover the rest.** Adding a `pollResponse()` between decode
+and blit was tried and reverted - `xfer` 160 -> 161/164, frame 342 -> 345/352. The server's
+time-to-first-byte is ~130 ms and the drain fires ~60 ms after the request goes out, so
+there is nothing to read yet; the body only arrives inside `lv_refr_now()`, which cannot be
+interrupted. Same null result as the home panel's run 6, for the same structural reason.
+
+**The "cheaper alternatives" section below undersold quality.** `quality=15` was measured at
++28% on its own, and the artefacts are not perceptible on the 1.8" panel.
+
+See `CLAUDE.md` for the measured budget and the current numbers.
 
 Evaluated after Phase 2 shipped. **Not built** - recorded so the decision can be made
 without redoing the analysis.

@@ -256,14 +256,25 @@ exactly like the server failing under load. It is not - it is curl having no out
    `displayFrame()` also bails if the video screen is not the active one, as a second line
    of defence.
 
-**Accepted trade-off:** the fetch is blocking, so IMU sampling drops from ~50 Hz to ~2 Hz
-for the duration of a feed, recovering immediately afterwards. Deliberate - the
-inclinometer and G-meter are not being read while someone is watching the front door. A
-non-blocking prefetching client (Phase 2, designed but never built) would fix it and hide
-decode+blit behind the network wait. Because `http` is always larger than the 189 ms of
-decode+blit, prefetch saves that 189 ms outright and the frame period becomes `http` plus
-~7 ms - a projected 2.2-3.2 fps across the observed `http` range, against 1.6-1.8 today.
-After that the board contributes nothing measurable and only the link is left to optimise.
+**The IMU no longer stalls during a feed.** The fetch used to be blocking, which dropped
+IMU sampling from ~50 Hz to ~2 Hz for the full 60 seconds. Prefetch returns from
+`videoStreamLoop()` immediately whenever a response is still in flight, so
+`runBackgroundTick()` - IMU read, motion state, G-meter, `lv_timer_handler()` - runs at
+full rate throughout. This was a side effect of chasing frame rate, not the goal, but it
+removes a documented trade-off.
+
+**Where this was left, and why.** 1.6 -> 2.9 fps in one session, from two changes:
+`quality=15` (~+28%) and prefetch (~+32%). Confirmed on the bench over cellular: the feed
+is visibly smoother and less choppy, and the drop from `quality=25` to 15 is not
+perceptible on the 1.8" panel - the frame is cropped 1:1 rather than scaled, so the
+compression is seen at full resolution, just physically small.
+
+Stopped deliberately at 2.9 fps. What remains is a socket-reader task on the second core,
+worth perhaps 5.4 fps, and it is the change most likely to reproduce the "SSL - Memory
+allocation failed" failure in constraint 1 below - a new task stack comes out of the same
+heap where mbedTLS needs a contiguous 16 KB, on a board with no OTA where every iteration
+is a USB flash. Fractions of a frame per second are not worth that on a camera whose job is
+showing who is at the door.
 
 See `docs/live_video_feed_port.md` for the full measurement history, including several
 approaches that were measured and rejected.
