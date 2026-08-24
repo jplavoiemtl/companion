@@ -54,7 +54,21 @@ constexpr unsigned long VIDEO_DURATION_MS = 60000;          // feed length
 // 768 is 48 MCUs exactly. Verified against the server; re-check BOTH rules
 // against the returned width before ever changing this.
 constexpr uint16_t REQ_HEIGHT = 432;                        // 768x432 from Frigate
-constexpr uint8_t  REQ_QUALITY = 25;
+// Frigate's JPEG quality. The Node-RED endpoint clamps it to 10-80, so 10 is
+// the floor, not 0.
+//
+// Bytes are the largest term in the frame budget. Measured on device at q25:
+// `xfer` 252 ms of a 396 ms `http`, moving 25.0 KB at 99 KB/s, so 64% of the
+// network time is spent shifting the body. `ttfb` (144 ms) does not change with
+// frame size, so quality only ever acts on `xfer`.
+//
+// Sizes measured against this scene at height=432, roughly 800 bytes per point:
+//   q10 15.9 KB   q15 20.7 KB   q20 24.7 KB   q25 28.5 KB   q40 38.0 KB
+//
+// 15 rather than 10: at q10 the brick courses, the mortar lines and the doormat
+// grid all smear, and this camera exists to identify who is at the door. q15
+// kept them.
+constexpr uint8_t  REQ_QUALITY = 15;                        // frames ~18 KB
 
 // Horizontal pan of the visible window, in pixels, as the viewer sees it.
 //
