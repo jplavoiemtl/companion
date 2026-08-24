@@ -138,62 +138,57 @@ via Latest, so time spent on it is live action missed.
 Height alignment does not matter: 360 and 392 both have unaligned heights and only 392
 crashed. Check **both** rules against the returned width before changing this.
 
-**Performance.** 1.6-1.8 fps at `height=432`, set almost entirely by the cellular link.
+**Performance.** 2.2 fps at `height=432`, `quality=15`, set by the cellular link. All
+times in ms, measured on device.
 
-| Run                        | decode | blit   | http   | frame  | fps |
-|----------------------------|--------|--------|--------|--------|-----|
-| Heap diagnostic enabled    | 79 ms  | 109 ms | 362 ms | 558 ms | 1.8 |
-| Current firmware (shipped) | 80 ms  | 109 ms | 447 ms | 643 ms | 1.6 |
+| Run          | ttfb | xfer | http | decode | blit | frame | fps |
+|--------------|------|------|------|--------|------|-------|-----|
+| `quality=25` | 144  | 252  | 396  | 78     | 109  | 591   | 1.7 |
+| `quality=15` | 133  | 151  | 284  | 73     | 109  | 473   | 2.1 |
+| `quality=15` | 128  | 146  | 274  | 73     | 109  | 463   | 2.2 |
+| `quality=15` | 129  | 146  | 275  | 73     | 109  | 464   | 2.2 |
 
-**The board is a constant; the link is the variable.** Across those two runs - different
-firmware, weeks apart, different link sessions - `decode` and `blit` reproduced to within
-1 ms and the entire 85 ms difference was `http`. Observed `http` spans 309 to 447 ms on
-identical hardware, a 45% spread, so any A/B test of a change here needs several
-back-to-back runs per build or link conditions will dominate the result.
+**Variance is between sessions, not within them.** The three `quality=15` runs were taken
+back-to-back and landed within 1% of each other, while `http` has spanned 274 to 447 ms
+across sessions. A/B tests must be run back-to-back in one sitting; comparing against a
+figure from another day measures the weather, not the change.
 
-`decode` + `blit` = 189 ms, which is the hard on-board ceiling of 5.3 fps.
+**Where the `http` time goes.** `fetchFrame()` reports `ttfb` - `begin()` through `GET()`
+returning, so the request going out and the first response byte coming back - separately
+from `xfer`, the body-drain loop.
 
-`blit` does not scale with frame size - `lv_draw_sw_blend` clips to the visible area, so
-the cropped-away pixels are never read. It measured 109 ms at `height=360`, 392 and 432.
-Only `decode` grows with the frame (46 -> 52 -> 80 ms).
+| Component  | q25      | q15      | Scales with bytes? |
+|------------|----------|----------|--------------------|
+| `ttfb`     | 144 ms   | 130 ms   | No                 |
+| `xfer`     | 252 ms   | 148 ms   | Yes                |
+| Frame size | 25.0 KB  | 18.0 KB  | -                  |
+| Throughput | 99 KB/s  | 122 KB/s | -                  |
 
-**Where the `http` time goes.** Measured with `curl -w` from a PC on a VPN. The LAN cannot
-be used for this - the public endpoint does not resolve back inside the network, the router
-has no NAT hairpin - and the VPN is fine because the two numbers that matter are either
-path-independent or derived from a ratio.
+`xfer` is exactly `bytes / throughput` on both sides: 25.0/99 = 253 against 252 measured,
+18.0/122 = 147 against 148. **`ttfb` is not bytes-driven** - had it been, a 28% cut in bytes
+would have taken it to ~104 ms rather than 130, and the 10% it did fall tracks the same link
+improvement visible in the throughput column.
 
-| Component      | Cost    | Share | Basis                                    |
-|----------------|---------|-------|------------------------------------------|
-| Cellular RTT   | ~140 ms | 31%   | Derived from the handshake ratio         |
-| Server chain   | 43 ms   | 10%   | Measured; stable across three runs       |
-| Transfer 29 KB | ~264 ms | 59%   | Remainder; ~110 KB/s, ~0.9 Mbps          |
+`ttfb` is one round trip plus the ~43 ms server chain (Synology -> Pi proxy -> Node-RED ->
+Frigate, measured three times with `curl`), which puts the cellular RTT at ~90-100 ms. An
+earlier figure of ~140 ms, derived from a handshake ratio rather than measured, was too high.
 
-**Server chain** is `ttfb` minus one round trip on a keep-alive request, and covers
-Synology -> Pi proxy -> Node-RED -> Frigate. It measured 43, 44 and 39 ms on three separate
-runs, and two consecutive keep-alive requests agreed to within 0.1 ms. At ~10% of `http` it
-is not worth attacking - the multi-hop path is cheap.
+`decode` + `blit` = 182 ms, the hard on-board ceiling of 5.5 fps. `blit` does not scale with
+frame size - `lv_draw_sw_blend` clips to the visible area, so cropped-away pixels are never
+read - and measured 109 ms at every height and quality tried. Only `decode` moves: 46 -> 52
+-> 80 ms by height, 78 -> 73 ms by quality.
 
-**Cellular RTT is derived, not measured.** On the VPN path a cold connection cost 232 ms of
-setup (DNS + TCP + TLS) against a 60 ms round trip, so a full handshake to this server costs
-~3.9 RTT. That ratio is a property of the server, not the link, so it carries over: the
-board's own handshake delta is 544 ms (906 ms without keep-alive against ~362 with), giving
-~140 ms. A run tethered to the hotspot would measure it directly.
-
-**Transfer is the largest term**, so bytes on the wire matter more than anything else here.
-Frames are ~29 KB at `quality=25`.
-
-Projected from this budget:
+Projected from the measured budget:
 
 | Change                                 | `http` | frame | fps |
 |----------------------------------------|--------|-------|-----|
-| Today                                  | 447    | 643   | 1.6 |
-| Lower `REQ_QUALITY` (29 -> ~18 KB)     | 347    | 535   | 1.9 |
-| + Phase 2 prefetch                     | 347    | 354   | 2.8 |
-| + MJPEG stream (removes per-frame RTT) | 207    | ~214  | 4.7 |
+| Today (`quality=15`)                   | 278    | 467   | 2.2 |
+| + Phase 2 prefetch                     | 278    | 285   | 3.5 |
+| + MJPEG stream (removes per-frame RTT) | ~150   | ~189  | 5.3 |
 
-On the last row `http` (207 ms) and decode+blit (~181 ms) are comparable, so the board
-becomes the constraint again. Only at that point would a direct-draw or dual-core rendering
-change buy anything; before it, they buy nothing.
+Prefetch hides decode+blit entirely, because `http` (278) exceeds their 182 ms. On the last
+row `http` falls *below* decode+blit and the board becomes the constraint - the only point at
+which a direct-draw or dual-core rendering change would buy anything.
 
 **When measuring with `curl`, pass one `-o` per URL.** With fewer `-o` than URLs, every
 request after the first reports `bytes 0` while still returning `code 200`, which looks
