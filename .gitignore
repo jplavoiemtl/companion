@@ -9,6 +9,9 @@ secrets_private.cpp
 secrets_private.*
 CHANGELOG.md
 
+# Full Node-RED deployment export (may contain private infrastructure details)
+docs/node-red/flows.json
+
 # Build output & squareline files
 build/
 squareline/
