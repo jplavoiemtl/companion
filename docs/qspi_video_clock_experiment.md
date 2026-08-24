@@ -77,9 +77,33 @@ watching that metric, but do not attribute it to the display clock from one samp
 **Decision:** retain 16 MHz as the proven checkpoint and proceed to a separate
 20 MHz test with no other performance changes.
 
-## Phase 2: clock sweep
+### 20 MHz measured result
 
-Proceed only if 16 MHz is stable and improves blit:
+Two back-to-back 60-second feeds completed with correct rendering on the video
+screen and all other screens:
+
+```text
+Video: 191 frames in 60.2s (3.2 fps) | http 311 | decode 73 | blit 61 | frame 315 ms
+Video: http = ttfb 143 + xfer 167 ms | frame 17.6 KB | 105 KB/s while transferring
+Video: free PSRAM 7647008, free heap 50344
+
+Video: 192 frames in 60.3s (3.2 fps) | http 306 | decode 73 | blit 61 | frame 314 ms
+Video: http = ttfb 143 + xfer 163 ms | frame 17.5 KB | 107 KB/s while transferring
+Video: free PSRAM 7646816, free heap 50316
+```
+
+Blit fell another 8 ms, from 69 to 61 ms, exactly matching the display-bus model.
+FPS held at 3.2 because transfer rose from 151 ms in the 16 MHz run to 163-167 ms
+in these runs. The display clock is no longer the dominant limiter; the next
+meaningful experiment must address the per-frame network request gap.
+
+**Decision:** accept 20 MHz as the project setting. Stop the clock sweep here and
+preserve HTTP pipelining as a separate experimental branch.
+
+## Phase 2: clock sweep - complete at 20 MHz
+
+The remaining frequencies were not pursued because 20 MHz was stable and the
+network already hid the additional display gain from the FPS result:
 
 | Clock | Action |
 |-------|--------|
