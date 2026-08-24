@@ -138,13 +138,24 @@ via Latest, so time spent on it is live action missed.
 Height alignment does not matter: 360 and 392 both have unaligned heights and only 392
 crashed. Check **both** rules against the returned width before changing this.
 
-**Performance.** ~1.8 fps. Measured at `height=432`: `decode` 79 ms, `blit` 109 ms,
-`http` 362 ms, `frame` 558 ms. The cellular round trip dominates, so the network is the
-limit, not the board. The 161 ms of decode+blit puts the hard ceiling at 6.2 fps.
+**Performance.** 1.6-1.8 fps at `height=432`, set almost entirely by the cellular link.
+
+| Run                        | decode | blit   | http   | frame  | fps |
+|----------------------------|--------|--------|--------|--------|-----|
+| Heap diagnostic enabled    | 79 ms  | 109 ms | 362 ms | 558 ms | 1.8 |
+| Current firmware (shipped) | 80 ms  | 109 ms | 447 ms | 643 ms | 1.6 |
+
+**The board is a constant; the link is the variable.** Across those two runs - different
+firmware, weeks apart, different link sessions - `decode` and `blit` reproduced to within
+1 ms and the entire 85 ms difference was `http`. Observed `http` spans 309 to 447 ms on
+identical hardware, a 45% spread, so any A/B test of a change here needs several
+back-to-back runs per build or link conditions will dominate the result.
+
+`decode` + `blit` = 189 ms, which is the hard on-board ceiling of 5.3 fps.
 
 `blit` does not scale with frame size - `lv_draw_sw_blend` clips to the visible area, so
-the cropped-away pixels are never read. It measured 109 ms at both `height=360` and 392.
-Only `decode` grows with the frame (46 -> 52 ms).
+the cropped-away pixels are never read. It measured 109 ms at `height=360`, 392 and 432.
+Only `decode` grows with the frame (46 -> 52 -> 80 ms).
 
 **Four constraints worth knowing before touching this code:**
 
@@ -172,7 +183,11 @@ Only `decode` grows with the frame (46 -> 52 ms).
 **Accepted trade-off:** the fetch is blocking, so IMU sampling drops from ~50 Hz to ~2 Hz
 for the duration of a feed, recovering immediately afterwards. Deliberate - the
 inclinometer and G-meter are not being read while someone is watching the front door. A
-non-blocking prefetching client would fix it and roughly halve the frame period.
+non-blocking prefetching client (Phase 2, designed but never built) would fix it and hide
+decode+blit behind the network wait. Because `http` is always larger than the 189 ms of
+decode+blit, prefetch saves that 189 ms outright and the frame period becomes `http` plus
+~7 ms - a projected 2.2-3.2 fps across the observed `http` range, against 1.6-1.8 today.
+After that the board contributes nothing measurable and only the link is left to optimise.
 
 See `docs/live_video_feed_port.md` for the full measurement history, including several
 approaches that were measured and rejected.
