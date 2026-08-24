@@ -215,10 +215,6 @@ uint16_t epPort = 443;
 char     epPath[96] = {0};
 
 bool     reqInFlight = false;
-// Set when the mid-frame drain completes the NEXT frame while the current one is
-// still on screen. Without it videoStreamLoop() would poll again on the following
-// pass, get 0 because nothing is in flight any more, and stall forever.
-bool     frameReady = false;
 bool     hdrDone = false;
 int      contentLen = -1;
 size_t   jpegReceived = 0;
@@ -358,7 +354,6 @@ static bool ensureConnected() {
 // videoStreamStop().
 static void closeConnection() {
   reqInFlight = false;
-  frameReady = false;
   hdrDone = false;
   hdrLen = 0;
   contentLen = -1;
@@ -769,25 +764,20 @@ void videoStreamLoop() {
 
   // Collect whatever has arrived for the frame already asked for. Returns at
   // once if it is incomplete, so the UI keeps running while the network works.
-  // The mid-frame drain below can complete the next frame while this one is still
-  // being displayed, in which case there is nothing left to poll for.
-  if (!frameReady) {
-    const int r = pollResponse();
-    if (r < 0) {
-      USBSerial.println("Video: fetch failed, stopping");
-      videoStreamStop();
-      returnHome();
-      return;
-    }
-    if (r == 0) {
-      // Nothing more to do this pass. runBackgroundTick() in the main loop
-      // already ran lv_timer_handler() and the IMU read before getting here, and
-      // returning straight away is what lets both run at full rate during the
-      // wait - which is why the IMU recovers to ~50 Hz during a feed.
-      return;
-    }
+  const int r = pollResponse();
+  if (r < 0) {
+    USBSerial.println("Video: fetch failed, stopping");
+    videoStreamStop();
+    returnHome();
+    return;
   }
-  frameReady = false;
+  if (r == 0) {
+    // Nothing more to do this pass. runBackgroundTick() in the main loop already
+    // ran lv_timer_handler() and the IMU read before getting here, and returning
+    // straight away is what lets both run at full rate during the wait - which is
+    // why the IMU recovers from ~2 Hz to ~50 Hz during a feed.
+    return;
+  }
 
   // The frame is in jpegBuf and its network cost is already known.
   const uint32_t ttfbUs = hdrDoneUs - reqSentUs;
@@ -829,27 +819,6 @@ void videoStreamLoop() {
   }
 
   if (!HEAP_CHECK("decode")) { videoStreamStop(); returnHome(); return; }
-
-  // Mid-frame drain. Nothing reads the socket during decode and blit, so lwIP's
-  // receive window fills within a few KB and the server stalls until we come
-  // back. That is why prefetch hid the round trip but left the entire transfer on
-  // the critical path: ttfb came back as exactly decode + blit + overhead while
-  // xfer did not move at all. Emptying the window here lets the server keep
-  // sending through the ~110 ms blit below.
-  //
-  // The home panel tried this and measured no gain - see run 6 in
-  // doc/live_video_feed.md - but its transfer was 24 ms of a 115 ms frame. Here
-  // it is 160 ms of 342, so the same change has very different stakes.
-  {
-    const int mid = pollResponse();
-    if (mid < 0) {
-      USBSerial.println("Video: fetch failed mid-frame, stopping");
-      videoStreamStop();
-      returnHome();
-      return;
-    }
-    if (mid == 1) frameReady = true;      // next frame already complete
-  }
 
   lv_timer_handler();
   if (!active) return;
