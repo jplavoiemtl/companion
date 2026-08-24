@@ -187,10 +187,10 @@ static const uint16_t screenWidth = 368;
 static const uint16_t screenHeight = 448;
 
 // QSPI clock for the SH8601 AMOLED. Arduino_GFX defaults this bus to 8 MHz
-// when gfx->begin() is called without an explicit speed. Start the video FPS
-// experiment at 16 MHz so the first hardware step is a conservative 2x change.
+// when gfx->begin() is called without an explicit speed. The 16 MHz hardware
+// test passed; the next isolated clock-sweep step is 20 MHz.
 // See docs/qspi_video_clock_experiment.md for the A/B bench-test sequence.
-static constexpr int32_t DISPLAY_QSPI_HZ = 16000000;
+static constexpr int32_t DISPLAY_QSPI_HZ = 20000000;
 
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t buf[screenWidth * screenHeight / 10];
