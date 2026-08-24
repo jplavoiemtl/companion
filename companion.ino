@@ -186,6 +186,12 @@ std::unique_ptr<Arduino_IIC> FT3168 = nullptr;
 static const uint16_t screenWidth = 368;
 static const uint16_t screenHeight = 448;
 
+// QSPI clock for the SH8601 AMOLED. Arduino_GFX defaults this bus to 8 MHz
+// when gfx->begin() is called without an explicit speed. Start the video FPS
+// experiment at 16 MHz so the first hardware step is a conservative 2x change.
+// See docs/qspi_video_clock_experiment.md for the A/B bench-test sequence.
+static constexpr int32_t DISPLAY_QSPI_HZ = 16000000;
+
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t buf[screenWidth * screenHeight / 10];
 
@@ -1842,7 +1848,13 @@ void initTouch() {
  * Sets up display controller and basic configuration
  */
 void initDisplay() {
-    gfx->begin();
+    if (!gfx->begin(DISPLAY_QSPI_HZ)) {
+      USBSerial.printf("ERROR: Display initialization failed at %ld Hz QSPI\n",
+                       static_cast<long>(DISPLAY_QSPI_HZ));
+    } else {
+      USBSerial.printf("Display: QSPI clock %ld Hz\n",
+                       static_cast<long>(DISPLAY_QSPI_HZ));
+    }
 
     gfx->fillScreen(BLACK);
     gfx->Display_Brightness(150);    
