@@ -2,9 +2,11 @@
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
-#include <HTTPClient.h>
 #include <ESP32_JPEG_Library.h>
 #include <esp_heap_caps.h>
+#include <string.h>
+#include <stdlib.h>
+#include <strings.h>                 // strncasecmp, for the header scan
 
 #include "HWCDC.h"
 #include "secrets_private.h"
@@ -103,8 +105,8 @@ constexpr int PAN_X = -15;  //-160 max towards the door, 0 centred, +160 max tow
 // the next values up (440, 448, 464) all fail the multiple-of-16 source width
 // rule above and corrupt the heap. 432 is the only legal size in that region.
 constexpr int PAN_Y = 32;   //-32 max one way, 0 centred, +32 max the other way
-constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~27 KB
-constexpr uint32_t HTTP_TIMEOUT_MS = 15000;
+constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~18 KB
+constexpr uint32_t HTTP_TIMEOUT_MS = 15000;                 // per request, from send
 
 // --- State -------------------------------------------------------------------
 bool active = false;
@@ -184,18 +186,54 @@ VideoStreamConfig cfg{};
 // "SSL - Memory allocation failed". The image fetcher's client is constructed at
 // startup while the heap is still unfragmented, which is why it succeeds.
 //
-// This is a real constraint on the port, not a workaround: Phase 2's prefetching
-// client must share the same TLS client rather than open its own.
+// Prefetch does not need a second connection, only the one it already has driven
+// without blocking, so that constraint costs nothing here.
+
+// --- Non-blocking client -----------------------------------------------------
+// HTTPClient is gone from this path. GET() blocks until the response headers
+// arrive, which is exactly what prefetch must avoid: the request for frame N+1 is
+// issued before frame N is decoded and blitted, so ~280 ms of network wait
+// overlaps ~182 ms of rendering instead of following it.
 //
-// The HTTPClient itself is cheap in RAM, so it IS a module global - it has to be,
-// because keep-alive only works if the same instance persists across frames.
-// Measured: with a fresh handshake per frame, http was 906 ms over cellular and
-// dominated 84% of the frame time.
-HTTPClient httpClient;
+// The TLS client is driven as a plain byte stream. available() and read() return
+// decrypted bytes and never block - the previous blocking implementation already
+// relied on exactly that for its body read - so mbedTLS does all the hard work
+// and this code only has to speak HTTP/1.1.
+//
+// Kept deliberately minimal because we control the server: the Node-RED endpoint
+// answers 200 with Content-Length and keep-alive, never chunked, no redirects.
+//
+// There is no second JPEG buffer. While frame N is decoded and blitted, the
+// response for N+1 accumulates in lwIP's socket buffer, not ours.
+WiFiClientSecure* vidClient = nullptr;      // borrowed, never owned or deleted
+
+// Endpoint split out of IMAGE_SERVER_REMOTE once per feed. A raw client takes
+// host and port separately where HTTPClient took the whole URL. Parsed rather
+// than duplicated into secrets_private.h so the two cannot drift apart.
+char     epHost[96] = {0};
+uint16_t epPort = 443;
+char     epPath[96] = {0};
+
+bool     reqInFlight = false;
+bool     hdrDone = false;
+int      contentLen = -1;
+size_t   jpegReceived = 0;
+char     hdrBuf[512];
+size_t   hdrLen = 0;
+
+uint32_t reqSentMs = 0;                     // timeout base
+uint32_t reqSentUs = 0;                     // ttfb base
+uint32_t hdrDoneUs = 0;                     // ttfb / xfer boundary
+uint32_t bodyDoneUs = 0;
 
 }  // namespace
 
-static bool fetchFrame(uint32_t* httpUs, uint32_t* ttfbUs, uint32_t* xferUs);
+static bool parseEndpoint();
+static bool ensureConnected();
+static void closeConnection();
+static int  headerInt(const char* name);
+static bool sendRequest();
+static int  pollResponse();
 static bool decodeFrame(uint32_t* decodeUs);
 static void displayFrame(uint32_t* blitUs);
 static void printSummary();
@@ -235,117 +273,217 @@ bool videoStreamActive() {
 }
 
 //***************************************************************************************************
-// Blocking GET. Deliberately simple: this spike measures decode and blit, and a
-// prefetching client would only blur those numbers. Phase 2 adds prefetch.
-//
-// Reports three numbers rather than one, because "http is 447 ms" does not say
-// whether the link is slow or merely distant, and those want opposite fixes: a
-// large `ttfb` argues for prefetch and an MJPEG stream, a large `xfer` argues for
-// fewer bytes on the wire.
-static bool fetchFrame(uint32_t* httpUs, uint32_t* ttfbUs, uint32_t* xferUs) {
-  const uint32_t t0 = micros();
-
-  // Borrow the image fetcher's TLS client rather than making a second one.
-  // Measured: with ~48 KB free heap but only ~32 KB in the largest contiguous
-  // block, a second WiFiClientSecure fails its handshake with
-  // "SSL - Memory allocation failed". The shared one is constructed at startup
-  // when the heap is unfragmented, which is why it works. Safe because the two
-  // modules never fetch at the same time.
-  WiFiClientSecure* secure = imageFetcherSecureClient();
-  if (!secure) {
-    USBSerial.println("Video: no shared TLS client available");
+// Split IMAGE_SERVER_REMOTE ("https://host:port/path/") into its parts, once per
+// feed. A raw client needs host and port separately; parsing beats duplicating
+// them into secrets_private.h, where the copy could drift from the original.
+static bool parseEndpoint() {
+  const char* p = IMAGE_SERVER_REMOTE;
+  if (strncmp(p, "https://", 8) != 0) {
+    USBSerial.println("Video: IMAGE_SERVER_REMOTE is not an https:// URL");
     return false;
   }
+  p += 8;
 
-  WiFiClientSecure& httpsClient = *secure;
+  const char* slash = strchr(p, '/');
+  const char* colon = strchr(p, ':');
+  if (colon && slash && colon > slash) colon = nullptr;   // a colon inside the path
 
-  // The companion runs on a phone hotspot, so it always uses the remote HTTPS
-  // path. The token is appended but never logged - see the note in
-  // image_fetcher.cpp about serial output being copied into chat.
-  String url = String(IMAGE_SERVER_REMOTE) + "live"
-             + "?height=" + String(REQ_HEIGHT)
-             + "&quality=" + String(REQ_QUALITY)
-             + "&token=" + String(API_TOKEN);
+  const size_t hostLen = colon ? static_cast<size_t>(colon - p)
+                               : (slash ? static_cast<size_t>(slash - p) : strlen(p));
+  if (hostLen == 0 || hostLen >= sizeof(epHost)) {
+    USBSerial.println("Video: cannot parse host from IMAGE_SERVER_REMOTE");
+    return false;
+  }
+  memcpy(epHost, p, hostLen);
+  epHost[hostLen] = '\0';
+
+  epPort = colon ? static_cast<uint16_t>(atoi(colon + 1)) : 443;
+  if (epPort == 0) epPort = 443;
+
+  // The path keeps its trailing slash; "live" is appended to it per request.
+  if (slash) {
+    if (strlen(slash) >= sizeof(epPath)) {
+      USBSerial.println("Video: path too long in IMAGE_SERVER_REMOTE");
+      return false;
+    }
+    strcpy(epPath, slash);
+  } else {
+    strcpy(epPath, "/");
+  }
+
+  // Host deliberately not logged - serial output gets pasted into chat, which is
+  // the same reasoning that keeps the token out of any log below.
+  USBSerial.printf("Video: endpoint parsed, port %u, path %slive\n", epPort, epPath);
+  return true;
+}
+
+//***************************************************************************************************
+// Connect and handshake. Blocking, but only once per feed - the connection is
+// then held open for all 130-odd frames. A handshake per frame cost 906 ms and
+// dominated 84% of the frame time.
+static bool ensureConnected() {
+  if (!vidClient) return false;
+  if (vidClient->connected()) return true;
 
   const uint32_t heapBefore = ESP.getFreeHeap();
 
-  // Keep the TLS session open between frames. Must be set before begin(), which
-  // latches the flag. This is the single biggest win available: a handshake per
-  // frame cost 906 ms over cellular.
-  httpClient.setReuse(true);
+  vidClient->stop();
+  vidClient->setCACert(remote_server_ca_cert);
+  vidClient->setHandshakeTimeout(5);        // seconds, per the setter's units
 
-  httpsClient.setCACert(remote_server_ca_cert);
-  if (!httpClient.begin(httpsClient, url)) {
-    USBSerial.println("Video: httpClient.begin() failed");
-    return false;
-  }
-  // Match the timeouts the image fetcher uses on this same host and certificate,
-  // since that path is known to work. The handshake timeout in particular was
-  // missing here, and its default is very different.
-  if (!HEAP_CHECK("http begin")) return false;
-
-  httpClient.setTimeout(8000);          // socket
-  httpClient.setConnectTimeout(5000);   // TCP connect
-  httpsClient.setHandshakeTimeout(5);   // seconds, per the setter's units
-
-  const int code = httpClient.GET();
-  const uint32_t tHdr = micros();       // response headers are in
-  if (code != HTTP_CODE_OK) {
-    // Report enough to tell a RAM problem from a TLS or server problem.
-    // largest free block matters: mbedTLS needs a contiguous allocation, so
-    // fragmentation can defeat it even when total free looks sufficient.
+  if (!vidClient->connect(epHost, epPort)) {
+    // Report enough to tell a RAM problem from a TLS or server problem. Largest
+    // free block matters: mbedTLS needs a contiguous allocation, so fragmentation
+    // can defeat it even when total free looks sufficient.
     char tlsErr[128] = {0};
-    httpsClient.lastError(tlsErr, sizeof(tlsErr));
-    USBSerial.printf("Video: HTTP %d | heap before %u, now %u, largest block %u | TLS: %s\n",
-                     code, heapBefore, ESP.getFreeHeap(),
+    vidClient->lastError(tlsErr, sizeof(tlsErr));
+    USBSerial.printf("Video: connect failed | heap before %u, now %u, largest block %u | TLS: %s\n",
+                     heapBefore, ESP.getFreeHeap(),
                      heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
                      tlsErr[0] ? tlsErr : "(none reported)");
-    USBSerial.printf("Video: url host/path: %slive?height=%u&quality=%u&token=***\n",
-                     IMAGE_SERVER_REMOTE, REQ_HEIGHT, REQ_QUALITY);
-    httpClient.end();
     return false;
   }
+  return true;
+}
 
-  if (!HEAP_CHECK("http GET")) { httpClient.end(); return false; }
-
-  const int len = httpClient.getSize();
-  if (len <= 0 || len > static_cast<int>(MAX_FRAME_BYTES)) {
-    USBSerial.printf("Video: bad Content-Length: %d\n", len);
-    httpClient.end();
-    return false;
+//***************************************************************************************************
+// The single teardown. The TLS client is shared with the image fetcher, so
+// abandoning a half-read response would leave the next still fetch reading video
+// bytes. A feed has five ways out - the 60 s expiry, a fetch error, a decode
+// error, the back button, and screen unload - and all of them reach this through
+// videoStreamStop().
+static void closeConnection() {
+  reqInFlight = false;
+  hdrDone = false;
+  hdrLen = 0;
+  contentLen = -1;
+  jpegReceived = 0;
+  if (vidClient) {
+    vidClient->stop();
+    vidClient = nullptr;
   }
+}
 
-  WiFiClient* stream = httpClient.getStreamPtr();
-  size_t got = 0;
-  const uint32_t deadline = millis() + HTTP_TIMEOUT_MS;
-  while (got < static_cast<size_t>(len) && millis() < deadline) {
-    const int avail = stream->available();
-    if (avail > 0) {
-      const size_t want = static_cast<size_t>(len) - got;
-      got += stream->readBytes(jpegBuf + got,
-                               (static_cast<size_t>(avail) < want) ? avail : want);
-    } else {
-      yield();
+//***************************************************************************************************
+// Case-insensitive header lookup. Returns -1 if absent.
+static int headerInt(const char* name) {
+  const size_t nameLen = strlen(name);
+  for (size_t i = 0; i + nameLen < hdrLen; i++) {
+    if (strncasecmp(hdrBuf + i, name, nameLen) == 0) {
+      const char* q = hdrBuf + i + nameLen;
+      while (*q == ' ' || *q == ':') q++;
+      return atoi(q);
     }
   }
-  const uint32_t tBody = micros();      // body fully drained
+  return -1;
+}
 
-  if (!HEAP_CHECK("body read")) { httpClient.end(); return false; }
+//***************************************************************************************************
+// Write the GET and return immediately. pollResponse() collects the answer later,
+// which is what lets the network wait overlap decode and blit.
+static bool sendRequest() {
+  if (!ensureConnected()) return false;
 
-  httpClient.end();
+  hdrLen = 0;
+  hdrDone = false;
+  contentLen = -1;
+  jpegReceived = 0;
 
-  if (!HEAP_CHECK("http end")) return false;
-
-  if (got < static_cast<size_t>(len)) {
-    USBSerial.printf("Video: short read: %u of %d\n", got, len);
+  // The token is in the request line, so `req` must never be logged - the same
+  // rule image_fetcher.cpp follows.
+  char req[640];
+  const int n = snprintf(req, sizeof(req),
+                         "GET %slive?height=%u&quality=%u&token=%s HTTP/1.1\r\n"
+                         "Host: %s:%u\r\n"
+                         "Connection: keep-alive\r\n"
+                         "Accept: image/jpeg\r\n\r\n",
+                         epPath, static_cast<unsigned>(REQ_HEIGHT),
+                         static_cast<unsigned>(REQ_QUALITY), API_TOKEN,
+                         epHost, static_cast<unsigned>(epPort));
+  if (n <= 0 || n >= static_cast<int>(sizeof(req))) {
+    USBSerial.println("Video: request did not fit its buffer");
     return false;
   }
 
-  jpegLen = got;
-  *ttfbUs = tHdr - t0;
-  *xferUs = tBody - tHdr;
-  *httpUs = micros() - t0;
+  reqSentMs = millis();
+  reqSentUs = micros();
+  if (vidClient->write(reinterpret_cast<const uint8_t*>(req),
+                       static_cast<size_t>(n)) != static_cast<size_t>(n)) {
+    USBSerial.println("Video: request write failed");
+    return false;
+  }
+
+  reqInFlight = true;
   return true;
+}
+
+//***************************************************************************************************
+// Drain whatever has arrived. Never blocks.
+// 1 = a complete frame is in jpegBuf, 0 = still receiving, -1 = error.
+static int pollResponse() {
+  if (!reqInFlight) return 0;
+  if (!vidClient) return -1;
+
+  if (millis() - reqSentMs > HTTP_TIMEOUT_MS) {
+    USBSerial.println("Video: response timeout");
+    return -1;
+  }
+
+  // Buffered bytes still count after a close, so check both before giving up.
+  if (!vidClient->connected() && vidClient->available() == 0) {
+    USBSerial.println("Video: connection closed mid-response");
+    return -1;
+  }
+
+  if (!hdrDone) {
+    while (vidClient->available() && hdrLen < sizeof(hdrBuf) - 1) {
+      hdrBuf[hdrLen++] = static_cast<char>(vidClient->read());
+      if (hdrLen >= 4 && hdrBuf[hdrLen - 4] == '\r' && hdrBuf[hdrLen - 3] == '\n' &&
+          hdrBuf[hdrLen - 2] == '\r' && hdrBuf[hdrLen - 1] == '\n') {
+        hdrBuf[hdrLen] = '\0';
+        hdrDone = true;
+        break;
+      }
+    }
+
+    if (!hdrDone) {
+      if (hdrLen >= sizeof(hdrBuf) - 1) {
+        USBSerial.println("Video: header overflow");
+        return -1;
+      }
+      return 0;                            // headers still arriving
+    }
+
+    hdrDoneUs = micros();
+
+    if (!strstr(hdrBuf, " 200 ")) {
+      USBSerial.println("Video: non-200 response");
+      return -1;
+    }
+
+    contentLen = headerInt("Content-Length");
+    if (contentLen <= 0 || contentLen > static_cast<int>(MAX_FRAME_BYTES)) {
+      USBSerial.printf("Video: bad Content-Length: %d\n", contentLen);
+      return -1;
+    }
+  }
+
+  while (vidClient->available() && jpegReceived < static_cast<size_t>(contentLen)) {
+    const size_t want = static_cast<size_t>(contentLen) - jpegReceived;
+    const size_t avail = static_cast<size_t>(vidClient->available());
+    const int got = vidClient->read(jpegBuf + jpegReceived, (avail < want) ? avail : want);
+    if (got <= 0) break;
+    jpegReceived += static_cast<size_t>(got);
+  }
+
+  if (jpegReceived >= static_cast<size_t>(contentLen)) {
+    bodyDoneUs = micros();
+    jpegLen = jpegReceived;
+    reqInFlight = false;
+    return 1;
+  }
+
+  return 0;                                // body still arriving
 }
 
 //***************************************************************************************************
@@ -575,7 +713,24 @@ bool videoStreamStart() {
   // still-image fetch or the UI is the place to look, not the video path.
   HEAP_CHECK("feed start, before any frame");
 
+  if (!parseEndpoint()) return false;
+
+  vidClient = imageFetcherSecureClient();
+  if (!vidClient) {
+    USBSerial.println("Video: no shared TLS client available");
+    return false;
+  }
+
   active = true;
+
+  // Prime the pipeline. Every later request is issued by videoStreamLoop() the
+  // moment the previous frame lands, so this is the only one sent from here.
+  if (!sendRequest()) {
+    USBSerial.println("Video: first request failed");
+    videoStreamStop();
+    return false;
+  }
+
   return true;
 }
 
@@ -586,10 +741,9 @@ void videoStreamStop() {
   printSummary();
   active = false;
 
-  // Release the kept-alive connection so the shared TLS client is idle again for
-  // the still-image path.
-  httpClient.setReuse(false);
-  httpClient.end();
+  // Release the connection so the shared TLS client is idle and clean for the
+  // still-image path. Every exit route reaches this one call.
+  closeConnection();
 
   if (cfg.imgVideoBackground) {
     lv_obj_set_style_opa(cfg.imgVideoBackground, LV_OPA_TRANSP, LV_PART_MAIN);
@@ -608,28 +762,54 @@ void videoStreamStop() {
 void videoStreamLoop() {
   if (!active) return;
 
-  uint32_t httpUs = 0, ttfbUs = 0, xferUs = 0, decodeUs = 0, blitUs = 0;
-
-  if (!fetchFrame(&httpUs, &ttfbUs, &xferUs)) {
+  // Collect whatever has arrived for the frame already asked for. Returns at
+  // once if it is incomplete, so the UI keeps running while the network works.
+  const int r = pollResponse();
+  if (r < 0) {
     USBSerial.println("Video: fetch failed, stopping");
     videoStreamStop();
     returnHome();
     return;
   }
+  if (r == 0) {
+    // Nothing more to do this pass. runBackgroundTick() in the main loop already
+    // ran lv_timer_handler() and the IMU read before getting here, and returning
+    // straight away is what lets both run at full rate during the wait - which is
+    // why the IMU recovers from ~2 Hz to ~50 Hz during a feed.
+    return;
+  }
 
-  // Let LVGL run between the blocking stages. The touch controller is only
-  // sampled inside lv_timer_handler(), and the fetch above blocks for ~350 ms,
-  // so with one call per frame a quick tap on the back button could land
-  // entirely inside a blocking section and never be seen. Servicing LVGL here
-  // and after the decode gives three sampling opportunities per frame instead of
-  // one.
+  // The frame is in jpegBuf and its network cost is already known.
+  const uint32_t ttfbUs = hdrDoneUs - reqSentUs;
+  const uint32_t xferUs = bodyDoneUs - hdrDoneUs;
+  const uint32_t httpUs = bodyDoneUs - reqSentUs;
+
+  const bool more = (millis() - startMs) < VIDEO_DURATION_MS;
+
+  // The prefetch itself, and the whole of Phase 2: ask for the next frame before
+  // spending ~182 ms decoding and blitting this one, so the wait for it overlaps
+  // that work instead of following it. Because http exceeds decode+blit, the
+  // rendering disappears into the wait entirely.
   //
-  // A tap may change screens, which fires screenVideo_event_handler and stops
-  // the feed - hence the active check before continuing.
+  // Note ttfb now measures from this send to the headers arriving, which spans
+  // the decode and blit below. A ttfb close to decode+blit is the proof that the
+  // overlap is real; it is not a regression.
+  if (more && !sendRequest()) {
+    USBSerial.println("Video: prefetch failed, stopping");
+    videoStreamStop();
+    returnHome();
+    return;
+  }
+
   if (!HEAP_CHECK("fetch")) { videoStreamStop(); returnHome(); return; }
 
+  // Let LVGL run between the heavy stages. The touch controller is only sampled
+  // inside lv_timer_handler(), and a tap may change screens, which fires
+  // screenVideo_event_handler and stops the feed - hence the active checks.
   lv_timer_handler();
   if (!active) return;
+
+  uint32_t decodeUs = 0, blitUs = 0;
 
   if (!decodeFrame(&decodeUs)) {
     USBSerial.println("Video: decode failed, stopping");
@@ -658,7 +838,7 @@ void videoStreamLoop() {
   sumBlit += blitUs;
   frames++;
 
-  if (millis() - startMs >= VIDEO_DURATION_MS) {
+  if (!more) {
     videoStreamStop();
     returnHome();
   }
