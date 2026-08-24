@@ -135,6 +135,18 @@ bool heapCheck(const char* where) {
 #endif
 
 uint64_t sumHttp = 0;
+// `http` split into its two halves. `ttfb` is everything up to the first byte of
+// the response - the round trip plus the Synology -> Pi proxy -> Node-RED ->
+// Frigate chain - and does not change with frame size. `xfer` is draining the
+// body off the socket, and is the only part that scales with bytes.
+//
+// Kept permanently rather than behind a VIDEO_HEAP_DEBUG-style toggle: it costs
+// two micros() calls per frame and two more numbers on a line already printed
+// once per feed. The home panel measured per-frame Serial output at 11 ms a
+// frame, so this must never grow into per-frame logging.
+uint64_t sumTtfb = 0;
+uint64_t sumXfer = 0;
+uint64_t sumBytes = 0;
 uint64_t sumDecode = 0;
 uint64_t sumBlit = 0;
 uint64_t sumFrame = 0;
@@ -169,7 +181,7 @@ HTTPClient httpClient;
 
 }  // namespace
 
-static bool fetchFrame(uint32_t* httpUs);
+static bool fetchFrame(uint32_t* httpUs, uint32_t* ttfbUs, uint32_t* xferUs);
 static bool decodeFrame(uint32_t* decodeUs);
 static void displayFrame(uint32_t* blitUs);
 static void printSummary();
@@ -211,7 +223,12 @@ bool videoStreamActive() {
 //***************************************************************************************************
 // Blocking GET. Deliberately simple: this spike measures decode and blit, and a
 // prefetching client would only blur those numbers. Phase 2 adds prefetch.
-static bool fetchFrame(uint32_t* httpUs) {
+//
+// Reports three numbers rather than one, because "http is 447 ms" does not say
+// whether the link is slow or merely distant, and those want opposite fixes: a
+// large `ttfb` argues for prefetch and an MJPEG stream, a large `xfer` argues for
+// fewer bytes on the wire.
+static bool fetchFrame(uint32_t* httpUs, uint32_t* ttfbUs, uint32_t* xferUs) {
   const uint32_t t0 = micros();
 
   // Borrow the image fetcher's TLS client rather than making a second one.
@@ -258,6 +275,7 @@ static bool fetchFrame(uint32_t* httpUs) {
   httpsClient.setHandshakeTimeout(5);   // seconds, per the setter's units
 
   const int code = httpClient.GET();
+  const uint32_t tHdr = micros();       // response headers are in
   if (code != HTTP_CODE_OK) {
     // Report enough to tell a RAM problem from a TLS or server problem.
     // largest free block matters: mbedTLS needs a contiguous allocation, so
@@ -296,6 +314,8 @@ static bool fetchFrame(uint32_t* httpUs) {
       yield();
     }
   }
+  const uint32_t tBody = micros();      // body fully drained
+
   if (!HEAP_CHECK("body read")) { httpClient.end(); return false; }
 
   httpClient.end();
@@ -308,6 +328,8 @@ static bool fetchFrame(uint32_t* httpUs) {
   }
 
   jpegLen = got;
+  *ttfbUs = tHdr - t0;
+  *xferUs = tBody - tHdr;
   *httpUs = micros() - t0;
   return true;
 }
@@ -499,6 +521,13 @@ static void printSummary() {
                    frames, secs, frames / secs,
                    sumHttp / 1000.0f / frames, sumDecode / 1000.0f / frames,
                    sumBlit / 1000.0f / frames, sumFrame / 1000.0f / frames);
+  // Throughput is bytes over the xfer time alone, so it measures the link while
+  // it is actually moving data instead of averaging in the wait for the server.
+  const float xferSecs = sumXfer / 1000000.0f;
+  USBSerial.printf("Video: http = ttfb %.0f + xfer %.0f ms | frame %.1f KB | %.0f KB/s while transferring\n",
+                   sumTtfb / 1000.0f / frames, sumXfer / 1000.0f / frames,
+                   sumBytes / 1024.0f / frames,
+                   (xferSecs > 0.0f) ? (sumBytes / 1024.0f / xferSecs) : 0.0f);
   USBSerial.printf("Video: free PSRAM %u, free heap %u\n",
                    ESP.getFreePsram(), ESP.getFreeHeap());
 }
@@ -516,7 +545,8 @@ bool videoStreamStart() {
     }
   }
 
-  sumHttp = sumDecode = sumBlit = sumFrame = 0;
+  sumHttp = sumTtfb = sumXfer = sumBytes = 0;
+  sumDecode = sumBlit = sumFrame = 0;
   frames = 0;
   startMs = millis();
   startUs = micros();
@@ -564,9 +594,9 @@ void videoStreamStop() {
 void videoStreamLoop() {
   if (!active) return;
 
-  uint32_t httpUs = 0, decodeUs = 0, blitUs = 0;
+  uint32_t httpUs = 0, ttfbUs = 0, xferUs = 0, decodeUs = 0, blitUs = 0;
 
-  if (!fetchFrame(&httpUs)) {
+  if (!fetchFrame(&httpUs, &ttfbUs, &xferUs)) {
     USBSerial.println("Video: fetch failed, stopping");
     videoStreamStop();
     returnHome();
@@ -607,6 +637,9 @@ void videoStreamLoop() {
   sumFrame += (frames == 0) ? (now - startUs) : (now - lastFrameUs);
   lastFrameUs = now;
   sumHttp += httpUs;
+  sumTtfb += ttfbUs;
+  sumXfer += xferUs;
+  sumBytes += jpegLen;
   sumDecode += decodeUs;
   sumBlit += blitUs;
   frames++;
