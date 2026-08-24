@@ -157,6 +157,48 @@ back-to-back runs per build or link conditions will dominate the result.
 the cropped-away pixels are never read. It measured 109 ms at `height=360`, 392 and 432.
 Only `decode` grows with the frame (46 -> 52 -> 80 ms).
 
+**Where the `http` time goes.** Measured with `curl -w` from a PC on a VPN. The LAN cannot
+be used for this - the public endpoint does not resolve back inside the network, the router
+has no NAT hairpin - and the VPN is fine because the two numbers that matter are either
+path-independent or derived from a ratio.
+
+| Component      | Cost    | Share | Basis                                    |
+|----------------|---------|-------|------------------------------------------|
+| Cellular RTT   | ~140 ms | 31%   | Derived from the handshake ratio         |
+| Server chain   | 43 ms   | 10%   | Measured; stable across three runs       |
+| Transfer 29 KB | ~264 ms | 59%   | Remainder; ~110 KB/s, ~0.9 Mbps          |
+
+**Server chain** is `ttfb` minus one round trip on a keep-alive request, and covers
+Synology -> Pi proxy -> Node-RED -> Frigate. It measured 43, 44 and 39 ms on three separate
+runs, and two consecutive keep-alive requests agreed to within 0.1 ms. At ~10% of `http` it
+is not worth attacking - the multi-hop path is cheap.
+
+**Cellular RTT is derived, not measured.** On the VPN path a cold connection cost 232 ms of
+setup (DNS + TCP + TLS) against a 60 ms round trip, so a full handshake to this server costs
+~3.9 RTT. That ratio is a property of the server, not the link, so it carries over: the
+board's own handshake delta is 544 ms (906 ms without keep-alive against ~362 with), giving
+~140 ms. A run tethered to the hotspot would measure it directly.
+
+**Transfer is the largest term**, so bytes on the wire matter more than anything else here.
+Frames are ~29 KB at `quality=25`.
+
+Projected from this budget:
+
+| Change                                 | `http` | frame | fps |
+|----------------------------------------|--------|-------|-----|
+| Today                                  | 447    | 643   | 1.6 |
+| Lower `REQ_QUALITY` (29 -> ~18 KB)     | 347    | 535   | 1.9 |
+| + Phase 2 prefetch                     | 347    | 354   | 2.8 |
+| + MJPEG stream (removes per-frame RTT) | 207    | ~214  | 4.7 |
+
+On the last row `http` (207 ms) and decode+blit (~181 ms) are comparable, so the board
+becomes the constraint again. Only at that point would a direct-draw or dual-core rendering
+change buy anything; before it, they buy nothing.
+
+**When measuring with `curl`, pass one `-o` per URL.** With fewer `-o` than URLs, every
+request after the first reports `bytes 0` while still returning `code 200`, which looks
+exactly like the server failing under load. It is not - it is curl having no output target.
+
 **Four constraints worth knowing before touching this code:**
 
 1. **Only one TLS client fits.** Internal heap is ~94 KB idle and ~50 KB with a TLS session
