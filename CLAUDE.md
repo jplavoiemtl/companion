@@ -138,15 +138,26 @@ via Latest, so time spent on it is live action missed.
 Height alignment does not matter: 360 and 392 both have unaligned heights and only 392
 crashed. Check **both** rules against the returned width before changing this.
 
-**Performance.** 2.2 fps at `height=432`, `quality=15`, set by the cellular link. All
-times in ms, measured on device.
+**Performance.** 2.9 fps at `height=432`, `quality=15`, with prefetch. All times in ms,
+measured on device.
 
-| Run          | ttfb | xfer | http | decode | blit | frame | fps |
-|--------------|------|------|------|--------|------|-------|-----|
-| `quality=25` | 144  | 252  | 396  | 78     | 109  | 591   | 1.7 |
-| `quality=15` | 133  | 151  | 284  | 73     | 109  | 473   | 2.1 |
-| `quality=15` | 128  | 146  | 274  | 73     | 109  | 463   | 2.2 |
-| `quality=15` | 129  | 146  | 275  | 73     | 109  | 464   | 2.2 |
+| Run                     | ttfb | xfer | http | decode | blit | frame | fps |
+|-------------------------|------|------|------|--------|------|-------|-----|
+| `quality=25`, blocking  | 144  | 252  | 396  | 78     | 109  | 591   | 1.7 |
+| `quality=15`, blocking  | 133  | 151  | 284  | 73     | 109  | 473   | 2.1 |
+| `quality=15`, blocking  | 128  | 146  | 274  | 73     | 109  | 463   | 2.2 |
+| `quality=15`, blocking  | 129  | 146  | 275  | 73     | 109  | 464   | 2.2 |
+| `quality=15`, prefetch  | 177  | 160  | 337  | 59     | 110  | 342   | 2.9 |
+| `quality=15`, prefetch  | 178  | 160  | 338  | 59     | 111  | 343   | 2.9 |
+
+**`ttfb` changes meaning once prefetch is on** and must not be read as a regression. It
+measures from sending a request to *getting around to reading* the response, so it now spans
+the decode and blit done in between: 177 = decode 59 + blit 110 + 8 ms of loop overhead,
+exactly. That identity is the proof the overlap is real.
+
+`decode` also fell 73 -> 59 ms on the same frame size. Most likely the blocking
+implementation absorbed lwIP catch-up work - ACKs and buffer frees queued during the fetch
+and spent during the decode.
 
 **Variance is between sessions, not within them.** The three `quality=15` runs were taken
 back-to-back and landed within 1% of each other, while `http` has spanned 274 to 447 ms
@@ -178,17 +189,45 @@ frame size - `lv_draw_sw_blend` clips to the visible area, so cropped-away pixel
 read - and measured 109 ms at every height and quality tried. Only `decode` moves: 46 -> 52
 -> 80 ms by height, 78 -> 73 ms by quality.
 
-Projected from the measured budget:
+**Prefetch hides the round trip, not the transfer.** The projection said otherwise - it
+assumed all of `http` would disappear behind decode+blit and predicted 3.5 fps. What
+actually happens:
 
-| Change                                 | `http` | frame | fps |
-|----------------------------------------|--------|-------|-----|
-| Today (`quality=15`)                   | 278    | 467   | 2.2 |
-| + Phase 2 prefetch                     | 278    | 285   | 3.5 |
-| + MJPEG stream (removes per-frame RTT) | ~150   | ~189  | 5.3 |
+```text
+blocking:  RTT 130 + xfer 148 + decode 73 + blit 109 + 7   = 467 ms
+prefetch:  [RTT hidden]        + decode 59 + blit 110 + xfer 160 + 13 = 342 ms
+```
 
-Prefetch hides decode+blit entirely, because `http` (278) exceeds their 182 ms. On the last
-row `http` falls *below* decode+blit and the board becomes the constraint - the only point at
-which a direct-draw or dual-core rendering change would buy anything.
+`xfer` is untouched - 148 ms before, 160 ms after for a slightly larger frame. The body
+still moves entirely on the critical path, because nothing reads the socket during decode
+and blit.
+
+**A mid-frame drain does not fix that, and was tried and reverted.** Adding a
+`pollResponse()` between decode and blit moved nothing: `xfer` 160 -> 161/164, frame
+342 -> 345/352, marginally worse. The reason is in the numbers already collected: the
+server's real time-to-first-byte is ~130 ms, and the drain fires ~60 ms after the request
+goes out, so there is simply nothing to read yet. The only interval in which the body
+actually arrives is *inside* the blit, and `lv_refr_now()` cannot be interrupted. **There is
+no useful place to put a drain**, which is also why the same change failed on the home panel
+(run 6, `home_panel/doc/live_video_feed.md`).
+
+**MJPEG streaming is now off the table too.** Its whole value was removing the per-frame
+round trip, and prefetch already hides it. It would still pay the same ~160 ms transfer per
+frame, so it now buys nothing.
+
+What is left, in order of appeal:
+
+| Change                          | frame | fps | Cost                                   |
+|---------------------------------|-------|-----|----------------------------------------|
+| Today (prefetch, `quality=15`)  | 342   | 2.9 | -                                      |
+| `quality=10` (18.7 -> ~14 KB)   | ~302  | 3.3 | Visible artefacts; q10 smears detail   |
+| Socket reader on the other core | ~184  | 5.4 | A task stack out of a fragmented heap  |
+| Dual-core decode/blit split     | ~285  | 3.5 | Same RAM risk, smaller payoff          |
+
+The reader-task row is the one that addresses what the drain could not: a task that keeps
+reading while core 1 decodes and blits would drain the window continuously. It is also the
+riskiest - see constraint 1 below, since a new task stack comes out of the same heap where
+mbedTLS needs a contiguous 16 KB.
 
 **When measuring with `curl`, pass one `-o` per URL.** With fewer `-o` than URLs, every
 request after the first reports `bytes 0` while still returning `code 200`, which looks
