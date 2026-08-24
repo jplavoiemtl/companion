@@ -71,7 +71,7 @@ constexpr uint8_t  REQ_QUALITY = 25;
 //
 // Negative is the door direction - measured on the bench, not derived.
 // Values beyond +/-160 are clamped and simply do nothing.
-constexpr int PAN_X = -30;  //-160 max towards the door, 0 centred, +160 max towards far side
+constexpr int PAN_X = -15;  //-160 max towards the door, 0 centred, +160 max towards far side
 
 // Vertical pan, same idea on the other axis.
 //
@@ -88,7 +88,7 @@ constexpr int PAN_X = -30;  //-160 max towards the door, 0 centred, +160 max tow
 // Both ranges scale with REQ_HEIGHT, but do not raise it just to gain travel:
 // the next values up (440, 448, 464) all fail the multiple-of-16 source width
 // rule above and corrupt the heap. 432 is the only legal size in that region.
-constexpr int PAN_Y = 12;   //-32 max one way, 0 centred, +32 max the other way
+constexpr int PAN_Y = 32;   //-32 max one way, 0 centred, +32 max the other way
 constexpr size_t   MAX_FRAME_BYTES = 64000;                 // frames measure ~27 KB
 constexpr uint32_t HTTP_TIMEOUT_MS = 15000;
 
