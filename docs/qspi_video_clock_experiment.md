@@ -52,6 +52,31 @@ Target for continuing:
 If FPS changes while blit does not, treat that as cellular variance rather than a
 successful display-clock result.
 
+### Measured result
+
+Phase 1 passed on hardware. The 60-second feed was visually smoother, the video
+and every other screen rendered correctly, and no UI regression was observed.
+
+```text
+Video: 193 frames in 60.3s (3.2 fps) | http 308 | decode 74 | blit 69 | frame 313 ms
+Video: http = ttfb 157 + xfer 151 ms | frame 17.6 KB | 117 KB/s while transferring
+Video: free PSRAM 7646792, free heap 50344
+```
+
+Against the documented 8 MHz baseline, blit fell from 110-111 ms to 69 ms
+(-37%) and frame time fell from 342-343 ms to 313 ms, raising the displayed rate
+from 2.9 to 3.2 fps. Transfer remained close to baseline, so the large blit change
+is the decisive evidence that the improvement came from the display clock rather
+than cellular variation.
+
+The 69 ms result also matches the bus-cost model almost exactly: approximately
+28 ms of fixed LVGL/copy work plus 41 ms to transfer the visible frame at 16 MHz.
+Decode rose from 59 ms in the earlier prefetch run to 74 ms in this run; keep
+watching that metric, but do not attribute it to the display clock from one sample.
+
+**Decision:** retain 16 MHz as the proven checkpoint and proceed to a separate
+20 MHz test with no other performance changes.
+
 ## Phase 2: clock sweep
 
 Proceed only if 16 MHz is stable and improves blit:
