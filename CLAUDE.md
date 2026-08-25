@@ -209,6 +209,55 @@ ceiling. `blit` does not scale with frame size - `lv_draw_sw_blend` clips to the
 visible area - and the 20 MHz field runs hold it at 61 ms. Transfer, not local
 rendering, determines the observed 3.2-4.1 fps.
 
+**The QSPI clock, and why 20 MHz is the end of that road.** Arduino_GFX defaults this bus to
+8 MHz when `gfx->begin()` is called without an explicit speed, which is the whole reason
+`blit` was 110 ms. Three measured points fit one model to within 0.4 ms:
+
+| Clock  | Transfer (theory) | `blit` measured | Fixed LVGL |
+|--------|-------------------|-----------------|------------|
+| 8 MHz  | 82.4 ms           | 110 ms          | 27.6 ms    |
+| 16 MHz | 41.2 ms           | 69 ms           | 27.8 ms    |
+| 20 MHz | 33.0 ms           | 61 ms           | 28.0 ms    |
+
+The transfer term is pure bus arithmetic: 368 x 448 x 2 = 329,728 bytes = 2,637,824 bits,
+and QSPI moves 4 bits per clock, so 659,456 clocks. The remaining ~28 ms is LVGL rendering
+and the copy into the draw buffer, which no clock change touches. Extrapolating gives 55 ms
+at 24 MHz, 50 at 30, 44 at 40, and a 28 ms floor no clock can beat.
+
+**None of that would raise the frame rate.** With prefetch the frame period is
+
+```text
+frame = max(work, network ttfb) + xfer + overhead
+work  = decode + blit + loop overhead = 56 + 61 + 10 = 127 ms
+```
+
+and `ttfb` on the 4.1 fps runs measures 126-128 ms - equal to `work`, meaning the two sides
+have met. Cutting `blit` further only pushes `work` below the network floor, where the
+saving evaporates. Even with `decode` + `blit` at zero, the frame cannot fall below
+`network ttfb + xfer`, roughly 120 + 110 + 7:
+
+```text
+effective ceiling ~ 237 ms ~ 4.2 fps
+```
+
+**The 7.5-8.5 fps local ceiling above is not reachable.** At 4.1 fps the board is already
+within a few percent of what this link allows, and the binding constraint is `xfer` - still
+100% on the critical path, with no interval available to overlap it. Do not spend another
+flash on the clock.
+
+**If the clock is raised anyway, the experiment self-diagnoses.** While `ttfb` still equals
+`decode` + `blit` + overhead, local work dominates and margin remains. When `ttfb` stops
+falling and settles above that sum, the network floor has been exposed - that is the stop
+signal, and a single run shows it.
+
+**`DISPLAY_QSPI_HZ` is a global setting.** It affects every screen, not just the feed.
+Signal integrity on the flex is the real limit and it is empirical, so any increase has to
+be checked against the still images and the normal UI as well as the video: the failure mode
+is visual artefacts or torn frames, not a clean error.
+
+For contrast, the home panel's BSP already sets 50 MHz (`AXS15231B_PANEL_IO_QSPI_CONFIG` in
+`esp_lcd_axs15231b.h`), so it never had this problem and has nothing equivalent to gain.
+
 **Prefetch hides the round trip, not the transfer.** The projection said otherwise - it
 assumed all of `http` would disappear behind decode+blit and predicted 3.5 fps. What
 actually happens:
