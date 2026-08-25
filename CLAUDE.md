@@ -138,8 +138,27 @@ via Latest, so time spent on it is live action missed.
 Height alignment does not matter: 360 and 392 both have unaligned heights and only 392
 crashed. Check **both** rules against the returned width before changing this.
 
-**Performance.** 2.9 fps at `height=432`, `quality=15`, with prefetch. All times in ms,
-measured on device.
+**Performance.** The accepted firmware uses a 20 MHz display QSPI clock with
+`height=432`, `quality=15`, and prefetch. It measures 3.2-4.1 fps depending on
+cellular throughput and JPEG scene complexity. All times are measured on device.
+
+Current 20 MHz production measurements:
+
+| fps | ttfb | xfer | http | decode | blit | frame | JPEG | transfer rate |
+|-----|------|------|------|--------|------|-------|------|---------------|
+| 3.2 | 143 | 167 | 311 | 73 | 61 | 315 | 17.6 KB | 105 KB/s |
+| 3.2 | 143 | 163 | 306 | 73 | 61 | 314 | 17.5 KB | 107 KB/s |
+| 3.4 | 129 | 159 | 288 | 59 | 61 | 295 | 17.7 KB | 111 KB/s |
+| 4.0 | 128 | 111 | 239 | 56 | 61 | 248 | 14.2 KB | 128 KB/s |
+| 4.1 | 126 | 108 | 234 | 56 | 61 | 243 | 13.9 KB | 129 KB/s |
+| 4.1 | 127 | 110 | 237 | 56 | 61 | 246 | 13.9 KB | 126 KB/s |
+
+Blit is stable at 61 ms. The large FPS range comes from content-dependent JPEG
+size and cellular throughput: 17.5-17.7 KB frames at 105-111 KB/s yield
+3.2-3.4 fps, while 13.9-14.2 KB frames at 126-129 KB/s yield 4.0-4.1 fps.
+The latter is normal production behavior, not a separate code change.
+
+Historical 8 MHz measurements, retained to explain the optimization path:
 
 | Run                     | ttfb | xfer | http | decode | blit | frame | fps |
 |-------------------------|------|------|------|--------|------|-------|-----|
@@ -184,10 +203,11 @@ improvement visible in the throughput column.
 Frigate, measured three times with `curl`), which puts the cellular RTT at ~90-100 ms. An
 earlier figure of ~140 ms, derived from a handshake ratio rather than measured, was too high.
 
-`decode` + `blit` = 182 ms, the hard on-board ceiling of 5.5 fps. `blit` does not scale with
-frame size - `lv_draw_sw_blend` clips to the visible area, so cropped-away pixels are never
-read - and measured 109 ms at every height and quality tried. Only `decode` moves: 46 -> 52
--> 80 ms by height, 78 -> 73 ms by quality.
+At the old 8 MHz clock, `decode` + `blit` was 182 ms, a 5.5 fps local ceiling.
+At the accepted 20 MHz setting it is now 117-134 ms, a 7.5-8.5 fps local
+ceiling. `blit` does not scale with frame size - `lv_draw_sw_blend` clips to the
+visible area - and the 20 MHz field runs hold it at 61 ms. Transfer, not local
+rendering, determines the observed 3.2-4.1 fps.
 
 **Prefetch hides the round trip, not the transfer.** The projection said otherwise - it
 assumed all of `http` would disappear behind decode+blit and predicted 3.5 fps. What
@@ -215,11 +235,11 @@ no useful place to put a drain**, which is also why the same change failed on th
 round trip, and prefetch already hides it. It would still pay the same ~160 ms transfer per
 frame, so it now buys nothing.
 
-What is left, in order of appeal:
+Earlier projections, retained for comparison with the measured outcome:
 
 | Change                          | frame | fps | Cost                                   |
 |---------------------------------|-------|-----|----------------------------------------|
-| Today (prefetch, `quality=15`)  | 342   | 2.9 | -                                      |
+| Old 8 MHz prefetch baseline     | 342   | 2.9 | -                                      |
 | `quality=10` (18.7 -> ~14 KB)   | ~302  | 3.3 | Visible artefacts; q10 smears detail   |
 | Socket reader on the other core | ~184  | 5.4 | A task stack out of a fragmented heap  |
 | Dual-core decode/blit split     | ~285  | 3.5 | Same RAM risk, smaller payoff          |
@@ -263,18 +283,20 @@ IMU sampling from ~50 Hz to ~2 Hz for the full 60 seconds. Prefetch returns from
 full rate throughout. This was a side effect of chasing frame rate, not the goal, but it
 removes a documented trade-off.
 
-**Where this was left, and why.** 1.6 -> 2.9 fps in one session, from two changes:
-`quality=15` (~+28%) and prefetch (~+32%). Confirmed on the bench over cellular: the feed
-is visibly smoother and less choppy, and the drop from `quality=25` to 15 is not
-perceptible on the 1.8" panel - the frame is cropped 1:1 rather than scaled, so the
-compression is seen at full resolution, just physically small.
+**Where this is left, and why.** The optimization path was 1.6 -> 2.9 fps from
+`quality=15` and prefetch, then a stable 20 MHz QSPI clock reduced blit from
+110-111 to 61 ms. The accepted firmware initially measured 3.2 fps and later
+produced three consecutive 4.0-4.1 fps field runs as JPEG size fell to about
+14 KB and cellular throughput rose to 126-129 KB/s.
 
-Stopped deliberately at 2.9 fps. What remains is a socket-reader task on the second core,
-worth perhaps 5.4 fps, and it is the change most likely to reproduce the "SSL - Memory
-allocation failed" failure in constraint 1 below - a new task stack comes out of the same
-heap where mbedTLS needs a contiguous 16 KB, on a board with no OTA where every iteration
-is a USB flash. Fractions of a frame per second are not worth that on a camera whose job is
-showing who is at the door.
+Stopped deliberately with a production range of 3.2-4.1 fps. A two-request
+HTTP pipeline probe passed framing and JPEG validation but its two normal
+completion gaps were 310-315 ms, no better than the stable sequential path;
+the upstream chain serialized the requests. A socket-reader task has almost no
+transfer to overlap because `ttfb` already tracks decode + blit + loop overhead.
+A Node-RED prefetch cache was projected at only about 3.6-3.8 fps under the
+slower conditions and was rejected as added state and stale-frame risk for too
+little gain. No further board or server optimization is planned.
 
 See `docs/live_video_feed_port.md` for the full measurement history, including several
 approaches that were measured and rejected.

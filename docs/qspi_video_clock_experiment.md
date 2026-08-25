@@ -100,6 +100,46 @@ meaningful experiment must address the per-frame network request gap.
 **Decision:** accept 20 MHz as the project setting. Stop the clock sweep here and
 preserve HTTP pipelining as a separate experimental branch.
 
+### Subsequent production measurements
+
+Four later 60-second runs used the unchanged accepted `main` firmware. They show
+the range produced by cellular throughput and JPEG scene complexity, not four
+additional code changes:
+
+```text
+Video: 204 frames in 60.2s (3.4 fps) | http 288 | decode 59 | blit 61 | frame 295 ms
+Video: http = ttfb 129 + xfer 159 ms | frame 17.7 KB | 111 KB/s while transferring
+Video: free PSRAM 7646768, free heap 50360
+
+Video: 243 frames in 60.2s (4.0 fps) | http 239 | decode 56 | blit 61 | frame 248 ms
+Video: http = ttfb 128 + xfer 111 ms | frame 14.2 KB | 128 KB/s while transferring
+Video: free PSRAM 7647032, free heap 50332
+
+Video: 248 frames in 60.2s (4.1 fps) | http 234 | decode 56 | blit 61 | frame 243 ms
+Video: http = ttfb 126 + xfer 108 ms | frame 13.9 KB | 129 KB/s while transferring
+Video: free PSRAM 7646804, free heap 50336
+
+Video: 245 frames in 60.2s (4.1 fps) | http 237 | decode 56 | blit 61 | frame 246 ms
+Video: http = ttfb 127 + xfer 110 ms | frame 13.9 KB | 126 KB/s while transferring
+Video: free PSRAM 7646804, free heap 50336
+```
+
+Blit remained exactly 61 ms in all four runs and memory remained stable. The
+3.4 fps run transferred a 17.7 KB JPEG at 111 KB/s; the 4.0-4.1 fps runs had
+more compressible 13.9-14.2 KB frames and a faster 126-129 KB/s link, cutting
+transfer to 108-111 ms. Do not attribute that variable portion to QSPI.
+
+At 4.0-4.1 fps, observed `ttfb` was 126-128 ms against 56 ms decode plus
+61 ms blit and 9-11 ms overhead. Prefetch was therefore hiding virtually the
+entire server/round-trip wait. The remaining critical cost was JPEG transfer,
+which cannot be reduced in the Node-RED flow without changing payload quality
+or freshness.
+
+**Production characterization:** the accepted firmware delivers approximately
+3.2-4.1 fps depending on cellular conditions and scene compressibility. The
+best repeated result is 41% above the original 2.9 fps baseline. Keep 20 MHz
+and stop further display, pipeline, reader-task, and server-cache experiments.
+
 ## Phase 2: clock sweep - complete at 20 MHz
 
 The remaining frequencies were not pursued because 20 MHz was stable and the
@@ -107,7 +147,7 @@ network already hid the additional display gain from the FPS result:
 
 | Clock | Action |
 |-------|--------|
-| 20 MHz | Next conservative step; repeat the complete Phase 1 test |
+| 20 MHz | Accepted project setting; stable 61 ms blit |
 | 24 MHz | Optional only if 20 MHz remains clean and blit is still bus-limited |
 | 40 MHz | Exploratory ceiling; do not keep without an extended stability run |
 
@@ -120,5 +160,6 @@ captures most of the gain, not the highest clock that happens to boot.
 
 ## Rollback
 
-Set `DISPLAY_QSPI_HZ` to `8000000` or switch back to `main`. No persistent device
-state or server configuration is changed by this experiment.
+Set `DISPLAY_QSPI_HZ` to `8000000` or use pre-experiment commit `7c8d4ba`. `main`
+now intentionally carries the accepted 20 MHz setting. No persistent device state
+or server configuration is changed by this experiment.
