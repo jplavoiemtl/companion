@@ -688,6 +688,12 @@ static void printSummary() {
 bool videoStreamStart() {
   if (active) return true;
 
+  // Reject an offline start before allocating buffers or opening the loading screen.
+  if (WiFi.status() != WL_CONNECTED) {
+    USBSerial.println("Video: start refused - WiFi offline");
+    return false;
+  }
+
   // Allocated on first use and retained - see videoStreamStop().
   if (!jpegBuf) {
     jpegBuf = static_cast<uint8_t*>(ps_malloc(MAX_FRAME_BYTES));

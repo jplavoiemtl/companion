@@ -599,7 +599,12 @@ void buttonNew_event_handler(lv_event_t* e) {
     // The image archive is still populated by the motion-driven capture in
     // Node-RED, so Latest and Back continue to see new images.
     USBSerial.println("Live button clicked -> starting live feed");
-    videoStreamStart();
+    lv_obj_t* previousScreen = lv_scr_act();
+    if (!videoStreamStart() && lv_scr_act() != previousScreen) {
+      // Screen unload clears the loading timer and image state after startup fails.
+      ui_previous_screen = previousScreen;
+      returnToPreviousScreen("live feed failed to start");
+    }
 
     // Previous behaviour, kept for reference:
     // prepareForRequest();

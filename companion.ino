@@ -1558,6 +1558,18 @@ void updateConnectionStatusUI() {
         return;
     }
 
+    // Log visible connection transitions once; the serial monitor supplies timestamps.
+    // Ignore changes between disconnected Wi-Fi status codes to avoid repeated OFFLINE lines.
+    if (prev_wifi_status == -1 ||
+        (current_wifi_status == WL_CONNECTED) != (prev_wifi_status == WL_CONNECTED) ||
+        current_mqtt_status != prev_mqtt_status) {
+        const uint16_t port = netGetActivePort();
+        USBSerial.printf("[NET] WiFi=%s | MQTT=%s\n",
+                         current_wifi_status == WL_CONNECTED ? "CONNECTED" : "OFFLINE",
+                         current_mqtt_status ? ((port == 9735 || port == 8883) ? "REMOTE CONNECTED" : "LOCAL CONNECTED")
+                                             : "DISCONNECTED");
+    }
+
     // --- A change was detected, update the label ---
     if (current_mqtt_status) {
         // Best case: MQTT is online
