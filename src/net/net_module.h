@@ -40,3 +40,5 @@ void netCheckMqtt(bool bypassRateLimit = false);
 bool netIsMqttConnected();
 uint16_t netGetActivePort();
 
+// Temporary serial-controlled MQTT outage test; call once per main-loop iteration.
+void netBenchLoop();

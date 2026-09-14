@@ -2303,6 +2303,8 @@ void loop() {
     return; // Exit the loop immediately.
   }
 
+  netBenchLoop();  // Serial off/on/status commands; also runs while WiFi is down.
+
   // --- Task 1: Per-tick UI / sensor work (shared with boot-time keep-alive) ---
   // runBackgroundTick covers IMU read, motion state, G-meter dot, motion icon,
   // battery (200 ms), connection-status label (1 s), inclinometer (500 ms),
@@ -2356,13 +2358,10 @@ void loop() {
   if (WiFi.status() == WL_CONNECTED) {
     mqttClient.loop();  // Always call loop() to maintain connection
 
-    // Defer reconnection attempts while an image fetch is active. A failed attempt in
-    // netCheckMqtt() blocks for up to ~15 s (100 ms settle + 5 s TCP + 5 s TLS + 5 s
-    // CONNACK) and it runs immediately before imageFetcherLoop() below. One landing
-    // inside a fetch delays the HTTP start by that much, pushing the transfer past the
-    // Screen-2 deadline and losing the image — an intermittent failure, since the
-    // attempt is itself rate-limited to once every 15 s. The broker can wait.
-    if (!imageFetcherIsBusy()) {
+    // Defer reconnection while either a still image or live video is active.
+    // Failed MQTT connects can block long enough to expire the video response
+    // deadline even when its server is reachable. Retry after the feed ends.
+    if (!imageFetcherIsBusy() && !videoStreamActive()) {
       netCheckMqtt();   // Attempt reconnection (rate-limited to every 15s)
     }
   }
