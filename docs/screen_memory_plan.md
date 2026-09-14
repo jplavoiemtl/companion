@@ -1,5 +1,44 @@
 # Screen Memory Implementation Plan
 
+## Current correction: preserve the selected screen through remote media
+
+Implemented; the user confirmed on the bench that Live returns to the proper
+screen. The older design snippets below describe the
+original implementation and do not include this correction.
+
+- Remote still/Live viewing returns to the screen it interrupted. Normal Live
+  completion and stream errors use the remembered previous screen, with the
+  dashboard only as a fallback. Direct Live starts capture their origin;
+  a still-to-Live handover preserves the still request's original screen.
+- Image/video and calibration screens pause preference persistence. Returning to
+  the same persistent screen does not schedule a new save. The screen-memory
+  handler now observes those temporary screens as well as the persistent ones.
+- If a user-selected screen already had a pending save, time spent on temporary
+  screens does not count toward its 30 seconds. Return resumes the remaining
+  time. Example: 10 seconds on a new G-meter selection, then a 60-second remote
+  feed, then 20 more seconds on G-meter before saving that prior user selection.
+- Selecting a different persistent screen starts a fresh timer. Selecting the
+  already-saved preference cancels another pending save and performs no write.
+- Boot restoration and repeated loading of the same selection do not start a
+  new timer. Screen IDs, NVS namespace/key, and the 30-second delay are unchanged.
+- Return logs distinguish `no preference save needed` from `resuming previous
+  selection timer`. The scheduling message is only emitted for a changed
+  persistent selection that actually needs saving.
+
+First bench test (user compiles/flashes in VS Code): select G-meter and allow its
+preference to settle for at least 30 seconds. Trigger a remote image notification
+that proceeds to Live, and let the feed finish naturally. Expect G-meter to return
+and `[ScreenMem] Returned to screen 2; no preference save needed` (screen-memory
+ID 2 means G-meter, not the temporary viewer named Screen2). Wait 35 seconds;
+there should be no new `Saved screen ID` message caused by the remote cycle.
+
+Further validation after that test: interrupt a pending selection as in the
+10/60/20-second example; repeat with Inclinometer; check manual return and failed
+Live/HTTP return paths; verify genuine navigation still saves and restores on
+reboot. The user compiled/flashed in VS Code and confirmed the Live return behavior.
+The assistant performed source/diff checks without compiling or flashing. Detailed
+NVS timing and failure-path tests above have not been separately reported.
+
 ## Overview
 
 This document outlines the implementation plan for persisting the active screen to NVS (Non-Volatile Storage) so the device restores the last active screen on power-up.

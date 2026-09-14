@@ -15,6 +15,8 @@
 
 // Project module pattern - see CLAUDE.md. The other modules do the same.
 extern HWCDC USBSerial;
+// Shared with the still-image viewer so remote still-to-Live preserves its origin.
+extern lv_obj_t* ui_previous_screen;
 
 namespace {
 
@@ -237,7 +239,7 @@ static int  pollResponse();
 static bool decodeFrame(uint32_t* decodeUs);
 static void displayFrame(uint32_t* blitUs);
 static void printSummary();
-static void returnHome();
+static void returnToPreviousScreen();
 static void screenVideo_event_handler(lv_event_t* e);
 
 //***************************************************************************************************
@@ -249,7 +251,7 @@ void videoStreamInit(const VideoStreamConfig& config) {
   // Leaving the screen must stop the feed. Without this the feed kept running
   // after the user navigated away, and displayFrame() went on forcing
   // LV_DISP_ROT_NONE, so Screen 1 appeared rotated 90 degrees until the feed's
-  // 60 seconds expired and returnHome() restored ROT_90.
+  // 60 seconds expired and returnToPreviousScreen() restored ROT_90.
   if (cfg.screenVideo) {
     lv_obj_add_event_cb(cfg.screenVideo, screenVideo_event_handler,
                         LV_EVENT_SCREEN_UNLOAD_START, NULL);
@@ -653,13 +655,19 @@ static void displayFrame(uint32_t* blitUs) {
 }
 
 //***************************************************************************************************
-static void returnHome() {
+static void returnToPreviousScreen() {
+  // A user who already left the viewer must not be pulled back by completion.
+  if (cfg.screenVideo && lv_scr_act() != cfg.screenVideo) return;
+
   lv_disp_t* disp = lv_disp_get_default();
   if (disp) {
     lv_disp_set_rotation(disp, LV_DISP_ROT_90);  // UI orientation
   }
-  if (cfg.screen1) {
-    lv_disp_load_scr(cfg.screen1);
+  lv_obj_t* target = ui_previous_screen;
+  if (!target || target == cfg.screenVideo) target = cfg.screen1;
+  if (target) {
+    USBSerial.println("Video: returning to previous screen");
+    lv_disp_load_scr(target);
   }
 }
 
@@ -712,6 +720,9 @@ bool videoStreamStart() {
   lastFrameUs = startUs;
 
   if (cfg.screenVideo && lv_scr_act() != cfg.screenVideo) {
+    // Direct Live start: remember its origin. A still-to-Live handover is already
+    // on Screen2 and keeps the origin recorded by prepareForRequest().
+    ui_previous_screen = lv_scr_act();
     lv_disp_load_scr(cfg.screenVideo);
   }
   lv_refr_now(NULL);
@@ -775,7 +786,7 @@ void videoStreamLoop() {
   if (r < 0) {
     USBSerial.println("Video: fetch failed, stopping");
     videoStreamStop();
-    returnHome();
+    returnToPreviousScreen();
     return;
   }
   if (r == 0) {
@@ -804,11 +815,11 @@ void videoStreamLoop() {
   if (more && !sendRequest()) {
     USBSerial.println("Video: prefetch failed, stopping");
     videoStreamStop();
-    returnHome();
+    returnToPreviousScreen();
     return;
   }
 
-  if (!HEAP_CHECK("fetch")) { videoStreamStop(); returnHome(); return; }
+  if (!HEAP_CHECK("fetch")) { videoStreamStop(); returnToPreviousScreen(); return; }
 
   // Let LVGL run between the heavy stages. The touch controller is only sampled
   // inside lv_timer_handler(), and a tap may change screens, which fires
@@ -821,18 +832,18 @@ void videoStreamLoop() {
   if (!decodeFrame(&decodeUs)) {
     USBSerial.println("Video: decode failed, stopping");
     videoStreamStop();
-    returnHome();
+    returnToPreviousScreen();
     return;
   }
 
-  if (!HEAP_CHECK("decode")) { videoStreamStop(); returnHome(); return; }
+  if (!HEAP_CHECK("decode")) { videoStreamStop(); returnToPreviousScreen(); return; }
 
   lv_timer_handler();
   if (!active) return;
 
   displayFrame(&blitUs);
 
-  if (!HEAP_CHECK("blit")) { videoStreamStop(); returnHome(); return; }
+  if (!HEAP_CHECK("blit")) { videoStreamStop(); returnToPreviousScreen(); return; }
 
   const uint32_t now = micros();
   sumFrame += (frames == 0) ? (now - startUs) : (now - lastFrameUs);
@@ -847,6 +858,6 @@ void videoStreamLoop() {
 
   if (!more) {
     videoStreamStop();
-    returnHome();
+    returnToPreviousScreen();
   }
 }

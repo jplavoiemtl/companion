@@ -1949,6 +1949,9 @@ void initUIHandlers() {
     lv_obj_add_event_cb(ui_Screen1, screenMemoryEventHandler, LV_EVENT_SCREEN_LOADED, NULL);
     lv_obj_add_event_cb(ui_Screen3, screenMemoryEventHandler, LV_EVENT_SCREEN_LOADED, NULL);
     lv_obj_add_event_cb(ui_InclinometerScreen, screenMemoryEventHandler, LV_EVENT_SCREEN_LOADED, NULL);
+    // Pause preference timing during temporary screens, including remote Live.
+    lv_obj_add_event_cb(ui_Screen2, screenMemoryEventHandler, LV_EVENT_SCREEN_LOADED, NULL);
+    lv_obj_add_event_cb(ui_calibrationScreen, screenMemoryEventHandler, LV_EVENT_SCREEN_LOADED, NULL);
     USBSerial.println("  Screen memory event handlers registered");  
 
     // Initialize the Motion Icon Label

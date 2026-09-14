@@ -33,7 +33,7 @@
 struct VideoStreamConfig {
   uint16_t screenWidth;           // LVGL horizontal res at ROT_NONE (368)
   uint16_t screenHeight;          // LVGL vertical res at ROT_NONE (448)
-  lv_obj_t* screen1;              // Home screen, returned to when the feed ends
+  lv_obj_t* screen1;              // Fallback if no previous screen was recorded
   lv_obj_t* screenVideo;          // Image screen (shared with the still images)
   lv_obj_t* imgVideoBackground;   // Full-screen image widget on that screen
 };

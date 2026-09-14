@@ -33,6 +33,11 @@ static ScreenId g_pendingScreenId = SCREEN_ID_NONE;
 static uint32_t g_screenEnteredMs = 0;
 static bool g_screenSaveScheduled = false;
 
+// Temporary image/video/calibration screens do not select a new boot preference.
+static ScreenId g_selectedScreenId = SCREEN_ID_NONE;
+static bool g_temporaryScreenActive = false;
+static uint32_t g_temporaryEnteredMs = 0;
+
 // Debounce delay: 30 seconds before saving to NVS
 static const uint32_t SCREEN_SAVE_DELAY_MS = 30000;
 
@@ -141,6 +146,10 @@ void screenMemoryInit(const ScreenMemoryConfig& config) {
     // Load saved screen from NVS
     ScreenId savedId = loadScreenFromNvs();
     g_savedScreenId = savedId;
+    g_selectedScreenId = savedId != SCREEN_ID_NONE ? savedId : SCREEN_ID_MAIN;
+    g_pendingScreenId = SCREEN_ID_NONE;
+    g_screenSaveScheduled = false;
+    g_temporaryScreenActive = false;
 
     if (savedId != SCREEN_ID_NONE) {
         USBSerial.printf("[ScreenMem] Restoring to saved screen ID: %d\n", savedId);
@@ -151,7 +160,9 @@ void screenMemoryInit(const ScreenMemoryConfig& config) {
 }
 
 void screenMemoryUpdate() {
-    if (!g_initialized || !g_screenSaveScheduled) return;
+    if (!g_initialized || !g_screenSaveScheduled || g_temporaryScreenActive) return;
+    // Do not commit a preference while another screen is being displayed.
+    if (getScreenId(lv_scr_act()) != g_pendingScreenId) return;
 
     // Check if debounce period has elapsed
     if (millis() - g_screenEnteredMs >= SCREEN_SAVE_DELAY_MS) {
@@ -168,18 +179,46 @@ void screenMemoryOnScreenLoaded(lv_obj_t* screen) {
 
     ScreenId newId = getScreenId(screen);
 
-    // Ignore temporary screens (Screen2, calibration)
+    // Pause an existing selection timer across temporary screens. Repeated
+    // image requests and the still-to-Live handover must not restart this pause.
     if (newId == SCREEN_ID_NONE) {
-        USBSerial.println("[ScreenMem] Temporary screen loaded, not saving");
+        if (!g_temporaryScreenActive) {
+            g_temporaryScreenActive = true;
+            g_temporaryEnteredMs = millis();
+        }
         return;
     }
 
-    // Schedule save with debounce
+    if (g_temporaryScreenActive) {
+        g_temporaryScreenActive = false;
+        if (newId == g_selectedScreenId) {
+            if (g_screenSaveScheduled) {
+                g_screenEnteredMs += millis() - g_temporaryEnteredMs;
+                USBSerial.printf("[ScreenMem] Returned to screen %d; resuming previous selection timer\n", newId);
+            } else {
+                USBSerial.printf("[ScreenMem] Returned to screen %d; no preference save needed\n", newId);
+            }
+            return;
+        }
+    }
+
+    // Restoring/reloading the selected screen is not a new user selection.
+    if (newId == g_selectedScreenId) return;
+    g_selectedScreenId = newId;
+
+    // Returning to the already-saved preference cancels any other pending save.
+    if (newId == g_savedScreenId) {
+        g_pendingScreenId = SCREEN_ID_NONE;
+        g_screenSaveScheduled = false;
+        USBSerial.printf("[ScreenMem] Screen %d already saved; no NVS write needed\n", newId);
+        return;
+    }
+
     g_pendingScreenId = newId;
     g_screenEnteredMs = millis();
     g_screenSaveScheduled = true;
 
-    USBSerial.printf("[ScreenMem] Screen %d entered, save scheduled in %lu seconds\n",
+    USBSerial.printf("[ScreenMem] Screen %d selected, save scheduled in %lu seconds\n",
                      newId, SCREEN_SAVE_DELAY_MS / 1000);
 }
 

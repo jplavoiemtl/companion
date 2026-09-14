@@ -42,13 +42,14 @@ void screenMemoryInit(const ScreenMemoryConfig& config);
 
 /**
  * Update function - call from loop()
- * Checks if 30-second debounce has elapsed and saves to NVS if needed
+ * Saves changed selections after 30 seconds, pausing on temporary screens.
  */
 void screenMemoryUpdate(void);
 
 /**
  * Notify that a screen has been loaded
- * Call this from screen event handlers on LV_EVENT_SCREEN_LOADED
+ * Call for persistent AND temporary screens on LV_EVENT_SCREEN_LOADED.
+ * Returning from a temporary screen resumes an existing timer, without selecting anew.
  *
  * @param screen The screen object that was loaded
  */
@@ -56,7 +57,7 @@ void screenMemoryOnScreenLoaded(lv_obj_t* screen);
 
 /**
  * Get the LVGL event handler for screen memory
- * Add this to persistent screens using lv_obj_add_event_cb()
+ * Add this to persistent and temporary screens using lv_obj_add_event_cb()
  *
  * Usage in initUIHandlers():
  *   lv_obj_add_event_cb(ui_Screen1, screenMemoryEventHandler, LV_EVENT_SCREEN_LOADED, NULL);
