@@ -2,7 +2,7 @@
 
 Temporary instrumentation on `codex/mqtt-outage-bench-tests`, based on `9c89ef8`.
 The user compiles and flashes through VS Code. No automatic upload or serial-port
-control is required. The production timeout setters are intentionally unchanged.
+control is required. The current revision applies the TCP timeout correction below.
 The tested first correction defers MQTT reconnect attempts during live video,
 extending the existing still-image guard. Established MQTT sessions are still serviced.
 
@@ -75,10 +75,29 @@ MQTT is connected, send `off`, and let the feed finish naturally. No MQTT reconn
 attempt should begin while the feed is active. Attempts become eligible after it
 ends. Send `on` to restore the broker; a blocked attempt must still return first.
 If `on` is sent during the feed, the real broker is selected immediately but its
-reconnection also waits until the feed ends. Timeout corrections are not included.
+reconnection also waits until the feed ends. This guard was validated before the
+TCP timeout correction.
 
 The user validated the guard with uninterrupted video: 201 frames over 60.8 seconds
 at 3.3 fps. The first MQTT attempt began only after the feed ended and still took
 18,282 ms with the original timeout configuration. A queued `on` was then handled
 and the real broker connected in 487 ms. This is the baseline before correcting
 the TCP timeout setter.
+
+## TCP timeout correction validated on the bench
+
+The guard and original-timeout baseline were committed as `f32bc97`. The timeout
+correction uses `setConnectionTimeout(5000)` on both MQTT transports and on the shared
+secure client before Live connects. ESP32 core 3.1.3 implements this setter
+separately from the inherited Stream `setTimeout`. The five-second TLS handshake
+and MQTT CONNACK limits remain unchanged; the complete connection attempt is
+not guaranteed to finish within five seconds if those later stages are reached.
+
+The user compiled and flashed this correction in VS Code. On the dashboard,
+the failed test-endpoint attempt took 5,003 ms, down from the 18,282 ms baseline.
+An `on` command sent during the attempt was handled when it returned, and the
+real broker reconnected in 520 ms. Connection attempts remain synchronous.
+
+A subsequent visual check passed: Live displayed 33 frames over 10.8 seconds
+at 3.0 fps and stopped normally when the screen was left. Latest then displayed
+successfully in 1,278 ms. No compile or flash was performed by the assistant.

@@ -329,6 +329,7 @@ static bool ensureConnected() {
 
   vidClient->stop();
   vidClient->setCACert(remote_server_ca_cert);
+  vidClient->setConnectionTimeout(5000);   // TCP connect, ms; independent of prior still requests
   vidClient->setHandshakeTimeout(5);        // seconds, per the setter's units
 
   if (!vidClient->connect(epHost, epPort)) {

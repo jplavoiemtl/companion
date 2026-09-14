@@ -176,16 +176,15 @@ void netCheckMqtt(bool bypassRateLimit) {
     cfg.mqttClient->disconnect();  // clean stale state
     delay(100);
 
-    // Tighten timeouts so a failed attempt unblocks the main loop quickly.
-    // Defaults are catastrophic for UI responsiveness: WiFiClientSecure has a
-    // 30 s TCP connect timeout and 120 s TLS handshake timeout, and PubSubClient
-    // busy-waits (no yield) up to its socketTimeout for CONNACK.
+    // Bound TCP and TLS separately; connection attempts are still synchronous.
+    // In ESP32 core 3.1.3, setTimeout() affects Stream reads, while
+    // setConnectionTimeout() sets the TCP timeout used by connect().
     if (cfg.secureClient) {
-      cfg.secureClient->setTimeout(5000);       // TCP connect, ms
+      cfg.secureClient->setConnectionTimeout(5000); // TCP connect, ms
       cfg.secureClient->setHandshakeTimeout(5); // TLS handshake, seconds
     }
     if (cfg.wifiClient) {
-      cfg.wifiClient->setTimeout(5);            // WiFiClient, seconds
+      cfg.wifiClient->setConnectionTimeout(5000);   // TCP connect, ms
     }
     cfg.mqttClient->setSocketTimeout(5);        // CONNACK wait, seconds
 
