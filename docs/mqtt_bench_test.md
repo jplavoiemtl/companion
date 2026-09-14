@@ -1,6 +1,8 @@
 # Serial MQTT outage test
 
-Temporary instrumentation on `codex/mqtt-outage-bench-tests`, based on `9c89ef8`.
+Retained serial diagnostics in the main firmware, developed and validated on
+`codex/mqtt-outage-bench-tests` from `9c89ef8`. See also the
+[project plan](implementation_plan.md#retained-mqtt-serial-diagnostics) for the command reference.
 The user compiles and flashes through VS Code. No automatic upload or serial-port
 control is required. The current revision applies the TCP timeout correction below.
 The tested first correction defers MQTT reconnect attempts during live video,

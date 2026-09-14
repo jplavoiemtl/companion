@@ -30,3 +30,67 @@ This plan achieves the same goal—returning to the previous screen after image 
 ## Verification Plan
 1.  **Revert check**: Ensure `ui_Screen2.c` is clean.
 2.  **Functional check**: Same as before (Manual Back, Timeout, G-Meter return).
+
+## Retained MQTT serial diagnostics
+
+The tested MQTT recovery changes and serial controls are retained in the main
+firmware for future bench and car diagnostics. The unit starts with its real
+broker after every reboot; outage simulation requires an explicit serial command
+and is never saved to NVS. The user compiles and flashes through VS Code.
+
+### Serial monitor setup and commands
+
+Open the unit's USB serial monitor at **115200 baud**, enable timestamps, and
+select **CR, LF, or CRLF** as the line ending. Type one lowercase command and send
+it with Enter. Surrounding spaces and blank lines are accepted.
+
+| Command | Behavior |
+|---------|----------|
+| `status` | Reports ON, OFF, or RESTORING, Wi-Fi and MQTT connection states, time since `off`, and uptime. ON means the real broker is selected; check the separate MQTT field to confirm a connection. |
+| `off` | Requires Wi-Fi and the real MQTT broker to be connected. Disconnects MQTT and redirects its retries to the test address `192.0.2.1` on the current MQTT port. Wi-Fi and HTTPS settings remain unchanged. |
+| `on` | Selects the real broker again and makes reconnection eligible. Wait for the green remote-connected message or the serial confirmation before starting another outage cycle. |
+
+`off` simulates an unreachable broker; it does **not** stop MQTT retry work.
+The first attempt becomes eligible after 5 seconds, then failed attempts retain
+the existing 15-second retry interval. Repeating `off` leaves the current outage
+running. There is **no automatic restore timer**: send `on` or reboot to restore
+normal broker selection. During RESTORING, another `off` is refused until the
+real broker connects. Sending `on` when the real broker is already selected is
+harmless. The old `test` and `restore` commands are no longer supported.
+
+### Timing and expected behavior
+
+MQTT reconnect attempts are deferred while a still image is being fetched or
+Live is active, so they do not interrupt those operations. An existing MQTT
+session continues to be serviced. If `on` is sent during Live, broker selection
+changes but reconnection waits until Live ends.
+
+Connection attempts still run synchronously: outside the image/video guard,
+the UI and serial commands can pause until an attempt returns. The TCP connect
+timeout is 5 seconds; TLS handshake and MQTT CONNACK waits have separate
+5-second limits, so an entire attempt is not guaranteed to finish in 5 seconds.
+The bench test measured a failed attempt at 5,003 ms instead of 18,282 ms, followed
+by a successful real-broker reconnection in 520 ms.
+
+### Repeatable bench procedure
+
+1. Leave the hotspot on. Wait for the green MQTT remote-connected message and
+   send `status` to confirm Wi-Fi and MQTT are connected.
+2. Send `off`. Expect an OFF acknowledgment and the orange Wi-Fi-connected
+   indication. Use Latest or Live for the behavior under investigation; for the
+   live interruption test, start Live before sending `off`.
+3. Keep the timestamped `[TEST]` attempt BEGIN/END messages, `[NET]` transitions,
+   and image/video messages. Use each attempt's internal `elapsed` value when
+   serial output arrives in a batch.
+4. Send `on`, wait for real-broker connection and the green indication, then
+   send `status`. Repeat the cycle as needed.
+
+The Latest button uses HTTPS and can work while MQTT is disconnected. A press
+during a blocking attempt may be missed. The test endpoint's behavior depends
+on the network; this reproduces MQTT retry interference, not every possible
+cellular or car failure. No production MQTT credentials are sent to the test
+endpoint.
+
+See [Serial MQTT outage test](mqtt_bench_test.md) for the implementation details
+and the before/after bench measurements, including uninterrupted Live with the
+reconnect guard and successful Latest requests after recovery.

@@ -29,7 +29,7 @@ uint8_t failureCount = 0;
 bool everConnected = false;
 bool giveUp = false;
 
-// Temporary bench controls on codex/mqtt-outage-bench-tests. No motion trigger.
+// Retained serial bench controls; inactive until an explicit off command.
 constexpr bool MQTT_BENCH_ENABLED = true;
 constexpr unsigned long BENCH_FIRST_ATTEMPT_MS = 5000;
 // RFC 5737 documentation address, not a production service. The network may
