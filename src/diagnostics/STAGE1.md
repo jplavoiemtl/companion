@@ -4,7 +4,10 @@ Status: JP built and flashed Stage 1 on 2026-09-15. The initial readiness and
 normal-operation check passed: ready, synced, growing file, no drops or errors.
 Latest succeeded but its 14836-byte largest internal block failed the 20480-byte
 memory floor. The no-card comparison recovered to 28660 bytes. Stage 1 acceptance
-remains on hold. A writer-start-order experiment is prepared for JP's next build.
+remains on hold. The writer-start-order experiment was tested and still measured
+14836 bytes. JP's retained-snapshot test passed late USB retrieval; Latest still
+measured 14836 bytes. The writer-creation interval used 6528 internal bytes.
+Mount readings overlap Wi-Fi startup and do not isolate SD allocation costs.
 JP confirmed a battery-equipped board and 16 GB card. The assistant did not compile
 or flash; JP builds and flashes from VS Code. No Stage 1B file download or Stage 2/3
 operational event hooks are included.
@@ -29,6 +32,44 @@ The existing probe source and measurement windows are unchanged.
   writer records health once per minute. No writer calls LVGL, MQTT or the PMIC.
 - `status` keeps the existing MQTT reply and adds logger snapshots.
   `log status` prints only the logger snapshots. No list, get or tail commands yet.
+
+### Next test: retained startup memory
+
+Startup text does not need to be captured. Temporary measurement-only snapshots
+stay in RAM until reboot and print after the usual two lines of log status
+(and status). They are not written to the SD card. Reading them does not clear them.
+
+Ten phases cover asynchronous clock setup, writer creation, formatter allocation,
+SD mount, the first writable current.log open, and completion of storage setup.
+before_writer is just before task creation; writer_entry is the first task action,
+after its internal stack and control block exist. The file-open pair covers either
+append or exclusive creation. Later rotations do not replace that pair.
+storage_done also appears after a failed storage attempt; check [LOG] state
+and error. Phases never reached print captured=0.
+
+Example format (values below are placeholders, not measurements):
+
+    [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+    [LOG MEM] phase=before_mount up_us=<uptime> free=<bytes> largest=<bytes> heap_min_boot=<bytes>
+
+free and largest are point readings; heap_min_boot is the allocator's
+since-boot low-water mark. The three queries are sequential, not an atomic heap
+snapshot. Other tasks, including Wi-Fi initialization, can allocate concurrently.
+Use phase timestamps and the existing probes together; differences alone do not
+prove an allocation belongs to SD. No startup barriers or new waits were added.
+The fixed snapshot array adds at most 240 internal bytes and small transient
+measurement stack use. Keep that overhead in mind when comparing builds.
+No per-sample printing or additional SD writes are introduced.
+
+1. JP compiles and flashes with the card installed, then lets setup finish.
+2. Connect the web console with explicit DTR=true and RTS=false.
+3. Send log status; save both [LOG] lines and all [LOG MEM] lines.
+4. Press Latest once, wait for the image, then send log status again.
+5. Send the full output, including image_https and Latest total time.
+
+The retained lines should repeat unchanged during the same boot. [LOG] counters
+and the existing [PROBE] measurements can change. No Live or fault-hook test yet.
+This is allocation diagnosis for the failed Stage 1 memory gate, not a memory fix.
 
 ### Storage and task choices
 
@@ -135,9 +176,10 @@ source. If state is ready, leave the normal screen for at least one minute,
 then request status again. Confirm size and writes increase without drops.
 Send these results before proceeding to the paired Latest and Live checks.
 The readiness and first Latest results are recorded in the bench results. Latest
-failed the memory floor; no-card HTTPS recovered above it. Repeat Latest with
-the card installed after the writer-start-order change. Live, MQTT, writer peak
-paths and the remaining Stage 1 gate tests are still pending.
+failed the memory floor; no-card HTTPS recovered above it. The card-installed
+writer-start-order retest also failed at 14836 bytes. Diagnose allocations before
+another change; no repeated run of this same test is currently needed.
+Live, MQTT, writer peak paths and the remaining Stage 1 gate tests remain pending.
 
 The gate order remains memory and performance, storage and rotation, then clocks
 and breadcrumbs. Confirm the proposed 20480-byte TLS block floor, roughly 5%

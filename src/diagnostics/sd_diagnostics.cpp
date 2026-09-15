@@ -69,6 +69,25 @@ struct Snapshot {
 };
 portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 Snapshot snapshot;
+// Temporary startup allocation evidence, retained until reboot for late USB attachment.
+// Fixed internal storage: no heap allocation or serial output while capturing.
+enum class StartupPoint : uint8_t {
+  BeforeClock, AfterClock, BeforeWriter, WriterEntry, AfterFormatter,
+  BeforeMount, AfterMount, BeforeCurrentOpen, AfterCurrentOpen, StorageDone, Count
+};
+struct StartupMemory {
+  uint64_t upUs = 0;
+  uint32_t free = 0, largest = 0, minimum = 0;
+  bool captured = false;
+};
+StartupMemory startupMemory[static_cast<size_t>(StartupPoint::Count)];
+static_assert(sizeof(startupMemory) <= 240, "Bound startup probe internal RAM");
+constexpr const char* STARTUP_NAMES[] = {
+  "before_clock", "after_clock", "before_writer", "writer_entry", "after_formatter",
+  "before_mount", "after_mount", "before_current_open", "after_current_open", "storage_done"
+};
+static_assert(sizeof(STARTUP_NAMES) / sizeof(STARTUP_NAMES[0]) ==
+              static_cast<size_t>(StartupPoint::Count), "Name every startup snapshot");
 Event* queue = nullptr;
 uint32_t head = 0, count = 0;
 bool initialized = false, started = false;
@@ -116,6 +135,46 @@ void setState(State state, const char* error = "", int code = 0) {
   snapshot.state = state;
   if (*error) { snprintf(snapshot.error, sizeof(snapshot.error), "%s", error); snapshot.errorCode = code; }
   portEXIT_CRITICAL(&mux);
+}
+void captureStartup(StartupPoint point) {
+  const size_t index = static_cast<size_t>(point);
+  portENTER_CRITICAL(&mux);
+  const bool captured = startupMemory[index].captured;
+  portEXIT_CRITICAL(&mux);
+  if (captured) return; // Keep the first open, not later rotations.
+  StartupMemory sample;
+  sample.upUs = esp_timer_get_time();
+  sample.free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+  sample.largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+  sample.minimum = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
+  sample.captured = true;
+  portENTER_CRITICAL(&mux);
+  if (!startupMemory[index].captured) startupMemory[index] = sample;
+  portEXIT_CRITICAL(&mux);
+}
+int openCurrentForWrite(int flags) {
+  captureStartup(StartupPoint::BeforeCurrentOpen);
+  const int result = open(CURRENT, flags, 0666);
+  const int code = errno;
+  captureStartup(StartupPoint::AfterCurrentOpen);
+  errno = code; // Measurement calls must not replace the filesystem error.
+  return result;
+}
+void printStartupMemory() {
+  USBSerial.printf("[LOG MEM] retained=boot snapshot_bytes=%u values=bytes timestamps=us\n",
+                   unsigned(sizeof(startupMemory)));
+  for (size_t i = 0; i < static_cast<size_t>(StartupPoint::Count); ++i) {
+    portENTER_CRITICAL(&mux);
+    const StartupMemory sample = startupMemory[i];
+    portEXIT_CRITICAL(&mux);
+    if (!sample.captured) {
+      USBSerial.printf("[LOG MEM] phase=%s captured=0\n", STARTUP_NAMES[i]);
+      continue;
+    }
+    USBSerial.printf("[LOG MEM] phase=%s up_us=%llu free=%u largest=%u heap_min_boot=%u\n",
+      STARTUP_NAMES[i], static_cast<unsigned long long>(sample.upUs),
+      sample.free, sample.largest, sample.minimum);
+  }
 }
 void memorySample(uint64_t duration = 0) {
   uint32_t internal = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
@@ -326,7 +385,7 @@ void testPause(Test point) {
 }
 #endif
 bool createCurrent(uint32_t next, const char* reason) {
-  fd = open(CURRENT, O_WRONLY | O_CREAT | O_EXCL, 0666);
+  fd = openCurrentForWrite(O_WRONLY | O_CREAT | O_EXCL);
   if (fd < 0) { disable("current_create", errno); return false; }
   generation = next; sizeBytes = 0;
 #if DIAG_TEST_HOOKS
@@ -431,12 +490,15 @@ bool openStorage() {
   diag::breadcrumb(true, diag::Phase::SdMount);
   memorySample();
   uint64_t begin = esp_timer_get_time();
+  captureStartup(StartupPoint::BeforeMount);
   // Maker BSP uses these same one-bit pins. No formatting or rail changes.
   if (!SD_MMC.setPins(SDMMC_CLK, SDMMC_CMD, SDMMC_DATA) ||
       !SD_MMC.begin("/sdcard", true, false, SDMMC_FREQ_DEFAULT, 3)) {
     memorySample(esp_timer_get_time() - begin);
+    captureStartup(StartupPoint::AfterMount);
     disable("mount_failed_or_no_card", EIO); return false;
   }
+  captureStartup(StartupPoint::AfterMount);
   mounted = true; memorySample(esp_timer_get_time() - begin);
   struct stat info{};
   if (stat(ROOT, &info)) {
@@ -485,7 +547,7 @@ bool openStorage() {
   } else {
     // Empty fresh files are recoverable, but are never reopened with truncation.
     if (uint64_t(info.st_size) > FILE_LIMIT) { disable("oversized_current", EFBIG); return false; }
-    fd = open(CURRENT, O_WRONLY | O_APPEND);
+    fd = openCurrentForWrite(O_WRONLY | O_APPEND);
     if (fd < 0) { disable("append_open", errno); return false; }
     sizeBytes = info.st_size; generation = valid ? saved : next;
     portENTER_CRITICAL(&mux); snapshot.generation = generation; snapshot.size = sizeBytes; portEXIT_CRITICAL(&mux);
@@ -577,12 +639,17 @@ void processTest() {
 }
 #endif
 void writerTask(void*) {
+  // The task stack and control block exist here, before formatter or SD work.
+  // Do not add a startup barrier: main-task Wi-Fi setup may overlap these readings.
+  captureStartup(StartupPoint::WriterEntry);
   line = static_cast<char*>(heap_caps_malloc(LINE_CAPACITY, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+  captureStartup(StartupPoint::AfterFormatter);
   if (!line) disable("formatter_allocation", ENOMEM);
   else if (openStorage()) {
     USBSerial.printf("[LOG] ready file=/logs/current.log boot=%llu queue_bytes=%u stack_bytes=%u core=0\n",
       static_cast<unsigned long long>(diag::identity.boot), unsigned(QUEUE_COUNT * sizeof(Event)), unsigned(WRITER_STACK));
   }
+  captureStartup(StartupPoint::StorageDone);
   nextHealth = nowMs() + HEALTH_MS;
   nextClock = nowMs();
   while (good() && fd >= 0) {
@@ -685,7 +752,10 @@ void diagnosticsStart() {
 #if DIAG_ENABLED
   if (started || !queue || !good()) return;
   started = true;
+  captureStartup(StartupPoint::BeforeClock);
   diag::startClock(); // asynchronous; no wait for Wi-Fi or valid time
+  captureStartup(StartupPoint::AfterClock);
+  captureStartup(StartupPoint::BeforeWriter);
   // ESP-IDF allocates ordinary task stacks internally even with PSRAM enabled.
   if (xTaskCreatePinnedToCore(writerTask, "sd_logger", WRITER_STACK, nullptr, 1, &writerHandle, 0) != pdPASS) {
     disable("writer_allocation", ENOMEM);
@@ -732,6 +802,7 @@ void diagnosticsPrintStatus() {
     measured,s.stackMin,s.internalMin,s.internalLargest,s.dmaMin,s.dmaLargest,s.writes,s.slowWrites,
     static_cast<unsigned long long>(s.writeMaxUs),static_cast<unsigned long long>(s.flushMaxUs),
     static_cast<unsigned long long>(s.sdMaxUs),s.rotations,s.pruned,s.oversized);
+  printStartupMemory();
 }
 #if DIAG_TEST_HOOKS
 namespace {

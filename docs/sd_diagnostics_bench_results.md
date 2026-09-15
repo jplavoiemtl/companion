@@ -585,3 +585,166 @@ once after Wi-Fi and MQTT reconnect, then send log status. Capture the HTTPS
 probe, image result and both logger status lines. Require logging ready and
 largest_min at least 20480 bytes before considering the experiment successful.
 No compilation, flashing or commit was performed by the assistant.
+
+
+## 2026-09-15 — Writer start-order experiment: no memory improvement
+
+**Outcome:** JP tested the card-installed startup-order version after checkpoint
+fe3b5da. Latest succeeded, but largest_min was again **14836 bytes**, identical
+to the earlier failing run. The 20480-byte memory gate still fails.
+Moving writer startup after hardware initialization did not solve this case.
+
+Battery-equipped board and same 16 GB card. Logger ready, clock synced, hooks off.
+This is boot 6; intermediate boot numbers were not supplied and are not interpreted.
+
+Owner-supplied evidence, with escaped underscores normalized:
+
+```text
+2026-09-15 17:10:14.054 RX [LOG] state=ready boot=6 session=boot-6 up_ms=23170 clock=synced setup=1 hooks=0 file_bytes=11830 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15923052544 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-15 17:10:14.055 RX [LOG] measured=1 stack_min=1988 internal_min=78988 internal_largest=31732 dma_min=71492 dma_largest=31732 writes=7 slow=0 write_max_us=2317 flush_max_us=4719 sd_max_us=98439 rotations=0 pruned=0 oversized=0
+2026-09-15 17:10:28.594 RX Latest button clicked
+2026-09-15 17:10:28.667 RX [PROBE] window=normal run=1 ms=29306 heap_min_boot=78988 largest_min=31732 interval_ms=10 samples=2931 gap_max_us=10666 scan_max_us=432 timer=on imu_n=1434 imu_min_hz=34.47 imu_avg_hz=49.16
+2026-09-15 17:10:29.430 RX [PROBE] window=image_https run=1 ms=762 heap_min_boot=30736 largest_min=14836 interval_ms=10 samples=76 gap_max_us=10081 scan_max_us=149 timer=on
+2026-09-15 17:10:29.430 RX Response received in 763 ms, Content-Length: 33689
+2026-09-15 17:10:29.914 RX Image download complete (33689 bytes, 1320 ms since button press). Starting decode...
+2026-09-15 17:10:30.050 RX JPEG decoded successfully into PSRAM.
+2026-09-15 17:10:30.051 RX LVGL image source updated. Total 1457 ms from button press (budget 20000 ms).
+2026-09-15 17:10:34.373 RX [ScreenMem] Returned to screen 1; no preference save needed
+2026-09-15 17:10:37.676 RX [LOG] state=ready boot=6 session=boot-6 up_ms=46792 clock=synced setup=1 hooks=0 file_bytes=11830 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15923052544 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-15 17:10:37.676 RX [LOG] measured=1 stack_min=1988 internal_min=30736 internal_largest=14836 dma_min=23240 dma_largest=14836 writes=7 slow=0 write_max_us=2317 flush_max_us=4719 sd_max_us=98439 rotations=0 pruned=0 oversized=0
+```
+
+| Metric | Initial card run | Later writer start |
+|--------|------------------|--------------------|
+| HTTPS largest-block minimum | 14836 bytes | 14836 bytes |
+| HTTPS internal heap minimum since boot | 30756 bytes | 30736 bytes |
+| HTTPS probe duration | 853 ms | 762 ms |
+| Periodic samples and maximum gap | 86; 10079 us | 76; 10081 us |
+| Latest total time, same 33689-byte image size | 1372 ms | 1457 ms |
+| Writer stack minimum unused bytes | 1992 | 1988 |
+
+The failure was adequately sampled and did not improve with the changed order.
+The file size stayed 11830 bytes and writes stayed 7 across the entire request.
+Thus this observed dip did not require a new logger write during Latest.
+It does not support attributing the problem to simultaneous SD write latency
+or a temporary write-time DMA buffer. Previously allocated resources and their
+heap layout remain candidates; the exact allocation is not yet identified.
+
+The SDK configuration was rechecked: CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC=y,
+CONFIG_FATFS_ALLOC_PREFER_EXTRAM=y, CONFIG_FATFS_PER_FILE_CACHE=y,
+CONFIG_FATFS_LFN_STACK=y, CONFIG_FATFS_SECTOR_4096=y, and
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096. TLS allocation competes for internal
+RAM. FATFS preference for PSRAM does not make every SD allocation external.
+The writer retains a 6144-byte internal stack. The reported 1988-byte margin
+implies at least 4156 bytes were used on measured paths; dropping directly to
+a 4096-byte stack is not a justified fix, even before recovery and rotation tests.
+
+**Recommended next investigation:** measure allocation phases (writer task and
+stack, SD mount, and opening current.log) before choosing another memory change.
+Capture current internal free bytes and largest block for each phase; keep
+the existing Stage 0 probes unchanged. Account for concurrent startup allocations
+when interpreting differences. Do not claim the 20 KiB gate is passed, reduce
+its threshold, or move the writer stack into PSRAM without the plan's required
+SDK, ROM and cache-off audit and bench validation.
+
+No firmware changes or commits were made while recording this failed experiment.
+The later writer start remains in fe3b5da for reproducibility; it is not a proven
+memory fix. No additional run of the same Latest test is requested at this point.
+
+## Retained allocation snapshots prepared - awaiting JP's next build
+
+Following JP's observation that startup finishes before the web console connects,
+the temporary diagnostic now retains ten startup memory snapshots until reboot.
+log status retrieves them after attachment; no startup console capture is needed.
+See [the handoff](../src/diagnostics/STAGE1.md#next-test-retained-startup-memory)
+for fields and the single Latest test.
+
+Only sd_diagnostics.cpp changes firmware in this follow-up. Snapshots cover clock
+startup, task creation and entry, formatter allocation, mount, first writable
+current.log open, and storage-setup completion. The fixed array is at most 240
+internal bytes. Concurrent Wi-Fi allocations remain possible; no synchronization
+barrier, stack relocation, timeout or storage-policy change was added.
+Existing Stage 0 probes are unchanged. No compile, flash, commit or new board
+measurement has been performed by the assistant. Stage 1 acceptance remains on hold.
+
+## Retained startup snapshot test - 2026-09-15 17:29, boot 8
+
+JP flashed the retained-snapshot build and attached the browser after setup.
+Both log status replies contain identical ten-phase snapshots, including their
+original boot-relative timestamps. Late attachment and repeat retrieval passed.
+The 240-byte snapshot array is reported by the running firmware.
+
+| Interval | Elapsed microseconds | Net internal free reduction, bytes | Largest-block reduction, bytes |
+|----------|----------------------|------------------------------------|--------------------------------|
+| Clock setup | 695 | 5580 | 8192 |
+| Writer creation to task entry | 80 | 6528 | 4096 |
+| PSRAM formatter allocation | 62 | 0 | 0 |
+| Mount interval, overlaps Wi-Fi | 56757 | 22304 | 24576 |
+| Post-mount preparation, overlaps Wi-Fi | 49223 | 14964 | 12288 |
+| First writable current.log open | 1417 | 0 | 0 |
+
+These are observed whole-system differences, not allocator ownership traces.
+The three heap queries in each snapshot are sequential. Wi-Fi initialization
+runs concurrently with the writer; the 22304-byte mount-interval drop and
+14964-byte post-mount drop cannot be assigned wholly to SD.
+
+Pinned core evidence also matters for the 5580-byte clock interval:
+esp32-hal-time.c configTzTime calls esp_netif_init before configuring SNTP.
+It can initialize shared network infrastructure, so the whole observed drop
+must not be treated as removable clock-only overhead.
+
+Writer creation shows a 6528-byte net reduction over 80 microseconds, consistent
+with the configured 6144-byte internal stack plus task bookkeeping and any
+concurrent changes. This is the clearest identified resident allocation.
+Neither explicit PSRAM formatter allocation nor the first writable current.log
+open showed a net internal reduction at their boundaries. That does not rule out
+temporary allocations or resources retained from earlier metadata reads.
+
+Latest succeeded: 33689 bytes, HTTPS window 743 ms, total display time 1301 ms.
+The HTTPS largest-block minimum is still 14836 bytes, below the 20480-byte gate.
+Coverage: 74 samples, maximum gap 10217 microseconds; internal minimum 30472 bytes.
+Logger writes stayed 7 and file size stayed 24250 across the request.
+There were no errors, drops, slow writes or truncations. Writer stack margin
+remained 1988 bytes. Normal IMU averaged 49.13 Hz; its minimum was 27.02 Hz.
+
+Stage 1 acceptance remains on hold. Do not shrink the writer to 4096 bytes:
+the measured 6144 - 1988 = 4156 bytes used already exceeds that size.
+Next work should inspect persistent allocation placement and the external-stack
+safety constraints before selecting a correction. The mount interval alone is
+not evidence to change SD buffers, and these results do not justify lowering
+the gate. No additional flash or repeat of the identical test is requested yet.
+
+### Captured evidence
+
+```text
+2026-09-15 17:29:42.416 RX [LOG] state=ready boot=8 session=boot-8 up_ms=26508 clock=synced setup=1 hooks=0 file_bytes=24250 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15923052544 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-15 17:29:42.418 RX [LOG] measured=1 stack_min=1988 internal_min=78776 internal_largest=31732 dma_min=71280 dma_largest=31732 writes=7 slow=0 write_max_us=2339 flush_max_us=4748 sd_max_us=64375 rotations=0 pruned=0 oversized=0
+2026-09-15 17:29:42.418 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-15 17:29:42.418 RX [LOG MEM] phase=before_clock up_us=1783940 free=173212 largest=110580 heap_min_boot=173212
+2026-09-15 17:29:42.418 RX [LOG MEM] phase=after_clock up_us=1784635 free=167632 largest=102388 heap_min_boot=167524
+2026-09-15 17:29:42.418 RX [LOG MEM] phase=before_writer up_us=1784685 free=167632 largest=102388 heap_min_boot=167524
+2026-09-15 17:29:42.418 RX [LOG MEM] phase=writer_entry up_us=1784765 free=161104 largest=98292 heap_min_boot=161104
+2026-09-15 17:29:42.418 RX [LOG MEM] phase=after_formatter up_us=1784827 free=161104 largest=98292 heap_min_boot=161104
+2026-09-15 17:29:42.420 RX [LOG MEM] phase=before_mount up_us=1785254 free=161104 largest=98292 heap_min_boot=161104
+2026-09-15 17:29:42.420 RX [LOG MEM] phase=after_mount up_us=1842011 free=138800 largest=73716 heap_min_boot=127172
+2026-09-15 17:29:42.420 RX [LOG MEM] phase=before_current_open up_us=1891234 free=123836 largest=61428 heap_min_boot=121872
+2026-09-15 17:29:42.420 RX [LOG MEM] phase=after_current_open up_us=1892651 free=123836 largest=61428 heap_min_boot=121872
+2026-09-15 17:29:42.420 RX [LOG MEM] phase=storage_done up_us=1905682 free=123836 largest=61428 heap_min_boot=121872
+2026-09-15 17:29:47.040 RX [PROBE] window=normal run=1 ms=22758 heap_min_boot=78776 largest_min=31732 interval_ms=10 samples=2276 gap_max_us=10657 scan_max_us=700 timer=on imu_n=1112 imu_min_hz=27.02 imu_avg_hz=49.13
+2026-09-15 17:29:47.784 RX [PROBE] window=image_https run=1 ms=743 heap_min_boot=30472 largest_min=14836 interval_ms=10 samples=74 gap_max_us=10217 scan_max_us=278 timer=on
+2026-09-15 17:29:47.784 RX Response received in 744 ms, Content-Length: 33689
+2026-09-15 17:29:48.269 RX LVGL image source updated. Total 1301 ms from button press (budget 20000 ms).
+2026-09-15 17:29:56.157 RX [LOG] state=ready boot=8 session=boot-8 up_ms=40249 clock=synced setup=1 hooks=0 file_bytes=24250 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15923052544 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-15 17:29:56.157 RX [LOG] measured=1 stack_min=1988 internal_min=30472 internal_largest=14836 dma_min=22976 dma_largest=14836 writes=7 slow=0 write_max_us=2339 flush_max_us=4748 sd_max_us=64375 rotations=0 pruned=0 oversized=0
+2026-09-15 17:29:56.160 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-15 17:29:56.160 RX [LOG MEM] phase=before_clock up_us=1783940 free=173212 largest=110580 heap_min_boot=173212
+2026-09-15 17:29:56.160 RX [LOG MEM] phase=after_clock up_us=1784635 free=167632 largest=102388 heap_min_boot=167524
+2026-09-15 17:29:56.160 RX [LOG MEM] phase=before_writer up_us=1784685 free=167632 largest=102388 heap_min_boot=167524
+2026-09-15 17:29:56.160 RX [LOG MEM] phase=writer_entry up_us=1784765 free=161104 largest=98292 heap_min_boot=161104
+2026-09-15 17:29:56.160 RX [LOG MEM] phase=after_formatter up_us=1784827 free=161104 largest=98292 heap_min_boot=161104
+2026-09-15 17:29:56.160 RX [LOG MEM] phase=before_mount up_us=1785254 free=161104 largest=98292 heap_min_boot=161104
+2026-09-15 17:29:56.160 RX [LOG MEM] phase=after_mount up_us=1842011 free=138800 largest=73716 heap_min_boot=127172
+2026-09-15 17:29:56.160 RX [LOG MEM] phase=before_current_open up_us=1891234 free=123836 largest=61428 heap_min_boot=121872
+2026-09-15 17:29:56.160 RX [LOG MEM] phase=after_current_open up_us=1892651 free=123836 largest=61428 heap_min_boot=121872
+2026-09-15 17:29:56.160 RX [LOG MEM] phase=storage_done up_us=1905682 free=123836 largest=61428 heap_min_boot=121872
+```

@@ -10,8 +10,11 @@ and failed and successful MQTT connects. JP accepted this checkpoint.
 The probe-only reference is commit f406063. Stage 1 now retains these probes
 unchanged; see [its handoff](STAGE1.md). JP's initial Stage 1 readiness check passed;
 Latest then failed the internal-block memory floor (14836 versus 20480 bytes).
-No-card HTTPS recovered to 28660 bytes. A writer-start-order experiment awaits
-card-installed validation; Stage 1 acceptance remains on hold.
+No-card HTTPS recovered to 28660 bytes. The writer-start-order retest still
+measured 14836 bytes with the card installed. Stage 1 acceptance remains on hold
+pending allocation diagnosis. JP verified late retrieval of retained startup
+snapshots with log status. Latest still measured 14836 bytes; see the Stage 1
+handoff and bench results for allocation-phase evidence.
 No file protocol or firmware USB configuration change is included.
 
 ## Windows and output

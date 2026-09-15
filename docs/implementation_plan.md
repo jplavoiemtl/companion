@@ -116,5 +116,8 @@ explicit DTR=true, RTS=false, including reconnecting during Live.
 The VS Code monitor close freeze remains unresolved. Stage 0 initial measurement
 coverage is complete, including failed and successful MQTT connects. JP accepted
 the checkpoint; Stage 1 initial readiness passed, but Latest failed the 20480-byte
-memory floor with 14836 bytes. No-card HTTPS recovered to 28660 bytes. A writer-start-order experiment is prepared;
-card-installed validation and Stage 1 acceptance remain pending. See [bench results](sd_diagnostics_bench_results.md).
+memory floor with 14836 bytes. No-card HTTPS recovered to 28660 bytes. The writer-start-order experiment still
+measured 14836 bytes with the card installed. Retained startup snapshots passed
+late USB retrieval; the writer-creation interval used 6528 internal bytes. The
+mount interval overlaps Wi-Fi. Latest still measured 14836 bytes.
+Stage 1 acceptance remains on hold. See [bench results](sd_diagnostics_bench_results.md).

@@ -15,11 +15,15 @@ authorized Stage 1 on 2026-09-15. The baseline is committed as f406063.
 JP built and flashed Stage 1; the initial ready, clock-sync and normal-operation
 check passed. Latest then reached a 14836-byte largest internal block, failing
 the 20480-byte memory floor. No-card HTTPS recovered to 28660 bytes. An allocation-order
-experiment now starts the writer after hardware and UI setup, before Wi-Fi initialization.
-Its card-installed result is pending; Stage 1 acceptance remains on hold. See [Stage 1 handoff](../src/diagnostics/STAGE1.md) for implementation
+experiment moved the writer after hardware and UI setup, before Wi-Fi initialization.
+The card-installed retest still measured 14836 bytes; the experiment did not fix the
+memory gate. JP verified retained startup snapshots through log status. The writer
+creation interval used 6528 internal bytes; mount readings overlap Wi-Fi startup.
+Latest still measured 14836 bytes. Stage 1 acceptance remains on hold. See [Stage 1 handoff](../src/diagnostics/STAGE1.md) for implementation
 choices and tests. USB file retrieval and later event hooks remain unimplemented.
 The accepted plan remains the review reference. JP requested committing this Stage 1
-checkpoint for code review; the allocation-order experiment still needs its card-installed test.
+checkpoint as fe3b5da for code review. Its allocation-order experiment was tested
+and showed no memory improvement.
 
 ## Design decisions
 
