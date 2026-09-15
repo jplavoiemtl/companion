@@ -100,6 +100,9 @@ reconnect guard and successful Latest requests after recovery.
 The [SD card diagnostic logging plan](sd_diagnostics_plan.md) has been
 [reviewed and counter-reviewed](sd_diagnostics_plan_review.md). It remains a
 proposal; firmware logging is not implemented yet. Before firmware work, the
-owner reviews the finalized plan and commits it, the review, and this document
-as the fixed reference. Implementation starts with the basics and stops at the
-Stage 1 bench gate until the owner accepts the results.
+owner reviews the finalized plan and commits all seven documents listed in its
+"Before firmware work" section as the fixed reference. Firmware implementation
+starts with measurement probes, then basics and the Stage 1 acceptance gate.
+USB retrieval uses the existing serial port and a Web Serial page: Step 0 checks
+connection behavior, Stage 1B follows Stage 1 acceptance, and Stage 2 follows
+Stage 1B acceptance.

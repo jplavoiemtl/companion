@@ -1,6 +1,9 @@
 # SD card diagnostic logging plan
 
-Status: finalized proposal after [review and counter-review](sd_diagnostics_plan_review.md).
+Status: finalized proposal after [SD review and counter-review](sd_diagnostics_plan_review.md),
+[USB review](sd_usb_log_retrieval_plan_codex_review.md) and owner-accepted
+[USB counter-review](sd_usb_log_retrieval_plan_counter_review.md). This plan now covers
+logging and USB retrieval. Input: [USB investigation brief](ESP32_SD_Log_USB_Investigation.md).
 Firmware is not implemented. The owner reviews and commits this reference before firmware work.
 
 ## Design decisions
@@ -18,10 +21,16 @@ Firmware is not implemented. The owner reviews and commits this reference before
 - **Breadcrumbs:** validated RTC no-init records, with separate main-task and writer phases.
 - **Shutdown:** close in both power-down helpers, with at most **500 ms** caller wait inside their existing **1-second**
   display delay.
-- **Serial:** preserve `off`, `on`, `status`; add logger snapshots and optional bounded `log tail [n]` through the
-  existing parser.
+- **Serial and USB:** preserve `off`, `on`, `status`; extend `log status` and add list, get and abort through the
+  existing parser. Use the same COM port and a Web Serial page; no USB stack change. Optional tail stays in Stage 3.
+- **USB transfers:** one at a time, base64 with sequence and whole-file CRC. Pause current-file appends with close
+  and reopen. Abort at **50% queue** or **5 seconds without progress**. Only current.log has an overall limit,
+  initially **120 seconds**, confirmed against throughput in Stage 1B. Archives have no overall time limit.
+  No transfer IDs or application acknowledgments. Logging, pruning and shutdown take priority.
+- **USB rollout:** Step 0 checks connection before measurement probes. Stage 1B starts after Stage 1 acceptance.
+  Stage 2 starts after Stage 1B acceptance.
 - **Scope:** optional logging must leave the companion usable without a card. No generated SquareLine edits,
-  network-policy changes, image and video storage, uploads, remote controls, on-screen browser or panic core dumps.
+  network-policy changes, image and video storage, network uploads, remote controls, on-screen browser or panic core dumps.
 
 ## Records and clock
 
@@ -66,6 +75,7 @@ persistence failure report it and use an explicitly nonpersistent session tag.
 |-------|----------|-------------------|
 | 1 | BOOT and setup | Build, format, session, reset and wake reasons, CPU frequency, SD mount result and setup completion. |
 | 1 | Resource snapshots | Free and minimum internal heap, largest internal block, free PSRAM, power source and battery voltage. |
+| 1B | USB retrieval | USB_GET_BEGIN and USB_GET_END with filename, bytes, duration and result; current-file events bracket the snapshot and resumed appends. |
 | 2 | Network setup | Wi-Fi and MQTT setup start, results and durations. |
 | 2 | Wi-Fi | Scan and retry start and results, primary, secondary or unknown profile, association, IP acquisition, loss or change, disconnect code and label, current or last valid RSSI. |
 | 2 | MQTT | BEGIN and END for every attempt with ID, real or test broker, port and TLS mode, duration, result and state; observed loss and recovery. |
@@ -106,6 +116,14 @@ auto-reconnect. MQTT config occurs on initial and one-time late connection, not 
 records are coarse; add detail without changing recovery policy.
 
 ## Storage and recovery
+
+**Board-maker implementation reference:** use Waveshare's
+[SDMMC example for this board](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.8/blob/main/examples/esp-idf/09_sdmmc/main/sd_card_example_main.c)
+as a starting point to save implementation time. Adapt its mounting, card information, file operations and unmounting
+patterns where useful. Inspect the board support package behind `bsp_sdcard_mount()` for board initialization details.
+This is an ESP-IDF example; adapt it to our pinned Arduino ESP32 core 3.1.3 and `SD_MMC` configuration below.
+Keep the logger's append, archive preservation and graceful error handling rules: the demo uses truncating writes,
+deletes an existing demo destination and aborts on some errors. Keep automatic formatting disabled.
 
 Use the bundled `SD_MMC` in **1-bit mode**, explicit CLK=GPIO2, CMD=GPIO1, D0=GPIO3. Confirm board power and initialization
 against the pinned core and board example. Use a user-prepared FAT32 card and `format_if_mount_failed=false`. Queue
@@ -169,12 +187,172 @@ battery-only Wi-Fi setup failure, USB-loss grace-period trip end, inactivity shu
 and proceed on timeout. If logger never initialized, close is a no-op. Expected radio-off events after close do not
 reopen the log.
 
-Use the existing bounded **24-character** parser in `netBenchLoop`, not another serial reader. `status` and
-`log status` read a thread-safe writer snapshot (health, current size, newest archive, drops). Optional `log tail [n]`:
-default **20**, maximum **100** records, **16 KiB** byte budget; request backward chunked current-file reads from the
-writer, with logging and close priority. Return fewer records with a limit notice; no full scan, archive traversal or unbounded allocation. Snapshot file identity, include format context, report busy or unavailable, and transmit through
-a bounded output queue in small nonblocking chunks, without bulk printing or flushing. Commands still wait behind a blocked
-main-loop call.
+Retrieve logs through the existing USB cable with a single-file Web Serial page. Keep
+Wi-Fi, MQTT, display and sensors running; the iPhone hotspot is unchanged. Close the
+VS Code monitor, connect the page to the same COM port, download, disconnect, then reopen
+the monitor. Use no companion network server or network transfer. The appendix compares
+this shared-port approach with dual CDC and mass storage.
+
+### USB retrieval commands (Stage 1B)
+
+Use the existing `netBenchLoop()` parser: its 24-byte buffer holds 23 command characters
+and a terminator. The commands fit. They do not modify or delete log contents.
+Existing status commands use thread-safe writer snapshots. Commands still wait behind
+a blocked main-loop call; file sending runs in the writer task.
+
+| Command | Reply |
+|---------|-------|
+| `log status` | One `@@STATUS` line with boot, uptime, logger state, current size, newest archive, drops, card size, free space and file count. Extend the Stage 1 status snapshot. |
+| `log list` | One `@@FILE` line per managed file, then `@@LIST_END`. |
+| `log get current` | Download `/logs/current.log`. |
+| `log get <generation>` | Download `archive-NNNNNNNN.log`; for example `log get 124`. |
+| `log abort` | Stop the transfer and reply `@@ERR reason=aborted` after cleanup. Also confirm when already idle. |
+
+Only regular files named `current.log` or matching `^archive-[0-9]{8}\.log$` inside
+`/logs/` are eligible. Accept decimal generations from 0 through 99999999 and format
+exactly eight digits. Reject overflow, signs, arbitrary paths and trailing text.
+A valid number without a matching file returns `not_found`.
+
+One transfer runs at a time. During it, accept only `log status` and `log abort` among
+log commands; all other log commands return `@@ERR reason=busy`. Existing `off`, `on`
+and `status` retain their behavior. Optional `log tail` stays in Stage 3 and uses the
+same writer and bounded output machinery.
+
+### Line format
+
+Protocol records start with `@@`. Other text goes to the console panel. The following
+example is illustrative; the base64 payloads are abbreviated.
+
+```text
+@@STATUS boot=214 up_ms=812345 logger=ready current_size=183422 newest=124 drops=0 card_mib=30436 free_mib=30102 files=12
+@@FILE name=current.log size=183422
+@@FILE name=archive-00000124.log size=2096980
+@@LIST_END count=12
+@@BEGIN version=1 name=archive-00000124.log size=2096980
+@@D 1 <base64 payload>
+@@D 2 <base64 payload>
+@@END name=archive-00000124.log bytes=2096980 lines=14563 crc32=1A2B3C4D
+@@ERR cmd=get reason=not_found
+@@ERR reason=aborted
+```
+
+- Use ASCII protocol lines, maximum **240 bytes including the leading and trailing LF**.
+  Send each complete line with one `write()` call. The leading LF separates a partial
+  debug print; the page ignores empty lines.
+- Each `@@D` contains up to **144 file bytes**, encoded as at most 192 base64 characters.
+  Sequence numbers begin at 1 and must be consecutive. A full line is about 206 wire bytes.
+- Buffer incoming browser reads until LF. Reads can split lines or contain several lines.
+  Enforce the line limit for protocol parsing and bounded storage for ordinary text.
+- Require strict standard base64: valid alphabet and padding, no embedded whitespace,
+  and decoded length within the chunk limit. Reject malformed data.
+- Use **CRC-32/ISO-HDLC**, the standard zlib CRC-32, over decoded file bytes in order.
+  `@@END` contains eight hexadecimal CRC digits, byte count and data-line count.
+  Validate these against `@@BEGIN` size and the received bytes before reporting success.
+- Require a supported BEGIN version and a matching END filename. Missing END or any
+  validation mismatch fails the download. Version 1 has no offset resume or per-line CRC.
+- There is no transfer ID. Ignore data lines outside a BEGIN-to-END transfer. After
+  `log abort`, wait for `@@ERR reason=aborted` before sending another get. If confirmation
+  cannot be obtained, close the connection instead of issuing a retry into that session.
+
+### Pacing and transfer bounds
+
+Before every transfer line, and on each retry while waiting for space:
+
+1. Abort if shutdown is requested or `USBSerial.isConnected()` is false.
+2. Abort at **50% event-queue occupancy**, leaving half the queue as headroom for logging.
+3. For **current.log only**, abort at the configured overall limit, initially **120 seconds**,
+   measured from accepting get. Stage 1B's throughput gate may raise this limit.
+4. Abort with `reason=stalled` after **5 seconds without a complete transfer line sent**.
+5. Check `availableForWrite()`. If the complete line does not fit, yield and retry later.
+6. Write once when space appears available. Abort if the return value is short.
+
+Start the no-progress timer when get is accepted. Reset it only after a complete transfer
+line is accepted by `write()`, not for status replies or ordinary debug output.
+The writer task checks this independently of main-loop MQTT calls; the host continues
+reading USB while those calls block. Keep applicable timers active during TX-space waits.
+
+The space check does not reserve capacity. A concurrent print can cause a wait, so bound
+work per writer turn and measure interference. Keep the existing global USB timeout.
+Do not use periodic application acknowledgments.
+
+A connection check reports the driver's state, not browser receipt. In core 3.1.3,
+`isCDC_Connected()` returns true while its `connected` flag stays set and USB is plugged.
+A sender waiting for free space may never enter the write timeout that clears that flag.
+The no-progress timer handles this gap. The overall timer bounds only current.log's pause.
+Archive downloads have no overall deadline; use the no-progress timeout, connection check
+and `log abort`, while preserving the queue, pruning and shutdown rules.
+
+### Writer ownership and aborts
+
+The serial parser validates and posts requests. It never accesses the card. Status uses
+an existing thread-safe snapshot. The writer reads bounded chunks between logging batches;
+logging and close requests take priority. Control replies also use bounded output.
+
+On abort, close the download handle and restore appending if it was paused. Do this
+before attempting an error reply. Use `logger_busy` for queue pressure and `timeout` only
+when current.log reaches its configured overall limit. Use `stalled` for a short write
+or five seconds without progress, and
+`read_failed` for a read error or premature EOF. A lost connection stops output; error delivery must not hold logging paused.
+
+Pruning occurs at rotation. If it selects the archive being downloaded, abort and close
+that reader before pruning. No open download handle survives removal of its archive.
+
+Shutdown aborts the transfer immediately without sending a reply. Complete the bounded
+close hook above; do not wait for USB output. Existing in-flight storage work
+still follows that close deadline.
+
+Record `USB_GET_BEGIN` and `USB_GET_END` with filename, bytes, duration and result.
+For current.log, write BEGIN before the snapshot and END after appends resume. Shutdown
+uses the existing close records rather than delaying close to send or enqueue replies.
+
+With no host, retrieval is inactive with negligible cost: bounded state and existing
+parser polling remain. No download work runs automatically.
+
+### Downloading current.log
+
+Pause appends rather than force rotation. Repeated downloads should not create small
+archives and shorten retention.
+
+1. Flush and close the append handle. Record the file size and open a read handle.
+2. Send exactly that size. New events remain queued while appends are paused.
+3. On success or any abort, close the reader and reopen for append, then drain the queue.
+   An initial read-open failure takes this same cleanup path.
+4. If reopening for append fails, disable logging for that boot under the existing
+   write-failure rule. Never truncate the file as recovery.
+
+Apply the 50% queue rule throughout the pause, including space waits. Bench acceptance
+requires no event loss on the high-water abort.
+
+### Web Serial page
+
+One file: `tools/sd_log_browser.html`, with no build step or install.
+
+- Connect and Disconnect buttons. Open at 115200, then request `log status` and `log list`.
+- A file table, per-file Download, progress, and verified or failed result.
+- Keep **Download current + newest 3** as a page-side loop of sequential gets. Validate
+  each result before continuing. Test single-file retrieval before this convenience loop.
+- Show non-protocol output in a console panel with a fixed history cap; discard oldest
+  display entries when full. Do not retain unlimited partial lines or console text.
+- Save normal browser downloads as `<boot>-<name>`, such as `214-archive-00000124.log`.
+- On cancellation, send abort and follow the confirmation rule. On transport loss,
+  invalidate any incomplete download and release browser stream locks and the port.
+
+Check `isSecureContext` and `navigator.serial` before offering Connect. Request port
+permission from a user click. Start with a disk-opened page in desktop Chrome or Edge;
+use localhost if that environment does not permit it.
+
+DTR and RTS settings take effect after the driver opens the port. The page cannot
+prevent the first driver control-line change. Record the settings used in Step 0.
+Compare boot and uptime with a prior observation when one exists; the first connection
+has no automatic pre-open reference.
+
+### Optional tail (Stage 3)
+
+`log tail [n]` defaults to **20** records, maximum **100**, with a **16 KiB** byte budget.
+The writer reads current backward in chunks with logging and close priority. Return fewer
+records with a limit notice; no full scan, archive traversal or unbounded allocation.
+Snapshot file identity, include format context and report busy or unavailable. Use a
+bounded output queue and small paced chunks, without bulk printing or flushing.
 
 ## Limits and unverified points
 
@@ -183,21 +361,52 @@ main-loop call.
 - **Brownout breadcrumbs:** restart and deep-sleep retention is supported; brownout survival depends on voltage and
   reset domain. Discard invalid data and power-on remnants and interpret phases alongside reset reasons.
 - **Durability:** power loss can lose queued and unflushed records or corrupt FAT and rename state. Two-second flushes
-  are targets. Close deadlines cannot cancel an in-flight write; deferral and full queues increase unsaved history. A missing END or clean-close marker alone does not diagnose a crash.
+  are targets. Close deadlines cannot cancel an in-flight write; deferral and full queues increase unsaved history.
+  A missing END or clean-close marker alone does not diagnose a crash. Downloading current.log holds recent events
+  in RAM until appends resume.
 - **TLS errors:** hostname DNS failure in core 3.1.3 can return before updating `lastError()`, leaving stale or zero data; do not infer a fresh TLS cause from it.
 - **Retention:** daily growth, record sizes and powered hours need measurement; appendix figures are conditional.
   Profile and recovery evidence may help explain car faults but does not establish their cause in advance.
+- **USB liveness:** driver connection state and successful writes do not establish browser receipt. Test a forced
+  read stall; check the no-progress timer and current.log's configured overall timer between bounded operations.
+  Neither can cancel an in-flight filesystem call. Main-loop MQTT blocking can delay serial command parsing.
+- **USB environment:** Step 0 verifies reset behavior and disk-page permission on the installed browser and Windows
+  driver. Post-open DTR and RTS settings cannot prevent the driver's first change.
+- **USB performance:** throughput, queue headroom and serial contention need same-session measurements. Base64 and
+  CRC validate the file; they do not preserve every ordinary debug print.
 
 ## Staged rollout and bench gates
 
 ### Before firmware work
 
-The owner reviews this finalized proposal and commits **this plan, the review and `implementation_plan.md`** as the
-fixed reference for code review. This editing pass makes no commits.
+The owner reviews this finalized proposal and commits all seven documents as the fixed
+reference for code review. This editing pass makes no commits.
+
+- `docs/sd_diagnostics_plan.md`
+- `docs/sd_diagnostics_plan_review.md`
+- `docs/implementation_plan.md`
+- `docs/ESP32_SD_Log_USB_Investigation.md`
+- `docs/sd_usb_log_retrieval_plan.md`
+- `docs/sd_usb_log_retrieval_plan_codex_review.md`
+- `docs/sd_usb_log_retrieval_plan_counter_review.md`
 
 **Every stage:** the owner compiles and flashes from VS Code. Stage 1 touches both `companion.ino` and `src/`; before
 each rebuild delete **`build/build_amoled-1-8/sketch/companion.ino.cpp`** per the stale-build rule in
 [CLAUDE.md](../CLAUDE.md). The assistant does not compile or flash.
+
+### Step 0: USB connection check
+
+Build only the page console: connect, show text and send a typed command. No firmware
+change. The existing `status` command reports uptime.
+
+1. Request status in VS Code and retain its uptime, then close the monitor.
+2. Connect the page and request status. Record whether uptime restarted or boot output
+   appeared. Record the browser version and DTR/RTS settings.
+3. Disconnect, reopen VS Code and request status. Record any reset on that transition.
+4. Repeat five times, including during Live. Check disk-page permissions as part of this.
+
+Step 0 determines whether this setup resets the board. If it does, review the observed
+behavior with the owner before proceeding; changing signals after open may not fix it.
 
 ### Stage 0 — measurement probes
 
@@ -293,10 +502,59 @@ lowering the limit or blaming the logger.
    test brownout retention separately where practical.
 
 Run one test at a time and back up the card before deliberate power interruption.
-Record pass and fail results and measurement coverage. **Stop: Stage 2 starts only
-after the owner accepts Stage 1 results.**
+Record pass and fail results and measurement coverage. **Stop: Stage 1B starts only after
+the owner accepts Stage 1 results. Stage 2 starts only after Stage 1B acceptance.**
+
+### Stage 1B: USB retrieval
+
+Start only after Stage 1 acceptance, using its writer, storage layout and rotation.
+The owner compiles and flashes in VS Code using the build precautions above.
+
+Run gate tests one at a time:
+
+1. **Integrity:** compare an archive byte for byte with its card-reader copy. For current,
+   compare the download with the first N bytes of the later copy, where N is BEGIN size.
+   The remaining file may contain later records. Check size and CRC in both cases.
+2. **Throughput:** measure decoded-file bytes per second and wire throughput separately
+   for a 2 MiB archive. Check that the proposed **120-second current.log limit is at least
+   three times the measured 2 MiB download time**. If not, raise the configured limit to
+   at least that value before accepting Stage 1B. Record the accepted limit and use it
+   in test 5. After single-file tests pass, time current plus newest three.
+3. **Non-interference:** download during Live and MQTT `off` and `on` cycles. Meet Stage 1's
+   same-session performance and memory limits. Allow no additional UI stalls beyond
+   existing MQTT blocking, no new watchdog resets and no queue drops. Check internal heap,
+   largest internal block and writer-stack margin.
+4. **Debug and validation:** verify ordinary prints remain visible during retrieval.
+   Use a page-side test switch to drop or damage one data line. Validation must reject
+   the file, and a later retry must succeed.
+5. **Abort and liveness:** close the page, send abort, deliberately stop browser reads,
+   and test USB unplugging. Use a **battery-equipped board** for the unplug case and
+   record the board and power source. Without a battery, unplugging is a power-loss test,
+   not a transport-disconnect test; back up the card before such deliberate interruption.
+   With a battery, USB loss enables inactivity shutdown, so account for that timer.
+   Observe connection state and verify the five-second no-progress abort with
+   `reason=stalled`. Add a **page-side slow-read test switch** to keep current.log making
+   progress at intervals shorter than five seconds while exceeding its overall limit.
+   Keep queue occupancy below 50% for this case. Verify `reason=timeout` at the accepted
+   current.log limit (initially 120 seconds). An archive making continued progress must
+   not abort at that overall limit. No TX-space wait may bypass an applicable timer.
+   Confirm appending resumes and the next download succeeds. Verify abort confirmation ordering.
+6. **Current pause:** generate events while retrieving current.log. Exercise the 50% queue
+   abort and verify zero dropped events, resumed appends and an error reply when connected.
+7. **Pruning:** use the existing small rotation and retention test limits. Make pruning
+   select the archive being downloaded. Confirm its reader is closed before deletion,
+   the transfer fails cleanly and logging continues.
+8. **Repeated downloads:** repeat successful and aborted transfers. Check heap, largest
+   block, writer stack and file handles for leaks or accumulating resource loss.
+9. **Round trip:** disconnect the page and reopen VS Code. Confirm output and status,
+   and check for resets against the Step 0 observations.
+
+Keep the shutdown-abort and read-error handling rules, but add no dedicated
+shutdown-during-download bench test or SD read-failure injection hook in version 1.
 
 ### Stage 2 — network evidence
+
+Start only after the owner accepts Stage 1B results.
 
 Add Wi-Fi events, profiles and UI-independent driver timing, every MQTT attempt, first-loss and error snapshots
 before cleanup, inbound age and application events, retry deferrals, recovery, TLS-phase breadcrumbs and markers.
@@ -313,8 +571,8 @@ Repeat paired performance checks after changes.
 ### Stage 4 — car use and retention tuning
 
 Measure powered hours, bytes per hour, trip and day, plus incident frequency; tune file size and count from growth.
-After an incident, power down, copy `/logs/`, and inspect current and newest archives with Montreal time and boot
-markers. Weekly rotation remains deferred pending demonstrated need.
+After an incident, download current and recent archives over USB, or power down and copy `/logs/` with a card reader.
+Inspect Montreal time and boot markers. Weekly rotation remains deferred pending demonstrated need.
 
 ## Appendix — evidence and retention arithmetic
 
@@ -368,6 +626,64 @@ Current adds zero to nearly one file. At **1 MiB**, durations halve and the cap 
 give about **30,000 health bytes**; other events and larger records add volume. Above 1 MiB per day, two days normally
 exceed a 2 MiB file; **8 MiB** is a later sizing option with count and budget adjusted explicitly.
 
+### HWCDC build facts (USB review, 2026-09-15)
+
+Checked against `sketch.yaml`, firmware, core 3.1.3 and the generated `sdkconfig`.
+The generated SDK configuration matches the installed configuration.
+
+| Fact | Evidence | Consequence |
+|------|----------|-------------|
+| Hardware USB Serial/JTAG is active | `USBMode=hwcdc`, `CDCOnBoot=cdc`; firmware defines `HWCDC USBSerial` | A needs no USB configuration change. |
+| HWCDC ignores the baud argument | `HWCDC::begin(baud)` does not use it | Open the page at 115200 for compatibility. |
+| A write holds the TX mutex for its buffer | `HWCDC.cpp:418-488` | One call protects a protocol line against other HWCDC writes. Low-level console and panic output can bypass this mutex. |
+| Mutex acquisition has a 100 ms timeout | `tx_timeout_ms=100`; failure returns zero | Keep writes short. This is not a total time limit for an entire write. |
+| The default TX ring buffer is 256 bytes | `setTxBufferSize(256)`; `availableForWrite()` around line 406 | The space check is best effort. It can wait for the mutex and does not reserve space for the next write. |
+| Disconnected writes may report full size despite discarded bytes | `write()` calls `flushTXBuffer()` when disconnected | Check connection state and short writes. Verify the received size, sequence and CRC on the page. |
+| FatFs file locking is disabled | `CONFIG_FATFS_FS_LOCK=0` | Close the append handle before opening current.log for reading. Enabling locking would not permit duplicate opens involving write access. |
+| Dual CDC and MSC are compiled capabilities | `CONFIG_TINYUSB_CDC_MAX_PORTS=2`, `CONFIG_TINYUSB_MSC_ENABLED=y`; board menu requires USB-OTG for MSC | B and C require TinyUSB on the existing USB connection. They are not active now. |
+
+### USB options comparison
+
+#### Option A: shared COM port (recommended)
+
+- Preserve USB mode, board profile and upload workflow.
+- Extend the existing serial parser. The planned SD writer owns all card access.
+- Continue normal debug output in a browser console panel.
+- Keep commands usable from a terminal or a later Python script.
+
+Windows gives the COM port to one application at a time. Opening or closing it may
+reset the board; Step 0 checks this before logger implementation.
+
+Throughput is unmeasured. About 206 wire bytes carry 144 file bytes, so a 2 MiB file
+uses about 3.0 MB on the wire. At 100,000 wire bytes per second, allow roughly 30 seconds.
+Download current and recent archives rather than all 30 by default.
+
+#### Option B: two CDC ports (rejected)
+
+Core 3.1.3 already provides `USBCDC(0)` and `USBCDC(1)` with descriptors. A custom
+composite USB stack is not needed. It would let the VS Code monitor stay open, but:
+
+- Switching from HWCDC to TinyUSB replaces the current USB Serial/JTAG connection.
+  The two controllers share the internal PHY on this connection.
+- Existing `HWCDC USBSerial` declarations must migrate to the application CDC type.
+- A broken application USB stack may require BOOT and RESET for upload recovery.
+- The application's TinyUSB console starts with that stack. Early and panic output
+  cannot be relied on through it. ROM USB console behavior is a separate facility.
+- Hardware JTAG over this same connection is lost while TinyUSB uses the internal PHY.
+
+The extra migration and validation are not justified for version 1.
+
+#### Option C: USB mass storage (rejected)
+
+MSC needs TinyUSB and its migration work. Writable MSC also needs exclusive ownership:
+flush, close and unmount the firmware filesystem before Windows access, then remount
+after eject. Windows writes and cached writes make an incorrect handoff a corruption risk.
+
+Core provides `USBMSC::isWritable(false)`. Read-only MSC prevents Windows writes, but
+Windows still caches a FAT view that firmware logging would change. Logging would need
+to freeze for the session, or a separate snapshot would be needed. Neither is simpler
+than A for this version.
+
 ## Review resolution
 
 | ID | Outcome and resolution |
@@ -386,3 +702,4 @@ exceed a 2 MiB file; **8 MiB** is a later sizing option with count and budget ad
 | A5 | Refine: profile and broker recovery correlation; reject “no trace” since coarse `[NET]` exists. |
 | A6 | Agree with bounds: existing parser, snapshots, writer-owned tail and chunked output. |
 | A7 | Agree: attribute measured gaps and keep unexplained excess. |
+| USB | Accepted counter-review merged: shared serial, bounded current pause, 50% queue, 5 s stalled and current-only overall limit (initially 120 s, at least 3× measured 2 MiB time); Stage 1B includes slow reads and battery-aware unplugging. |
