@@ -94,3 +94,12 @@ endpoint.
 See [Serial MQTT outage test](mqtt_bench_test.md) for the implementation details
 and the before/after bench measurements, including uninterrupted Live with the
 reconnect guard and successful Latest requests after recovery.
+
+## Proposed SD card diagnostics
+
+The [SD card diagnostic logging plan](sd_diagnostics_plan.md) has been
+[reviewed and counter-reviewed](sd_diagnostics_plan_review.md). It remains a
+proposal; firmware logging is not implemented yet. Before firmware work, the
+owner reviews the finalized plan and commits it, the review, and this document
+as the fixed reference. Implementation starts with the basics and stops at the
+Stage 1 bench gate until the owner accepts the results.
