@@ -10,11 +10,16 @@ Step 0 passed on the tested board and Chrome with explicit DTR=true, RTS=false.
 The VS Code monitor disconnect freeze remains unresolved. See the
 [bench results](sd_diagnostics_bench_results.md) for evidence and scope.
 Stage 0 initial measurement coverage is complete: normal, Latest HTTPS, Live TLS,
-full Live and failed and successful MQTT connects. Results are ready for owner review.
-Stage 1 has not started. SD logging and USB
-file retrieval are not implemented. The committed planning reference remains the basis
-for review. JP requested committing and pushing the Step 0 and Stage 0 checkpoint
-on 2026-09-15; this does not start Stage 1.
+full Live and failed and successful MQTT connects. JP accepted this checkpoint and
+authorized Stage 1 on 2026-09-15. The baseline is committed as f406063.
+JP built and flashed Stage 1; the initial ready, clock-sync and normal-operation
+check passed. Latest then reached a 14836-byte largest internal block, failing
+the 20480-byte memory floor. No-card HTTPS recovered to 28660 bytes. An allocation-order
+experiment now starts the writer after hardware and UI setup, before Wi-Fi initialization.
+Its card-installed result is pending; Stage 1 acceptance remains on hold. See [Stage 1 handoff](../src/diagnostics/STAGE1.md) for implementation
+choices and tests. USB file retrieval and later event hooks remain unimplemented.
+The accepted plan remains the review reference. JP requested committing this Stage 1
+checkpoint for code review; the allocation-order experiment still needs its card-installed test.
 
 ## Design decisions
 
@@ -458,6 +463,16 @@ baseline and logging enabled back-to-back in the same sitting, as required by
 CLAUDE.md; figures from another day are not comparable.
 
 ### Stage 1 — basics only; stop for bench acceptance
+
+JP authorized this stage after accepting the recorded Step 0 and Stage 0 results.
+The implementation is prepared in src/diagnostics; see the
+[Stage 1 handoff](../src/diagnostics/STAGE1.md). No Stage 1 gate has passed yet.
+Initial concrete choices are a 6144-byte internal stack on core 0 at priority 1,
+a PSRAM queue of at most 8192 bytes with four reserved slots, a 1024-byte PSRAM
+formatter, and 20 MHz SDMMC. Directory scans stop after 256 entries and yield
+every eight. Writes run in batches of at most four records, with 20 ms waits.
+Writes or flushes over 100 ms count as slow; clock discontinuities over 2 seconds
+lower confidence. These choices require the planned measurements.
 
 Implement these basics:
 

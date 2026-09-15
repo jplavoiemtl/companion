@@ -6,9 +6,13 @@ The Step 0 USB console passed the tested browser cycles with explicit DTR=true,
 RTS=false. See [bench results](../../docs/sd_diagnostics_bench_results.md).
 The VS Code monitor disconnect freeze remains unresolved. Stage 0 initial
 measurement coverage is complete: normal, Latest HTTPS, Live TLS, full Live,
-and failed and successful MQTT connects. Results are ready for owner review.
-Stage 1 has not started.
-No SD logger, file protocol or firmware USB configuration change is included.
+and failed and successful MQTT connects. JP accepted this checkpoint.
+The probe-only reference is commit f406063. Stage 1 now retains these probes
+unchanged; see [its handoff](STAGE1.md). JP's initial Stage 1 readiness check passed;
+Latest then failed the internal-block memory floor (14836 versus 20480 bytes).
+No-card HTTPS recovered to 28660 bytes. A writer-start-order experiment awaits
+card-installed validation; Stage 1 acceptance remains on hold.
+No file protocol or firmware USB configuration change is included.
 
 ## Windows and output
 

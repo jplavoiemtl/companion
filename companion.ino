@@ -24,6 +24,7 @@
 #include "src/screen_memory/screen_memory.h"
 #include "src/video/video_stream.h"
 #include "src/diagnostics/diagnostics_probes.h"
+#include "src/diagnostics/sd_diagnostics.h"
 
 
 // QMI8658 Register Addresses
@@ -631,6 +632,22 @@ void callbackMqtt(char* topic, byte* payload, unsigned int length) {
 // once loop() takes over.
 //***************************************************************************************************
 void runBackgroundTick() {
+  if (diagnosticsHealthDue()) {
+    DiagnosticsHealth health;
+    health.wifi = WiFi.status() == WL_CONNECTED;
+    health.mqtt = netIsMqttConnected();
+    health.rssi = health.wifi ? WiFi.RSSI() : 0;
+    health.usbPower = vbusPresent;
+    health.battery = batteryConnected;
+    health.batteryMv = batteryConnected ? uint16_t(batteryVoltage * 1000.0f) : 0;
+    lv_obj_t* screen = lv_scr_act();
+    health.screen = screen == ui_Screen1 ? 1 : screen == ui_Screen2 ? 2 :
+                    screen == ui_Screen3 ? 3 : screen == ui_InclinometerScreen ? 4 : 0;
+    health.live = videoStreamActive();
+    health.image = imageFetcherIsBusy() && !health.live;
+    health.moving = g_isCurrentlyMoving;
+    diagnosticsUpdateHealth(health);
+  }
   updateImuData();
   updateMotionState();
   updateGMeterDisplay(imuGetAccelInertialVert(), imuGetAccelInertialHoriz());
@@ -1661,8 +1678,11 @@ void goToDeepSleep() {
       delay(5);
   }
 
-  // Keep the message on screen for 1 second before sleeping.
-  delay(1000);  
+  // Fit SD close (at most 500 ms) inside the existing one-second display interval.
+  const uint32_t closeStarted = millis();
+  diagnosticsClose(true);
+  const uint32_t closeElapsed = millis() - closeStarted;
+  if (closeElapsed < 1000) delay(1000 - closeElapsed);
 
   USBSerial.println("Entering Deep Sleep (4 mA mode)... Touch screen to wake.");
   
@@ -1704,8 +1724,11 @@ void goToShutdown() {
       delay(5);
   }
 
-  // Keep the message on screen for 1 second.
-  delay(1000);
+  // Close centrally before radio, peripherals and SD rails go down.
+  const uint32_t closeStarted = millis();
+  diagnosticsClose(false);
+  const uint32_t closeElapsed = millis() - closeStarted;
+  if (closeElapsed < 1000) delay(1000 - closeElapsed);
 
   USBSerial.println("Shutting down completely... Press PWR button to start.");
 
@@ -2167,7 +2190,8 @@ void setup() {
   USBSerial.printf("\n=== Companion boot === CPU %u MHz | heap %u | PSRAM %u\n",
                    getCpuFrequencyMhz(), ESP.getFreeHeap(), ESP.getFreePsram());
 
-  diagnosticsProbeInit();  // Stage 0 only; no SD logger.
+  diagnosticsProbeInit();  // Identical probes retained for the Stage 1 comparison.
+  diagnosticsInitEarly();  // Internal-stack NVS and RTC capture; no SD access here.
 
   // delay(3000); // Allow time for Serial to initialize and see debug messages
   i2c_mutex = xSemaphoreCreateRecursiveMutex();
@@ -2275,6 +2299,9 @@ void setup() {
 
   configureWiFiPriority();  // Configure WiFi priority (must be done before initWiFi)
 
+  // Let display and hardware allocations settle before the SD writer is allocated.
+  // Early event capture is already active; mounting still does not wait for Wi-Fi.
+  diagnosticsStart();
   initWiFi(); // Initialize WiFi (failure handling in attemptWiFiConnection)
 
   // Capture boot-time WiFi state so the loop can later detect a "WiFi came up
@@ -2295,6 +2322,7 @@ void setup() {
   reinitializeMotionBaseline();  
 
   finalizeSetup();
+  diagnosticsSetupComplete();
 }
 
 

@@ -1,5 +1,6 @@
 #include "net_module.h"
 #include "../diagnostics/diagnostics_probes.h"
+#include "../diagnostics/sd_diagnostics.h"
 #if defined(__has_include) && __has_include("secrets_private.h")
 #include "secrets_private.h"
 #else
@@ -75,8 +76,10 @@ void handleBenchCommand(char* command) {
   }
   if (!length) return;
 
+  if (diagnosticsCommand(command)) return;
   if (strcmp(command, "status") == 0) {
     printBenchStatus();
+    diagnosticsPrintStatus();
   } else if (strcmp(command, "on") == 0) {
     if (benchPhase == BenchPhase::Outage) {
       restoreBenchMqtt("serial on");
@@ -263,7 +266,7 @@ void netBenchLoop() {
   if (!MQTT_BENCH_ENABLED) return;
   static bool announced = false;
   if (!announced) {
-    USBSerial.println("[TEST] Serial bench commands: off, on, status. Send with CR or LF.");
+    USBSerial.println("[TEST] Serial bench commands: off, on, status, log status. Send with CR or LF.");
     announced = true;
   }
   // Bound work per loop so a flood of serial input cannot starve touch/network processing.

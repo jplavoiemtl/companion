@@ -362,3 +362,226 @@ and writer, append headers, rotation and pruning, boot identity, clock states,
 reset records and RTC breadcrumbs, bounded shutdown close, health and status.
 Include its planned test hooks. Stop for the Stage 1 bench gate before USB file
 retrieval or network and media event hooks. JP builds and flashes each version.
+
+
+## 2026-09-15 — JP accepts the checkpoint and authorizes Stage 1
+
+JP stated: "I accept. Let's continue." The Step 0 and Stage 0 checkpoint was
+committed and pushed as f406063 on sd-diagnostics before Stage 1 work began.
+
+Stage 1 basics have now been prepared, with the original probes unchanged.
+No compilation or flashing was performed by the assistant and no new firmware
+measurements are available. The Stage 1 gate remains pending.
+See [the implementation handoff](../src/diagnostics/STAGE1.md) for choices,
+default-off fault hooks and the first bench check.
+
+The first check is a normal build with a prepared FAT32 card, fault hooks off,
+startup output and log status. Preserve or refresh the same-sitting probe-only
+baseline before flashing for the performance comparison. JP remains the builder,
+flasher and bench tester. Stage 1B does not start until JP accepts Stage 1 results.
+
+
+## 2026-09-15 — Stage 1 first startup and normal-operation check
+
+**Outcome:** JP's flashed Stage 1 build reports ready, synced, hooks off and no
+logger errors. Current grew by 554 bytes and writes increased from 7 to 8
+between status requests. This is consistent with one minute health record.
+The copied file contents and power-loss durability have not yet been inspected.
+This passes the initial readiness check, not the complete Stage 1 gate.
+
+Chrome 152 connected at 16:51:00.266 with explicit DTR=true, RTS=false.
+The detected card capacity is 15931539456 bytes (about 15.93 decimal GB,
+consistent with a nominal 16 GB card). Board identifier and battery presence
+remain unreported. The exact build revision is the uncommitted Stage 1 work;
+its compiled timestamp was not in the supplied excerpt.
+
+Selected owner-supplied evidence, with escaped underscores normalized:
+
+```text
+2026-09-15 16:51:15.857 TX log status [CRLF]
+2026-09-15 16:51:15.862 RX [LOG] state=ready boot=2 session=boot-2 up_ms=39419 clock=synced setup=1 hooks=0 file_bytes=2098 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15923052544 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-15 16:51:15.862 RX [LOG] measured=1 stack_min=1992 internal_min=78984 internal_largest=31732 dma_min=71488 dma_largest=31732 writes=7 slow=0 write_max_us=2236 flush_max_us=5020 sd_max_us=55202 rotations=0 pruned=0 oversized=0
+2026-09-15 16:51:44.828 RX [PROBE] window=normal run=1 ms=60002 heap_min_boot=78984 largest_min=31732 interval_ms=10 samples=6000 gap_max_us=10986 scan_max_us=1116 timer=on imu_n=2948 imu_min_hz=27.78 imu_avg_hz=49.22
+2026-09-15 16:52:17.571 TX log status [CRLF]
+2026-09-15 16:52:17.575 RX [LOG] state=ready boot=2 session=boot-2 up_ms=101134 clock=synced setup=1 hooks=0 file_bytes=2652 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15923052544 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-15 16:52:17.576 RX [LOG] measured=1 stack_min=1992 internal_min=78984 internal_largest=31732 dma_min=71488 dma_largest=31732 writes=8 slow=0 write_max_us=2236 flush_max_us=5020 sd_max_us=55202 rotations=0 pruned=0 oversized=0
+```
+
+| Measurement | Result |
+|-------------|--------|
+| Logger | ready; clock synced; setup complete; fault hooks off |
+| Current size | 2098 to 2652 bytes, +554 |
+| File generation and archives | generation 1; zero archives, rotations or pruning |
+| Queue | empty at both readings; high-water 1 of 16 |
+| Lost or shortened records | drops 0; suppressed 0; truncated 0 |
+| Writer stack minimum unused margin | 1992 bytes out of 6144 allocated |
+| Internal heap minimum since boot | 78984 bytes |
+| Writer boundary minimum largest internal block | 31732 bytes |
+| Internal DMA heap minimum and largest block | 71488 and 31732 bytes |
+| Maximum write and flush time | 2236 us (2.236 ms); 5020 us (5.020 ms) |
+| Maximum instrumented SD operation time | 55202 us (55.202 ms) |
+| Slow write or flush count | 0, using the 100 ms threshold |
+| Normal periodic sampling | 6000 samples over 60002 ms; interval 10 ms |
+| Maximum normal sample gap and scan time | 10986 us; 1116 us |
+| Normal IMU | 2948 observations; minimum 27.78 Hz; average 49.22 Hz |
+
+The 1992-byte stack margin covers paths exercised so far, not future rotation,
+recovery or shutdown peaks. No conclusion about the full writer stack gate yet.
+
+Compared with the first probe-only normal window, the reported since-boot internal
+heap minimum is 9208 bytes lower (88192 to 78984). The normal sampled largest block
+remains 31732 bytes. This is consistent with the new logger's memory cost, not
+evidence of a leak. The previous 38084-byte low after media is a different workload
+and must not be compared as though it were an idle reading.
+
+The normal IMU average of 49.22 Hz is close to the earlier 49.19 Hz baseline.
+The 27.78 Hz minimum is one observed interval, not a sustained sampling rate.
+Keep same-sitting pairing and equivalent workloads for the final performance gate;
+TLS and full Live measurements with logging are still required.
+
+The boot counter value 2 alone does not establish repeated-boot append correctness.
+That storage test still requires before/after file evidence. Free bytes remaining
+unchanged while the file grows is not a demonstrated error; byte-level file growth
+and filesystem allocation accounting differ.
+
+**Next test:** with logging ready, Wi-Fi and MQTT connected, request Latest once.
+Return to the normal screen and send log status. Capture image_https, the complete
+image timing and both logger status lines. This checks HTTPS memory and image
+operation with the logger present before the full Live test.
+
+
+## 2026-09-15 — Stage 1 Latest: memory gate failure
+
+JP confirmed this board has a **battery and a 16 GB card**.
+
+**Outcome:** Latest displayed successfully in 1372 ms, but the HTTPS largest-block
+measurement was **14836 bytes**. This is **5644 bytes below** the agreed proposed
+20480-byte floor. Sampling coverage was adequate for this observed failure:
+86 readings over 853 ms, maximum gap 10079 us. Do not accept the memory gate
+or advance to the planned full Live test until this reduction is investigated.
+
+Owner-supplied key evidence, with escaped underscores normalized:
+
+```text
+2026-09-15 16:55:08.933 RX Latest button clicked
+2026-09-15 16:55:09.007 RX [PROBE] window=normal run=5 ms=24172 heap_min_boot=78984 largest_min=31732 interval_ms=10 samples=2417 gap_max_us=10794 scan_max_us=335 timer=on imu_n=1184 imu_min_hz=32.22 imu_avg_hz=49.25
+2026-09-15 16:55:09.861 RX [PROBE] window=image_https run=1 ms=853 heap_min_boot=30756 largest_min=14836 interval_ms=10 samples=86 gap_max_us=10079 scan_max_us=164 timer=on
+2026-09-15 16:55:09.861 RX Response received in 855 ms, Content-Length: 33689
+2026-09-15 16:55:10.170 RX Image download complete (33689 bytes, 1236 ms since button press). Starting decode...
+2026-09-15 16:55:10.306 RX JPEG decoded successfully into PSRAM.
+2026-09-15 16:55:10.306 RX LVGL image source updated. Total 1372 ms from button press (budget 20000 ms).
+2026-09-15 16:55:13.660 RX [ScreenMem] Returned to screen 1; no preference save needed
+2026-09-15 16:55:16.506 RX [LOG] state=ready boot=2 session=boot-2 up_ms=280069 clock=synced setup=1 hooks=0 file_bytes=4322 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15923052544 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-15 16:55:16.508 RX [LOG] measured=1 stack_min=1992 internal_min=30756 internal_largest=14836 dma_min=23260 dma_largest=14836 writes=11 slow=0 write_max_us=2236 flush_max_us=5020 sd_max_us=55202 rotations=0 pruned=0 oversized=0
+```
+
+| Metric | Probe-only Latest, 15:05 | Stage 1 Latest, 16:55 |
+|--------|-------------------------|----------------------|
+| HTTPS duration | 757 ms | 853 ms |
+| Sampled largest internal block minimum | 30708 bytes | 14836 bytes |
+| Internal heap minimum since boot | 38644 bytes | 30756 bytes |
+| Periodic samples | 76 | 86 |
+| Maximum sample gap | 10331 us | 10079 us |
+| Total Latest time | 1291 ms | 1372 ms |
+| Image bytes | 33012 | 33689 |
+
+The largest-block minimum decreased by 15872 bytes, while total internal
+low-water memory decreased by 7888 bytes. Different heap allocation layout
+may explain the larger loss of contiguous space. This is not yet a leak diagnosis.
+The absolute 20480-byte gate fails independently of any uncertainty in the
+earlier comparison or changed image content. The roughly 5% limit applies to
+Live fps; it is not a separate pass/fail limit for Latest time.
+
+Logger writes continued, with no drops, truncation, slow writes or storage errors.
+The status values are historical minima, not a fresh measurement of free memory
+at the moment status was requested.
+
+Source review confirms the event queue and 1024-byte formatter use explicit PSRAM,
+while the writer has a 6144-byte internal stack. SDMMC, VFS and FATFS also have
+their own allocations. The exact allocation responsible for the 14836-byte
+largest-block result is unverified. Do not attribute it to the possible temporary
+DMA bounce buffer without further evidence. Do not shrink the stack blindly:
+1992 bytes remain on the paths exercised, but recovery and rotation peaks are
+not yet measured.
+
+**Next diagnostic test:** run the same Stage 1 firmware without the card.
+Fully power down the battery-equipped board before removing the card; unplugging
+USB alone does not turn it off. Boot, capture log status (logging should be
+disabled after the mount failure), request Latest once, then capture log status
+again. This removes successful SD mounting and the continuing writer task from
+the run, while retaining the new code, queue and clock setup. Compare image_https
+coverage and largest_min. It does not isolate an individual allocation, and
+historical startup minima in logger status must not be mistaken for the new HTTPS
+probe measurement. No firmware change or threshold change was made for this diagnosis.
+
+
+## 2026-09-15 — Stage 1 no-card comparison
+
+**Outcome:** no-card startup disabled logging as designed, and Latest succeeded.
+The HTTPS largest-block minimum recovered to **28660 bytes**, above the 20480-byte
+floor. The mounted-card result remains a failed gate; no-card success does not
+accept logging-enabled operation.
+
+Same Stage 1 firmware, battery-equipped board, card removed while powered off.
+This was boot 3. Wi-Fi and MQTT operation continued with the logger disabled.
+
+Owner-supplied evidence, with escaped underscores normalized:
+
+```text
+2026-09-15 17:01:25.273 RX [LOG] state=disabled boot=3 session=boot-3 up_ms=28785 clock=synced setup=1 hooks=0 file_bytes=0 generation=0 newest=0 archives=0 card_bytes=0 free_bytes=0 queue=0/16 high=0 drops=0 suppressed=0 truncated=0 error=mount_failed_or_no_card errno=5
+2026-09-15 17:01:25.274 RX [LOG] measured=1 stack_min=2264 internal_min=196316 internal_largest=131060 dma_min=188820 dma_largest=131060 writes=0 slow=0 write_max_us=0 flush_max_us=0 sd_max_us=28504 rotations=0 pruned=0 oversized=0
+2026-09-15 17:01:34.749 RX Latest button clicked
+2026-09-15 17:01:34.822 RX [PROBE] window=normal run=1 ms=29745 heap_min_boot=86640 largest_min=31732 interval_ms=10 samples=2974 gap_max_us=10635 scan_max_us=408 timer=on imu_n=1457 imu_min_hz=36.99 imu_avg_hz=49.20
+2026-09-15 17:01:35.544 RX [PROBE] window=image_https run=1 ms=721 heap_min_boot=36584 largest_min=28660 interval_ms=10 samples=72 gap_max_us=10294 scan_max_us=140 timer=on
+2026-09-15 17:01:35.544 RX Response received in 722 ms, Content-Length: 33689
+2026-09-15 17:01:35.895 RX Image download complete (33689 bytes, 1145 ms since button press). Starting decode...
+2026-09-15 17:01:36.030 RX JPEG decoded successfully into PSRAM.
+2026-09-15 17:01:36.031 RX LVGL image source updated. Total 1281 ms from button press (budget 20000 ms).
+2026-09-15 17:01:39.406 RX [ScreenMem] Returned to screen 1; no preference save needed
+2026-09-15 17:01:43.672 RX [LOG] state=disabled boot=3 session=boot-3 up_ms=47185 clock=synced setup=1 hooks=0 file_bytes=0 generation=0 newest=0 archives=0 card_bytes=0 free_bytes=0 queue=0/16 high=0 drops=0 suppressed=0 truncated=0 error=mount_failed_or_no_card errno=5
+2026-09-15 17:01:43.673 RX [LOG] measured=1 stack_min=2264 internal_min=196316 internal_largest=131060 dma_min=188820 dma_largest=131060 writes=0 slow=0 write_max_us=0 flush_max_us=0 sd_max_us=28504 rotations=0 pruned=0 oversized=0
+```
+
+| HTTPS measurement | Card installed, boot 2 | No card, boot 3 |
+|-------------------|------------------------|----------------|
+| Image bytes | 33689 | 33689 |
+| Total Latest time | 1372 ms | 1281 ms |
+| Probe duration | 853 ms | 721 ms |
+| Largest sampled internal block | 14836 bytes | 28660 bytes |
+| Internal heap minimum since boot | 30756 bytes | 36584 bytes |
+| Samples at 10 ms | 86 | 72 |
+| Longest sample gap | 10079 us | 10294 us |
+| Slowest heap scan | 164 us | 140 us |
+
+Removing the mounted SD subsystem and continuing writer increased the HTTPS
+largest-block minimum by 13824 bytes and the total internal low-water mark by
+5828 bytes. This implicates the combined mounted filesystem and live writer
+footprint or allocation layout. It does not identify a specific allocation,
+prove a leak, or verify the hypothesized temporary SD DMA copy.
+
+The writer exits after its mount failure and stops updating its status memory
+snapshot. Thus internal_min=196316 and internal_largest=131060 are frozen early
+startup observations. They are not the current heap or the HTTPS minima.
+Use the image_https probe for this comparison. The task's stack is reclaimed
+after exit; the PSRAM queue and clock support remain.
+
+### First corrective experiment — writer start order
+
+Moved only the diagnosticsStart() call in companion.ino. It now runs after
+display, UI, media-module, IMU and battery initialization, immediately before
+initWiFi(). Previously it ran immediately after initPMIC().
+The event queue, boot counter and RTC capture remain early. The SD writer still
+starts without waiting for network connection, including on battery-only boots
+that may later shut down after Wi-Fi failure.
+
+This tests whether allowing long-lived hardware allocations to settle first
+improves contiguous internal memory. It does not reduce total logger memory.
+The 6144-byte internal writer stack, sampling probes, SD limits, network
+timeouts and fault-hook defaults are unchanged. Success is unverified.
+
+**Next test:** fully power down, reinstall the same 16 GB card, and have JP
+build and flash this revised version. Keep fault hooks off. Request Latest
+once after Wi-Fi and MQTT reconnect, then send log status. Capture the HTTPS
+probe, image result and both logger status lines. Require logging ready and
+largest_min at least 20480 bytes before considering the experiment successful.
+No compilation, flashing or commit was performed by the assistant.

@@ -1,6 +1,6 @@
 # Return to Previous Screen (No Gen-Code Mod)
 
-This plan achieves the same goal—returning to the previous screen after image viewing—but respects the constraint of NOT modifying SquareLine Studio generated files (`ui.h`, `ui.c`, `ui_Screen2.c`).
+This plan achieves the same goalâ€”returning to the previous screen after image viewingâ€”but respects the constraint of NOT modifying SquareLine Studio generated files (`ui.h`, `ui.c`, `ui_Screen2.c`).
 
 ## User Review Required
 > [!NOTE]
@@ -100,8 +100,10 @@ reconnect guard and successful Latest requests after recovery.
 Project owner and bench tester: **JP**.
 
 The [SD card diagnostic logging plan](sd_diagnostics_plan.md) has been
-[reviewed and counter-reviewed](sd_diagnostics_plan_review.md). It remains a
-proposal; firmware logging is not implemented yet. Before firmware work, the
+[reviewed and counter-reviewed](sd_diagnostics_plan_review.md). It remains
+the accepted design reference. JP authorized Stage 1 after accepting the Step 0
+and Stage 0 checkpoint. JP built and flashed Stage 1; initial readiness and normal
+operation passed, with the remaining bench gate pending; see the [handoff](../src/diagnostics/STAGE1.md). Before firmware work, the
 owner reviews the finalized plan and commits all seven documents listed in its
 "Before firmware work" section as the fixed reference. Firmware implementation
 starts with measurement probes, then basics and the Stage 1 acceptance gate.
@@ -112,5 +114,7 @@ Stage 1B acceptance.
 Bench status (2026-09-15): Step 0 passed on the tested board and Chrome with
 explicit DTR=true, RTS=false, including reconnecting during Live.
 The VS Code monitor close freeze remains unresolved. Stage 0 initial measurement
-coverage is complete, including failed and successful MQTT connects. Results are
-ready for owner review; Stage 1 has not started. See [bench results](sd_diagnostics_bench_results.md).
+coverage is complete, including failed and successful MQTT connects. JP accepted
+the checkpoint; Stage 1 initial readiness passed, but Latest failed the 20480-byte
+memory floor with 14836 bytes. No-card HTTPS recovered to 28660 bytes. A writer-start-order experiment is prepared;
+card-installed validation and Stage 1 acceptance remain pending. See [bench results](sd_diagnostics_bench_results.md).
