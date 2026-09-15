@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project owner
+
+The project owner is **JP**. JP builds and flashes firmware from VS Code.
+
 ## Project Overview
 
 ESP32-S3 Touch AMOLED companion device that displays JPEG images, a live camera feed, power/energy data via MQTT, and real-time IMU sensor data (inclinometer, G-meter). Hardware: Waveshare ESP32-S3-Touch-AMOLED-1.8 with QMI8658 IMU, AXP2101 power management.

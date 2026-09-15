@@ -23,6 +23,7 @@
 #include "src/net/net_module.h"
 #include "src/screen_memory/screen_memory.h"
 #include "src/video/video_stream.h"
+#include "src/diagnostics/diagnostics_probes.h"
 
 
 // QMI8658 Register Addresses
@@ -2166,6 +2167,8 @@ void setup() {
   USBSerial.printf("\n=== Companion boot === CPU %u MHz | heap %u | PSRAM %u\n",
                    getCpuFrequencyMhz(), ESP.getFreeHeap(), ESP.getFreePsram());
 
+  diagnosticsProbeInit();  // Stage 0 only; no SD logger.
+
   // delay(3000); // Allow time for Serial to initialize and see debug messages
   i2c_mutex = xSemaphoreCreateRecursiveMutex();
 
@@ -2306,6 +2309,8 @@ void loop() {
     return; // Exit the loop immediately.
   }
 
+  // Normal IMU windows exclude media. Stage 1B must also pass false during USB downloads.
+  diagnosticsProbeNormalUpdate(!imageFetcherIsBusy() && !videoStreamActive());
   netBenchLoop();  // Serial off/on/status commands; also runs while WiFi is down.
 
   // --- Task 1: Per-tick UI / sensor work (shared with boot-time keep-alive) ---

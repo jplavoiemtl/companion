@@ -1,10 +1,20 @@
 # SD card diagnostic logging plan
 
+Project owner and bench tester: **JP**. References to the owner mean JP.
+
 Status: finalized proposal after [SD review and counter-review](sd_diagnostics_plan_review.md),
 [USB review](sd_usb_log_retrieval_plan_codex_review.md) and owner-accepted
 [USB counter-review](sd_usb_log_retrieval_plan_counter_review.md). This plan now covers
 logging and USB retrieval. Input: [USB investigation brief](ESP32_SD_Log_USB_Investigation.md).
-Firmware is not implemented. The owner reviews and commits this reference before firmware work.
+Step 0 passed on the tested board and Chrome with explicit DTR=true, RTS=false.
+The VS Code monitor disconnect freeze remains unresolved. See the
+[bench results](sd_diagnostics_bench_results.md) for evidence and scope.
+Stage 0 initial measurement coverage is complete: normal, Latest HTTPS, Live TLS,
+full Live and failed and successful MQTT connects. Results are ready for owner review.
+Stage 1 has not started. SD logging and USB
+file retrieval are not implemented. The committed planning reference remains the basis
+for review. JP requested committing and pushing the Step 0 and Stage 0 checkpoint
+on 2026-09-15; this does not start Stage 1.
 
 ## Design decisions
 
@@ -408,6 +418,14 @@ change. The existing `status` command reports uptime.
 Step 0 determines whether this setup resets the board. If it does, review the observed
 behavior with the owner before proceeding; changing signals after open may not fix it.
 
+**Recorded result, 2026-09-15:** browser driver defaults caused a visible reset on
+disconnect. Explicit DTR=true, RTS=false passed repeated cycles and a full Live
+cycle without a visible interruption. Use those explicit settings for the browser.
+Compare status uptime before and after reconnecting in that same page; switching
+to VS Code is not required for this check. The VS Code close freeze remains open,
+so the original VS Code round trip is not marked passed.
+See [bench results](sd_diagnostics_bench_results.md).
+
 ### Stage 0 — measurement probes
 
 Make a minimal probe-only change to the current firmware. Record minimum free
@@ -415,15 +433,27 @@ internal heap and the lowest observed largest free internal block, including
 inside blocking MQTT, HTTPS and Live TLS connects and throughout Live. Use the
 same internal-memory capability filters in every measurement.
 
-Boundary readings alone miss temporary allocation lows. Use lightweight sampling
-that runs during blocking calls or suitable allocation instrumentation. Report
-sampling coverage and interval; incomplete coverage is not a passing memory test.
-Keep serial output to summaries so the probes do not create new frame delays.
-No SD logger or operational event hooks are added in Stage 0.
+Use `heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL)` for the since-boot internal
+heap low-water mark; no sampling is needed for that value. The largest internal block
+has no low-water API. Sample `heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)`
+every **10 ms** using the existing task-dispatched esp_timer, including while the loop blocks.
+Report the interval, periodic count, maximum gap and scan cost for each window.
+Boundary readings supplement sampling; incomplete coverage is not a passing memory test.
+Print one summary per window and no per-sample output.
+
+Also report minimum and arithmetic-mean IMU rate from the existing `sampling_frequency`
+in normal-operation windows of up to **60 seconds**. Exclude setup, media and measured
+connects; skip the first interval after returning to normal. Stage 1B must exclude USB
+file transfers using the same eligibility input. Do not change the IMU calculation.
+Keep the probes identical for Stage 1. No SD logger or operational event hooks are added.
+
+See [probe fields and baseline sequence](../src/diagnostics/README.md) and the
+[Step 0 console page](../tools/sd_log_browser.html).
 
 The owner flashes this probe-only build in VS Code and measures the baseline:
 Live fps and frame gaps, Latest total time, internal heap minimum and lowest
-largest internal block. Stage 1 retains these same probes unchanged. Compare
+largest internal block, plus normal-operation IMU minimum and average rate. Stage 1
+retains these same probes unchanged. Compare
 baseline and logging enabled back-to-back in the same sitting, as required by
 CLAUDE.md; figures from another day are not comparable.
 
@@ -436,6 +466,13 @@ Implement these basics:
 - Boot counter, clock quality states, asynchronous sync and Montreal rule.
 - BOOT and reset-reason records, RTC breadcrumbs and both shutdown close hooks.
 - Minute health record and logger state in serial status.
+
+Carry-forward implementation notes (not implemented in Stage 0):
+
+- Add a `DIAG_TEST_HOOKS` pause after creating current.log, before writing its header,
+  with a short-prefix variant to test salvage of a real partial header.
+- The task watchdog checks core 0 idle (5 seconds, panic). A writer on core 0 must
+  block or yield in long loops, including listing, pruning, backward tail reads and USB transfers.
 
 No network, image, Live or UI event hooks yet. Health uses available snapshots;
 event-derived fields remain unavailable until their stages. Storage works before

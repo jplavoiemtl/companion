@@ -1,4 +1,5 @@
 #include "image_fetcher.h"
+#include "../diagnostics/diagnostics_probes.h"
 
 #include <HTTPClient.h>
 #include <TJpg_Decoder.h>
@@ -371,10 +372,13 @@ static bool requestImage(const char* endpoint_type) {
   httpState = HTTP_REQUESTING;
   httpRequestStartTime = millis();  // Set BEFORE blocking call for timeout tracking
   USBSerial.println("Sending HTTP GET...");
+  // GET includes DNS, TCP, TLS and response headers, covering the HTTPS connect.
+  if (isSecureConnection) diagnosticsProbeBegin(ProbeWindow::ImageHttps);
   int httpCode = httpClient.GET();
   // Connect + TLS handshake + server think time, all of it blocking. This is the phase
   // that used to swallow the whole loading budget on the iPhone hotspot, so log it.
   unsigned long connectMs = millis() - httpRequestStartTime;
+  if (isSecureConnection) diagnosticsProbeEnd(ProbeWindow::ImageHttps);
 
   if (httpCode != HTTP_CODE_OK) {
     USBSerial.printf("FATAL: HTTP GET failed with code: %d (after %lu ms)\n", httpCode, connectMs);

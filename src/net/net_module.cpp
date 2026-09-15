@@ -1,4 +1,5 @@
 #include "net_module.h"
+#include "../diagnostics/diagnostics_probes.h"
 #if defined(__has_include) && __has_include("secrets_private.h")
 #include "secrets_private.h"
 #else
@@ -196,8 +197,10 @@ void netCheckMqtt(bool bypassRateLimit) {
                        ++benchAttempt, testAttempt ? "TEST endpoint" : "REAL broker", attemptStarted);
     }
     // Never send production credentials or the production client ID to the test address.
+    diagnosticsProbeBegin(ProbeWindow::MqttConnect);
     bool ok = testAttempt ? cfg.mqttClient->connect("companion-bench-test")
                           : cfg.mqttClient->connect(CLIENT_ID, USERNAME, KEY);
+    diagnosticsProbeEnd(ProbeWindow::MqttConnect);
     if (logAttempt) {
       USBSerial.printf("[TEST] MQTT attempt %u END -> %s | %s | elapsed=%lu ms | state=%d\n",
                        benchAttempt, testAttempt ? "TEST endpoint" : "REAL broker",

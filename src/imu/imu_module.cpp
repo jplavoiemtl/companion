@@ -1,4 +1,5 @@
 #include "imu_module.h"
+#include "../diagnostics/diagnostics_probes.h"
 #if defined(__has_include) && __has_include("secrets_private.h")
 #include "secrets_private.h"
 #else
@@ -452,6 +453,7 @@ void updateMotionState() {
 
     if (dt > 0) {
       sampling_frequency = 1.0 / dt;  // Sampling frequency = 1 / dt
+      diagnosticsProbeImuSample(sampling_frequency);  // Observe only; never change IMU state.
     }  
 
     // Calculate accelerometer magnitude and change

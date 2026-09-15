@@ -97,6 +97,8 @@ reconnect guard and successful Latest requests after recovery.
 
 ## Proposed SD card diagnostics
 
+Project owner and bench tester: **JP**.
+
 The [SD card diagnostic logging plan](sd_diagnostics_plan.md) has been
 [reviewed and counter-reviewed](sd_diagnostics_plan_review.md). It remains a
 proposal; firmware logging is not implemented yet. Before firmware work, the
@@ -106,3 +108,9 @@ starts with measurement probes, then basics and the Stage 1 acceptance gate.
 USB retrieval uses the existing serial port and a Web Serial page: Step 0 checks
 connection behavior, Stage 1B follows Stage 1 acceptance, and Stage 2 follows
 Stage 1B acceptance.
+
+Bench status (2026-09-15): Step 0 passed on the tested board and Chrome with
+explicit DTR=true, RTS=false, including reconnecting during Live.
+The VS Code monitor close freeze remains unresolved. Stage 0 initial measurement
+coverage is complete, including failed and successful MQTT connects. Results are
+ready for owner review; Stage 1 has not started. See [bench results](sd_diagnostics_bench_results.md).

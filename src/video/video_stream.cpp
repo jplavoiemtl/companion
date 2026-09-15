@@ -1,4 +1,5 @@
 #include "video_stream.h"
+#include "../diagnostics/diagnostics_probes.h"
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -116,6 +117,8 @@ unsigned long startMs = 0;
 uint32_t frames = 0;
 uint32_t lastFrameUs = 0;
 uint32_t startUs = 0;
+uint32_t firstFrameUs = 0;
+uint32_t maxFrameGapUs = 0;
 
 // --- Heap corruption diagnostic ----------------------------------------------
 // DIAGNOSTIC ONLY - set VIDEO_HEAP_DEBUG to 0 to remove.
@@ -334,7 +337,10 @@ static bool ensureConnected() {
   vidClient->setConnectionTimeout(5000);   // TCP connect, ms; independent of prior still requests
   vidClient->setHandshakeTimeout(5);        // seconds, per the setter's units
 
-  if (!vidClient->connect(epHost, epPort)) {
+  diagnosticsProbeBegin(ProbeWindow::LiveTls);
+  const bool connected = vidClient->connect(epHost, epPort);
+  diagnosticsProbeEnd(ProbeWindow::LiveTls);
+  if (!connected) {
     // Report enough to tell a RAM problem from a TLS or server problem. Largest
     // free block matters: mbedTLS needs a contiguous allocation, so fragmentation
     // can defeat it even when total free looks sufficient.
@@ -678,10 +684,11 @@ static void printSummary() {
     USBSerial.println("Video: stopped with no frames");
     return;
   }
-  USBSerial.printf("Video: %u frames in %.1fs (%.1f fps) | http %.0f | decode %.0f | blit %.0f | frame %.0f ms\n",
+  USBSerial.printf("Video: %u frames in %.1fs (%.1f fps) | http %.0f | decode %.0f | blit %.0f | frame %.0f ms | first_frame %.0f | max_gap %.0f ms\n",
                    frames, secs, frames / secs,
                    sumHttp / 1000.0f / frames, sumDecode / 1000.0f / frames,
-                   sumBlit / 1000.0f / frames, sumFrame / 1000.0f / frames);
+                   sumBlit / 1000.0f / frames, sumFrame / 1000.0f / frames,
+                   firstFrameUs / 1000.0f, maxFrameGapUs / 1000.0f);
   // Throughput is bytes over the xfer time alone, so it measures the link while
   // it is actually moving data instead of averaging in the wait for the server.
   const float xferSecs = sumXfer / 1000000.0f;
@@ -703,11 +710,14 @@ bool videoStreamStart() {
     return false;
   }
 
+  diagnosticsProbeBegin(ProbeWindow::Live);
+
   // Allocated on first use and retained - see videoStreamStop().
   if (!jpegBuf) {
     jpegBuf = static_cast<uint8_t*>(ps_malloc(MAX_FRAME_BYTES));
     if (!jpegBuf) {
       USBSerial.println("Video: PSRAM alloc failed for JPEG buffer");
+      diagnosticsProbeEnd(ProbeWindow::Live);
       return false;
     }
   }
@@ -718,6 +728,7 @@ bool videoStreamStart() {
   startMs = millis();
   startUs = micros();
   lastFrameUs = startUs;
+  firstFrameUs = maxFrameGapUs = 0;
 
   if (cfg.screenVideo && lv_scr_act() != cfg.screenVideo) {
     // Direct Live start: remember its origin. A still-to-Live handover is already
@@ -731,11 +742,15 @@ bool videoStreamStart() {
   // still-image fetch or the UI is the place to look, not the video path.
   HEAP_CHECK("feed start, before any frame");
 
-  if (!parseEndpoint()) return false;
+  if (!parseEndpoint()) {
+    diagnosticsProbeEnd(ProbeWindow::Live);
+    return false;
+  }
 
   vidClient = imageFetcherSecureClient();
   if (!vidClient) {
     USBSerial.println("Video: no shared TLS client available");
+    diagnosticsProbeEnd(ProbeWindow::Live);
     return false;
   }
 
@@ -774,6 +789,7 @@ void videoStreamStop() {
   // and clearing it with lv_img_set_src(NULL) makes LVGL log a warning on every
   // exit. Retaining also avoids cycling ~460 KB through PSRAM on every press.
   // Nothing is allocated at all if the feed is never used.
+  diagnosticsProbeEnd(ProbeWindow::Live);
 }
 
 //***************************************************************************************************
@@ -846,7 +862,10 @@ void videoStreamLoop() {
   if (!HEAP_CHECK("blit")) { videoStreamStop(); returnToPreviousScreen(); return; }
 
   const uint32_t now = micros();
-  sumFrame += (frames == 0) ? (now - startUs) : (now - lastFrameUs);
+  const uint32_t frameGapUs = (frames == 0) ? (now - startUs) : (now - lastFrameUs);
+  sumFrame += frameGapUs;
+  if (frames == 0) firstFrameUs = frameGapUs;
+  else if (frameGapUs > maxFrameGapUs) maxFrameGapUs = frameGapUs;
   lastFrameUs = now;
   sumHttp += httpUs;
   sumTtfb += ttfbUs;

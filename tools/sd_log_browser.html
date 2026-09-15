@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Companion USB connection check</title>
+<style>
+:root{color-scheme:light dark;font:16px/1.5 system-ui,sans-serif}
+body{max-width:1050px;margin:32px auto;padding:0 20px}
+h1{font-size:1.6rem;margin-bottom:4px} h2{font-size:1.1rem}
+.card{border:1px solid #8886;border-radius:10px;padding:16px;margin:16px 0}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+button,input,select{font:inherit;padding:8px;border:1px solid #888;border-radius:5px}
+button{cursor:pointer}button:disabled{cursor:default;opacity:.5}
+input[type=text]{flex:1;min-width:200px}
+small,.muted{opacity:.8}
+#console{width:100%;height:340px;box-sizing:border-box;background:#111923;color:#e4edf7;
+font:13px/1.5 ui-monospace,monospace;resize:vertical;border:0;padding:12px}
+#state{font-weight:600}#support{font-family:ui-monospace,monospace}
+fieldset{border:0;padding:0;margin:10px 0}
+legend{font-weight:600}
+ol{padding-left:24px}li{margin:6px 0}
+</style>
+</head>
+<body>
+<h1>Companion USB connection check</h1>
+<p class="muted">Step 0 · Console only · 115200 baud · No SD file commands</p>
+<section class="card" aria-label="Connection">
+<p id="support" role="status"></p>
+<p id="compatibility"></p>
+<div class="row">
+<button id="connect" disabled>Connect</button>
+<button id="disconnect" disabled>Disconnect</button>
+<span id="state" role="status">Disconnected</span>
+</div>
+<fieldset id="signals">
+<legend>DTR and RTS on opening</legend>
+<div class="row">
+<label>Mode <select id="mode">
+<option value="default">Leave driver default</option>
+<option value="explicit">Apply explicit values after open</option>
+</select></label>
+<label>DTR <select id="dtr" disabled><option value="false">false</option><option value="true">true</option></select></label>
+<label>RTS <select id="rts" disabled><option value="false">false</option><option value="true">true</option></select></label>
+</div>
+<p id="signalStatus">Driver defaults: no setSignals call; actual DTR/RTS values are unknown.</p>
+<small>Explicit settings apply after the driver opens the port. They cannot prevent its first signal change or guarantee no reset.</small>
+</fieldset>
+</section>
+<section class="card" aria-label="Console">
+<form id="commandForm" class="row">
+<label for="command">Command</label>
+<input id="command" type="text" maxlength="23" value="status" autocomplete="off" spellcheck="false" disabled>
+<button id="send" type="submit" disabled>Send + CRLF</button>
+</form>
+<p><small>Timestamps are this PC's local receive times, not device event times. Retains up to 1,000 entries or 512K characters; each line is capped at 4,096 characters.</small></p>
+<textarea id="console" readonly spellcheck="false" aria-label="Timestamped serial console"></textarea>
+<div class="row">
+<button id="save" type="button">Save console</button>
+<button id="clear" type="button">Clear console</button>
+</div>
+</section>
+<section class="card">
+<h2>Step 0 checklist — use the existing firmware first</h2>
+<ol>
+<li>Only one application can use the COM port. Release it from other monitors before connecting. You can compare status uptime entirely within this page.</li>
+<li>Open this HTML file in desktop Chrome or Edge. Check the two capability values above. If disk access is blocked, serve this folder on localhost and open the page there.</li>
+<li>For the tested board, select explicit DTR=true, RTS=false. Click Connect, choose the companion, and send <code>status</code>. Save whether uptime restarted or new boot output appeared. The first page connection has no automatic pre-open reference.</li>
+<li>Click Disconnect and keep USB plugged in. Check that the board still works, reconnect here, and send <code>status</code> again. Compare uptime for a reset.</li>
+<li>For a new setup, repeat five times, including during Live. Compare driver defaults and explicit DTR/RTS settings only as a deliberate diagnostic test. Settings are locked while connected; disconnect before changing them.</li>
+</ol>
+<p>JP's 2026-09-15 bench result: explicit DTR=true, RTS=false passed repeated connections and Live. Driver defaults caused a reset on disconnect; closing the VS Code monitor caused an unresolved freeze. Use the tested explicit settings on this setup.</p>
+<p>Send the saved console, before/after status lines, settings, browser version, and any reset or video interruption you observed. If a reset occurs, review it before proceeding.</p>
+<p>Stage 0 comes next: flash the probe-only firmware from VS Code, then capture normal idle, Latest, Live and MQTT connection measurements. USB file retrieval waits until Stage 1B.</p>
+</section>
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+const supported = window.isSecureContext && "serial" in navigator;
+el("support").textContent = "isSecureContext = " + window.isSecureContext +
+  " | navigator.serial = " + ("serial" in navigator);
+el("compatibility").textContent = supported
+  ? "Web Serial is available. Close VS Code's Serial Monitor before connecting."
+  : "Connect is unavailable. Use desktop Chrome or Edge in a secure context; try localhost if opening from disk is blocked.";
+const MAX_ENTRIES = 1000, MAX_CHARS = 512 * 1024, MAX_LINE = 4096;
+let entries = [], chars = 0, partial = "", partialStamp = "", partialCut = false;
+let current = null, choosing = false, sending = false, renderPending = false;
+const pad = (n, width = 2) => String(n).padStart(width, "0");
+function stamp() {
+  const d = new Date();
+  return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()) +
+    " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) +
+    "." + pad(d.getMilliseconds(), 3);
+}
+function scheduleRender() {
+  if (renderPending) return;
+  renderPending = true;
+  setTimeout(() => {
+    renderPending = false;
+    const box = el("console");
+    const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 40;
+    box.value = consoleText();
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  }, 100);
+}
+function consoleText() {
+  const tail = partial || partialCut
+    ? partialStamp + " RX " + partial + (partialCut ? " [line truncated]" : "") + " [partial]\n" : "";
+  return entries.join("") + tail;
+}
+function record(kind, text, when = stamp()) {
+  const raw = String(text);
+  const bounded = raw.length > MAX_LINE ? raw.slice(0, MAX_LINE - 20) + " [line truncated]" : raw;
+  const line = when + " " + kind + " " + bounded + "\n";
+  entries.push(line); chars += line.length;
+  while (entries.length > MAX_ENTRIES || chars > MAX_CHARS) chars -= entries.shift().length;
+  scheduleRender();
+}
+function receive(text) {
+  const parts = text.split("\n");
+  for (let i = 0; i < parts.length; ++i) {
+    // A trailing empty split fragment is not the start of the next message.
+    if (!partialStamp && (parts[i].length || i < parts.length - 1)) partialStamp = stamp();
+    const room = MAX_LINE - partial.length;
+    partial += parts[i].slice(0, room);
+    if (parts[i].length > room) partialCut = true;
+    if (i < parts.length - 1) {
+      record("RX", partial.replace(/\r$/, "") + (partialCut ? " [line truncated]" : ""), partialStamp);
+      partial = ""; partialStamp = ""; partialCut = false;
+    }
+  }
+  scheduleRender();
+}
+function flushPartial() {
+  if (partial || partialCut) record("RX", partial + " [partial at disconnect]", partialStamp);
+  partial = ""; partialStamp = ""; partialCut = false;
+}
+function signalDescription() {
+  return el("mode").value === "default"
+    ? "Driver defaults: no setSignals call; actual DTR/RTS values are unknown."
+    : "After open: DTR=" + el("dtr").value + ", RTS=" + el("rts").value + ".";
+}
+function controls() {
+  const connected = !!current && current.opened && !current.closing;
+  el("connect").disabled = !supported || choosing || !!current;
+  el("disconnect").disabled = !connected;
+  el("signals").disabled = choosing || !!current;
+  el("dtr").disabled = el("mode").value !== "explicit";
+  el("rts").disabled = el("mode").value !== "explicit";
+  el("command").disabled = !connected;
+  el("send").disabled = !connected || sending;
+  el("signalStatus").textContent = signalDescription();
+}
+async function readLoop(session) {
+  const decoder = new TextDecoder();
+  try {
+    while (!session.closing) {
+      const {value, done} = await session.reader.read();
+      if (done) break;
+      if (value) receive(decoder.decode(value, {stream:true}));
+    }
+    receive(decoder.decode());
+  } catch (error) {
+    if (!session.closing) record("ERROR", "Read: " + error.message);
+  } finally {
+    session.reader.releaseLock();
+    session.reader = null;
+    // Schedule cleanup after this read task resolves; never await ourselves.
+    if (!session.closing) queueMicrotask(() => disconnect(session, "read stream ended"));
+  }
+}
+async function disconnect(session = current, reason = "Disconnect clicked") {
+  if (!session || session.closing) return;
+  session.closing = true;
+  el("state").textContent = "Disconnecting…";
+  controls();
+  record("EVENT", reason);
+  try {
+    if (session.reader) await session.reader.cancel().catch(() => {});
+    if (session.readTask) await session.readTask;
+    if (session.writer) {
+      await session.writer.abort().catch(() => {});
+      session.writer.releaseLock();
+      session.writer = null;
+    }
+    if (session.opened) await session.port.close();
+  } catch (error) {
+    record("ERROR", "Close: " + error.message + ". The port may need to be reconnected.");
+  } finally {
+    flushPartial();
+    if (current === session) current = null;
+    el("state").textContent = "Disconnected";
+    record("EVENT", "Disconnected. Keep USB plugged in and check the board. Reconnect here and send status to compare uptime.");
+    controls();
+  }
+}
+async function connect() {
+  if (!supported || current || choosing) return;
+  choosing = true; controls();
+  record("EVENT", "Connect requested. " + signalDescription());
+  let session;
+  try {
+    // This call is directly in the click handler's task: permission needs a user gesture.
+    const port = await navigator.serial.requestPort();
+    session = {port, opened:false, closing:false, reader:null, writer:null, readTask:null};
+    current = session;
+    await port.open({baudRate:115200});
+    session.opened = true;
+    if (session.closing) { await port.close(); return; }
+    if (el("mode").value === "explicit") {
+      await port.setSignals({
+        dataTerminalReady: el("dtr").value === "true",
+        requestToSend: el("rts").value === "true"
+      });
+      record("EVENT", "Explicit signals applied. " + signalDescription());
+    } else {
+      record("EVENT", "Driver defaults retained; no setSignals call.");
+    }
+    if (session.closing) return;
+    if (!port.readable || !port.writable) throw new Error("Serial streams unavailable");
+    session.reader = port.readable.getReader();
+    session.writer = port.writable.getWriter();
+    session.readTask = readLoop(session);
+    el("state").textContent = "Connected at 115200";
+    record("EVENT", "Connected. Send status; compare with the previous reading if available.");
+  } catch (error) {
+    record("ERROR", "Connect: " + error.message);
+    if (session) await disconnect(session, "Connection setup failed");
+  } finally {
+    choosing = false; controls();
+  }
+}
+async function send(event) {
+  event.preventDefault();
+  const session = current;
+  if (!session || !session.writer || session.closing || sending) return;
+  const command = el("command").value;
+  if (!command.trim() || command.length > 23 || /[^\x20-\x7e]/.test(command)) {
+    record("ERROR", "Use 1–23 printable ASCII characters.");
+    return;
+  }
+  sending = true; controls();
+  try {
+    await session.writer.write(new TextEncoder().encode(command + "\r\n"));
+    record("TX", command + " [CRLF]");
+  } catch (error) {
+    record("ERROR", "Send: " + error.message);
+  } finally {
+    sending = false; controls();
+  }
+}
+el("connect").addEventListener("click", connect);
+el("disconnect").addEventListener("click", () => disconnect());
+el("commandForm").addEventListener("submit", send);
+for (const id of ["mode","dtr","rts"]) el(id).addEventListener("change", controls);
+el("clear").addEventListener("click", () => {
+  entries = []; chars = 0; partial = ""; partialStamp = ""; partialCut = false;
+  record("EVENT", "Console cleared.");
+});
+el("save").addEventListener("click", () => {
+  const url = URL.createObjectURL(new Blob([consoleText()], {type:"text/plain;charset=utf-8"}));
+  const a = document.createElement("a");
+  a.href = url; a.download = "companion-usb-" + stamp().replace(/[: ]/g,"-") + ".txt";
+  a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+if ("serial" in navigator) {
+  navigator.serial.addEventListener("connect", () => record("EVENT", "USB serial device available."));
+  navigator.serial.addEventListener("disconnect", event => {
+    record("EVENT", "USB serial device removed.");
+    if (current && event.target === current.port) disconnect(current, "USB device removed");
+  });
+}
+window.addEventListener("pagehide", () => { if (current) void disconnect(current, "Page closing"); });
+controls();
+record("EVENT", "Console ready. " + navigator.userAgent);
+</script>
+</body>
+</html>
