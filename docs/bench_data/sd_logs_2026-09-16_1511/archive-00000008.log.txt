@@ -1,0 +1,1 @@
+local=unknown time=unklocal=2026-09-16T15:07:12.526-04:00 time=synced seq=14 boot=26 up_ms=296600 level=INFO event=SESSION_END reason=shutdown pending=0

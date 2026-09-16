@@ -42,7 +42,12 @@ Full Live after reconnect also passed in boot 17 at 25588 bytes: 196 frames in
 Early Live exit, hotspot loss during Live and subsequent Latest also passed.
 Back passed at 26612 bytes and 1427 ms. Automatic camera still-to-Live passed
 at 25588 bytes, first frame 1036 ms, with normal video. Targeted cleanup checks
-are complete; checkpoint review and broader Stage 1 gates remain. Hooks stay off.
+are complete. The same-session OFF/ON pair passed: Live -3.46%, ON media block
+minima 26612, IMU average 49.18 versus 49.26 Hz, no errors or drops.
+The hooks-only NVS/SD runtime stress passed: 283 flash commits, 993 SD records,
+no errors/drops, key removed and writer stack margin 3476. Card inspection and
+backup verified the stress records and clean shutdown. Separate startup watchdog
+resets before boots 19 and 21's timed tests need clarification; Stage 1 is not accepted.
 See STAGE1.md.
 JP's local switch is 1 for B testing; the intended default remains 0.
 No file protocol or firmware USB configuration change is included.

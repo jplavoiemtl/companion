@@ -61,7 +61,43 @@ Back also passed at 26612 bytes and 1427 ms. Automatic camera still-to-Live pass
 at 25588 bytes, first frame 1036 ms, with normal video. The targeted cleanup checks
 are complete; review this checkpoint before the remaining gates.
 The overnight cause remains unresolved;
-Stage 1 acceptance and hooks-phase tests remain on hold.
+The same-session logging-OFF/ON pair passed on 2026-09-16: Live fps decreased
+3.46% (within 5%), ON media block minima were 26612, and normal IMU average was
+49.18 versus 49.26 Hz. No logger errors or drops; stack margin stayed 3988.
+The hooks-only NVS/SD runtime stress also passed: 283 flash commits and 993 SD
+records, no errors or drops, dummy key removed, writer stack margin 3476.
+Card inspection verified all 993 stress records, the final counters and normal
+SESSION_END with pending=0; a byte-identical backup is preserved. It also exposed
+startup watchdog resets before boots 19 and 21's successful timed tests.
+JP reproduced the pre-existing VS Code monitor-close freeze without flashing:
+UI remains frozen over 30 seconds; the browser opens but status commands get no
+reply. No automatic restart was observed. This remains separate from the earlier
+watchdog markers. Use USB recovery and browser-only serial monitoring while the
+host/core issue is investigated; no USB or watchdog settings were changed.
+JP confirmed recovery in boot 23. Normal-limit forced rotation passed in boot 24:
+one archive, generation 2, new file growth 449 to 1008 bytes, no errors/drops,
+writer margin 3412. Small-limit rotation/pruning also passed: generation 6,
+three archives, two pruned, no errors/drops and unchanged stack margin. Normal
+limits were restored by command. Simulated full-card failure then passed:
+logger disabled/parked as intended, final writer stack margin 3412, Latest still
+working at 26612-byte HTTPS minimum and 1274 ms completion. Reboot recovery
+also passed in boot 25: ready, generation 6 and three archives retained, file
+growth 4108 to 4664. Interrupted-rename recovery then passed in boot 26:
+JP confirmed the pause; generation 7, four archives and file growth 1259 to 1815
+were observed. Partial-header salvage then passed its runtime check in boot 27:
+generation 9, six archives, file growth 1284 to 1840, no errors/drops.
+The supplied card copy now confirms archives 3 through 8, retained sequence
+continuity, boot-25 append, boot-26 rename recovery, and boot-27 salvage into
+generation 9. Archive 8 preserves the deliberate partial prefix plus a shutdown
+record. Current ends with a clean shutdown at 15:11:53, pending=0.
+Byte-identical copies and hashes are retained in docs/bench_data/sd_logs_2026-09-16_1511/.
+The empty-header hook and intentional panic then passed runtime recovery in
+boot 29: generation 10, seven archives, file growth 1397 to 1953, no errors/drops.
+Paused file_bytes was a stale snapshot, not a measurement of the new empty file.
+The recovery header and reset breadcrumbs await the next combined card inspection.
+Next is the controlled watchdog test; remaining storage and clock/reset gates
+are still pending.
+Stage 1 acceptance remains pending.
 JP's local switch is 1 for diagnosis; the intended default remains 0. See the handoff.
 
 The next controlled performance pair uses this same patched source with

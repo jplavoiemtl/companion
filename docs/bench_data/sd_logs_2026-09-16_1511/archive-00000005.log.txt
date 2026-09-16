@@ -1,0 +1,3 @@
+local=2026-09-16T14:48:37.635-04:00 time=synced seq=25 boot=24 up_ms=388349 level=INFO event=FILE_OPEN format=1 generation=5 reason=test session=boot-24
+local=2026-09-16T14:48:37.638-04:00 time=synced seq=26 boot=24 up_ms=388352 level=INFO event=BOOT format=1 build=stage1-basics compiled="Sep 16 2026 09:53:10" session=boot-24 persistent=1 reset=power_on reset_code=1 wake_code=0 cpu_mhz=240 context=rotation snapshot_valid=1 operation=idle screen=1
+local=2026-09-16T14:48:43.055-04:00 time=synced seq=27 boot=24 up_ms=393769 level=WARN event=TEST_HOOK source=serial deliberate=true

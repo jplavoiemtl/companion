@@ -3004,3 +3004,1574 @@ The endpoint line is omitted.
 2026-09-16 09:24:23.221 RX [LOG MEM] phase=after_current_open up_us=1893569 free=129996 largest=65524 heap_min_boot=128864
 2026-09-16 09:24:23.221 RX [LOG MEM] phase=storage_done up_us=1907750 free=129996 largest=65524 heap_min_boot=128864
 ```
+
+
+## Same-session performance pair: logging OFF baseline - 2026-09-16, 09:37-09:39
+
+JP compiled the patched source with DIAG_ENABLED=0, DIAG_WRITER_STACK_PSRAM=1
+and DIAG_TEST_HOOKS=0. JP reported normal operation throughout. The working
+configuration and serial state=off both confirm the disabled logger. The probes
+remain active. This is the OFF half only; the enabled comparison is pending.
+
+| Measurement | Logging OFF baseline |
+|-------------|----------------------|
+| Full normal window | 60001 ms; 6001 memory samples at 10 ms |
+| Normal internal minimum / largest block | 87448 / 31732 bytes |
+| Normal IMU samples / minimum / average | 2950 / 28.55 Hz / 49.26 Hz |
+| Normal maximum sampling gap / scan | 10545 / 421 us |
+| Latest HTTPS | 744 ms; largest_min=29684; 74 samples |
+| Latest image / completion | 33629 bytes / 1287 ms |
+| First Live TLS | 630 ms; largest_min=28660; 63 samples |
+| Second Live TLS | 614 ms; largest_min=29684; 61 samples |
+| Full Live | 200 frames; 60132 ms probe duration; printed 60.1 s and 3.3 fps |
+| Derived Live rate | approximately 3.326 fps using 200 / 60.132 |
+| First frame / maximum frame gap | 1067 / 987 ms |
+| Average HTTP / decode / blit / frame | 293 / 59 / 62 / 301 ms |
+| HTTP TTFB / transfer / average JPEG / transfer rate | 129 ms / 164 ms / 18.3 KB / 111 KB/s |
+| Full Live historical internal minimum / largest block | 36732 / 27636 bytes |
+| Full Live sampling | 6013 samples; 10 ms interval; max gap 11160 us; max scan 1255 us |
+| End Video free PSRAM / free heap | 7647136 / 92796 bytes |
+
+All measured media block minima exceed 20480. No image or Live failure appears
+in the capture. Latest and Live returned to screen 1 without a preference save.
+The additional short normal windows include UI interaction and are not substitutes
+for the full idle minute: IMU averages 49.03 and 48.77 Hz, minima 29.40 and 10.09 Hz.
+
+The logger's boot=0, clock=unknown, measured=0, zero memory fields, absent startup
+snapshots and inactive writer placement are expected with DIAG_ENABLED=0.
+Those zeros are unavailable logger measurements, not exhausted memory or placement
+failures. Use the PROBE records for this baseline. Configured stack_mode=psram
+does not mean a writer task was created; writer_lifecycle=off confirms it was not.
+
+Next: JP restores only DIAG_ENABLED=1 and repeats status, a full untouched normal
+minute, Latest, full Live, status in the same sitting. Keep the card, hotspot,
+power, scene, PSRAM selection and hooks-off settings unchanged. Require ready and
+valid writer placement in the ON capture. At this baseline, a roughly 5% lower
+fps bound is about 3.160 fps; compare frame counts and duration, not just rounded
+3.3-fps output. Also compare image size, transfer rate, IMU samples/minimum/average,
+block minima, first-frame delay, maximum frame gap, drops and stack margin.
+
+Do not use the earlier morning logging-on captures as this pair's ON half.
+Logging overhead and Stage 1 acceptance remain pending the matching capture.
+No firmware edit, build, flash or commit by the assistant for this result.
+
+### Serial evidence
+
+The endpoint line is omitted.
+
+```text
+2026-09-16 09:37:18.717 EVENT Console cleared.
+2026-09-16 09:37:25.437 TX log status [CRLF]
+2026-09-16 09:37:25.441 RX [LOG] state=off boot=0 session= up_ms=32663 clock=unknown setup=0 hooks=0 file_bytes=0 generation=0 newest=0 archives=0 card_bytes=0 free_bytes=0 queue=0/16 high=0 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 09:37:25.442 RX [LOG] measured=0 stack_min=0 internal_min=0 internal_largest=0 dma_min=0 dma_largest=0 writes=0 slow=0 write_max_us=0 flush_max_us=0 sd_max_us=0 rotations=0 pruned=0 oversized=0
+2026-09-16 09:37:25.442 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=0 stack_start=0x0 stack_external=-1 stack_local_external=-1 tcb_internal=-1 tcb_bytes=352 writer_lifecycle=off stack_used_max=-1 stack_final_margin=-1
+2026-09-16 09:37:25.443 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 09:37:25.443 RX [LOG MEM] phase=before_clock captured=0
+2026-09-16 09:37:25.443 RX [LOG MEM] phase=after_clock captured=0
+2026-09-16 09:37:25.443 RX [LOG MEM] phase=before_writer captured=0
+2026-09-16 09:37:25.443 RX [LOG MEM] phase=writer_entry captured=0
+2026-09-16 09:37:25.443 RX [LOG MEM] phase=after_formatter captured=0
+2026-09-16 09:37:25.443 RX [LOG MEM] phase=before_mount captured=0
+2026-09-16 09:37:25.443 RX [LOG MEM] phase=after_mount captured=0
+2026-09-16 09:37:25.443 RX [LOG MEM] phase=before_current_open captured=0
+2026-09-16 09:37:25.443 RX [LOG MEM] phase=after_current_open captured=0
+2026-09-16 09:37:25.444 RX [LOG MEM] phase=storage_done captured=0
+2026-09-16 09:38:01.233 RX [PROBE] window=normal run=1 ms=60001 heap_min_boot=87448 largest_min=31732 interval_ms=10 samples=6001 gap_max_us=10545 scan_max_us=421 timer=on imu_n=2950 imu_min_hz=28.55 imu_avg_hz=49.26
+2026-09-16 09:38:07.321 RX Screen touched, resetting inactivity timer.
+2026-09-16 09:38:07.322 RX Latest button clicked
+2026-09-16 09:38:07.322 RX Initiating async latest image request...
+2026-09-16 09:38:07.322 RX Preparing UI for new image request...
+2026-09-16 09:38:07.322 RX Cleaning up image fetcher state...
+2026-09-16 09:38:07.322 RX Screen 2 Loaded.
+2026-09-16 09:38:07.393 RX === requestImage('latest') START ===
+2026-09-16 09:38:07.394 RX Sending HTTP GET...
+2026-09-16 09:38:07.395 RX [PROBE] window=normal run=2 ms=6161 heap_min_boot=87448 largest_min=31732 interval_ms=10 samples=616 gap_max_us=10178 scan_max_us=294 timer=on imu_n=297 imu_min_hz=29.40 imu_avg_hz=49.03
+2026-09-16 09:38:08.140 RX [PROBE] window=image_https run=1 ms=744 heap_min_boot=37652 largest_min=29684 interval_ms=10 samples=74 gap_max_us=10203 scan_max_us=305 timer=on
+2026-09-16 09:38:08.140 RX Response received in 746 ms, Content-Length: 33629
+2026-09-16 09:38:08.140 RX Starting to receive image data...
+2026-09-16 09:38:08.472 RX Image download complete (33629 bytes, 1149 ms since button press). Starting decode...
+2026-09-16 09:38:08.609 RX JPEG decoded successfully into PSRAM.
+2026-09-16 09:38:08.609 RX LVGL image source updated. Total 1287 ms from button press (budget 20000 ms).
+2026-09-16 09:38:11.234 RX Screen 2 Unloading: Freeing buffer and resetting rotation to 90 degrees.
+2026-09-16 09:38:11.234 RX [ScreenMem] Returned to screen 1; no preference save needed
+2026-09-16 09:38:14.330 RX Screen touched, resetting inactivity timer.
+2026-09-16 09:38:14.330 RX Live button clicked -> starting live feed
+2026-09-16 09:38:14.331 RX [PROBE] window=normal run=3 ms=5720 heap_min_boot=37652 largest_min=31732 interval_ms=10 samples=572 gap_max_us=10472 scan_max_us=248 timer=on imu_n=271 imu_min_hz=10.09 imu_avg_hz=48.77
+2026-09-16 09:38:14.331 RX Screen 2 Loaded.
+2026-09-16 09:38:14.402 RX Video: endpoint parsed, port 9835, path /esp32/live
+2026-09-16 09:38:15.034 RX [PROBE] window=live_tls run=1 ms=630 heap_min_boot=37600 largest_min=28660 interval_ms=10 samples=63 gap_max_us=10391 scan_max_us=342 timer=on
+2026-09-16 09:38:15.276 RX Video: frame 432x768, panel 368x448 -> gap x=-64 y=-320, pan x=-15 y=32
+2026-09-16 09:38:44.747 RX [PROBE] window=live_tls run=2 ms=614 heap_min_boot=36732 largest_min=29684 interval_ms=10 samples=61 gap_max_us=10631 scan_max_us=146 timer=on
+2026-09-16 09:39:14.463 RX Video: 200 frames in 60.1s (3.3 fps) | http 293 | decode 59 | blit 62 | frame 301 ms | first_frame 1067 | max_gap 987 ms
+2026-09-16 09:39:14.463 RX Video: http = ttfb 129 + xfer 164 ms | frame 18.3 KB | 111 KB/s while transferring
+2026-09-16 09:39:14.463 RX Video: free PSRAM 7647136, free heap 92796
+2026-09-16 09:39:14.464 RX [PROBE] window=live run=1 ms=60132 heap_min_boot=36732 largest_min=27636 interval_ms=10 samples=6013 gap_max_us=11160 scan_max_us=1255 timer=on
+2026-09-16 09:39:14.464 RX Video: returning to previous screen
+2026-09-16 09:39:14.464 RX Screen 2 Unloading: Freeing buffer and resetting rotation to 90 degrees.
+2026-09-16 09:39:14.464 RX [ScreenMem] Returned to screen 1; no preference save needed
+2026-09-16 09:39:18.570 TX log status [CRLF]
+2026-09-16 09:39:18.573 RX [LOG] state=off boot=0 session= up_ms=145795 clock=unknown setup=0 hooks=0 file_bytes=0 generation=0 newest=0 archives=0 card_bytes=0 free_bytes=0 queue=0/16 high=0 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 09:39:18.573 RX [LOG] measured=0 stack_min=0 internal_min=0 internal_largest=0 dma_min=0 dma_largest=0 writes=0 slow=0 write_max_us=0 flush_max_us=0 sd_max_us=0 rotations=0 pruned=0 oversized=0
+2026-09-16 09:39:18.574 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=0 stack_start=0x0 stack_external=-1 stack_local_external=-1 tcb_internal=-1 tcb_bytes=352 writer_lifecycle=off stack_used_max=-1 stack_final_margin=-1
+2026-09-16 09:39:18.575 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 09:39:18.575 RX [LOG MEM] phase=before_clock captured=0
+2026-09-16 09:39:18.575 RX [LOG MEM] phase=after_clock captured=0
+2026-09-16 09:39:18.575 RX [LOG MEM] phase=before_writer captured=0
+2026-09-16 09:39:18.575 RX [LOG MEM] phase=writer_entry captured=0
+2026-09-16 09:39:18.575 RX [LOG MEM] phase=after_formatter captured=0
+2026-09-16 09:39:18.575 RX [LOG MEM] phase=before_mount captured=0
+2026-09-16 09:39:18.575 RX [LOG MEM] phase=after_mount captured=0
+2026-09-16 09:39:18.575 RX [LOG MEM] phase=before_current_open captured=0
+2026-09-16 09:39:18.576 RX [LOG MEM] phase=after_current_open captured=0
+2026-09-16 09:39:18.576 RX [LOG MEM] phase=storage_done captured=0
+```
+
+
+## Same-session performance pair passes - logging ON, 2026-09-16, 09:43-09:45
+
+JP restored DIAG_ENABLED=1, keeping DIAG_WRITER_STACK_PSRAM=1 and
+DIAG_TEST_HOOKS=0, and reported normal operation throughout. Logger boot 19
+was ready and synced, with valid active PSRAM placement. This completes the
+same-sitting pair with the 09:37-09:39 OFF capture on the same patched source.
+
+| Measurement | Logging OFF | Logging ON |
+|-------------|-------------|------------|
+| Normal full window | 60001 ms | 60001 ms |
+| IMU samples / average / minimum | 2950 / 49.26 Hz / 28.55 Hz | 2945 / 49.18 Hz / 35.58 Hz |
+| Normal historical internal minimum / largest block | 87448 / 31732 bytes | 84896 / 31732 bytes |
+| Latest image size | 33629 bytes | 33629 bytes |
+| Latest HTTPS time / samples / largest_min | 744 ms / 74 / 29684 | 706 ms / 71 / 26612 |
+| Latest total time | 1287 ms | 1260 ms |
+| Live frames / probe duration | 200 / 60132 ms | 194 / 60417 ms |
+| Derived Live fps | 3.326 | 3.211 |
+| First frame / maximum frame gap | 1067 / 987 ms | 1085 / 931 ms |
+| First Live TLS time / samples / largest_min | 630 ms / 63 / 28660 | 634 ms / 63 / 26612 |
+| Second Live TLS time / samples / largest_min | 614 ms / 61 / 29684 | 619 ms / 62 / 26612 |
+| Full Live largest_min / samples | 27636 / 6013 | 26612 / 6042 |
+| Full Live historical internal_min | 36732 bytes | 34728 bytes |
+| Live maximum sampling gap / scan | 11160 / 1255 us | 11506 / 1257 us |
+| Average HTTP / decode / blit / frame | 293 / 59 / 62 / 301 ms | 304 / 74 / 62 / 311 ms |
+| TTFB / transfer | 129 / 164 ms | 145 / 159 ms |
+| Average frame size / transfer rate | 18.3 KB / 111 KB/s | 18.3 KB / 115 KB/s |
+
+Using frame counts and probe durations, the Live fps difference is -3.4576%,
+within the approximately 5% gate. Average normal IMU rate differs by -0.08 Hz
+(-0.1624%); the observed minimum is higher in ON. Latest is 27 ms faster in ON.
+These are measurements of this pair, not evidence that logging improves image
+speed or that every timing difference is caused by logging. Decode increased
+from 59 to 74 ms and TTFB from 129 to 145 ms; JPEG content and scheduling can
+vary even when rounded average image sizes match. No repeat is required solely
+because those individual components differ while the agreed fps gate passes.
+
+All measured ON image/TLS/Live block minima were 26612, leaving 6132 bytes
+above the unchanged 20480 floor. Stage 0 probes retained 10 ms sampling.
+Logger errors, queue drops, suppressed/truncated records and slow writes stayed
+zero; queue peak was 1 of 16. Writer used/margin stayed 4204/3988 bytes.
+Placement remained valid: 8192-byte PSRAM stack, internal 352-byte TCB.
+Writes grew 7 to 9 and file bytes 571507 to 572622. Maximum write/flush/SD times
+were 2851/4690/97190 us. Final DMA minimum/largest were 27232/26612 bytes.
+There was no reset or media failure in the capture. JP saw normal behavior.
+
+Some browser RX timestamps group multiple buffered lines. Use the firmware's
+elapsed times for request timing, rather than interpreting receive timestamps
+as precise stage boundaries. The same-session performance and tested media
+memory checks pass. This does not complete all of Stage 1 or PSRAM-stack safety.
+
+Next single test is the accepted hooks-only NVS/SD stress: on a backed-up test
+card, JP enables DIAG_TEST_HOOKS=1, retaining DIAG_ENABLED=1 and
+DIAG_WRITER_STACK_PSRAM=1. Compile/flash, wait for green real MQTT and ready logger,
+send log status, then log test nvs. Stay on the dashboard with hotspot on and
+let the 30-second test finish. After its ended message, allow two seconds for
+the final record, then send log status and return the complete capture.
+
+The main task writes a dedicated dummy NVS key; the writer flushes SD test
+records. Require no reset, errors or drops, adequate stack margin, positive NVS
+and SD counts with overlapping intervals, nvs_active=0, summary_pending=0,
+key_removed=1 and nvs_errors=0. If summary_pending remains 1, report it and stop
+before another test. SD record inspection is still part of the later gate;
+serial success alone does not replace it. Fault hooks remain a separate build,
+not an ordinary-use setting. No other test command or limit change is part of
+this run. No assistant firmware edits, builds, flashes or commits for this result.
+
+### Serial evidence
+
+The endpoint line is omitted.
+
+```text
+2026-09-16 09:43:40.181 EVENT Console cleared.
+2026-09-16 09:43:47.947 TX log status [CRLF]
+2026-09-16 09:43:47.950 RX [LOG] state=ready boot=19 session=boot-19 up_ms=23979 clock=synced setup=1 hooks=0 file_bytes=571507 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15922495488 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 09:43:47.952 RX [LOG] measured=1 stack_min=3988 internal_min=84896 internal_largest=31732 dma_min=77400 dma_largest=31732 writes=7 slow=0 write_max_us=2851 flush_max_us=4690 sd_max_us=97190 rotations=0 pruned=0 oversized=0
+2026-09-16 09:43:47.953 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4204 stack_final_margin=-1
+2026-09-16 09:43:47.953 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 09:43:47.953 RX [LOG MEM] phase=before_clock up_us=1782942 free=172844 largest=110580 heap_min_boot=172844
+2026-09-16 09:43:47.953 RX [LOG MEM] phase=after_clock up_us=1783645 free=167264 largest=102388 heap_min_boot=167156
+2026-09-16 09:43:47.953 RX [LOG MEM] phase=before_writer up_us=1783693 free=167264 largest=102388 heap_min_boot=167156
+2026-09-16 09:43:47.953 RX [LOG MEM] phase=writer_entry up_us=1783899 free=167264 largest=102388 heap_min_boot=167156
+2026-09-16 09:43:47.953 RX [LOG MEM] phase=after_formatter up_us=1783969 free=167264 largest=102388 heap_min_boot=167156
+2026-09-16 09:43:47.954 RX [LOG MEM] phase=before_mount up_us=1784553 free=167264 largest=102388 heap_min_boot=167156
+2026-09-16 09:43:47.954 RX [LOG MEM] phase=after_mount up_us=1881623 free=129996 largest=65524 heap_min_boot=128864
+2026-09-16 09:43:47.954 RX [LOG MEM] phase=before_current_open up_us=1889060 free=129996 largest=65524 heap_min_boot=128864
+2026-09-16 09:43:47.954 RX [LOG MEM] phase=after_current_open up_us=1890514 free=129996 largest=65524 heap_min_boot=128864
+2026-09-16 09:43:47.954 RX [LOG MEM] phase=storage_done up_us=1904895 free=129996 largest=65524 heap_min_boot=128864
+2026-09-16 09:44:32.343 RX [PROBE] window=normal run=1 ms=60001 heap_min_boot=84896 largest_min=31732 interval_ms=10 samples=6001 gap_max_us=10707 scan_max_us=862 timer=on imu_n=2945 imu_min_hz=35.58 imu_avg_hz=49.18
+2026-09-16 09:44:38.666 RX Screen touched, resetting inactivity timer.
+2026-09-16 09:44:38.666 RX Latest button clicked
+2026-09-16 09:44:38.666 RX Initiating async latest image request...
+2026-09-16 09:44:38.666 RX Preparing UI for new image request...
+2026-09-16 09:44:38.666 RX Cleaning up image fetcher state...
+2026-09-16 09:44:38.666 RX Screen 2 Loaded.
+2026-09-16 09:44:38.738 RX === requestImage('latest') START ===
+2026-09-16 09:44:38.739 RX Sending HTTP GET...
+2026-09-16 09:44:38.739 RX [PROBE] window=normal run=2 ms=6396 heap_min_boot=84896 largest_min=31732 interval_ms=10 samples=639 gap_max_us=10544 scan_max_us=395 timer=on imu_n=309 imu_min_hz=37.99 imu_avg_hz=48.99
+2026-09-16 09:44:39.446 RX [PROBE] window=image_https run=1 ms=706 heap_min_boot=34980 largest_min=26612 interval_ms=10 samples=71 gap_max_us=10727 scan_max_us=229 timer=on
+2026-09-16 09:44:39.788 RX Response received in 708 ms, Content-Length: 33629
+2026-09-16 09:44:39.788 RX Starting to receive image data...
+2026-09-16 09:44:39.788 RX Image download complete (33629 bytes, 1122 ms since button press). Starting decode...
+2026-09-16 09:44:39.926 RX JPEG decoded successfully into PSRAM.
+2026-09-16 09:44:39.926 RX LVGL image source updated. Total 1260 ms from button press (budget 20000 ms).
+2026-09-16 09:44:41.643 RX Screen 2 Unloading: Freeing buffer and resetting rotation to 90 degrees.
+2026-09-16 09:44:41.643 RX [ScreenMem] Returned to screen 1; no preference save needed
+2026-09-16 09:44:42.890 RX Screen touched, resetting inactivity timer.
+2026-09-16 09:44:42.890 RX Live button clicked -> starting live feed
+2026-09-16 09:44:42.890 RX [PROBE] window=normal run=3 ms=2962 heap_min_boot=34980 largest_min=31732 interval_ms=10 samples=296 gap_max_us=10140 scan_max_us=154 timer=on imu_n=134 imu_min_hz=10.42 imu_avg_hz=47.78
+2026-09-16 09:44:42.890 RX Screen 2 Loaded.
+2026-09-16 09:44:43.597 RX Video: endpoint parsed, port 9835, path /esp32/live
+2026-09-16 09:44:43.597 RX [PROBE] window=live_tls run=1 ms=634 heap_min_boot=34972 largest_min=26612 interval_ms=10 samples=63 gap_max_us=10058 scan_max_us=130 timer=on
+2026-09-16 09:44:43.841 RX Video: frame 432x768, panel 368x448 -> gap x=-64 y=-320, pan x=-15 y=32
+2026-09-16 09:45:14.319 RX [PROBE] window=live_tls run=2 ms=619 heap_min_boot=34728 largest_min=26612 interval_ms=10 samples=62 gap_max_us=10647 scan_max_us=380 timer=on
+2026-09-16 09:45:43.305 RX Video: 194 frames in 60.4s (3.2 fps) | http 304 | decode 74 | blit 62 | frame 311 ms | first_frame 1085 | max_gap 931 ms
+2026-09-16 09:45:43.305 RX Video: http = ttfb 145 + xfer 159 ms | frame 18.3 KB | 115 KB/s while transferring
+2026-09-16 09:45:43.306 RX Video: free PSRAM 7610340, free heap 46528
+2026-09-16 09:45:43.307 RX [PROBE] window=live run=1 ms=60417 heap_min_boot=34728 largest_min=26612 interval_ms=10 samples=6042 gap_max_us=11506 scan_max_us=1257 timer=on
+2026-09-16 09:45:43.307 RX Video: returning to previous screen
+2026-09-16 09:45:43.308 RX Screen 2 Unloading: Freeing buffer and resetting rotation to 90 degrees.
+2026-09-16 09:45:43.308 RX [ScreenMem] Returned to screen 1; no preference save needed
+2026-09-16 09:45:48.790 TX log status [CRLF]
+2026-09-16 09:45:48.796 RX [LOG] state=ready boot=19 session=boot-19 up_ms=144826 clock=synced setup=1 hooks=0 file_bytes=572622 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15922495488 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 09:45:48.796 RX [LOG] measured=1 stack_min=3988 internal_min=34728 internal_largest=26612 dma_min=27232 dma_largest=26612 writes=9 slow=0 write_max_us=2851 flush_max_us=4690 sd_max_us=97190 rotations=0 pruned=0 oversized=0
+2026-09-16 09:45:48.798 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4204 stack_final_margin=-1
+2026-09-16 09:45:48.798 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 09:45:48.798 RX [LOG MEM] phase=before_clock up_us=1782942 free=172844 largest=110580 heap_min_boot=172844
+2026-09-16 09:45:48.799 RX [LOG MEM] phase=after_clock up_us=1783645 free=167264 largest=102388 heap_min_boot=167156
+2026-09-16 09:45:48.799 RX [LOG MEM] phase=before_writer up_us=1783693 free=167264 largest=102388 heap_min_boot=167156
+2026-09-16 09:45:48.800 RX [LOG MEM] phase=writer_entry up_us=1783899 free=167264 largest=102388 heap_min_boot=167156
+2026-09-16 09:45:48.800 RX [LOG MEM] phase=after_formatter up_us=1783969 free=167264 largest=102388 heap_min_boot=167156
+2026-09-16 09:45:48.800 RX [LOG MEM] phase=before_mount up_us=1784553 free=167264 largest=102388 heap_min_boot=167156
+2026-09-16 09:45:48.800 RX [LOG MEM] phase=after_mount up_us=1881623 free=129996 largest=65524 heap_min_boot=128864
+2026-09-16 09:45:48.800 RX [LOG MEM] phase=before_current_open up_us=1889060 free=129996 largest=65524 heap_min_boot=128864
+2026-09-16 09:45:48.800 RX [LOG MEM] phase=after_current_open up_us=1890514 free=129996 largest=65524 heap_min_boot=128864
+2026-09-16 09:45:48.800 RX [LOG MEM] phase=storage_done up_us=1904895 free=129996 largest=65524 heap_min_boot=128864
+```
+
+
+## NVS/SD stress runtime check passes - 2026-09-16, boot 21, 09:55-09:56
+
+JP ran log test nvs with DIAG_ENABLED=1, DIAG_WRITER_STACK_PSRAM=1 and
+DIAG_TEST_HOOKS=1. Logger status was ready before and after, with valid active
+8192-byte PSRAM stack placement and an internal 352-byte TCB.
+
+| Measurement | Result |
+|-------------|--------|
+| Start / completion message | 09:55:28.941 / 09:55:58.944 |
+| Completion | reason=complete; key_removed=1 |
+| NVS writes / errors | 283 / 0 |
+| SD test records | 993 |
+| NVS first / last uptime | 46660 / 76650 ms |
+| SD first / last uptime | 46671 / 76645 ms |
+| Overlap of first-to-last intervals | 29974 ms |
+| Final active / summary pending / key removed | 0 / 0 / 1 |
+| Writer maximum used, before to after | 4204 to 4716 bytes |
+| Writer minimum margin, before to after | 3988 to 3476 bytes |
+| Historical internal minimum / largest, before and after | 84940 / 31732 bytes |
+| DMA minimum / largest, before and after | 77444 / 31732 bytes |
+| Queue peak / drops / logger errors | 1 of 16 / 0 / none |
+| Writes, before to after | 7 to 1003 |
+| File size, before to after | 579387 to 725745 bytes |
+| Maximum write / flush / SD operation | 2182 / 7829 / 98061 us |
+| Slow writes / suppressed / truncated | 0 / 0 / 0 |
+
+The up-to-300-write test completed successfully with 283 commits. The scheduler
+does not catch up with bursts after delays, so fewer than 300 is not a failure.
+The NVS and SD intervals overlap for 29.974 seconds, showing sustained interleaved
+activity. This does not imply PSRAM code executed while flash caches were disabled.
+No reboot occurred during the test; boot remained 21 and uptime advanced.
+The boot banner at initial console connection preceded the test.
+
+Stress exercised an additional 512 bytes of writer stack, leaving 3476 bytes
+of measured margin. This is a new deeper watermark with substantial headroom,
+not unchanged stack use. Historical heap/block minima did not worsen.
+The writer produced 993 stress SD records; the 996 added write operations also
+include other records, so these counters are not expected to be identical.
+
+The normal probe spanning this deliberate stress reported 60005 ms, 5991 memory
+samples, maximum gap 65484 us, maximum scan 430 us, IMU 2875 samples, minimum
+11.54 Hz and average 48.21 Hz. The 65.484 ms timer gap is real evidence of delayed
+sampling during this flash-heavy test, not a 10 ms coverage guarantee. It does
+not replace the earlier hooks-off ordinary-use IMU/performance comparison.
+Serial data alone does not identify which flash operation caused the gap.
+
+The runtime portion passes: no reset, errors, drops or unremoved dummy key,
+with overlapping activity and adequate stack margin. summary_pending=0 indicates
+the writer completed its final-record write and flush path. Inspection of
+TEST_NVS_START, TEST_NVS_SD and TEST_NVS_END on the card remains pending, as do
+terminal cleanup stack margin and the remaining storage, clock and breadcrumb gates.
+
+Next single check: safely shut down the battery-equipped unit, copy the entire
+/logs folder to the computer as a backup, and provide the copied current.log.
+Disconnect USB and leave the unit stationary until automatic shutdown; the
+current inactivity timeout is 60 seconds, plus a 30-second minimum USB-loss
+grace period whose timers overlap. Wait for shutdown before removing the card.
+Do not force power loss or remove the card while the board is running.
+If it does not shut down, report that before removal.
+
+The file will verify the stress records and the expected SESSION_END for boot 21,
+and preserve existing history before deliberate rotation/pruning tests.
+Do not run log test small or rotate yet. USB file retrieval is not implemented.
+One card copy covers this inspection and the backup; repeated card removal is
+not requested now. No firmware changes, build, flash or commit by the assistant.
+
+### Serial evidence
+
+The partial calibration payload line is omitted.
+
+```text
+2026-09-16 09:55:02.899 EVENT Console cleared.
+2026-09-16 09:55:04.086 EVENT Connect requested. After open: DTR=true, RTS=false.
+2026-09-16 09:55:06.081 EVENT Explicit signals applied. After open: DTR=true, RTS=false.
+2026-09-16 09:55:06.082 EVENT Connected. Send status; compare with the previous reading if available.
+2026-09-16 09:55:06.082 RX ESP-ROM:esp32s3-20210327
+2026-09-16 09:55:06.082 RX Initial MQTT connection successful!
+2026-09-16 09:55:06.082 RX [NET] WiFi=CONNECTED | MQTT=REMOTE CONNECTED
+2026-09-16 09:55:06.082 RX --- Setup complete: CPU 240 MHz | heap 90508 | PSRAM 8336060 ---
+2026-09-16 09:55:06.082 RX
+2026-09-16 09:55:06.082 RX [TEST] Serial bench commands: off, on, status, log status. Send with CR or LF.
+2026-09-16 09:55:21.431 TX log status [CRLF]
+2026-09-16 09:55:21.433 RX [LOG] state=ready boot=21 session=boot-21 up_ms=39151 clock=synced setup=1 hooks=1 file_bytes=579387 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15922495488 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 09:55:21.435 RX [LOG] measured=1 stack_min=3988 internal_min=84940 internal_largest=31732 dma_min=77444 dma_largest=31732 writes=7 slow=0 write_max_us=1877 flush_max_us=4705 sd_max_us=98061 rotations=0 pruned=0 oversized=0
+2026-09-16 09:55:21.436 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4204 stack_final_margin=-1
+2026-09-16 09:55:21.436 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 09:55:21.436 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 09:55:21.436 RX [LOG MEM] phase=before_clock up_us=1783897 free=172724 largest=110580 heap_min_boot=172724
+2026-09-16 09:55:21.436 RX [LOG MEM] phase=after_clock up_us=1784593 free=167144 largest=102388 heap_min_boot=167036
+2026-09-16 09:55:21.436 RX [LOG MEM] phase=before_writer up_us=1784649 free=167144 largest=102388 heap_min_boot=167036
+2026-09-16 09:55:21.437 RX [LOG MEM] phase=writer_entry up_us=1784858 free=167144 largest=102388 heap_min_boot=167036
+2026-09-16 09:55:21.437 RX [LOG MEM] phase=after_formatter up_us=1784943 free=167144 largest=102388 heap_min_boot=167036
+2026-09-16 09:55:21.437 RX [LOG MEM] phase=before_mount up_us=1785499 free=167144 largest=102388 heap_min_boot=167036
+2026-09-16 09:55:21.437 RX [LOG MEM] phase=after_mount up_us=1883438 free=129880 largest=65524 heap_min_boot=128668
+2026-09-16 09:55:21.437 RX [LOG MEM] phase=before_current_open up_us=1890722 free=129880 largest=65524 heap_min_boot=128668
+2026-09-16 09:55:21.437 RX [LOG MEM] phase=after_current_open up_us=1892010 free=129880 largest=65524 heap_min_boot=128668
+2026-09-16 09:55:21.437 RX [LOG MEM] phase=storage_done up_us=1905445 free=129880 largest=65524 heap_min_boot=128668
+2026-09-16 09:55:28.934 TX log test nvs [CRLF]
+2026-09-16 09:55:28.941 RX [LOG TEST] NVS stress started: 30 s, up to 300 dummy-key commits; writer flushes test records
+2026-09-16 09:55:58.944 RX [PROBE] window=normal run=1 ms=60005 heap_min_boot=84940 largest_min=31732 interval_ms=10 samples=5991 gap_max_us=65484 scan_max_us=430 timer=on imu_n=2875 imu_min_hz=11.54 imu_avg_hz=48.21
+2026-09-16 09:55:58.944 RX [LOG TEST] NVS stress ended reason=complete key_removed=1; use log status for counts
+2026-09-16 09:56:03.145 TX log status [CRLF]
+2026-09-16 09:56:03.146 RX [LOG] state=ready boot=21 session=boot-21 up_ms=80864 clock=synced setup=1 hooks=1 file_bytes=725745 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15922331648 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 09:56:03.146 RX [LOG] measured=1 stack_min=3476 internal_min=84940 internal_largest=31732 dma_min=77444 dma_largest=31732 writes=1003 slow=0 write_max_us=2182 flush_max_us=7829 sd_max_us=98061 rotations=0 pruned=0 oversized=0
+2026-09-16 09:56:03.147 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4716 stack_final_margin=-1
+2026-09-16 09:56:03.148 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=283 nvs_errors=0 sd_records=993 key_removed=1 first_nvs_ms=46660 last_nvs_ms=76650 first_sd_ms=46671 last_sd_ms=76645
+2026-09-16 09:56:03.148 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 09:56:03.148 RX [LOG MEM] phase=before_clock up_us=1783897 free=172724 largest=110580 heap_min_boot=172724
+2026-09-16 09:56:03.149 RX [LOG MEM] phase=after_clock up_us=1784593 free=167144 largest=102388 heap_min_boot=167036
+2026-09-16 09:56:03.149 RX [LOG MEM] phase=before_writer up_us=1784649 free=167144 largest=102388 heap_min_boot=167036
+2026-09-16 09:56:03.149 RX [LOG MEM] phase=writer_entry up_us=1784858 free=167144 largest=102388 heap_min_boot=167036
+2026-09-16 09:56:03.149 RX [LOG MEM] phase=after_formatter up_us=1784943 free=167144 largest=102388 heap_min_boot=167036
+2026-09-16 09:56:03.149 RX [LOG MEM] phase=before_mount up_us=1785499 free=167144 largest=102388 heap_min_boot=167036
+2026-09-16 09:56:03.149 RX [LOG MEM] phase=after_mount up_us=1883438 free=129880 largest=65524 heap_min_boot=128668
+2026-09-16 09:56:03.150 RX [LOG MEM] phase=before_current_open up_us=1890722 free=129880 largest=65524 heap_min_boot=128668
+2026-09-16 09:56:03.150 RX [LOG MEM] phase=after_current_open up_us=1892010 free=129880 largest=65524 heap_min_boot=128668
+2026-09-16 09:56:03.150 RX [LOG MEM] phase=storage_done up_us=1905445 free=129880 largest=65524 heap_min_boot=128668
+```
+
+
+## Card verification and shutdown pass; startup watchdogs noted - 2026-09-16, 10:00 capture
+
+JP supplied F:/logs/current.log after the requested battery shutdown.
+The card's /logs directory contained only current.log (728137 bytes).
+A byte-identical backup is preserved in
+[bench_data/sd_current_2026-09-16_1000.txt](bench_data/sd_current_2026-09-16_1000.txt).
+SHA-256: 116d71c4a468f2907f382ccd57a28b6b7f2085c7cbfaed46271cdda2e88adec8.
+The copy covers every file observed in /logs. The card was read only.
+
+The file contains 2129 complete newline-terminated records. Boot 21 contains
+1008 records with consecutive sequence numbers 1 through 1008.
+There are no ERROR-level records in that boot.
+
+Verified on card:
+- TEST_NVS_START at 09:55:28.930, up_ms=46659, seq=9.
+- Exactly 993 TEST_NVS_SD records, with sd_records consecutive from 1 to 993.
+- TEST_NVS_END at 09:55:58.941, seq=1003: nvs_writes=283, nvs_errors=0,
+  sd_records=993, key_removed=1. Its first/last NVS and SD timestamps match
+  the serial summary exactly (46660/76650 and 46671/76645).
+- Subsequent HEALTH records retain stack_min=3476, no drops and no slow writes.
+- Final SESSION_END at 10:00:26.552, seq=1008, boot=21, up_ms=344280:
+  reason=shutdown pending=0. The file ends cleanly after this record.
+
+This verifies the stress records reached the card and the tested normal shutdown
+persisted its final record. It does not test power-loss durability, deep sleep,
+or capture the writer's final post-cleanup stack margin.
+TEST_NVS_SD can precede the queued TEST_NVS_START in serialization order because
+the writer writes its stress record directly while START is queued; use captured
+uptime as well as sequence. The last SD record contains nvs_writes=282 and the
+final summary 283, consistent with the last NVS commit occurring after that SD
+record. Neither ordering difference implies missing records.
+
+Separate finding, before either deliberate stress run:
+- Boot 19 reports reset=task_watchdog, reset_code=6, around 09:43:24.
+  Boot 18's last record is SETUP_COMPLETE at up_ms=8571.
+- Boot 21 reports reset=task_watchdog, reset_code=6, around 09:54:42.
+  Boot 20's last stored record is CLOCK_OFFSET at up_ms=7012.
+  The retained main and writer breadcrumbs for boot 20 say idle at 8649 and
+  8671 ms; these breadcrumbs do not identify the watchdog's triggering task.
+- The new BOOT local timestamps are quality=approx. Treat wall-clock times as
+  approximate; the reset reason and boot ordering are the stronger evidence.
+- The boot-21 stress began at uptime 46659 and ran to completion without a reset.
+  Boot 19's measured logging-ON pair also took place after its startup reset.
+
+These startup resets were not visible in the supplied timed test captures.
+The within-run performance and stress results stand, but overall startup stability
+is unresolved. Older watchdog markers were already noted in the overnight review;
+do not assign these to the PSRAM stack, SD writer, USB monitor, or firmware upload
+without a captured panic/backtrace or controlled reproduction.
+
+JP was asked whether he noticed a restart or freeze after flashing and before
+opening the console around those times. Clarify this before deliberate reset or
+pruning tests, which would obscure the unplanned restart history. The backup now
+preserves that history. No firmware change, build, flash, commit or push was made.
+
+
+### JP's startup-reset clarification
+
+JP confirmed noticing a restart or freeze. He believes it happens when he closes
+the VS Code serial monitor after flashing and says he then needs to reset the
+board to connect to the web page. The manual-reset method and exact ordering
+relative to the recorded watchdog are not yet established.
+
+This matches the unresolved Step 0 report, before the SD logger was introduced:
+closing the VS Code monitor froze the UI, while the browser with DTR=true and
+RTS=false later passed repeated disconnects and a Live-cycle disconnect.
+The serial-monitor transition is now the leading trigger to isolate, not proof
+that the SD writer or PSRAM experiment caused the recorded watchdogs.
+
+A read-only source check found that pinned core 3.1.3 HWCDC uses a default
+100 ms TX timeout and has host/buffer wait paths. Firmware calls USBSerial.begin
+without a custom TX timeout. These facts alone do not explain a watchdog reset
+or establish the DTR/RTS levels VS Code applies. No USB settings were changed.
+
+Next controlled check, without flashing: reinsert the backed-up card while the
+board is off, power it, establish a working browser connection and capture status.
+Disconnect the browser, open the VS Code serial monitor and send status, then
+close only that monitor while USB stays plugged in. Watch for 30 seconds without
+a manual reset; note freeze versus automatic restart. Reopen the browser with
+DTR=true/RTS=false and send status if possible. If connection fails, report that
+before resetting. Never open both serial clients at once.
+This isolates the monitor transition from firmware upload and manual reset.
+Rotation tests can follow once the startup-reset handling is understood.
+
+
+## VS Code monitor-close freeze reproduced - 2026-09-16, boot 22
+
+JP performed the controlled test without reflashing. Before closing the VS Code
+monitor, status replied at uptime 387879 ms: boot 22, ready, Wi-Fi/MQTT connected,
+hooks=1, active valid PSRAM writer, errors/drops zero. Internal_min=84728,
+historical largest block=31732; stack used/margin=4204/3988.
+The preceding complete normal probe measured 60004 ms, 6000 memory samples,
+IMU average 49.11 Hz and minimum 27.04 Hz. NVS stress was inactive and had not
+run in this boot.
+
+After VS Code printed "Closed the serial port COM4", JP saw the spinner stop.
+It remained visibly frozen for more than 30 seconds, with no observed automatic
+restart. The web page then opened the same port successfully:
+- 10:17:32.725 Connect requested, DTR=true and RTS=false.
+- 10:17:35.453 explicit signals applied; Connected.
+The UI remained frozen and no RX output appeared.
+
+JP then sent both commands from the connected browser and reported no responses:
+- 10:19:58.175 TX log status [CRLF]
+- 10:20:15.064 TX status [CRLF]
+
+This reproduces a persistent visible UI freeze plus a failed command/reply path
+across the VS Code-to-browser transition. Browser open/write success establishes
+host-side port access, not execution or receipt by the firmware. It does not
+prove that both CPU cores or the SD writer stopped. There is no post-freeze
+uptime or new boot marker to establish a reset. JP's known recovery is unplugging
+and reconnecting USB, after which the board restarts.
+
+Do not equate this persistent freeze with the earlier recorded task-watchdog
+resets. The installed build sdkconfig enables the 5-second task watchdog with
+panic and CPU0 idle checking; CPU1 idle checking is off. LoopCore=1 in the actual
+sketch.yaml profile. A main-loop stall need not be caught by that particular
+watchdog configuration. No conclusion about the blocked task follows without
+additional evidence.
+
+Read-only source/configuration checks:
+- Core 3.1.3 HWCDC has a 100 ms default transmit timeout, timed lock acquisition,
+  host/buffer wait logic and a USB Serial/JTAG interrupt handler. These paths
+  are candidates for inspection, not a demonstrated cause of this freeze.
+- Firmware calls USBSerial.begin(115200); no custom TX timeout was found.
+- Installed extensions include Microsoft Serial Monitor 0.13.1 and Arduino Maker
+  Workshop 1.1.9. Their package manifests expose no DTR/RTS matches in the checked
+  configuration text; the precise monitor used and close-time signal sequence
+  remain unverified. Workspace monitor settings contain no explicit DTR/RTS.
+- The same VS Code-close symptom was reported during Step 0 before SD logging.
+  Browser-only explicit DTR=true/RTS=false disconnect cycles previously passed.
+
+No further repetition of the same freeze test is needed to establish this
+reproducer. Recover via JP's usual USB unplug/replug procedure, then use the
+tested browser-only serial workflow; keep VS Code for compilation and flashing.
+The USB issue stays open for host/core investigation, without changing logger
+memory settings or assuming the successful SD stress test failed.
+No firmware, USB settings, watchdog settings, extension settings or commits changed.
+
+
+## USB recovery confirmed; normal-limit rotation is next - 2026-09-16, 10:24
+
+JP unplugged and reconnected the USB cable, opened the browser with explicit
+DTR=true/RTS=false and confirmed the UI was running normally. status replied at
+10:24:11.646 with uptime 74268 ms and boot=23, following the frozen boot 22.
+Wi-Fi and MQTT were connected; the logger was ready, synced and hooks=1.
+
+Recovery snapshot:
+- file_bytes=734350, generation=1, newest=0, archives=0, rotations=0, pruned=0.
+- queue=0/16, high=1, drops=0, suppressed=0, truncated=0, error=none, errno=0.
+- internal_min=84752, historical largest=31732; DMA minimum/largest=77256/31732.
+- Writer active, placement valid, PSRAM stack 8192, internal TCB 352.
+  Used/margin=4204/3988 bytes. Final margin=-1 while the writer is active.
+- writes=8, slow=0, write_max_us=2999, flush_max_us=4951, sd_max_us=105025.
+  The broad SD maximum is not itself a slow-write count.
+- NVS stress counters are zero and inactive after reboot. key_removed=0 here
+  means this boot has not run the stress test; it does not reverse boot 21's
+  verified cleanup.
+
+Boot increment and low uptime confirm a restart between the readings.
+The startup banner was delivered when the browser opened; that alone does not
+locate the reset at browser-open time. Recovery does not fix the reproducible
+VS Code monitor-close issue or identify its underlying cause.
+Use VS Code for builds/flashing and the tested browser for serial monitoring.
+
+The verified card backup is retained. Continue storage testing through the
+working browser, with one forced rotation at normal limits. This ordinary
+rotation test does not deliberately reset the board or enable small retention.
+The USB issue remains open independently.
+
+Next single test, same firmware and hooks=1:
+1. Send log test rotate once.
+2. Wait about three seconds, then send log status.
+3. Leave the unit on the normal screen with USB/hotspot on for about 65 seconds.
+4. Send log status again and return the full capture.
+Expected from generation 1 with no existing archives: generation=2, newest=1,
+archives=1, rotations=1, pruned=0, state=ready, error=none, drops=0.
+The old current should become /logs/archive-00000001.log and a new current.log
+should receive headers and subsequent health records. file_bytes should initially
+be small, then increase with the next minute record. No deliberate deletion is
+expected with normal limits and the reported free space. File/header inspection
+remains a separate later check; status alone does not prove file contents.
+
+Do not send log test small yet. No rebuild, reflash or card removal is needed
+for this rotation test. No firmware edits or commits were made for this result.
+
+
+## Normal-limit forced rotation runtime passes - 2026-09-16, boot 24, 14:43-14:45
+
+JP powered the unit off during the break, then returned and ran one log test rotate
+through the browser. Before rotation the logger was ready, hooks=1, generation=1,
+no archives, file_bytes=737293 and rotations=pruned=0.
+
+| Measurement | Before | After rotation | After next minute |
+|-------------|--------|----------------|-------------------|
+| generation / newest / archives | 1 / 0 / 0 | 2 / 1 / 1 | 2 / 1 / 1 |
+| rotations / pruned | 0 / 0 | 1 / 0 | 1 / 0 |
+| current file bytes | 737293 | 449 | 1008 |
+| writes | 8 | 11 | 12 |
+| writer maximum used / minimum margin | 4204 / 3988 | 4780 / 3412 | 4780 / 3412 |
+| historical internal minimum / largest block | 84748 / 31732 | unchanged | unchanged |
+| logger errors / drops / slow writes | none / 0 / 0 | none / 0 / 0 | none / 0 / 0 |
+
+The command was queued at 14:43:46.660. Status at 14:43:58.865 showed one
+completed rotation; status at 14:45:02.827 confirmed continued append growth
+of 559 bytes. The counters are consistent with archive-00000001.log and a fresh
+current.log with generation 2. This is a runtime/counter pass; file contents and
+header correctness have not been directly inspected after this rotation.
+
+The writer used 576 more stack bytes than before rotation, leaving 3412 bytes.
+Placement remained valid and active (8192-byte PSRAM stack, internal 352-byte
+TCB). Queue peak remained 1 of 16, with suppressed/truncated records zero.
+DMA minimum/largest stayed 77252/31732. Write/flush maxima were 2893/4903 us;
+the broad SD-operation maximum was 171513 us, while slow writes remained zero.
+Normal IMU averages were 49.23 and 49.20 Hz; minima 35.67 and 31.13 Hz.
+These afternoon figures are not a new pair with the morning performance baseline.
+Boot stayed 24; there is no reset in this capture.
+
+Next single test: temporary small-limit rotation and pruning on the backed-up
+test card. DIAG_TEST_HOOKS stays 1. log test small selects 8192-byte current files,
+three archives and 16384-byte free-space reserve. The content budget becomes
+32768 bytes, so the existing roughly 737 KB archive can be deleted before the
+archive count reaches three. Do not describe pruning as count-only.
+
+JP must know this test deliberately deletes managed archives from the card.
+The 10:00 copy is preserved in docs/bench_data/sd_current_2026-09-16_1000.txt;
+later card history is not all included in that backup. If JP wants the intervening
+card-only history retained, back it up before proceeding.
+The test does not request deleting unrelated files or changing normal defaults.
+
+Procedure: log test small, wait three seconds, log status. Then send
+log test rotate four times separately, waiting about three seconds after each.
+Send log status. Finally send log test normal, wait three seconds, log status.
+Stop further commands if an error/disabled state occurs, and send the capture.
+Expected: at most three archives under small limits, pruned greater than zero,
+advancing generations and rotations, ready, no drops/errors and adequate stack
+margin. Do not hard-code final generation: size-triggered rotation can also occur
+if the current file grew while waiting. Restoring normal limits does not restore
+deleted archives. File/name verification will still require later card inspection.
+
+This test checks pruning under reduced limits and forced rotation. It does not
+by itself prove natural size-triggered rotation at exactly 8192 or 2097152 bytes,
+or preservation of unrelated filenames on disk. Those remain distinct checks.
+No firmware edit, build, flash or commit was made for this result.
+
+### Serial evidence
+
+```text
+2026-09-16 14:43:05.555 EVENT Console cleared.
+2026-09-16 14:43:17.691 TX log status [CRLF]
+2026-09-16 14:43:17.698 RX [LOG] state=ready boot=24 session=boot-24 up_ms=68379 clock=synced setup=1 hooks=1 file_bytes=737293 generation=1 newest=0 archives=0 card_bytes=15931539456 free_bytes=15922331648 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 14:43:17.700 RX [LOG] measured=1 stack_min=3988 internal_min=84748 internal_largest=31732 dma_min=77252 dma_largest=31732 writes=8 slow=0 write_max_us=2893 flush_max_us=4903 sd_max_us=171513 rotations=0 pruned=0 oversized=0
+2026-09-16 14:43:17.701 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4204 stack_final_margin=-1
+2026-09-16 14:43:17.701 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:43:17.702 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:43:17.702 RX [LOG MEM] phase=before_clock up_us=1881890 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:43:17.702 RX [LOG MEM] phase=after_clock up_us=1882577 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:43:17.702 RX [LOG MEM] phase=before_writer up_us=1882633 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:43:17.702 RX [LOG MEM] phase=writer_entry up_us=1882844 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:43:17.702 RX [LOG MEM] phase=after_formatter up_us=1882927 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:43:17.703 RX [LOG MEM] phase=before_mount up_us=1883487 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:43:17.703 RX [LOG MEM] phase=after_mount up_us=2054886 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:43:17.703 RX [LOG MEM] phase=before_current_open up_us=2062178 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:43:17.703 RX [LOG MEM] phase=after_current_open up_us=2063670 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:43:17.703 RX [LOG MEM] phase=storage_done up_us=2077887 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:43:27.555 RX [PROBE] window=normal run=1 ms=60005 heap_min_boot=84748 largest_min=31732 interval_ms=10 samples=6001 gap_max_us=10790 scan_max_us=438 timer=on imu_n=2949 imu_min_hz=35.67 imu_avg_hz=49.23
+2026-09-16 14:43:27.555 RX TX motion MQTT: Moving (periodic)
+2026-09-16 14:43:27.640 RX Movement Stopped.
+2026-09-16 14:43:46.657 TX log test rotate [CRLF]
+2026-09-16 14:43:46.660 RX [LOG TEST] hook queued
+2026-09-16 14:43:58.863 TX log status [CRLF]
+2026-09-16 14:43:58.865 RX [LOG] state=ready boot=24 session=boot-24 up_ms=109547 clock=synced setup=1 hooks=1 file_bytes=449 generation=2 newest=1 archives=1 card_bytes=15931539456 free_bytes=15922298880 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 14:43:58.865 RX [LOG] measured=1 stack_min=3412 internal_min=84748 internal_largest=31732 dma_min=77252 dma_largest=31732 writes=11 slow=0 write_max_us=2893 flush_max_us=4903 sd_max_us=171513 rotations=1 pruned=0 oversized=0
+2026-09-16 14:43:58.867 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4780 stack_final_margin=-1
+2026-09-16 14:43:58.867 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:43:58.868 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:43:58.868 RX [LOG MEM] phase=before_clock up_us=1881890 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:43:58.869 RX [LOG MEM] phase=after_clock up_us=1882577 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:43:58.869 RX [LOG MEM] phase=before_writer up_us=1882633 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:43:58.869 RX [LOG MEM] phase=writer_entry up_us=1882844 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:43:58.869 RX [LOG MEM] phase=after_formatter up_us=1882927 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:43:58.871 RX [LOG MEM] phase=before_mount up_us=1883487 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:43:58.871 RX [LOG MEM] phase=after_mount up_us=2054886 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:43:58.871 RX [LOG MEM] phase=before_current_open up_us=2062178 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:43:58.871 RX [LOG MEM] phase=after_current_open up_us=2063670 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:43:58.871 RX [LOG MEM] phase=storage_done up_us=2077887 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:44:20.026 RX [PROBE] window=normal run=2 ms=60005 heap_min_boot=84748 largest_min=31732 interval_ms=10 samples=6000 gap_max_us=10854 scan_max_us=456 timer=on imu_n=2946 imu_min_hz=31.13 imu_avg_hz=49.20
+2026-09-16 14:45:02.822 TX log status [CRLF]
+2026-09-16 14:45:02.827 RX [LOG] state=ready boot=24 session=boot-24 up_ms=173511 clock=synced setup=1 hooks=1 file_bytes=1008 generation=2 newest=1 archives=1 card_bytes=15931539456 free_bytes=15922298880 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 14:45:02.829 RX [LOG] measured=1 stack_min=3412 internal_min=84748 internal_largest=31732 dma_min=77252 dma_largest=31732 writes=12 slow=0 write_max_us=2893 flush_max_us=4903 sd_max_us=171513 rotations=1 pruned=0 oversized=0
+2026-09-16 14:45:02.830 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4780 stack_final_margin=-1
+2026-09-16 14:45:02.830 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:45:02.831 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:45:02.831 RX [LOG MEM] phase=before_clock up_us=1881890 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:45:02.831 RX [LOG MEM] phase=after_clock up_us=1882577 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:45:02.831 RX [LOG MEM] phase=before_writer up_us=1882633 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:45:02.831 RX [LOG MEM] phase=writer_entry up_us=1882844 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:45:02.831 RX [LOG MEM] phase=after_formatter up_us=1882927 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:45:02.833 RX [LOG MEM] phase=before_mount up_us=1883487 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:45:02.833 RX [LOG MEM] phase=after_mount up_us=2054886 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:45:02.833 RX [LOG MEM] phase=before_current_open up_us=2062178 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:45:02.833 RX [LOG MEM] phase=after_current_open up_us=2063670 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:45:02.833 RX [LOG MEM] phase=storage_done up_us=2077887 free=129836 largest=65524 heap_min_boot=128704
+```
+
+
+## Small-limit rotation/pruning runtime passes - 2026-09-16, boot 24, 14:48-14:49
+
+JP selected small limits, issued four separate forced rotations and restored
+normal limits through the browser. All hooks were accepted. The logger stayed
+ready in the same boot with no errors, drops, suppressed or truncated records.
+
+| Measurement | After small command | After four rotations | After normal command |
+|-------------|---------------------|----------------------|----------------------|
+| generation / newest / archives | 2 / 1 / 1 | 6 / 5 / 3 | 6 / 5 / 3 |
+| rotations / pruned | 1 / 0 | 5 / 2 | 5 / 2 |
+| current file bytes | 2820 | 451 | 584 |
+| writes | 16 | 29 | 30 |
+| free card bytes | 15922298880 | 15922954240 | 15922954240 |
+| writer maximum used / minimum margin | 4780 / 3412 | unchanged | unchanged |
+| historical internal minimum / largest block | 84748 / 31732 | unchanged | unchanged |
+
+The four commands advanced generation by four and kept exactly three archives,
+with two managed deletions reported. This agrees with the source's content-budget
+and count pruning: the large original archive exceeds the 32768-byte small
+content budget, and a further oldest archive must be removed as new ones accrue.
+Expected survivors are archives 3, 4 and 5; their exact names/content have not
+yet been inspected on card. Do not claim unrelated-file preservation from these
+counters alone. Space availability increased by 655360 bytes.
+
+log test normal was accepted at 14:49:02.219; following status remained ready,
+with a further test-hook write and file growth. Source handling restores the
+normal file/count/reserve limits and clears simulated space/write faults.
+Status does not print the live limits, so that restoration is supported by
+accepted-command/source behavior rather than an explicit numeric limits readback.
+No additional rotation or deletion was observed after that command.
+
+Writer PSRAM placement remained valid and active; TCB stayed internal.
+DMA minimum/largest remained 77252/31732. Queue peak was 1 of 16, slow writes
+zero. Final write/flush/SD maxima were 3822/4951/171513 us.
+Normal IMU averages were 49.21 and 49.25 Hz, minima 32.13 and 32.26 Hz.
+This afternoon storage test is not a new comparison with the morning baseline.
+
+The runtime pruning gate passes. Natural size-triggered rotation, on-card
+header/content checks and preservation of unrelated names still need evidence.
+The 10:00 backup remains preserved outside the card.
+
+Next single fault test: simulated full-card write failure, without filling the
+actual card. Keep the installed build (enabled=1, PSRAM=1, hooks=1), normal limits,
+hotspot on and browser serial. Send log status, log test full once, wait three
+seconds, log status. Expect state=disabled, error=test_full_write, errno=ENOSPC
+(28 in this build), writer_lifecycle=parked, and a nonnegative final stack margin.
+These are expected injected-failure results, not an unexpected test failure.
+
+Then request Latest, confirm it displays, return to dashboard and send log status.
+The companion must continue working with a safely stopped logger. No reset,
+crash or memory-allocation failure is expected. Capture image_https and all LOG
+lines. No manual card removal or reboot before returning this result.
+Do not send log test normal to recover: a terminal error disables writes for the
+rest of that boot. We will reboot afterward to check logging resumes.
+No firmware edits, build, flash or commit for this result.
+
+### Serial evidence
+
+```text
+2026-09-16 14:47:47.553 EVENT Console cleared.
+2026-09-16 14:48:00.770 TX log test small [CRLF]
+2026-09-16 14:48:00.772 RX [PROBE] window=normal run=5 ms=60003 heap_min_boot=84748 largest_min=31732 interval_ms=10 samples=6000 gap_max_us=10719 scan_max_us=862 timer=on imu_n=2947 imu_min_hz=32.13 imu_avg_hz=49.21
+2026-09-16 14:48:00.772 RX [LOG TEST] hook queued
+2026-09-16 14:48:09.028 TX log status [CRLF]
+2026-09-16 14:48:09.029 RX [LOG] state=ready boot=24 session=boot-24 up_ms=359718 clock=synced setup=1 hooks=1 file_bytes=2820 generation=2 newest=1 archives=1 card_bytes=15931539456 free_bytes=15922298880 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 14:48:09.030 RX [LOG] measured=1 stack_min=3412 internal_min=84748 internal_largest=31732 dma_min=77252 dma_largest=31732 writes=16 slow=0 write_max_us=2893 flush_max_us=4951 sd_max_us=171513 rotations=1 pruned=0 oversized=0
+2026-09-16 14:48:09.031 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4780 stack_final_margin=-1
+2026-09-16 14:48:09.032 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:48:09.033 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:48:09.033 RX [LOG MEM] phase=before_clock up_us=1881890 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:48:09.033 RX [LOG MEM] phase=after_clock up_us=1882577 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:48:09.033 RX [LOG MEM] phase=before_writer up_us=1882633 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:48:09.033 RX [LOG MEM] phase=writer_entry up_us=1882844 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:48:09.033 RX [LOG MEM] phase=after_formatter up_us=1882927 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:48:09.033 RX [LOG MEM] phase=before_mount up_us=1883487 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:48:09.033 RX [LOG MEM] phase=after_mount up_us=2054886 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:48:09.033 RX [LOG MEM] phase=before_current_open up_us=2062178 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:48:09.033 RX [LOG MEM] phase=after_current_open up_us=2063670 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:48:09.033 RX [LOG MEM] phase=storage_done up_us=2077887 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:48:20.039 RX [PROBE] window=normal run=6 ms=60004 heap_min_boot=84748 largest_min=31732 interval_ms=10 samples=6000 gap_max_us=10762 scan_max_us=430 timer=on imu_n=2949 imu_min_hz=32.26 imu_avg_hz=49.25
+2026-09-16 14:48:27.080 TX log test rotate [CRLF]
+2026-09-16 14:48:27.086 RX [LOG TEST] hook queued
+2026-09-16 14:48:32.512 TX log test rotate [CRLF]
+2026-09-16 14:48:32.515 RX [LOG TEST] hook queued
+2026-09-16 14:48:37.624 TX log test rotate [CRLF]
+2026-09-16 14:48:37.628 RX [LOG TEST] hook queued
+2026-09-16 14:48:43.059 TX log test rotate [CRLF]
+2026-09-16 14:48:43.064 RX [LOG TEST] hook queued
+2026-09-16 14:48:52.020 TX log status [CRLF]
+2026-09-16 14:48:52.026 RX [LOG] state=ready boot=24 session=boot-24 up_ms=402716 clock=synced setup=1 hooks=1 file_bytes=451 generation=6 newest=5 archives=3 card_bytes=15931539456 free_bytes=15922954240 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 14:48:52.026 RX [LOG] measured=1 stack_min=3412 internal_min=84748 internal_largest=31732 dma_min=77252 dma_largest=31732 writes=29 slow=0 write_max_us=3766 flush_max_us=4951 sd_max_us=171513 rotations=5 pruned=2 oversized=0
+2026-09-16 14:48:52.028 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4780 stack_final_margin=-1
+2026-09-16 14:48:52.029 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:48:52.029 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:48:52.030 RX [LOG MEM] phase=before_clock up_us=1881890 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:48:52.030 RX [LOG MEM] phase=after_clock up_us=1882577 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:48:52.030 RX [LOG MEM] phase=before_writer up_us=1882633 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:48:52.031 RX [LOG MEM] phase=writer_entry up_us=1882844 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:48:52.031 RX [LOG MEM] phase=after_formatter up_us=1882927 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:48:52.031 RX [LOG MEM] phase=before_mount up_us=1883487 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:48:52.032 RX [LOG MEM] phase=after_mount up_us=2054886 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:48:52.032 RX [LOG MEM] phase=before_current_open up_us=2062178 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:48:52.032 RX [LOG MEM] phase=after_current_open up_us=2063670 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:48:52.033 RX [LOG MEM] phase=storage_done up_us=2077887 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:49:02.214 TX log test normal [CRLF]
+2026-09-16 14:49:02.219 RX [LOG TEST] hook queued
+2026-09-16 14:49:09.740 TX log status [CRLF]
+2026-09-16 14:49:09.743 RX [LOG] state=ready boot=24 session=boot-24 up_ms=420434 clock=synced setup=1 hooks=1 file_bytes=584 generation=6 newest=5 archives=3 card_bytes=15931539456 free_bytes=15922954240 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 14:49:09.745 RX [LOG] measured=1 stack_min=3412 internal_min=84748 internal_largest=31732 dma_min=77252 dma_largest=31732 writes=30 slow=0 write_max_us=3822 flush_max_us=4951 sd_max_us=171513 rotations=5 pruned=2 oversized=0
+2026-09-16 14:49:09.746 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4780 stack_final_margin=-1
+2026-09-16 14:49:09.746 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:49:09.747 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:49:09.747 RX [LOG MEM] phase=before_clock up_us=1881890 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:49:09.747 RX [LOG MEM] phase=after_clock up_us=1882577 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:49:09.747 RX [LOG MEM] phase=before_writer up_us=1882633 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:49:09.747 RX [LOG MEM] phase=writer_entry up_us=1882844 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:49:09.747 RX [LOG MEM] phase=after_formatter up_us=1882927 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:49:09.747 RX [LOG MEM] phase=before_mount up_us=1883487 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:49:09.747 RX [LOG MEM] phase=after_mount up_us=2054886 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:49:09.748 RX [LOG MEM] phase=before_current_open up_us=2062178 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:49:09.748 RX [LOG MEM] phase=after_current_open up_us=2063670 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:49:09.748 RX [LOG MEM] phase=storage_done up_us=2077887 free=129836 largest=65524 heap_min_boot=128704
+```
+
+
+## Simulated full-card failure and terminal cleanup pass - 2026-09-16, boot 24, 14:53
+
+JP sent log test full at 14:53:03.956. The hook was queued and the logger reported
+disabled reason=test_full_write errno=28 at 14:53:03.977.
+This is the deliberately injected ENOSPC write failure, not a physically full card.
+
+| Measurement | Before fault | After fault and Latest |
+|-------------|--------------|------------------------|
+| State / error | ready / none | disabled / test_full_write, errno 28 |
+| Writer lifecycle | active | parked |
+| Writer used / minimum margin | 4780 / 3412 bytes | unchanged |
+| Final post-cleanup stack margin | -1 | 3412 bytes |
+| File bytes / writes | 2823 / 34 | 2956 / 35 |
+| Generation / newest / archives | 6 / 5 / 3 | unchanged |
+| Rotations / pruned | 5 / 2 | unchanged |
+| Queue peak / drops / slow writes | 1 of 16 / 0 / 0 | unchanged |
+
+The successful extra write is consistent with TEST_HOOK recorded before fault
+injection. Subsequent status after Latest still showed 2956 bytes and 35 writes,
+confirming no further logger writes reported while parked.
+Placement stayed valid: PSRAM stack 8192 bytes, internal TCB 352 bytes.
+Final margin 3412 is now measured after filesystem/formatter cleanup. The static
+PSRAM stack and TCB intentionally remain allocated until reboot; parked is the
+intended lifecycle, not a leaked running task or an attempt to free its own stack.
+
+The companion continued processing touch and Latest:
+- image_https run 1: 761 ms, 76 samples at 10 ms,
+  largest_min=26612, heap_min_boot=36252.
+- Maximum sampler gap/scan: 10636/502 us.
+- Image 34262 bytes, decoded and displayed in 1274 ms.
+- Returned to screen 1 without saving a preference.
+- No reset in this capture; boot remained 24 and uptime advanced.
+
+The sampled HTTPS block minimum exceeds 20480 by 6132 bytes.
+The disabled logger's retained memory fields stay internal_min=84748 and
+internal_largest=31732. They no longer update because the writer is parked;
+the active Stage 0 probe is the source for post-fault image memory measurements.
+The normal probe before Latest averaged 49.20 Hz IMU, minimum 28.52 Hz.
+This is a fault-handling check, not a paired performance run.
+
+The injected write-failure path, terminal stack capture and continued Latest
+operation pass. Real media corruption/removal, power-loss durability and other
+fault paths are not established by this simulation.
+
+Next single check: reboot recovery without reflashing or removing the card.
+Power down normally (disconnect USB on the battery board, leave stationary until
+automatic shutdown), then power on/reconnect USB. Use the browser with explicit
+DTR=true/RTS=false; wait for green MQTT, send log status, wait 65 seconds on the
+normal screen and send log status again.
+
+Expect a new boot, ready state, error=none/errno=0, active valid PSRAM writer,
+generation=6, newest=5 and archives=3 retained, current file appended with fresh
+boot records and then a minute health record. Runtime rotations/pruned counters
+reset with the boot; that is not deletion of archives. final stack margin returns
+to -1 for the new active writer. The simulated fault flag clears on reboot.
+No additional SESSION_END is expected from boot 24 after the writer was disabled.
+If disabled persists, return the error instead of sending more fault commands.
+No firmware changes, build, flash or commit for this result.
+
+### Serial evidence
+
+The endpoint line is omitted.
+
+```text
+2026-09-16 14:52:48.682 EVENT Console cleared.
+2026-09-16 14:52:52.562 TX log status [CRLF]
+2026-09-16 14:52:52.564 RX [LOG] state=ready boot=24 session=boot-24 up_ms=643260 clock=synced setup=1 hooks=1 file_bytes=2823 generation=6 newest=5 archives=3 card_bytes=15931539456 free_bytes=15922954240 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 14:52:52.565 RX [LOG] measured=1 stack_min=3412 internal_min=84748 internal_largest=31732 dma_min=77252 dma_largest=31732 writes=34 slow=0 write_max_us=3822 flush_max_us=4951 sd_max_us=171513 rotations=5 pruned=2 oversized=0
+2026-09-16 14:52:52.565 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4780 stack_final_margin=-1
+2026-09-16 14:52:52.565 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:52:52.566 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:52:52.567 RX [LOG MEM] phase=before_clock up_us=1881890 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:52:52.567 RX [LOG MEM] phase=after_clock up_us=1882577 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:52:52.567 RX [LOG MEM] phase=before_writer up_us=1882633 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:52:52.567 RX [LOG MEM] phase=writer_entry up_us=1882844 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:52:52.567 RX [LOG MEM] phase=after_formatter up_us=1882927 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:52:52.567 RX [LOG MEM] phase=before_mount up_us=1883487 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:52:52.567 RX [LOG MEM] phase=after_mount up_us=2054886 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:52:52.567 RX [LOG MEM] phase=before_current_open up_us=2062178 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:52:52.567 RX [LOG MEM] phase=after_current_open up_us=2063670 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:52:52.567 RX [LOG MEM] phase=storage_done up_us=2077887 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:53:03.956 TX log test full [CRLF]
+2026-09-16 14:53:03.963 RX [LOG TEST] hook queued
+2026-09-16 14:53:03.977 RX [LOG] disabled reason=test_full_write errno=28; companion continues
+2026-09-16 14:53:11.445 TX log status [CRLF]
+2026-09-16 14:53:11.447 RX [LOG] state=disabled boot=24 session=boot-24 up_ms=662144 clock=synced setup=1 hooks=1 file_bytes=2956 generation=6 newest=5 archives=3 card_bytes=15931539456 free_bytes=15922954240 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=test_full_write errno=28
+2026-09-16 14:53:11.448 RX [LOG] measured=1 stack_min=3412 internal_min=84748 internal_largest=31732 dma_min=77252 dma_largest=31732 writes=35 slow=0 write_max_us=3822 flush_max_us=4951 sd_max_us=171513 rotations=5 pruned=2 oversized=0
+2026-09-16 14:53:11.448 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=parked stack_used_max=4780 stack_final_margin=3412
+2026-09-16 14:53:11.448 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:53:11.450 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:53:11.450 RX [LOG MEM] phase=before_clock up_us=1881890 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:53:11.450 RX [LOG MEM] phase=after_clock up_us=1882577 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:53:11.450 RX [LOG MEM] phase=before_writer up_us=1882633 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:53:11.450 RX [LOG MEM] phase=writer_entry up_us=1882844 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:53:11.451 RX [LOG MEM] phase=after_formatter up_us=1882927 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:53:11.451 RX [LOG MEM] phase=before_mount up_us=1883487 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:53:11.451 RX [LOG MEM] phase=after_mount up_us=2054886 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:53:11.451 RX [LOG MEM] phase=before_current_open up_us=2062178 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:53:11.451 RX [LOG MEM] phase=after_current_open up_us=2063670 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:53:11.451 RX [LOG MEM] phase=storage_done up_us=2077887 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:53:15.152 RX Screen touched, resetting inactivity timer.
+2026-09-16 14:53:15.153 RX Latest button clicked
+2026-09-16 14:53:15.153 RX Initiating async latest image request...
+2026-09-16 14:53:15.153 RX Preparing UI for new image request...
+2026-09-16 14:53:15.153 RX Cleaning up image fetcher state...
+2026-09-16 14:53:15.153 RX Screen 2 Loaded.
+2026-09-16 14:53:15.224 RX === requestImage('latest') START ===
+2026-09-16 14:53:15.225 RX Sending HTTP GET...
+2026-09-16 14:53:15.225 RX [PROBE] window=normal run=11 ms=55078 heap_min_boot=84748 largest_min=31732 interval_ms=10 samples=5508 gap_max_us=10770 scan_max_us=517 timer=on imu_n=2701 imu_min_hz=28.52 imu_avg_hz=49.20
+2026-09-16 14:53:15.988 RX [PROBE] window=image_https run=1 ms=761 heap_min_boot=36252 largest_min=26612 interval_ms=10 samples=76 gap_max_us=10636 scan_max_us=502 timer=on
+2026-09-16 14:53:15.988 RX Response received in 762 ms, Content-Length: 34262
+2026-09-16 14:53:15.988 RX Starting to receive image data...
+2026-09-16 14:53:16.288 RX Image download complete (34262 bytes, 1135 ms since button press). Starting decode...
+2026-09-16 14:53:16.427 RX JPEG decoded successfully into PSRAM.
+2026-09-16 14:53:16.427 RX LVGL image source updated. Total 1274 ms from button press (budget 20000 ms).
+2026-09-16 14:53:18.005 RX Screen 2 Unloading: Freeing buffer and resetting rotation to 90 degrees.
+2026-09-16 14:53:18.005 RX [ScreenMem] Returned to screen 1; no preference save needed
+2026-09-16 14:53:20.021 TX log status [CRLF]
+2026-09-16 14:53:20.027 RX [LOG] state=disabled boot=24 session=boot-24 up_ms=670724 clock=synced setup=1 hooks=1 file_bytes=2956 generation=6 newest=5 archives=3 card_bytes=15931539456 free_bytes=15922954240 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=test_full_write errno=28
+2026-09-16 14:53:20.028 RX [LOG] measured=1 stack_min=3412 internal_min=84748 internal_largest=31732 dma_min=77252 dma_largest=31732 writes=35 slow=0 write_max_us=3822 flush_max_us=4951 sd_max_us=171513 rotations=5 pruned=2 oversized=0
+2026-09-16 14:53:20.029 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=parked stack_used_max=4780 stack_final_margin=3412
+2026-09-16 14:53:20.029 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:53:20.029 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:53:20.031 RX [LOG MEM] phase=before_clock up_us=1881890 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:53:20.031 RX [LOG MEM] phase=after_clock up_us=1882577 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:53:20.031 RX [LOG MEM] phase=before_writer up_us=1882633 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:53:20.031 RX [LOG MEM] phase=writer_entry up_us=1882844 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:53:20.031 RX [LOG MEM] phase=after_formatter up_us=1882927 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:53:20.031 RX [LOG MEM] phase=before_mount up_us=1883487 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:53:20.031 RX [LOG MEM] phase=after_mount up_us=2054886 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:53:20.031 RX [LOG MEM] phase=before_current_open up_us=2062178 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:53:20.031 RX [LOG MEM] phase=after_current_open up_us=2063670 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 14:53:20.031 RX [LOG MEM] phase=storage_done up_us=2077887 free=129836 largest=65524 heap_min_boot=128704
+```
+
+
+## Reboot after simulated write failure passes - 2026-09-16, boot 25, 14:56-14:58
+
+JP restarted normally and reconnected through the browser. The logger returned
+to ready in boot 25, with error=none, errno=0, hooks=1, synced clock and active
+valid PSRAM writer placement. The injected full-write flag did not persist.
+
+| Measurement | First recovered status | Later status |
+|-------------|------------------------|--------------|
+| Boot / uptime | 25 / 14947 ms | 25 / 108619 ms |
+| Generation / newest / archives | 6 / 5 / 3 | unchanged |
+| Current file bytes | 4108 | 4664 |
+| Writes | 7 | 8 |
+| Rotations / pruned this boot | 0 / 0 | unchanged |
+| Writer maximum used / minimum margin | 4604 / 3588 bytes | unchanged |
+| Final stack margin | -1, active writer | unchanged |
+| Historical internal minimum / largest | 84740 / 31732 bytes | unchanged |
+| Errors / drops / slow writes | none / 0 / 0 | unchanged |
+
+The first recovered file size exceeds the pre-restart 2956 bytes, and then grows
+another 556 bytes with continued writes. This supports append recovery rather
+than truncation. Exact file bytes and headers will be verified in a later card
+inspection. Archive generation/count remain intact; the runtime rotation/pruning
+counters reset as expected for a new boot.
+
+A full normal probe recorded 60006 ms, 6001 samples at 10 ms, maximum gap
+10861 us and scan 436 us. IMU average/minimum were 49.23/35.70 Hz.
+Writer placement: 8192-byte PSRAM stack, internal TCB 352, active. The 3588-byte
+margin is a new boot's watermark, not recovery of an old boot's watermark.
+Final DMA minimum/largest were 77244/31732. Queue peak stayed 1 of 16,
+suppressed/truncated counts zero, write/flush/SD maxima 2292/4987/171961 us.
+
+Reboot recovery and continued appends pass on the serial evidence.
+Normal limits apply after this reboot; hooks remain enabled for deliberate tests.
+No firmware change, build, flash or commit was made.
+
+Next single check: interruption after archive rename and before fresh current
+creation, using log test rename. This simulates a rotation boundary without
+deliberately removing power during an SD write.
+1. Send log status, then log test rename once.
+2. Wait for "writer paused at requested boundary; reset the board to continue".
+   Send log status to capture the paused state. The UI should remain usable.
+3. Disconnect USB and leave the battery unit stationary until normal shutdown.
+   The hook's wait exits on the close request; the rotation path skips creating
+   current.log when closing, leaving the intended missing-current state.
+4. Power back on, reconnect the browser, wait for green MQTT and send log status.
+5. Wait 65 seconds on the dashboard and send log status again.
+
+Expected after reboot from generation 6/newest 5: current generation 7, newest
+archive 6 and four archives, ready with no logger error/drop and resumed file
+growth. The paused pre-reboot status may retain old inventory values because
+the rotation has not completed; do not judge completion from those alone.
+No commands other than status are needed while paused. If the pause message
+does not appear or an error occurs, stop and send that output.
+This tests missing-current boundary recovery; it is not a sudden power-loss
+durability test. Normal shutdown is preferred here to USB unplug/replug alone,
+since the battery can keep the board running.
+
+### Serial evidence
+
+The partial calibration payload line is omitted.
+
+```text
+2026-09-16 14:56:21.411 EVENT Console cleared.
+2026-09-16 14:56:26.875 EVENT USB serial device available.
+2026-09-16 14:56:37.669 EVENT Connect requested. After open: DTR=true, RTS=false.
+2026-09-16 14:56:40.099 EVENT Explicit signals applied. After open: DTR=true, RTS=false.
+2026-09-16 14:56:40.099 EVENT Connected. Send status; compare with the previous reading if available.
+2026-09-16 14:56:40.100 RX Initial MQTT connection successful!
+2026-09-16 14:56:40.100 RX Motion baseline reset: Accel=0.98 m/s², Gyro=7.94 °/s (averaged from 20 readings)
+2026-09-16 14:56:40.100 RX [NET] WiFi=CONNECTED | MQTT=REMOTE CONNECTED
+2026-09-16 14:56:40.100 RX [TEST] Serial bench commands: off, on, status, log status. Send with CR or LF.
+2026-09-16 14:56:41.351 TX log status [CRLF]
+2026-09-16 14:56:41.355 RX [LOG] state=ready boot=25 session=boot-25 up_ms=14947 clock=synced setup=1 hooks=1 file_bytes=4108 generation=6 newest=5 archives=3 card_bytes=15931539456 free_bytes=15922954240 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 14:56:41.356 RX [LOG] measured=1 stack_min=3588 internal_min=84740 internal_largest=31732 dma_min=77244 dma_largest=31732 writes=7 slow=0 write_max_us=2292 flush_max_us=4987 sd_max_us=171961 rotations=0 pruned=0 oversized=0
+2026-09-16 14:56:41.357 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4604 stack_final_margin=-1
+2026-09-16 14:56:41.357 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:56:41.358 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:56:41.358 RX [LOG MEM] phase=before_clock up_us=1781894 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:56:41.358 RX [LOG MEM] phase=after_clock up_us=1782584 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:56:41.358 RX [LOG MEM] phase=before_writer up_us=1782640 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:56:41.358 RX [LOG MEM] phase=writer_entry up_us=1782848 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:56:41.358 RX [LOG MEM] phase=after_formatter up_us=1782933 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:56:41.358 RX [LOG MEM] phase=before_mount up_us=1783491 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:56:41.358 RX [LOG MEM] phase=after_mount up_us=1955328 free=129836 largest=65524 heap_min_boot=128496
+2026-09-16 14:56:41.359 RX [LOG MEM] phase=before_current_open up_us=1966480 free=129836 largest=65524 heap_min_boot=128496
+2026-09-16 14:56:41.359 RX [LOG MEM] phase=after_current_open up_us=1967842 free=129836 largest=65524 heap_min_boot=128496
+2026-09-16 14:56:41.359 RX [LOG MEM] phase=storage_done up_us=1983853 free=129836 largest=65524 heap_min_boot=128496
+2026-09-16 14:58:12.599 TX log status [CRLF]
+2026-09-16 14:58:12.601 RX [PROBE] window=normal run=1 ms=60006 heap_min_boot=84740 largest_min=31732 interval_ms=10 samples=6001 gap_max_us=10861 scan_max_us=436 timer=on imu_n=2948 imu_min_hz=35.70 imu_avg_hz=49.23
+2026-09-16 14:58:12.601 RX [LOG] state=ready boot=25 session=boot-25 up_ms=106195 clock=synced setup=1 hooks=1 file_bytes=4664 generation=6 newest=5 archives=3 card_bytes=15931539456 free_bytes=15922954240 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 14:58:12.602 RX [LOG] measured=1 stack_min=3588 internal_min=84740 internal_largest=31732 dma_min=77244 dma_largest=31732 writes=8 slow=0 write_max_us=2292 flush_max_us=4987 sd_max_us=171961 rotations=0 pruned=0 oversized=0
+2026-09-16 14:58:12.602 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4604 stack_final_margin=-1
+2026-09-16 14:58:12.603 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:58:12.603 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:58:12.604 RX [LOG MEM] phase=before_clock up_us=1781894 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:58:12.604 RX [LOG MEM] phase=after_clock up_us=1782584 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:58:12.604 RX [LOG MEM] phase=before_writer up_us=1782640 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:58:12.604 RX [LOG MEM] phase=writer_entry up_us=1782848 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:58:12.604 RX [LOG MEM] phase=after_formatter up_us=1782933 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:58:12.604 RX [LOG MEM] phase=before_mount up_us=1783491 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:58:12.604 RX [LOG MEM] phase=after_mount up_us=1955328 free=129836 largest=65524 heap_min_boot=128496
+2026-09-16 14:58:12.604 RX [LOG MEM] phase=before_current_open up_us=1966480 free=129836 largest=65524 heap_min_boot=128496
+2026-09-16 14:58:12.604 RX [LOG MEM] phase=after_current_open up_us=1967842 free=129836 largest=65524 heap_min_boot=128496
+2026-09-16 14:58:12.604 RX [LOG MEM] phase=storage_done up_us=1983853 free=129836 largest=65524 heap_min_boot=128496
+2026-09-16 14:58:15.021 TX log status [CRLF]
+2026-09-16 14:58:15.025 RX [LOG] state=ready boot=25 session=boot-25 up_ms=108619 clock=synced setup=1 hooks=1 file_bytes=4664 generation=6 newest=5 archives=3 card_bytes=15931539456 free_bytes=15922954240 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 14:58:15.025 RX [LOG] measured=1 stack_min=3588 internal_min=84740 internal_largest=31732 dma_min=77244 dma_largest=31732 writes=8 slow=0 write_max_us=2292 flush_max_us=4987 sd_max_us=171961 rotations=0 pruned=0 oversized=0
+2026-09-16 14:58:15.027 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4604 stack_final_margin=-1
+2026-09-16 14:58:15.027 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 14:58:15.028 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 14:58:15.028 RX [LOG MEM] phase=before_clock up_us=1781894 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 14:58:15.028 RX [LOG MEM] phase=after_clock up_us=1782584 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:58:15.028 RX [LOG MEM] phase=before_writer up_us=1782640 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:58:15.028 RX [LOG MEM] phase=writer_entry up_us=1782848 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:58:15.030 RX [LOG MEM] phase=after_formatter up_us=1782933 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:58:15.030 RX [LOG MEM] phase=before_mount up_us=1783491 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 14:58:15.030 RX [LOG MEM] phase=after_mount up_us=1955328 free=129836 largest=65524 heap_min_boot=128496
+2026-09-16 14:58:15.030 RX [LOG MEM] phase=before_current_open up_us=1966480 free=129836 largest=65524 heap_min_boot=128496
+2026-09-16 14:58:15.030 RX [LOG MEM] phase=after_current_open up_us=1967842 free=129836 largest=65524 heap_min_boot=128496
+2026-09-16 14:58:15.030 RX [LOG MEM] phase=storage_done up_us=1983853 free=129836 largest=65524 heap_min_boot=128496
+```
+
+
+## Interrupted-rename recovery runtime passes - 2026-09-16, boot 26, 15:02-15:03
+
+JP supplied post-restart status, then explicitly confirmed he sent log test rename
+and saw "writer paused at requested boundary" before powering down.
+The pre-restart command/pause text is not in this capture; hook execution is
+supported by JP's confirmation, with the recovered state measured below.
+
+| Measurement | First recovered status | Later status |
+|-------------|------------------------|--------------|
+| Boot / uptime | 26 / 24725 ms | 26 / 91318 ms |
+| State / error / drops | ready / none / 0 | unchanged |
+| Generation / newest / archives | 7 / 6 / 4 | unchanged |
+| Current file bytes / writes | 1259 / 8 | 1815 / 9 |
+| Rotations / pruned in this boot | 0 / 0 | unchanged |
+| Writer used / margin | 4604 / 3588 bytes | unchanged |
+| Historical internal minimum / largest | 84912 / 31732 bytes | unchanged |
+
+Generation 7, newest archive 6 and four archives match recovery after preserving
+generation 6 and leaving no current file at the injected boundary. The new file
+grew by 556 bytes and logging remained ready. The serial runtime check passes;
+the missing-current state was not directly inspected on card, and post-recovery
+header/archive contents remain for later file verification.
+
+Writer placement was valid and active: 8192-byte PSRAM stack, internal TCB 352,
+final margin=-1 while running. DMA minimum/largest=77416/31732, queue peak 1 of 16,
+no suppressed/truncated records or slow writes. Write/flush/SD maxima were
+2231/5085/161617 us. The normal probe covered 60001 ms, 6000 samples at 10 ms,
+gap_max_us=11019, scan_max_us=1173, IMU average/minimum 49.19/33.33 Hz.
+No new reset occurs within the supplied recovered-boot capture.
+
+Next single check is partial-header salvage using log test partial, normal limits,
+the existing enabled PSRAM/hooks build and browser monitoring. From generation 7:
+the hook archives the current as archive 7, creates the next current with the
+literal incomplete prefix "local=unknown time=unk", flushes it and pauses.
+Normal shutdown may append shutdown/queued records after that prefix, but does
+not write a valid FILE_OPEN header at the start. The file therefore remains a
+nonempty invalid-header case, not an empty-current case or an abrupt-power-loss test.
+
+Procedure: log status, log test partial once, wait for the boundary-pause message,
+log status and save this pre-shutdown console text. Disconnect USB, let the
+stationary battery board shut down normally, then power on/reconnect browser.
+After green MQTT, log status, wait 65 seconds, log status. Supply both captures.
+Expected: the invalid current is preserved as archive 8, a fresh current has
+generation 9, newest=8, archives=6, logging ready without errors/drops and file
+growth resumed. Normal retention should not prune at these counts/sizes.
+Exact preserved invalid-header bytes and new headers still need later disk inspection.
+No rebuild or card removal. Stop and report if the pause message does not appear
+or a logger error occurs. No firmware edits, build, flash or commit for this result.
+
+
+## Partial-header salvage runtime passes - 2026-09-16, boots 26 to 27, 15:06-15:08
+
+The capture includes both sides of the test. Before injection: boot 26,
+generation 7, newest 6, four archives, current 2934 bytes and logger ready.
+log test partial was sent at 15:06:18.800, followed by the boundary-pause message
+at 15:06:18.870. Paused status showed file_bytes=22; generation/inventory fields
+still reflected the incomplete rotation's earlier snapshot, as expected.
+The source writes and flushes the literal partial prefix "local=unknown time=unk".
+
+| Measurement | Paused boot 26 | Recovered boot 27 | Later boot 27 |
+|-------------|----------------|-------------------|---------------|
+| State / errors / drops | ready / none / 0 | ready / none / 0 | unchanged |
+| Generation / newest / archives | old snapshot 7 / 6 / 4 | 9 / 8 / 6 | unchanged |
+| Current file bytes | 22 | 1284 | 1840 |
+| Writes | 14 | 8 | 9 |
+| Writer used / margin | 4780 / 3412 | 4604 / 3588 | unchanged |
+| Historical internal minimum / largest | 84912 / 31732 | 84788 / 31732 | unchanged |
+
+The USB device was lost at 15:06:41 and available again at 15:07:18.
+This is consistent with the requested disconnect/restart sequence; the browser
+read error during cable removal is not an SD logger error. No serial trace
+captures shutdown itself. The file may contain additional shutdown records after
+the injected partial prefix; exact bytes will be checked on card.
+
+Recovered generation 9, newest archive 8 and six archives match preservation of
+the prior current as archive 7 and the invalid-header file as archive 8.
+There was no pruning reported in the recovered boot. Current file grew 556 bytes
+and the logger remained healthy. This is a runtime recovery pass; preservation,
+prefix bytes, new FILE_OPEN/BOOT headers and exact survivors still need direct
+card inspection before declaring the on-disk gate complete.
+
+Placement remained valid with an active 8192-byte PSRAM stack and internal
+352-byte TCB. The recovered stack margin stayed 3588 bytes; final margin=-1
+while running. Queue peak stayed 1 of 16, with no suppressed/truncated records
+or slow writes. Final DMA minimum/largest=77292/31732.
+Write/flush/SD maxima after restart: 2205/5745/163582 us.
+Normal IMU average/minimum before restart: 49.18/35.64 Hz; afterward 49.15/29.41 Hz.
+Recovered normal probe: 60002 ms, 6000 samples, max gap 10891 us, max scan 429 us.
+These are separate boot observations, not a paired performance comparison.
+
+Next single check: power down normally on battery, then copy the entire /logs
+folder from the card for inspection and backup. Need current.log and all six
+archives, expected archive-00000003.log through archive-00000008.log.
+Inspect archive 8's damaged leading header without repairing it, archive 7's
+prior current, generation 9 FILE_OPEN and BOOT records, per-boot sequences across
+files, absence of managed archives 1 and 2, and final shutdown.
+Generation-7 records may include BOOT context=new for the interrupted-rename
+recovery. Identify actual events from files; do not infer exact data from counters.
+
+Keep original card files unchanged. A folder path accessible to the assistant or
+a zip of the copied folder suffices. No rebuild or firmware change is needed.
+This combines disk verification and backup after multiple storage tests.
+Empty-current recovery, natural size-triggered rotation, unrelated-name deletion
+safety, clock/breadcrumb/deep-sleep and other remaining gates are not silently
+accepted from this result. No build, flash or commit for this turn.
+
+### Serial evidence
+
+The partial calibration payload line is omitted.
+
+```text
+2026-09-16 15:05:51.873 EVENT Console cleared.
+2026-09-16 15:06:08.059 TX log status [CRLF]
+2026-09-16 15:06:08.065 RX [LOG] state=ready boot=26 session=boot-26 up_ms=232142 clock=synced setup=1 hooks=1 file_bytes=2934 generation=7 newest=6 archives=4 card_bytes=15931539456 free_bytes=15922921472 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 15:06:08.066 RX [LOG] measured=1 stack_min=3588 internal_min=84912 internal_largest=31732 dma_min=77416 dma_largest=31732 writes=11 slow=0 write_max_us=2231 flush_max_us=5085 sd_max_us=161617 rotations=0 pruned=0 oversized=0
+2026-09-16 15:06:08.068 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4604 stack_final_margin=-1
+2026-09-16 15:06:08.068 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 15:06:08.068 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 15:06:08.068 RX [LOG MEM] phase=before_clock up_us=1781898 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 15:06:08.068 RX [LOG MEM] phase=after_clock up_us=1782588 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:06:08.068 RX [LOG MEM] phase=before_writer up_us=1782644 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:06:08.068 RX [LOG MEM] phase=writer_entry up_us=1782853 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:06:08.069 RX [LOG MEM] phase=after_formatter up_us=1782937 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:06:08.069 RX [LOG MEM] phase=before_mount up_us=1783497 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:06:08.069 RX [LOG MEM] phase=after_mount up_us=1944990 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:06:08.069 RX [LOG MEM] phase=before_current_open up_us=1961629 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:06:08.069 RX [LOG MEM] phase=after_current_open up_us=1963223 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:06:08.069 RX [LOG MEM] phase=storage_done up_us=1985625 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:06:18.800 TX log test partial [CRLF]
+2026-09-16 15:06:18.804 RX [LOG TEST] hook queued
+2026-09-16 15:06:18.870 RX [LOG TEST] writer paused at requested boundary; reset the board to continue
+2026-09-16 15:06:24.864 RX [PROBE] window=normal run=4 ms=60000 heap_min_boot=84912 largest_min=31732 interval_ms=10 samples=6000 gap_max_us=10889 scan_max_us=1065 timer=on imu_n=2945 imu_min_hz=35.64 imu_avg_hz=49.18
+2026-09-16 15:06:33.218 TX log status [CRLF]
+2026-09-16 15:06:33.224 RX [LOG] state=ready boot=26 session=boot-26 up_ms=257301 clock=synced setup=1 hooks=1 file_bytes=22 generation=7 newest=6 archives=4 card_bytes=15931539456 free_bytes=15922921472 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 15:06:33.224 RX [LOG] measured=1 stack_min=3412 internal_min=84912 internal_largest=31732 dma_min=77416 dma_largest=31732 writes=14 slow=0 write_max_us=3908 flush_max_us=6463 sd_max_us=161617 rotations=0 pruned=0 oversized=0
+2026-09-16 15:06:33.226 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4780 stack_final_margin=-1
+2026-09-16 15:06:33.226 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 15:06:33.228 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 15:06:33.228 RX [LOG MEM] phase=before_clock up_us=1781898 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 15:06:33.228 RX [LOG MEM] phase=after_clock up_us=1782588 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:06:33.228 RX [LOG MEM] phase=before_writer up_us=1782644 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:06:33.228 RX [LOG MEM] phase=writer_entry up_us=1782853 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:06:33.228 RX [LOG MEM] phase=after_formatter up_us=1782937 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:06:33.228 RX [LOG MEM] phase=before_mount up_us=1783497 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:06:33.229 RX [LOG MEM] phase=after_mount up_us=1944990 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:06:33.229 RX [LOG MEM] phase=before_current_open up_us=1961629 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:06:33.229 RX [LOG MEM] phase=after_current_open up_us=1963223 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:06:33.229 RX [LOG MEM] phase=storage_done up_us=1985625 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:06:39.245 RX Movement Detected! (Accel: 0.06, Gyro: 36.08)
+2026-09-16 15:06:39.246 RX TX motion MQTT: Moving (immediate)
+2026-09-16 15:06:41.251 ERROR Read: The device has been lost.
+2026-09-16 15:06:41.252 EVENT read stream ended
+2026-09-16 15:06:41.257 EVENT Disconnected. Keep USB plugged in and check the board. Reconnect here and send status to compare uptime.
+2026-09-16 15:06:41.304 EVENT USB serial device removed.
+2026-09-16 15:07:18.233 EVENT USB serial device available.
+2026-09-16 15:07:31.577 EVENT Connect requested. After open: DTR=true, RTS=false.
+2026-09-16 15:07:34.126 EVENT Explicit signals applied. After open: DTR=true, RTS=false.
+2026-09-16 15:07:34.126 EVENT Connected. Send status; compare with the previous reading if available.
+2026-09-16 15:07:34.126 RX Initial MQTT connection successful!
+2026-09-16 15:07:34.126 RX Motion baseline reset: Accel=0.98 m/s², Gyro=7.60 °/s (averaged from 20 readings)
+2026-09-16 15:07:34.126 RX [NET] WiFi=CONNECTED | MQTT=REMOTE CONNECTED
+2026-09-16 15:07:34.126 RX [TEST] Serial bench commands: off, on, status, log status. Send with CR or LF.
+2026-09-16 15:07:38.302 TX log status [CRLF]
+2026-09-16 15:07:38.304 RX [LOG] state=ready boot=27 session=boot-27 up_ms=20351 clock=synced setup=1 hooks=1 file_bytes=1284 generation=9 newest=8 archives=6 card_bytes=15931539456 free_bytes=15922855936 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 15:07:38.304 RX [LOG] measured=1 stack_min=3588 internal_min=84788 internal_largest=31732 dma_min=77292 dma_largest=31732 writes=8 slow=0 write_max_us=2205 flush_max_us=3849 sd_max_us=163582 rotations=0 pruned=0 oversized=0
+2026-09-16 15:07:38.306 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4604 stack_final_margin=-1
+2026-09-16 15:07:38.306 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 15:07:38.306 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 15:07:38.306 RX [LOG MEM] phase=before_clock up_us=1781895 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 15:07:38.306 RX [LOG MEM] phase=after_clock up_us=1782585 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:07:38.307 RX [LOG MEM] phase=before_writer up_us=1782641 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:07:38.307 RX [LOG MEM] phase=writer_entry up_us=1782850 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:07:38.308 RX [LOG MEM] phase=after_formatter up_us=1782934 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:07:38.308 RX [LOG MEM] phase=before_mount up_us=1783493 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:07:38.308 RX [LOG MEM] phase=after_mount up_us=1946957 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:07:38.308 RX [LOG MEM] phase=before_current_open up_us=1971392 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:07:38.308 RX [LOG MEM] phase=after_current_open up_us=1973755 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:07:38.308 RX [LOG MEM] phase=storage_done up_us=2000498 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:07:44.985 RX Movement Detected! (Accel: 0.05, Gyro: 1.06)
+2026-09-16 15:07:44.986 RX TX motion MQTT: Moving (immediate)
+2026-09-16 15:08:14.990 RX TX motion MQTT: Moving (periodic)
+2026-09-16 15:08:14.995 RX Movement Stopped.
+2026-09-16 15:08:26.345 RX [PROBE] window=normal run=1 ms=60002 heap_min_boot=84788 largest_min=31732 interval_ms=10 samples=6000 gap_max_us=10891 scan_max_us=429 timer=on imu_n=2943 imu_min_hz=29.41 imu_avg_hz=49.15
+2026-09-16 15:08:35.548 TX log status [CRLF]
+2026-09-16 15:08:35.552 RX [LOG] state=ready boot=27 session=boot-27 up_ms=77601 clock=synced setup=1 hooks=1 file_bytes=1840 generation=9 newest=8 archives=6 card_bytes=15931539456 free_bytes=15922855936 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 15:08:35.553 RX [LOG] measured=1 stack_min=3588 internal_min=84788 internal_largest=31732 dma_min=77292 dma_largest=31732 writes=9 slow=0 write_max_us=2205 flush_max_us=5745 sd_max_us=163582 rotations=0 pruned=0 oversized=0
+2026-09-16 15:08:35.554 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4604 stack_final_margin=-1
+2026-09-16 15:08:35.554 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 15:08:35.555 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 15:08:35.555 RX [LOG MEM] phase=before_clock up_us=1781895 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 15:08:35.555 RX [LOG MEM] phase=after_clock up_us=1782585 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:08:35.555 RX [LOG MEM] phase=before_writer up_us=1782641 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:08:35.555 RX [LOG MEM] phase=writer_entry up_us=1782850 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:08:35.556 RX [LOG MEM] phase=after_formatter up_us=1782934 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:08:35.556 RX [LOG MEM] phase=before_mount up_us=1783493 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:08:35.556 RX [LOG MEM] phase=after_mount up_us=1946957 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:08:35.556 RX [LOG MEM] phase=before_current_open up_us=1971392 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:08:35.556 RX [LOG MEM] phase=after_current_open up_us=1973755 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:08:35.556 RX [LOG MEM] phase=storage_done up_us=2000498 free=129836 largest=65524 heap_min_boot=128704
+```
+
+
+## 2026-09-16 15:11 card copy: storage recovery contents verified
+
+JP supplied E:\sdcard\logs after normal shutdown. All seven files (15656 bytes)
+were copied byte for byte to [the evidence folder](bench_data/sd_logs_2026-09-16_1511/README.md).
+SHA-256 hashes were verified after copying. Originals were not modified.
+
+| File | Bytes | Verified contents |
+|---|---:|---|
+| archive-00000003.log | 584 | Valid generation 3 headers; boot 24 sequences 19-21 |
+| archive-00000004.log | 584 | Valid generation 4 headers; boot 24 sequences 22-24 |
+| archive-00000005.log | 584 | Valid generation 5 headers; boot 24 sequences 25-27 |
+| archive-00000006.log | 6474 | Generation 6; boot 24 sequences 28-35, then boot 25 sequences 1-12 with context=append |
+| archive-00000007.log | 3627 | Generation 7, reason=new; boot 26 sequences 1-13 after interrupted rename |
+| archive-00000008.log | 153 | Deliberate 22-byte partial prefix followed directly by boot 26 sequence 14 shutdown record |
+| current.log | 3650 | Generation 9, reason=corrupt_header, context=boot_after_salvage; boot 27 sequences 1-13 |
+
+The surviving names 3 through 8 match the pruning and recovery sequence.
+Archives 1 and 2 are absent as expected after the small-limit pruning test.
+The retained boot-24 range 19-35 is contiguous across archives 3 through 6.
+Boots 25 and 27 have contiguous complete ranges in their retained files.
+Boot 26 has sequences 1-13 in archive 7 and sequence 14 embedded after the
+deliberate malformed prefix in archive 8. No other malformed record prefix was
+found. FILE_OPEN and BOOT begin with the required common fields in the valid files.
+
+Archive 6 confirms append after the simulated full-write failure: boot 25
+continues the same generation instead of replacing boot 24. Boot 24 ends with
+TEST_HOOK sequence 35, as expected when the next write disables the logger.
+Boot 25 ends at the rename test hook. Its current file was already closed and
+renamed before the pause, so no SESSION_END was appended there.
+
+Archive 7 confirms fresh-file creation after interrupted rename. Archive 8
+preserves the exact partial prefix, followed by SESSION_END at 15:07:12.526
+with reason=shutdown and pending=0. This is expected: normal shutdown releases
+the test pause and appends a close record. It is not a valid header or evidence
+of an uncontrolled power-loss test. Boot 27 correctly salvaged it rather than
+disabling logging.
+
+Current ends with SESSION_END at 15:11:53.054, reason=shutdown, pending=0.
+Its health records retain zero drops, suppression and truncation; internal largest
+31732 bytes and writer margin 3588 bytes. Initial unknown clock records are followed
+by SNTP sync and Montreal offset -0400. This confirms cold-boot unknown-to-synced
+ordering, not DST, approximate-time or reset breadcrumb gates.
+
+Outcome: on-card checks pass for retained forced rotations, pruning outcomes,
+reboot append, interrupted rename, partial-header salvage and boot-27 shutdown.
+Unrelated-file protection, natural size rotation, incomplete tails, truly empty
+current recovery and remaining storage/clock/reset gates are still pending.
+Stage 1 is not accepted yet.
+
+Next single test: empty-current recovery using log test header, then log test panic
+while the writer is paused. The intentional software reset avoids normal shutdown
+appending a record into the supposedly empty file. Capture log status before the
+hook, at the pause, after restart and after 65 seconds. The queued TEST_PANIC record
+may not reach disk because the writer is paused; retained breadcrumbs and reset
+reason will need inspection in the next combined card copy.
+
+
+## 2026-09-16 15:23-15:26 empty-current hook and intentional panic: runtime recovery passed
+
+JP supplied the complete browser capture with header pause, intentional abort and
+restart. No additional visual assessment was supplied in this message.
+
+| Check | Result |
+|---|---|
+| Before hook | Boot 28, ready, generation 9, newest 8, six archives, 5316 bytes |
+| Header hook | Queued at 15:23:57.710; paused at 15:23:57.768 |
+| Paused status | Cached file_bytes=5447, generation 9 and inventory; writes=9 |
+| Deliberate reset | log test panic at 15:24:42.298; abort on core 1 and Rebooting captured |
+| Recovery | Boot 29, ready, generation 10, newest 9, seven archives, synced |
+| Continued logging | 1397 to 1953 bytes; writes 8 to 9 |
+| Memory and stack | internal_min=84748, internal_largest=31732; writer used=4604, margin=3588 |
+| Logger counters | No errors, drops, suppression or truncation; queue high=1 |
+| MQTT startup probe | 524 ms, 52 samples, largest_min=31732 |
+| Normal probe | 60001 ms, 6001 samples, gap_max_us=10517, scan_max_us=436; IMU avg=49.27 Hz, min=27.01 Hz |
+
+Correction to the prior test instruction: file_bytes=0 was not a valid serial
+expectation for this pause. createCurrent resets the private sizeBytes to zero
+before testPause(Header), but snapshot.size is refreshed by rawWrite only after
+a write. The header hook has not written anything at its pause. The displayed
+5447 bytes is the prior file's size after the TEST_HOOK record (5316 + 131).
+Generation and archive inventory likewise retain the unfinished rotation's old
+snapshot. Unlike the partial-header hook, this hook has no prefix write to refresh
+the size. No firmware change was made for this reporting limitation.
+
+The captured pause, deliberate abort and successful restart support runtime
+recovery from this boundary. Boot 29 retained generation 10 and seven archives,
+with continued minute logging. On-card FILE_OPEN reason=empty_recovery, SDK reset
+classification and retained breadcrumbs still need verification in the next
+combined card copy. ROM rst:0xc is captured; it alone does not substitute for
+the SDK reset reason in BOOT. The queued TEST_PANIC record may not reach disk
+because the writer was deliberately paused.
+
+The second post-restart status was about 54 seconds after the first, rather
+than 65, but it already includes the next minute record; no repeat is needed.
+Startup also printed i2c driver install error and ESP_IOExpander init ESP_FAIL.
+Setup, QMI8658, Wi-Fi and MQTT subsequently completed. Preserve these messages;
+this capture does not establish their cause or a new regression.
+
+Next single test is the existing controlled watchdog hook on the running board.
+Keep the card installed, USB and hotspot on, hooks=1 and PSRAM stack=1.
+Capture log status, then send log test watchdog once. Wait for its deliberate
+watchdog restart; reconnect the browser if needed, capture log status, wait
+65 seconds and capture it again. Report if no restart occurs within 30 seconds
+before taking recovery actions. Reset class and breadcrumb contents remain for
+the later card inspection; the helper's breadcrumb may be superseded by normal
+main-loop updates, so a specific retained phase is not assumed.
+Stage 1 acceptance remains pending. No firmware changes, build, flash or commit.
+
+### Raw browser capture
+
+```text
+2026-09-16 15:23:43.002 EVENT Console cleared.
+2026-09-16 15:23:47.431 TX log status [CRLF]
+2026-09-16 15:23:47.433 RX [LOG] state=ready boot=28 session=boot-28 up_ms=79119 clock=synced setup=1 hooks=1 file_bytes=5316 generation=9 newest=8 archives=6 card_bytes=15931539456 free_bytes=15922855936 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 15:23:47.434 RX [LOG] measured=1 stack_min=3588 internal_min=84728 internal_largest=31732 dma_min=77232 dma_largest=31732 writes=8 slow=0 write_max_us=2402 flush_max_us=5708 sd_max_us=168545 rotations=0 pruned=0 oversized=0
+2026-09-16 15:23:47.434 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4604 stack_final_margin=-1
+2026-09-16 15:23:47.435 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 15:23:47.436 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 15:23:47.436 RX [LOG MEM] phase=before_clock up_us=1781893 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 15:23:47.436 RX [LOG MEM] phase=after_clock up_us=1782579 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:23:47.436 RX [LOG MEM] phase=before_writer up_us=1782636 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:23:47.437 RX [LOG MEM] phase=writer_entry up_us=1782847 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:23:47.437 RX [LOG MEM] phase=after_formatter up_us=1782929 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:23:47.437 RX [LOG MEM] phase=before_mount up_us=1783489 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:23:47.437 RX [LOG MEM] phase=after_mount up_us=1951914 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:23:47.437 RX [LOG MEM] phase=before_current_open up_us=1968593 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:23:47.437 RX [LOG MEM] phase=after_current_open up_us=1971035 free=129644 largest=65524 heap_min_boot=128704
+2026-09-16 15:23:47.437 RX [LOG MEM] phase=storage_done up_us=1992559 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:23:57.705 TX log test header [CRLF]
+2026-09-16 15:23:57.710 RX [LOG TEST] hook queued
+2026-09-16 15:23:57.768 RX [LOG TEST] writer paused at requested boundary; reset the board to continue
+2026-09-16 15:24:13.146 TX log status [CRLF]
+2026-09-16 15:24:13.148 RX [LOG] state=ready boot=28 session=boot-28 up_ms=104835 clock=synced setup=1 hooks=1 file_bytes=5447 generation=9 newest=8 archives=6 card_bytes=15931539456 free_bytes=15922855936 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 15:24:13.148 RX [LOG] measured=1 stack_min=3412 internal_min=84728 internal_largest=31732 dma_min=77232 dma_largest=31732 writes=9 slow=0 write_max_us=2402 flush_max_us=5708 sd_max_us=168545 rotations=0 pruned=0 oversized=0
+2026-09-16 15:24:13.150 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4780 stack_final_margin=-1
+2026-09-16 15:24:13.150 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 15:24:13.150 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 15:24:13.150 RX [LOG MEM] phase=before_clock up_us=1781893 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 15:24:13.152 RX [LOG MEM] phase=after_clock up_us=1782579 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:24:13.152 RX [LOG MEM] phase=before_writer up_us=1782636 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:24:13.152 RX [LOG MEM] phase=writer_entry up_us=1782847 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:24:13.152 RX [LOG MEM] phase=after_formatter up_us=1782929 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:24:13.152 RX [LOG MEM] phase=before_mount up_us=1783489 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:24:13.152 RX [LOG MEM] phase=after_mount up_us=1951914 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:24:13.152 RX [LOG MEM] phase=before_current_open up_us=1968593 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:24:13.152 RX [LOG MEM] phase=after_current_open up_us=1971035 free=129644 largest=65524 heap_min_boot=128704
+2026-09-16 15:24:13.152 RX [LOG MEM] phase=storage_done up_us=1992559 free=129836 largest=65524 heap_min_boot=128704
+2026-09-16 15:24:27.622 RX [PROBE] window=normal run=1 ms=60002 heap_min_boot=84728 largest_min=31732 interval_ms=10 samples=6001 gap_max_us=10742 scan_max_us=672 timer=on imu_n=2947 imu_min_hz=29.35 imu_avg_hz=49.21
+2026-09-16 15:24:42.298 TX log test panic [CRLF]
+2026-09-16 15:24:42.710 RX
+2026-09-16 15:24:42.710 RX abort() was called at PC 0x4200b72f on core 1
+2026-09-16 15:24:42.710 RX
+2026-09-16 15:24:42.710 RX
+2026-09-16 15:24:42.710 RX Backtrace: 0x403768ea:0x3fcc5b40 0x4037fcf9:0x3fcc5b60 0x403867f5:0x3fcc5b80 0x4200b72f:0x3fcc5c00 0x4200df63:0x3fcc5d50 0x42006d30:0x3fcc5d90 0x420489c8:0x3fcc5dd0 0x40380a1a:0x3fcc5df0
+2026-09-16 15:24:42.710 RX
+2026-09-16 15:24:42.710 RX
+2026-09-16 15:24:42.710 RX
+2026-09-16 15:24:42.710 RX
+2026-09-16 15:24:42.710 RX ELF file SHA256: 53c8d3b75
+2026-09-16 15:24:42.710 RX
+2026-09-16 15:24:42.710 RX Rebooting...
+2026-09-16 15:24:42.710 RX ESP-ROM:esp32s3-20210327
+2026-09-16 15:24:42.710 RX Build:Mar 27 2021
+2026-09-16 15:24:42.711 RX rst:0xc (RTC_SW_CPU_RST),boot:0x2b (SPI_FAST_FLASH_BOOT)
+2026-09-16 15:24:42.711 RX Saved PC:0x4037c5f2
+2026-09-16 15:24:42.713 RX SPIWP:0xee
+2026-09-16 15:24:42.713 RX mode:DIO, clock div:1
+2026-09-16 15:24:42.715 RX load:0x3fce2820,len:0x1188
+2026-09-16 15:24:42.717 RX load:0x403c8700,len:0x4
+2026-09-16 15:24:42.719 RX load:0x403c8704,len:0xbf0
+2026-09-16 15:24:42.721 RX load:0x403cb700,len:0x30e4
+2026-09-16 15:24:42.729 RX entry 0x403c88ac
+2026-09-16 15:24:43.333 RX
+2026-09-16 15:24:43.333 RX === Companion boot === CPU 240 MHz | heap 210116 | PSRAM 8385672
+2026-09-16 15:24:43.333 RX [PROBE] sampler=ready interval_ms=10 caps=INTERNAL task=esp_timer
+2026-09-16 15:24:43.387 RX
+2026-09-16 15:24:43.387 RX --- Board is starting up ---
+2026-09-16 15:24:43.389 RX PMIC init OK.
+2026-09-16 15:24:43.389 RX Performing full ADC subsystem reset to ensure clean state...
+2026-09-16 15:24:43.600 RX PMIC initialization complete
+2026-09-16 15:24:43.601 RX E (483) i2c: i2c driver install error
+2026-09-16 15:24:43.601 RX E (484) ESP_IOExpander: [ESP_IOExpander.cpp:47] init(): Check error -1 (ESP_FAIL)
+2026-09-16 15:24:43.974 RX Display: QSPI clock 20000000 Hz
+2026-09-16 15:24:44.031 RX LVGL initialization complete
+2026-09-16 15:24:44.031 RX   Button event handlers provided by SquareLine wrappers
+2026-09-16 15:24:44.031 RX   Screen event handlers registered
+2026-09-16 15:24:44.031 RX   Screen memory event handlers registered
+2026-09-16 15:24:44.031 RX   Motion icon configured
+2026-09-16 15:24:44.031 RX   Button 2 (Back) custom handler registered
+2026-09-16 15:24:44.032 RX [ScreenMem] Restoring to saved screen ID: 1
+2026-09-16 15:24:44.032 RX PSRAM found: 8MB
+2026-09-16 15:24:44.050 RX QMI8658 Initialized.
+2026-09-16 15:24:44.050 RX Getting initial motion state...
+2026-09-16 15:24:44.050 RX Startup stabilization: 19 intervals remaining (Accel: 0.00, Gyro: 0.00)
+2026-09-16 15:24:44.070 RX Startup stabilization: 18 intervals remaining (Accel: 0.00, Gyro: 0.00)
+2026-09-16 15:24:44.095 RX Startup stabilization: 17 intervals remaining (Accel: 0.00, Gyro: 0.00)
+2026-09-16 15:24:44.110 RX Startup stabilization: 16 intervals remaining (Accel: 0.00, Gyro: 0.00)
+2026-09-16 15:24:44.130 RX Startup stabilization: 15 intervals remaining (Accel: 0.00, Gyro: 0.00)
+2026-09-16 15:24:44.153 RX Accelerometer and Gyroscope configured for continuous reading
+2026-09-16 15:24:44.674 RX Motion baseline reset: Accel=0.98 m/s², Gyro=8.35 °/s (averaged from 20 readings)
+2026-09-16 15:24:44.674 RX [Calib] ----------------------------------------
+2026-09-16 15:24:44.674 RX [Calib] Loading Calibration from NVS...
+2026-09-16 15:24:44.675 RX [Calib] [OK] Gravity & Scale loaded:
+2026-09-16 15:24:44.675 RX     Scale Factor: 1.0030
+2026-09-16 15:24:44.675 RX     Gravity Vec:  [ 0.0500,  0.0780, -0.9987]
+2026-09-16 15:24:44.676 RX [Calib] [OK] Rotation Matrix loaded:
+2026-09-16 15:24:44.676 RX     Row 0 (Vert): [ 0.1812, -0.9811, -0.0676]
+2026-09-16 15:24:44.676 RX     Row 1 (Horz): [-0.9822, -0.1771, -0.0630]
+2026-09-16 15:24:44.676 RX     Row 2 (Up):   [ 0.0498,  0.0778, -0.9957]
+2026-09-16 15:24:44.676 RX [Calib] ----------------------------------------
+2026-09-16 15:24:44.677 RX USB Power Connected - Sleep disabled
+2026-09-16 15:24:44.678 RX USB power detected - sleep disabled
+2026-09-16 15:24:44.679 RX Forcing full UI refresh before WiFi connection...
+2026-09-16 15:24:44.878 RX --- Initializing WiFi ---
+2026-09-16 15:24:44.927 RX Attempting to connect to primary network: iphone-jp
+2026-09-16 15:24:44.927 RX Starting non-blocking scan for SSID: iphone-jp
+2026-09-16 15:24:45.039 RX Startup stabilization: 14 intervals remaining (Accel: 0.00, Gyro: 0.10)
+2026-09-16 15:24:45.039 RX === Calibrating Gyro Bias (please keep stationary) ===
+2026-09-16 15:24:45.039 RX [LOG] ready file=/logs/current.log boot=29 queue_bytes=8192 stack_bytes=8192 core=0
+2026-09-16 15:24:45.100 RX   Gyro bias calculated from 200 samples (sensor coordinates):
+2026-09-16 15:24:45.100 RX     x=6.219 °/s, y=-5.324 °/s, z=0.067 °/s
+2026-09-16 15:24:45.100 RX === Inclinometer Initialized ===
+2026-09-16 15:24:45.100 RX   acc_inertial: vert=0.034 horiz=0.037 up=0.978
+2026-09-16 15:24:45.100 RX   Initial Pitch: 2.02°
+2026-09-16 15:24:45.100 RX   Initial Roll: 2.19°
+2026-09-16 15:24:45.102 RX [NET] WiFi=OFFLINE | MQTT=DISCONNECTED
+2026-09-16 15:24:45.164 RX Startup stabilization: 13 intervals remaining (Accel: 0.00, Gyro: 0.02)
+2026-09-16 15:24:45.221 RX Startup stabilization: 12 intervals remaining (Accel: 0.00, Gyro: 0.29)
+2026-09-16 15:24:45.279 RX Startup stabilization: 11 intervals remaining (Accel: 0.00, Gyro: 0.21)
+2026-09-16 15:24:45.335 RX Startup stabilization: 10 intervals remaining (Accel: 0.00, Gyro: 0.22)
+2026-09-16 15:24:45.400 RX Startup stabilization: 9 intervals remaining (Accel: 0.00, Gyro: 0.25)
+2026-09-16 15:24:45.452 RX Startup stabilization: 8 intervals remaining (Accel: 0.00, Gyro: 0.34)
+2026-09-16 15:24:45.509 RX Startup stabilization: 7 intervals remaining (Accel: 0.00, Gyro: 0.23)
+2026-09-16 15:24:45.566 RX Startup stabilization: 6 intervals remaining (Accel: 0.00, Gyro: 0.44)
+2026-09-16 15:24:45.626 RX Startup stabilization: 5 intervals remaining (Accel: 0.00, Gyro: 0.15)
+2026-09-16 15:24:45.683 RX Startup stabilization: 4 intervals remaining (Accel: 0.00, Gyro: 0.32)
+2026-09-16 15:24:45.750 RX Startup stabilization: 3 intervals remaining (Accel: 0.00, Gyro: 0.06)
+2026-09-16 15:24:45.797 RX Startup stabilization: 2 intervals remaining (Accel: 0.00, Gyro: 0.59)
+2026-09-16 15:24:45.855 RX Startup stabilization: 1 intervals remaining (Accel: 0.00, Gyro: 0.11)
+2026-09-16 15:24:45.910 RX Startup stabilization: 0 intervals remaining (Accel: 0.00, Gyro: 0.45)
+2026-09-16 15:24:47.778 RX
+2026-09-16 15:24:47.778 RX Scan complete. Found 9 networks.
+2026-09-16 15:24:47.778 RX Specified SSID found.
+2026-09-16 15:24:47.781 RX Connecting to WiFi
+2026-09-16 15:24:47.781 RX .
+2026-09-16 15:24:48.290 RX WiFi connected.
+2026-09-16 15:24:48.290 RX SSID: iphone-jp
+2026-09-16 15:24:48.290 RX IP: 172.20.10.2
+2026-09-16 15:24:48.291 RX INFO: Wi-Fi Power Save disabled for stability.
+2026-09-16 15:24:48.291 RX Connection successful!
+2026-09-16 15:24:48.291 RX WiFi connection established successfully.
+2026-09-16 15:24:48.291 RX Allowing network stack to stabilize...
+2026-09-16 15:24:48.295 RX [NET] WiFi=CONNECTED | MQTT=DISCONNECTED
+2026-09-16 15:24:50.382 RX WiFi initialization complete
+2026-09-16 15:24:50.382 RX --- Initializing MQTT ---
+2026-09-16 15:24:50.382 RX Attempting initial MQTT connection...
+2026-09-16 15:24:51.007 RX [PROBE] window=mqtt_connect run=1 ms=524 heap_min_boot=84748 largest_min=31732 interval_ms=10 samples=52 gap_max_us=10625 scan_max_us=358 timer=on
+2026-09-16 15:24:51.013 RX [MQTT] Calibration sent: {"car_unit":true,"new_calib":false,"scale":1.0030,"gravity":[0.0500,0.0780,-0.9987],"rotation":[[0.1812,-0.9811,-0.0676],[-0.9822,-0.1771,-0.0630],[0.0498,0.0778,-0.9957]]}
+2026-09-16 15:24:51.013 RX Initial MQTT connection successful!
+2026-09-16 15:24:51.434 RX Motion baseline reset: Accel=0.98 m/s², Gyro=8.23 °/s (averaged from 20 readings)
+2026-09-16 15:24:51.434 RX [NET] WiFi=CONNECTED | MQTT=REMOTE CONNECTED
+2026-09-16 15:24:51.478 RX --- Setup complete: CPU 240 MHz | heap 90316 | PSRAM 8336052 ---
+2026-09-16 15:24:51.478 RX
+2026-09-16 15:24:51.478 RX [TEST] Serial bench commands: off, on, status, log status. Send with CR or LF.
+2026-09-16 15:25:07.520 TX log status [CRLF]
+2026-09-16 15:25:07.522 RX [LOG] state=ready boot=29 session=boot-29 up_ms=24426 clock=synced setup=1 hooks=1 file_bytes=1397 generation=10 newest=9 archives=7 card_bytes=15931539456 free_bytes=15922823168 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 15:25:07.522 RX [LOG] measured=1 stack_min=3588 internal_min=84748 internal_largest=31732 dma_min=77252 dma_largest=31732 writes=8 slow=0 write_max_us=2191 flush_max_us=5189 sd_max_us=98417 rotations=0 pruned=0 oversized=0
+2026-09-16 15:25:07.524 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4604 stack_final_margin=-1
+2026-09-16 15:25:07.524 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 15:25:07.526 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 15:25:07.526 RX [LOG MEM] phase=before_clock up_us=1781726 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 15:25:07.526 RX [LOG MEM] phase=after_clock up_us=1782433 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:25:07.526 RX [LOG MEM] phase=before_writer up_us=1782496 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:25:07.526 RX [LOG MEM] phase=writer_entry up_us=1782702 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:25:07.526 RX [LOG MEM] phase=after_formatter up_us=1782781 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:25:07.526 RX [LOG MEM] phase=before_mount up_us=1783290 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:25:07.526 RX [LOG MEM] phase=after_mount up_us=1881596 free=129692 largest=65524 heap_min_boot=128624
+2026-09-16 15:25:07.526 RX [LOG MEM] phase=before_current_open up_us=1910877 free=129692 largest=65524 heap_min_boot=128624
+2026-09-16 15:25:07.526 RX [LOG MEM] phase=after_current_open up_us=1913401 free=129692 largest=65524 heap_min_boot=128624
+2026-09-16 15:25:07.526 RX [LOG MEM] phase=storage_done up_us=1943793 free=129692 largest=65524 heap_min_boot=128624
+2026-09-16 15:25:51.478 RX [PROBE] window=normal run=1 ms=60001 heap_min_boot=84748 largest_min=31732 interval_ms=10 samples=6001 gap_max_us=10517 scan_max_us=436 timer=on imu_n=2951 imu_min_hz=27.01 imu_avg_hz=49.27
+2026-09-16 15:26:01.765 TX log status [CRLF]
+2026-09-16 15:26:01.770 RX [LOG] state=ready boot=29 session=boot-29 up_ms=78675 clock=synced setup=1 hooks=1 file_bytes=1953 generation=10 newest=9 archives=7 card_bytes=15931539456 free_bytes=15922823168 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-16 15:26:01.770 RX [LOG] measured=1 stack_min=3588 internal_min=84748 internal_largest=31732 dma_min=77252 dma_largest=31732 writes=9 slow=0 write_max_us=2191 flush_max_us=5189 sd_max_us=98417 rotations=0 pruned=0 oversized=0
+2026-09-16 15:26:01.771 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4604 stack_final_margin=-1
+2026-09-16 15:26:01.772 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-16 15:26:01.773 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-16 15:26:01.773 RX [LOG MEM] phase=before_clock up_us=1781726 free=172680 largest=110580 heap_min_boot=172680
+2026-09-16 15:26:01.773 RX [LOG MEM] phase=after_clock up_us=1782433 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:26:01.773 RX [LOG MEM] phase=before_writer up_us=1782496 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:26:01.773 RX [LOG MEM] phase=writer_entry up_us=1782702 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:26:01.775 RX [LOG MEM] phase=after_formatter up_us=1782781 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:26:01.775 RX [LOG MEM] phase=before_mount up_us=1783290 free=167100 largest=102388 heap_min_boot=166992
+2026-09-16 15:26:01.775 RX [LOG MEM] phase=after_mount up_us=1881596 free=129692 largest=65524 heap_min_boot=128624
+2026-09-16 15:26:01.775 RX [LOG MEM] phase=before_current_open up_us=1910877 free=129692 largest=65524 heap_min_boot=128624
+2026-09-16 15:26:01.775 RX [LOG MEM] phase=after_current_open up_us=1913401 free=129692 largest=65524 heap_min_boot=128624
+2026-09-16 15:26:01.775 RX [LOG MEM] phase=storage_done up_us=1943793 free=129692 largest=65524 heap_min_boot=128624
+```

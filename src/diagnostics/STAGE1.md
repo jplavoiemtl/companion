@@ -149,7 +149,22 @@ build/build_amoled-1-8/sketch/companion.ino.cpp before rebuilding.
 JP builds and flashes. Paired performance, hooks stress and Stage 1 acceptance
 remain pending. No commit or push for this result; preserve local B.
 
-### Next measurement: same-session logging-off versus logging-on
+### Same-session logging-off versus logging-on: completed
+
+OFF capture received 2026-09-16 at 09:37-09:39. JP reported normal operation.
+Normal IMU: 49.26 Hz average, 28.55 Hz minimum over 2950 samples in 60001 ms.
+Latest: 1287 ms for 33629 bytes, image_https largest_min=29684.
+Live: 200 frames over 60132 ms (about 3.326 fps), first frame 1067 ms, maximum
+gap 987 ms; TLS minima 28660 and 29684, full-Live minimum 27636.
+Disabled logger status fields are unavailable as expected; PROBE records supply
+the baseline. JP completed the matching ON capture at 09:43-09:45 (boot 19).
+ON Live: 194 frames over 60417 ms, about 3.211 fps, a 3.46% decrease, passing
+the approximately 5% gate. Normal IMU average/minimum: 49.18/35.58 Hz.
+Latest completed in 1260 ms for the same 33629-byte image. All measured ON media
+block minima were 26612; writer margin stayed 3988, with no errors or drops.
+JP reported normal operation. Next is the separate hooks-only NVS/SD stress.
+The procedure below is retained as the completed pair's reference.
+
 
 Use the current patched source for both builds so the HTTPS cleanup is held
 constant. The original probe-only commit f406063 remains the historical Stage 0
@@ -241,11 +256,110 @@ parked means cleanup is complete and only suspension follows.
 A formatter failure can leave heap measurements unavailable (measured=0) while
 a valid final stack measurement still exists.
 
+### Current next check: controlled watchdog restart
+
+Empty-current hook recovery passed its runtime check across boots 28 to 29.
+The header pause and intentional panic were captured. Boot 29 became ready,
+generation 10, newest archive 9, seven archives. Current grew 1397 to 1953 bytes,
+with no errors or drops, internal largest 31732 and writer margin 3588.
+
+Correction: the prior instruction to expect file_bytes=0 while paused was wrong.
+The actual 5447 is the previous file's cached size after TEST_HOOK. createCurrent
+resets private sizeBytes but snapshot.size updates on rawWrite; no write occurs
+before the empty-header pause. Generation and inventory are also stale there.
+On-card reason=empty_recovery, reset class and breadcrumbs await a combined copy.
+The queued TEST_PANIC need not reach disk while the writer is paused.
+
+The earlier card copy verified storage tests through boot 27:
+[verified copies and hashes](../../docs/bench_data/sd_logs_2026-09-16_1511/README.md).
+Keep the card installed for the next test; no rebuild or configuration change.
+
+1. Keep USB connected and the hotspot on. Use the web console with DTR=true
+   and RTS=false. Keep hooks=1 and PSRAM stack=1.
+2. Send log status and save the output.
+3. Send log test watchdog once. This intentionally triggers a watchdog restart
+   using a registered helper task that sleeps without feeding the watchdog.
+4. Leave the board connected while it restarts. Reconnect the web console if
+   needed. If no restart occurs within 30 seconds, report before taking action.
+5. Send log status, wait 65 seconds, then send log status again.
+6. Paste the complete capture, including watchdog output, and describe whether
+   normal screen operation resumes. Leave the card installed afterward.
+
+Expected: one deliberate watchdog restart, higher boot number, ready logger,
+continued file growth and no unexpected errors or drops. On-card reset class
+and breadcrumb validity will be checked later with the panic records.
+Do not assume the helper's TestWatchdog phase is retained: normal main-loop
+breadcrumb updates can supersede it while the helper waits for timeout.
+This tests the watchdog reset path, not the unresolved VS Code port-close freeze.
+
+Natural size rotation, incomplete tails, unrelated-file protection and remaining
+storage, clock, breadcrumb and deep-sleep checks still need evidence.
+Stage 1 acceptance remains pending.
+
+### NVS/SD stress and card evidence: completed; USB issue tracked separately
+
+JP completed the stress test in boot 21 at 09:55: 283 NVS commits, 993 SD test
+records, zero errors/drops, key_removed=1, nvs_active=0, summary_pending=0.
+NVS and SD intervals overlapped for 29974 ms. Writer used/margin became
+4716/3476 bytes, a 512-byte increase in use with adequate remaining margin.
+Historical internal minimum/largest stayed 84940/31732. The stress probe's
+maximum sampling gap was 65.484 ms; it is separate from normal-use performance.
+The runtime check passed; the subsequent card verification is recorded below.
+
+JP supplied the card file after shutdown. Its byte-identical backup is
+docs/bench_data/sd_current_2026-09-16_1000.txt. All 993 SD stress records,
+the matching TEST_NVS_END counters, consecutive boot-21 sequences 1..1008 and
+SESSION_END reason=shutdown pending=0 were verified. /logs contained only this
+file, so its backup preserves the observed log directory before future pruning.
+Normal shutdown record persistence passes; deep-sleep close and final writer
+cleanup stack margin remain untested.
+
+The file also shows watchdog resets starting boots 19 and 21 before their
+measured tests, around 09:43:24 and 09:54:42 (approximate BOOT local times).
+The tests themselves ran without a reset. Prior boot-20 breadcrumbs say idle;
+there is no backtrace to identify the cause. JP was asked about restart/freeze
+observations after flashing and before opening the console. JP confirmed a
+freeze/restart and suspects closing the VS Code monitor, after which he manually
+resets to reach the web app. Step 0 already reported this before SD logging.
+The controlled transition reproduced the issue in boot 22: healthy VS Code
+status at uptime 387879, monitor close, UI frozen for over 30 seconds, then the
+browser opens successfully with DTR=true/RTS=false but gets no reply to either
+log status or status. There was no observed automatic restart. This does not
+establish that the SD writer or both cores stopped, nor does it explain the
+earlier watchdog resets. No further repetition of this same test is needed.
+Use JP's USB unplug/replug recovery, then the tested browser-only serial workflow;
+keep VS Code for compilation/flashing. The USB issue remains open for host/core
+investigation. Do not infer an SD/PSRAM regression from a symptom that predates it.
+Hooks=1 remains the installed test setting; no firmware change was made.
+
+The procedure below documents the completed runtime test.
+
+The paired performance check passed on 2026-09-16; the full results are in the
+bench record. JP now tests the PSRAM writer alongside main-task flash writes.
+Use a backed-up test card and normal file limits.
+
+1. In diagnostics_config.h, set DIAG_TEST_HOOKS=1. Keep DIAG_ENABLED=1 and
+   DIAG_WRITER_STACK_PSRAM=1. Compile and flash from VS Code.
+2. Connect the web console with DTR=true, RTS=false. Wait for real MQTT green,
+   remain on the dashboard and send log status. Require ready, hooks=1 and
+   valid active PSRAM writer placement.
+3. Send log test nvs once. Keep the hotspot on and leave the unit alone for the
+   30-second run. Do not start Live or change screens.
+4. After the NVS stress ended message, wait two seconds, then send log status.
+   Send the complete capture and report any visible issue. Do not start another
+   test if the logger reports an error, resets or still has summary_pending=1.
+
+Require nvs_active=0, summary_pending=0, key_removed=1, nvs_errors=0,
+positive NVS and SD counts with overlapping intervals, adequate writer stack
+margin, and no errors or drops. Only a src/ configuration header changes, so
+no generated-sketch deletion is needed unless companion.ino is also edited.
+No assistant configuration change, build or flash has been performed.
+
 ### Later tests, after reviewing the paired memory result
 
-After the B Live memory failure is resolved and reviewed, pair full Live and
-TLS-connect checks with hooks off in the same sitting.
-Retain the roughly 5% Live-fps gate and the remaining Stage 1 requirements.
+The targeted B recovery checks and same-session media performance pair have now
+passed. Retain the roughly 5% Live-fps gate and remaining Stage 1 requirements.
+Storage/fault, clock, breadcrumb and terminal stack-margin checks are still pending.
 
 Then use a separate PSRAM build with DIAG_TEST_HOOKS=1 on a backed-up card:
 
