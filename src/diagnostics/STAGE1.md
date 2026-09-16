@@ -41,9 +41,18 @@ cycles now pass in boot 13. The overnight cause remains unresolved.
 JP supplied the SD log. Analysis located a transient low between 07:07 and
 07:08, before the 07:34 recorded reconnection and persistently smaller blocks.
 The short-outage test after Latest reproduced 14324 bytes inside mqtt_connect,
-before Live, and in both subsequent Live TLS windows. Next is the fresh-boot
-hotspot control without any preceding image or Live request.
-Cleanup and hooks-phase results are pending. Stage 1 is not accepted yet.
+before Live, and in both subsequent Live TLS windows. The fresh-boot no-media
+control passed with mqtt_connect largest_min=31732. Outages differed in length
+(about 80 versus 47 seconds), so allocation causation is not yet proven.
+JP approved the still-image TLS close after body completion. It is implemented
+as one explicit stop call. JP's first patched run (boot 17) passed: Latest
+25588 bytes and MQTT reconnect 31732, without errors or drops. Full Live after
+reconnect also passed at 25588 bytes, with normal video and unchanged stack margin.
+Back also passed at 26612 bytes with 1427 ms completion. Automatic camera still-to-Live
+handover passed: still and full Live 25588, both Live TLS windows 26612, first frame
+1036 ms, normal video. The targeted cleanup checks are complete for this boot.
+Review this checkpoint before the remaining paired performance and hooks-phase gates.
+Stage 1 is not accepted yet.
 The 20480-byte gate and Stage 0 probes are unchanged. No commit until JP confirms.
 
 Set the switch in [diagnostics_config.h](diagnostics_config.h):
@@ -63,38 +72,122 @@ immediately suspends again. Stack, TCB and task runtime state remain until reboo
 The writer must never initiate flash, NVS or partition calls, or pass stack-local
 data buffers to raw SDMMC host/command APIs. Normal sector wrappers remain in use.
 
-### Current next test: fresh-boot hotspot recovery without prior media
+### Cleanup checkpoint: targeted checks passed; broader Stage 1 gates remain
 
-The short-outage test after Latest reproduced the 14324-byte memory failure
-inside mqtt_connect run 2 (618 ms), before any Live. Live later also measured
-14324. Functional recovery and video succeeded, with no reported logger error.
-This narrows timing to MQTT reconnection in this sequence; it does not identify
-the allocation owner or prove a leak. No overnight wait is needed to reproduce
-this measured symptom. Details are in the bench record and overnight analysis.
+JP built the approved still-image TLS-close experiment and tested it in boot 17.
+Latest completed in 1302 ms with image_https largest_min=25588. After hotspot
+loss and recovery, mqtt_connect measured 31732 over 509 ms and 51 samples.
+The failed pre-change sequence measured 14324. The floor remains 20480.
 
-Run one control, changing only the prior media history:
-1. Shut down normally and restart the same B firmware, hooks off, card installed.
-2. Wait for green Wi-Fi/MQTT. Connect the console and send log status.
-   Do not press Latest, Live, Back or change screens.
-3. Turn the actual hotspot off for about 90 seconds. Confirm offline and send
-   log status while offline.
-4. Turn the hotspot on. After green MQTT returns, send log status and stop.
-   Do not start Live in this control.
+The final status retains internal_largest=25588 from Latest; the separate MQTT
+window's minimum is 31732. Historical internal_min stayed 36084 through reconnect.
+Stack used/margin remained 4204/3988, placement was valid, and no errors or drops
+were reported. The offline-to-green notification interval was 67.234 seconds,
+versus 80.433 before the patch and 46.719 in the no-media control. Actual hotspot
+toggle times were not captured. This supports the cleanup for the tested sequence;
+it does not identify the unobserved overnight allocation.
 
-Send the full capture, especially mqtt_connect and normal probes. No reflash,
-card removal or serial MQTT off/on command is needed. Stop and preserve evidence
-on errors or a sub-20480 probe.
+The same-boot Live follow-up passed at 08:57-08:58. TLS minima were 26612 and
+25588 bytes; full Live measured 25588 over 6026 samples at 10 ms.
+Video delivered 196 frames in 60.3 s (reported 3.3 fps), first frame 1241 ms,
+maximum frame gap 905 ms. JP reported normal video. The logger stayed ready,
+with zero errors or drops, valid placement and unchanged used/margin 4204/3988.
+Historical internal_min fell from 36084 to 34688 during Live; the largest-block
+minimum stayed 25588. These are different measurements. The floor still passes.
+This is no substitute for the paired logging-on/off performance gate.
 
-Source clue: image completion calls HTTPClient::end, but pinned core 3.1.3 keeps
-the client open when reuse is allowed. Screen unload frees image buffers without
-explicitly stopping that secure client. prepareForRequest explicitly stops it,
-and Live stops it on exit. A retained image connection is therefore a candidate
-interaction, not an established cause. This control separates MQTT recovery
-alone from recovery after a still-image request before choosing a code change.
+JP then tested manual early exit from Live, with the hotspot kept on.
+Live stopped on screen exit after 35 frames in 11.7 s. Its TLS and full-window
+minima were 26612, and the following Latest request also measured 26612 and
+completed in 1298 ms. JP reported normal operation. The intervening normal
+window recovered to 31732; historical largest block stayed 25588.
+Stack used/margin remained 4204/3988, with no logger errors or drops.
+This early-exit check passes.
 
-Stage 1 remains unaccepted, with the 20480 floor and Stage 0 probes unchanged.
-Hooks stress and paired performance acceptance remain paused. Local B is still
-selected for diagnosis; intended default remains 0. No firmware edits or commits.
+JP also interrupted Live by turning the hotspot off in boot 17 at 09:06.
+Video stopped on the expected closed-response error and returned to screen 1.
+Live measured 26612, the successful MQTT reconnect 31732 (152 samples), and
+following Latest 26612 with 1367 ms completion. JP reported normal behavior.
+The zero-duration MQTT window during loss detection had no periodic samples;
+the successful reconnect window is the relevant measurement. Historical largest
+block stayed 25588; stack margin stayed 3988, with no logger errors or drops.
+This network-loss recovery check passes.
+
+Back retrieval then passed at 09:11: image_https largest_min=26612 with 87
+samples over 868 ms; the 33949-byte image displayed in 1427 ms. JP confirmed
+the image was visible. Historical internal_min/largest stayed 34520/25588;
+stack margin stayed 3988 with no errors or drops. JP can trigger the driveway
+camera detection for the next automatic-handover check.
+
+JP completed the automatic camera-triggered handover at 09:23-09:24.
+The still displayed in 1384 ms at largest_min=25588; the handover message followed
+1001 ms later. First Live frame was 1036 ms from Live start. Both TLS windows
+measured 26612, and full Live measured 25588 over 6031 samples. Video delivered
+195 frames in 60.3 s (reported 3.2 fps), maximum frame gap 921 ms.
+JP reported a normal full cycle. Historical largest block stayed 25588;
+internal_min reached 34388. Stack used/margin stayed 4204/3988, with no errors
+or drops. This completes the targeted media and recovery checks for the patch.
+
+Next: review the cleanup checkpoint and its evidence with JP. Do not request more
+of the same media tests without a new concern. The unchanged 20480-byte floor
+passes these cases, but the overnight allocation has not been traced.
+The same-session baseline/logging-on performance gate and separate hooks-phase
+checks below still apply; Stage 1 and Stage 1B acceptance are not inferred.
+Preserve local DIAG_WRITER_STACK_PSRAM=1 and DIAG_TEST_HOOKS=0 until JP is given
+the exact next build/test procedure. JP builds and flashes; no automatic commit.
+
+The patch explicitly stops the secure client after the full still body and
+HTTPClient::end, before decoding. The JPEG remains in PSRAM. Error paths,
+Stage 0 probes, timeouts, writer code and Live frame-to-frame reuse are unchanged.
+Back uses the same still completion path as Latest and is now verified.
+The automatic still-to-Live handover was verified with its fresh TLS handshake.
+The recorded first-frame time and JP's visual confirmation complete that check.
+
+This edit touched src/image only; companion.ino was unchanged, so no generated
+sketch deletion was needed. After any future companion.ino edit, delete
+build/build_amoled-1-8/sketch/companion.ino.cpp before rebuilding.
+JP builds and flashes. Paired performance, hooks stress and Stage 1 acceptance
+remain pending. No commit or push for this result; preserve local B.
+
+### Next measurement: same-session logging-off versus logging-on
+
+Use the current patched source for both builds so the HTTPS cleanup is held
+constant. The original probe-only commit f406063 remains the historical Stage 0
+reference. This controlled pair measures logging overhead on the current source;
+a disabled logger build can retain static diagnostic storage, so it is not a
+byte-for-byte reproduction of the original Stage 0 memory layout.
+
+JP changes only DIAG_ENABLED in diagnostics_config.h for the pair.
+Keep DIAG_WRITER_STACK_PSRAM=1 and DIAG_TEST_HOOKS=0, the same card, hotspot,
+power source and camera scene. Keep the Stage 0 probes identical.
+Do both builds in the same sitting; if interrupted until another day, start the
+pair again. Do not remove the card or introduce network-failure tests in this pair.
+
+First capture (logging off):
+1. Set DIAG_ENABLED=0, compile and flash from VS Code.
+2. Connect the web console with DTR=true, RTS=false. Wait for green MQTT.
+   Send log status to record the inactive logger. No writer or SD mount runs.
+3. Leave the dashboard untouched for one complete 60000 ms normal probe record.
+4. Press Latest once; confirm the image, then return to the dashboard.
+5. Start one full 60-second Live cycle and let it return automatically.
+6. Send log status and retain the entire capture, labelled logging OFF.
+
+Then restore DIAG_ENABLED=1, compile and flash, and repeat the same sequence
+immediately, labelled logging ON. Require ready, hooks=0 and valid PSRAM
+placement in the enabled build. Send the OFF capture first for review, then
+complete the ON capture in the same sitting.
+
+Compare normal IMU min/average and sample counts, Latest total time and image
+size, internal-block minima, Live first frame and maximum gap, and fps computed
+from frames and duration (not just the rounded printed fps). Require no new
+allocation/TLS failures, enabled block minima at least 20480, Live fps within
+about 5% and zero normal-use queue drops. Check writer stack margin. Network
+throughput and JPEG size remain possible performance confounders.
+
+Only a src/ configuration header changes; no generated-sketch deletion is
+needed unless companion.ino also changes. JP owns both builds and flashes.
+The assistant has not changed DIAG_ENABLED for this procedure. This checkpoint
+keeps the tested local B setting and hooks off.
 
 ### Exact first paired test (reference; initial captures received)
 

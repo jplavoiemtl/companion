@@ -86,10 +86,51 @@ buffers without explicitly stopping its secure client. New image preparation
 and Live teardown do stop it. A retained image connection is a candidate
 interaction, not a confirmed bug.
 
-Next: fresh B boot, no Latest, Live, Back or screen changes; log status,
-hotspot off about 90 seconds, offline status, hotspot on, green status, stop.
-Retain mqtt_connect and normal probes. This tests whether prior image activity
-is necessary before selecting a firmware change. JP is preparing this test.
+The fresh-boot no-media control completed in boot 15: mqtt_connect measured
+31732 bytes over 753 ms with 75 samples, passing the floor. Historical memory
+and stack minima were unchanged, with no logger errors or drops. No Live ran.
+The notification interval was 46.719 seconds versus 80.433 in the failing test;
+the control was not duration-matched and cannot prove prior media is required.
+
+JP approved the experiment: explicitly stop the still-image secure client after
+the complete body and httpClient.end, before decoding. The single stop call is
+implemented, preserving the JPEG and normal Live keep-alive. JP built and tested
+it in boot 17 with B and hooks off: Latest, return, hotspot off/on, green MQTT,
+log status, then stop without Live. Latest passed at 25588 bytes and 1302 ms.
+MQTT reconnect passed at 31732 bytes over 509 ms with 51 samples, versus 14324
+before the patch. Historical internal_min stayed 36084 through reconnect.
+Stack used/margin stayed 4204/3988; errors and drops were zero.
+
+The observed offline-to-green interval was 67.234 seconds, not an exact measured
+90-second outage. This first patched pass supports the cleanup; the overnight
+allocation remains untraced. JP then completed full Live in the same boot:
+TLS minima 26612 and 25588; full Live 25588; 196 frames in 60.3 s, first frame
+1241 ms, maximum gap 905 ms. Video looked normal. Stack margin stayed 3988,
+with no errors or drops. The largest-block minimum remained 25588 while
+historical internal_min fell to 34688. Both Latest/reconnect and following Live
+now pass the unchanged 20480-byte floor for this patched sequence.
+A separate manual early-exit test in the same boot also passed, with no hotspot
+interruption: 35 frames in 11.7 s, Live largest_min=26612, following Latest
+largest_min=26612 and 1298 ms completion. Normal-window minimum recovered to
+31732 between them; no errors, drops or stack-margin change. JP reported normal
+operation.
+
+JP next turned the hotspot off during Live in the same boot. Video stopped on
+the expected fetch failure and returned to the dashboard. Live measured 26612,
+successful MQTT reconnect 31732 (152 samples), then Latest 26612 and 1367 ms.
+JP reported normal operation; no logger errors, drops or stack-margin change.
+The historical largest-block minimum remained 25588. The separate immediate
+MQTT window with zero samples is not evidence of handshake memory headroom.
+This network-loss recovery check also passes. Back then passed in the same boot
+at 26612 bytes, displaying 33949 bytes in 1427 ms. JP confirmed the image.
+Historical memory minima and stack margin were unchanged, with no errors or drops.
+The automatic camera still-to-Live test also passed: still and full Live measured
+25588, both Live TLS windows 26612, with 195 frames in 60.3 s. The still displayed
+for 1001 ms before Live started; first video frame took 1036 ms from Live start.
+JP reported normal operation; no errors, drops or stack-margin change.
+All targeted cleanup checks now pass in patched boot 17. Review the checkpoint
+before the remaining same-session performance and hooks-phase gates.
+See Stage 1 handoff for details; this does not accept all of Stage 1.
 
 ## Evidence and validation
 
@@ -108,6 +149,7 @@ Stage 0 probe files and network/media behavior remain unchanged by this
 experiment. Checkpoint review used source inspection and git diff checks.
 The memory floor remains 20480; Stage 1 is still not accepted.
 
-This checkpoint includes the previously implemented A/B switch, retained task
-placement/lifecycle/stack status and hooks-only NVS stress, plus the review and
-measurement records. No reconnection fix is included. No push is requested.
+Checkpoint 3aead88 includes the A/B switch, retained task placement/lifecycle/stack
+status and hooks-only NVS stress, plus reviews and measurements through boot 14.
+The later TLS-close experiment and boot 17 result are uncommitted follow-ups.
+No push is requested.

@@ -172,3 +172,101 @@ errors. Video was normal to JP, 170 frames in 60.3 seconds at 2.8 fps.
 Measured transfer was slower (89 KB/s, 212 ms transfer); do not attribute the
 fps difference to fragmentation without a controlled comparison.
 Full capture and measured details are in sd_diagnostics_bench_results.md.
+
+
+## Follow-up: no-media reconnect control passes (boot 15, 08:30)
+
+JP followed the fresh-boot sequence without image or Live requests.
+mqtt_connect run 2 measured largest_min=31732 over 753 ms, with 75 samples
+and a 10340 us maximum sample gap. Historical internal_min stayed 84904;
+stack used/margin remained 4204/3988, with no logger errors or drops.
+The preceding offline normal probe measured largest_min=38900.
+
+Compared with 14324 after Latest in boot 14, this strengthens the retained
+still-image connection hypothesis. It does not establish a unique cause:
+recorded offline-to-green intervals were 46.719 and 80.433 seconds, and there
+is only one controlled run of each sequence. Keep this duration difference
+visible; do not call the control otherwise perfectly matched.
+
+Recommend a minimal experimental close of the image HTTPS client after complete
+still-body receipt and HTTPClient::end, before decoding. Preserve image buffers
+and Live reuse within a feed. The next Live after a still would require a fresh
+TLS handshake, so handover first-frame timing needs validation. This proposal is
+not implemented; it needs a repeat of the failing sequence after JP's agreement.
+No more general screen tests are needed before that experiment.
+
+
+## Approved cleanup experiment implemented - validation pending
+
+JP approved the change after the no-media control. One httpsClient.stop call
+was added after complete still-image body receipt and httpClient.end, before
+decoding. The JPEG buffer is preserved; error paths, probes, timeouts, MQTT and
+Live code are unchanged. Core 3.1.3 stop calls stop_ssl_socket to release TLS
+resources. No extra debug output or task was added.
+
+JP will compile and flash local B with hooks off, then repeat Latest and a
+90-second actual hotspot outage/recovery, stopping after green MQTT and log
+status. No Live in this first check. Bench validation is pending; the change is
+not yet a proven fix. Later still-to-Live timing must account for the fresh
+TLS handshake. No assistant build, flash or commit.
+
+
+## First patched reconnect passes - 2026-09-16, boot 17, 08:49-08:51
+
+JP built and flashed the still-image TLS-close experiment, then repeated Latest
+and an actual hotspot outage/recovery. B remains selected with hooks off.
+The capture ends after green MQTT and log status; no Live ran in this test.
+
+| Measurement | Result |
+|-------------|--------|
+| Initial historical internal minimum / largest block | 84936 / 31732 bytes |
+| Latest HTTPS window | 760 ms; largest_min=25588; 76 samples at 10 ms |
+| Latest completion | 35085 bytes; 1302 ms; decoded and displayed |
+| Offline / green notifications | 08:49:58.176 / 08:51:05.410; interval 67.234 s |
+| MQTT reconnect window | 509 ms; largest_min=31732; 51 samples at 10 ms |
+| MQTT maximum sample gap / scan time | 10565 / 435 us |
+| Final historical internal minimum / largest block | 36084 / 25588 bytes |
+| Writer used / margin | 4204 / 3988 bytes, unchanged |
+| Placement / lifecycle | PSRAM 8192, internal TCB 352, valid, active |
+| Logger state / errors / drops | ready / none / zero |
+| Queue peak / writes / slow writes | 1 of 16 / 9 / zero |
+| Maximum write / flush / SD operation | 2280 / 4704 / 100422 us |
+
+The reconnect window improved from 14324 in boot 14 to 31732 bytes, exceeding
+the unchanged 20480-byte floor by 11252. The boot's lowest observed block remains
+25588 from Latest, also above the floor. Status keeps that historical minimum;
+it does not contradict the separate MQTT window's 31732. Historical internal_min
+and DMA minima did not fall further at reconnect.
+
+Normal windows reported IMU averages 49.16, 48.67 and 48.64 Hz; minima were
+36.98, 10.78 and 36.80 Hz. The offline normal window's largest_min was 38900.
+There was no new logger error, queue drop or stack-margin loss.
+
+This first patched sequence passes and supports releasing the retained still
+HTTPS connection. It does not identify the original overnight allocation or
+accept Stage 1. Actual hotspot toggle times are unknown: notification intervals
+differ from boot 14's 80.433 s and the no-media control's 46.719 s.
+The Latest timing is a successful completion measurement, not proof of a speed gain.
+
+Next test: keep this firmware and boot, send log status, run one full Live cycle,
+then send log status and the complete Live capture. Back still requests and
+motion still-to-Live handover timing remain later checks. Hooks stress, paired
+performance and the remaining Stage 1 gates are still pending.
+
+## Follow-up: patched full Live after reconnect passes (boot 17, 08:57)
+
+JP kept the same firmware and boot. Both Live TLS windows passed the 20480-byte
+floor at 26612 and 25588; full Live passed at 25588 with 6026 samples at 10 ms.
+Video delivered 196 frames in 60.3 s (reported 3.3 fps), first frame 1241 ms,
+maximum gap 905 ms. JP reported normal video for the cycle.
+
+The logger remained ready with no errors or drops and unchanged stack used/margin
+4204/3988. Historical internal_min fell from 36084 to 34688 during Live; the
+historical largest-block minimum stayed 25588. That distinction matters: this
+run did not repeat the 14324-byte contiguous-block failure.
+
+Latest, reconnect and following Live now pass for patched boot 17. This supports
+the cleanup in the short-outage reproducer; the exact overnight event is still
+untraced. Full evidence is in sd_diagnostics_bench_results.md. Next is one Back
+older-image request with status before and after, then later motion still-to-Live
+handover timing. Stage 1 acceptance and paired performance remain pending.

@@ -32,9 +32,18 @@ usage and no logger errors or drops. JP supplied current.log; the
 [overnight analysis](../../docs/sd_diagnostics_overnight_analysis.md) found a transient
 low between 07:07 and 07:08 while sampled offline, and reduced current contiguous
 space at the 07:34 recorded reconnection. A short outage after Latest reproduced
-14324 inside mqtt_connect and subsequent Live. Next is a fresh-boot hotspot
-control with no prior media request. The allocation cause is unresolved;
-hooks remain off. See STAGE1.md.
+14324 inside mqtt_connect and subsequent Live. The fresh-boot no-media control
+passed at 31732. This supports investigating the retained still-image connection,
+with unequal outage durations as a limit. JP approved the narrow TLS-close
+experiment after still-body completion. JP's first patched test (boot 17)
+passed: Latest 25588 bytes, MQTT reconnect 31732, no errors or drops.
+Full Live after reconnect also passed in boot 17 at 25588 bytes: 196 frames in
+60.3 s, normal video, no errors or drops and unchanged stack margin.
+Early Live exit, hotspot loss during Live and subsequent Latest also passed.
+Back passed at 26612 bytes and 1427 ms. Automatic camera still-to-Live passed
+at 25588 bytes, first frame 1036 ms, with normal video. Targeted cleanup checks
+are complete; checkpoint review and broader Stage 1 gates remain. Hooks stay off.
+See STAGE1.md.
 JP's local switch is 1 for B testing; the intended default remains 0.
 No file protocol or firmware USB configuration change is included.
 

@@ -141,7 +141,18 @@ card-reader retrieval were completed. The [overnight analysis](sd_diagnostics_ov
 found a transient low between 07:07 and 07:08 while sampled offline, followed by
 smaller contiguous blocks at the 07:34 recorded reconnection. A short hotspot
 outage after Latest reproduced 14324 inside mqtt_connect and subsequent Live.
-Next is a fresh-boot hotspot control without prior media; allocation ownership
-and any role of the retained image connection remain unverified.
+The fresh-boot no-media control passed at 31732; outage duration was shorter.
+JP approved the explicit TLS close after still-image body receipt. The single
+stop call is implemented in image_fetcher.cpp; JPEG buffers, Live reuse, probes
+and timeouts remain unchanged. JP built and tested it in boot 17: Latest measured
+25588 bytes and MQTT reconnect 31732, both above 20480, with no errors or drops.
+The following full Live cycle in the same boot also passed: TLS minima 26612 and
+25588, full-Live minimum 25588, 196 frames in 60.3 s and normal video reported by JP.
+No errors or drops; writer stack margin stayed 3988 bytes. Manual early Live exit
+and hotspot loss during Live also passed, including subsequent Latest retrieval.
+Back passed at 26612 bytes and 1427 ms. Automatic camera still-to-Live also passed:
+lowest block 25588, first frame 1036 ms, 195 frames in 60.3 s, normal video.
+The targeted cleanup checks are complete; review this checkpoint before the
+remaining Stage 1 gates. The overnight event's exact cause remains unresolved.
 Hooks-only NVS stress and paired performance tests remain paused.
 JP's local switch is 1 for diagnosis; the intended default remains 0.

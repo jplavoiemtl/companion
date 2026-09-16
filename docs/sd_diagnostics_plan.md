@@ -49,10 +49,27 @@ and card-reader retrieval are complete. The [overnight analysis](sd_diagnostics_
 found a transient low between 07:07 and 07:08 during sampled offline operation,
 then reduced contiguous headroom at the 07:34 recorded reconnection.
 A short hotspot outage after Latest reproduced 14324 bytes inside mqtt_connect
-and subsequent Live. Next is a fresh-boot hotspot control without prior media;
-the allocation cause is not established.
-The overnight cause is unresolved; hooks-phase tests remain paused.
+and subsequent Live. The no-media control passed at 31732 with a shorter outage.
+The retained image connection is the leading hypothesis. JP approved an explicit
+TLS close after still-body completion. JP built and tested the single stop call:
+boot 17 Latest measured 25588 bytes and MQTT reconnect 31732, with no errors or
+drops. This first patched sequence passes the unchanged 20480-byte floor.
+Full Live after reconnect also passed in the same boot: lowest block 25588,
+196 frames in 60.3 s, normal video, no errors or drops and unchanged stack margin.
+Manual early Live exit, hotspot loss during Live and subsequent Latest passed.
+Back also passed at 26612 bytes and 1427 ms. Automatic camera still-to-Live passed
+at 25588 bytes, first frame 1036 ms, with normal video. The targeted cleanup checks
+are complete; review this checkpoint before the remaining gates.
+The overnight cause remains unresolved;
+Stage 1 acceptance and hooks-phase tests remain on hold.
 JP's local switch is 1 for diagnosis; the intended default remains 0. See the handoff.
+
+The next controlled performance pair uses this same patched source with
+DIAG_ENABLED=0 then 1, keeping probes, PSRAM selection and hooks-off settings
+identical. This holds HTTPS cleanup constant. The original Stage 0 commit remains
+the historical reference; the disabled build may retain static diagnostic storage.
+See the [exact paired procedure](../src/diagnostics/STAGE1.md).
+No performance pass is inferred from comparisons with another day.
 
 ## Design decisions
 

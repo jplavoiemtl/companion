@@ -474,6 +474,10 @@ static void processHTTPResponse() {
                        "Starting decode...\n",
                        static_cast<unsigned>(jpeg_bytes_received), millis() - screenTransitionTime);
       httpClient.end();
+      // end() may keep HTTPS alive for reuse. Release its TLS allocations now;
+      // the complete JPEG is already in PSRAM and no longer needs the connection.
+      // Live uses this client separately and keeps its own per-frame reuse.
+      httpsClient.stop();
       httpState = HTTP_DECODING;
     }
     return;
