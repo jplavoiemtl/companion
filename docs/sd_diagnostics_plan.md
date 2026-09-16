@@ -25,6 +25,35 @@ The accepted plan remains the review reference. JP requested committing this Sta
 checkpoint as fe3b5da for code review. Its allocation-order experiment was tested
 and showed no memory improvement.
 
+JP accepted the [memory experiment review](sd_diagnostics_memory_experiment_review_claude.md).
+JP built and tested the DIAG_WRITER_STACK_PSRAM A/B implementation with hooks off:
+internal 6144-byte stack versus experimental 8192-byte PSRAM stack and static
+internal TCB. Latest measured 14836 bytes in A and 26612 in B. B passes this
+initial 20480-byte memory check; both used 4204 bytes of stack with valid placement.
+The captures were about 84 minutes apart with different image sizes, so no
+performance improvement is inferred. On 2026-09-16, B completed a full Live cycle
+normally after about 11 hours 43 minutes of uptime. Both Live TLS windows and full
+Live measured 14324 bytes, below the unchanged 20480-byte floor. The pre-Live
+status already retained that minimum. Stage 1 acceptance stays on hold.
+Fresh-boot B then passed: TLS minima 25588 and 27636 bytes, full Live 25588 bytes,
+normal video and no logger errors or drops. The overnight cause is unresolved.
+Three more same-boot Live cycles passed at 25588, 25588 and 26612 bytes, with
+normal-window minima of 31732 bytes between cycles, normal video and no logger
+errors or drops. G-meter selection and ordinary saves to G-meter and dashboard
+then passed, with responsive display and following Live at 26612 bytes.
+No logger errors or drops occurred. Inclinometer navigation and both saves also
+passed; following Live measured 25588 bytes with unchanged stack usage and no
+errors or drops. Latest-to-Live then passed at 26612 bytes in both operation
+windows. Seven full Live cycles in boot 13 now pass. Normal shutdown
+and card-reader retrieval are complete. The [overnight analysis](sd_diagnostics_overnight_analysis.md)
+found a transient low between 07:07 and 07:08 during sampled offline operation,
+then reduced contiguous headroom at the 07:34 recorded reconnection.
+A short hotspot outage after Latest reproduced 14324 bytes inside mqtt_connect
+and subsequent Live. Next is a fresh-boot hotspot control without prior media;
+the allocation cause is not established.
+The overnight cause is unresolved; hooks-phase tests remain paused.
+JP's local switch is 1 for diagnosis; the intended default remains 0. See the handoff.
+
 ## Design decisions
 
 - **Files and rotation:** append across boots to `/logs/current.log`; rotate by size at **2 MiB**. Keep **30

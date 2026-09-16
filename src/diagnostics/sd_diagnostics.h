@@ -18,7 +18,7 @@ struct DiagnosticsHealth {
 void diagnosticsInitEarly(); // setup, internal stack: NVS, RTC, queue, clock
 void diagnosticsStart();     // after board power initialization; does not wait for SD
 void diagnosticsSetupComplete();
-bool diagnosticsHealthDue(); // rate limits main-task snapshot reads to once per second
+bool diagnosticsHealthDue(); // main task only: health rate limit and optional NVS stress tick
 void diagnosticsUpdateHealth(const DiagnosticsHealth& health);
 void diagnosticsPrintStatus(); // snapshots only; never waits for SD
 bool diagnosticsCommand(const char* command); // log status and compile-time test hooks

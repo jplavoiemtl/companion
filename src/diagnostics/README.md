@@ -15,6 +15,27 @@ measured 14836 bytes with the card installed. Stage 1 acceptance remains on hold
 pending allocation diagnosis. JP verified late retrieval of retained startup
 snapshots with log status. Latest still measured 14836 bytes; see the Stage 1
 handoff and bench results for allocation-phase evidence.
+JP tested the writer-stack A/B experiment with hooks off. Latest measured 14836
+bytes with the internal stack and 26612 with PSRAM, passing B's initial memory
+check. Both used 4204 bytes of stack, with correct placement and no reported
+errors or drops. B's overnight Live run on 2026-09-16 completed normally, but
+both TLS windows and full Live measured 14324 bytes, failing the memory floor.
+Fresh-boot B then passed full Live at 25588 bytes, with normal video and no errors.
+Three more same-boot Live cycles passed at 25588, 25588 and 26612 bytes with
+normal video and no logger errors or drops. The overnight cause is unresolved.
+G-meter selection, saves to G-meter and dashboard, and following Live passed.
+Normal-window minima stayed 31732; Live measured 26612 with unchanged stack use
+and no logger errors or drops. Inclinometer navigation and both saves also passed;
+following Live measured 25588 with unchanged memory history and stack usage.
+Latest-to-Live then passed at 26612 bytes in both windows with unchanged stack
+usage and no logger errors or drops. JP supplied current.log; the
+[overnight analysis](../../docs/sd_diagnostics_overnight_analysis.md) found a transient
+low between 07:07 and 07:08 while sampled offline, and reduced current contiguous
+space at the 07:34 recorded reconnection. A short outage after Latest reproduced
+14324 inside mqtt_connect and subsequent Live. Next is a fresh-boot hotspot
+control with no prior media request. The allocation cause is unresolved;
+hooks remain off. See STAGE1.md.
+JP's local switch is 1 for B testing; the intended default remains 0.
 No file protocol or firmware USB configuration change is included.
 
 ## Windows and output
@@ -39,7 +60,7 @@ have boundary readings only and are not sufficient for the sampling gate.
 |-------|---------|
 | run | Per-window occurrence number since boot |
 | ms | Measured window duration |
-| heap_min_boot | heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL), since boot; not a window-local minimum |
+| heap_min_boot | Sum of heap regions' since-boot low watermarks, possibly from different times; not a window-local or simultaneous global minimum |
 | largest_min | Lowest observed heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), including two boundary readings |
 | interval_ms | Requested periodic interval, 10 ms |
 | samples | Periodic readings for this window, excluding boundary readings |

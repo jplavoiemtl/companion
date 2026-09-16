@@ -121,3 +121,27 @@ measured 14836 bytes with the card installed. Retained startup snapshots passed
 late USB retrieval; the writer-creation interval used 6528 internal bytes. The
 mount interval overlaps Wi-Fi. Latest still measured 14836 bytes.
 Stage 1 acceptance remains on hold. See [bench results](sd_diagnostics_bench_results.md).
+JP accepted the memory experiment review and built both stack variants with hooks
+off. Latest measured 14836 bytes in A and 26612 in B; B passes the initial
+20480-byte memory check. Both used 4204 bytes of stack, with correct placement.
+On 2026-09-16, B completed full Live normally after about 11 hours 43 minutes of
+uptime, but both TLS windows and full Live measured 14324 bytes, failing the
+unchanged floor. The pre-Live status already retained this minimum.
+Fresh-boot B passed full Live at 25588 bytes, with TLS minima 25588 and 27636,
+normal video and no logger errors or drops. The overnight cause is unresolved.
+Three more same-boot Live cycles passed at 25588, 25588 and 26612 bytes with
+normal video and no logger errors or drops. Stage 1 acceptance remains on hold.
+G-meter selection and both ordinary preference saves passed; following Live
+measured 26612 bytes, with responsive controls, normal video and no logger errors
+or drops. Inclinometer navigation, both saves and following Live also passed
+at 25588 bytes, with unchanged stack use and no errors or drops.
+Latest-to-Live passed at 26612 bytes in both operation windows, with unchanged
+stack usage and no logger errors or drops. Normal shutdown and
+card-reader retrieval were completed. The [overnight analysis](sd_diagnostics_overnight_analysis.md)
+found a transient low between 07:07 and 07:08 while sampled offline, followed by
+smaller contiguous blocks at the 07:34 recorded reconnection. A short hotspot
+outage after Latest reproduced 14324 inside mqtt_connect and subsequent Live.
+Next is a fresh-boot hotspot control without prior media; allocation ownership
+and any role of the retained image connection remain unverified.
+Hooks-only NVS stress and paired performance tests remain paused.
+JP's local switch is 1 for diagnosis; the intended default remains 0.

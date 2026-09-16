@@ -6,10 +6,12 @@
 #include <SD_MMC.h>
 #include <esp_vfs_fat.h>
 #include <esp_heap_caps.h>
+#include <esp_memory_utils.h>
 #include <esp_timer.h>
 #include <esp_task_wdt.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <freertos/idf_additions.h>
 #include <freertos/portmacro.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -20,6 +22,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
+#if DIAG_TEST_HOOKS
+#include <Preferences.h>
+#endif
 
 extern HWCDC USBSerial;
 
@@ -32,7 +37,30 @@ constexpr uint64_t RESERVE = 16 * 1024 * 1024;
 constexpr uint32_t MAX_GENERATION = 99999999;
 constexpr size_t ENTRY_LIMIT = 256;
 constexpr size_t LINE_CAPACITY = 1024;
-constexpr size_t WRITER_STACK = 6144; // ESP-IDF task API uses bytes, internal RAM.
+// ESP-IDF stack sizes and high-water marks are in bytes.
+#if DIAG_WRITER_STACK_PSRAM
+constexpr size_t WRITER_STACK = 8192;
+constexpr const char* STACK_MODE = "psram";
+static StaticTask_t writerTcb; // Internal .bss; never heap-allocated or freed.
+#else
+constexpr size_t WRITER_STACK = 6144;
+constexpr const char* STACK_MODE = "internal";
+#endif
+enum class WriterLifecycle : uint8_t { Off, Starting, Active, Parked, CreateFailed, Deleted };
+const char* lifecycleName(WriterLifecycle value) {
+  switch (value) {
+    case WriterLifecycle::Off: return "off";
+    case WriterLifecycle::Starting: return "starting";
+    case WriterLifecycle::Active: return "active";
+    case WriterLifecycle::Parked: return "parked";
+    case WriterLifecycle::CreateFailed: return "create_failed";
+    case WriterLifecycle::Deleted: return "deleted";
+  }
+  return "invalid";
+}
+bool writerRunning(WriterLifecycle value) {
+  return value == WriterLifecycle::Starting || value == WriterLifecycle::Active;
+}
 constexpr uint64_t FLUSH_MS = 2000, HEALTH_MS = 60000, SLOW_US = 100000;
 enum class State : uint8_t { Off, Starting, Ready, Disabled, Closing, Closed };
 const char* stateName(State s) {
@@ -62,6 +90,11 @@ struct Snapshot {
   uint32_t drops = 0, routineDrops = 0, truncated = 0, highWater = 0;
   uint32_t slowWrites = 0, writes = 0, rotations = 0, pruned = 0;
   uint32_t stackMin = UINT32_MAX;
+  uint32_t stackFinalMargin = UINT32_MAX;
+  uintptr_t stackStart = 0;
+  WriterLifecycle writerLifecycle = WriterLifecycle::Off;
+  bool placementValid = false, stackExternal = false, stackLocalExternal = false;
+  bool tcbInternal = false;
   uint32_t internalMin = UINT32_MAX, internalLargest = UINT32_MAX;
   uint32_t dmaMin = UINT32_MAX, dmaLargest = UINT32_MAX;
   uint64_t healthUp = 0;
@@ -93,7 +126,6 @@ uint32_t head = 0, count = 0;
 bool initialized = false, started = false;
 bool accepting = false, closeRequested = false, closeDone = false;
 bool sleepRequested = false;
-TaskHandle_t writerHandle = nullptr;
 diag::Stamp bootStamp{}, closeStamp{};
 uint64_t nextHealthCapture = 0;
 bool setupFinished = false;
@@ -103,6 +135,19 @@ enum class Test : uint8_t { None, Small, Normal, Rotate, Rename, Header, Partial
 Test pendingTest = Test::None;
 Test pauseAt = Test::None;
 bool fullWrites = false, fakeSpace = false;
+// Stress state is shared only through mux. Preferences and nextNvsWrite are main-task only.
+struct NvsStress {
+  bool active = false, summaryPending = false, cleanupOk = false;
+  uint64_t startMs = 0, endMs = 0, firstNvsMs = 0, lastNvsMs = 0;
+  uint64_t firstSdMs = 0, lastSdMs = 0;
+  uint32_t nvsWrites = 0, nvsErrors = 0, sdRecords = 0;
+};
+NvsStress nvsStress;
+Preferences stressPreferences;
+bool stressPreferencesOpen = false;
+uint64_t nextNvsWrite = 0;
+constexpr uint64_t NVS_STRESS_MS = 30000, NVS_INTERVAL_MS = 100;
+constexpr uint32_t NVS_WRITE_LIMIT = 300;
 #endif
 
 // Everything below here that uses SD or an fd runs only on the writer task.
@@ -624,6 +669,112 @@ bool pop(Event& event) {
   return true;
 }
 #if DIAG_TEST_HOOKS
+NvsStress readNvsStress() {
+  portENTER_CRITICAL(&mux); NvsStress copy = nvsStress; portEXIT_CRITICAL(&mux);
+  return copy;
+}
+// Main-task only. Never invoke Preferences from writerTask or any writer callee.
+void finishNvsStress(const char* reason) {
+  portENTER_CRITICAL(&mux);
+  const bool active = nvsStress.active;
+  nvsStress.active = false;
+  portEXIT_CRITICAL(&mux);
+  if (!active) return;
+  bool cleanupOk = false;
+  if (stressPreferencesOpen) {
+    cleanupOk = !stressPreferences.isKey("pulse") || stressPreferences.remove("pulse");
+    stressPreferences.end();
+    stressPreferencesOpen = false;
+  }
+  portENTER_CRITICAL(&mux);
+  nvsStress.cleanupOk = cleanupOk;
+  if (!cleanupOk) ++nvsStress.nvsErrors;
+  nvsStress.summaryPending = true;
+  portEXIT_CRITICAL(&mux);
+  USBSerial.printf("[LOG TEST] NVS stress ended reason=%s key_removed=%u; use log status for counts\n",
+                   reason, cleanupOk);
+}
+void startNvsStress() {
+  const Snapshot s = readSnapshot();
+  const NvsStress previous = readNvsStress();
+  portENTER_CRITICAL(&mux);
+  const bool hookPending = pendingTest != Test::None;
+  portEXIT_CRITICAL(&mux);
+  if (s.state != State::Ready || !setupFinished || previous.active ||
+      previous.summaryPending || closing() || hookPending) {
+    USBSerial.println("[LOG TEST] NVS stress unavailable or busy");
+    return;
+  }
+  // Dedicated dummy key; never touch calibration, screen preferences or boot counter.
+  stressPreferencesOpen = stressPreferences.begin("diagStress", false);
+  if (!stressPreferencesOpen) {
+    USBSerial.println("[LOG TEST] NVS stress namespace open failed");
+    return;
+  }
+  if (stressPreferences.isKey("pulse") && !stressPreferences.remove("pulse")) {
+    stressPreferences.end(); stressPreferencesOpen = false;
+    USBSerial.println("[LOG TEST] NVS stress stale-key cleanup failed");
+    return;
+  }
+  const uint64_t begin = nowMs();
+  portENTER_CRITICAL(&mux);
+  nvsStress = NvsStress{};
+  nvsStress.startMs = begin; nvsStress.endMs = begin + NVS_STRESS_MS;
+  nvsStress.active = true;
+  portEXIT_CRITICAL(&mux);
+  nextNvsWrite = begin;
+  diag::record("TEST_NVS_START", "duration_ms=30000 interval_ms=100 max_writes=300", true);
+  USBSerial.println("[LOG TEST] NVS stress started: 30 s, up to 300 dummy-key commits; writer flushes test records");
+}
+void nvsStressMainTick() {
+  const NvsStress s = readNvsStress();
+  if (!s.active) return;
+  const uint64_t now = nowMs();
+  if (now >= s.endMs || s.nvsWrites >= NVS_WRITE_LIMIT ||
+      readSnapshot().state != State::Ready || closing()) {
+    finishNvsStress(now >= s.endMs || s.nvsWrites >= NVS_WRITE_LIMIT ? "complete" : "logger_stopped");
+    return;
+  }
+  if (now < nextNvsWrite) return;
+  // No catch-up burst after a blocking MQTT call. Only this main-task tick commits NVS.
+  const bool ok = stressPreferences.putUInt("pulse", s.nvsWrites + 1) == sizeof(uint32_t);
+  const uint64_t completed = nowMs();
+  portENTER_CRITICAL(&mux);
+  if (ok) {
+    if (!nvsStress.nvsWrites) nvsStress.firstNvsMs = completed;
+    ++nvsStress.nvsWrites; nvsStress.lastNvsMs = completed;
+  } else ++nvsStress.nvsErrors;
+  portEXIT_CRITICAL(&mux);
+  nextNvsWrite = completed + NVS_INTERVAL_MS;
+  if (!ok) finishNvsStress("nvs_write_failed");
+}
+// Writer only. No flash operations: observe main-task counters and exercise SD writes.
+void nvsStressWriterTick() {
+  const NvsStress s = readNvsStress();
+  if (!s.active && !s.summaryPending) return;
+  if (s.active && nowMs() >= s.endMs) return; // Bound SD stress even if the main loop blocks.
+  char fields[320];
+  if (s.active) {
+    snprintf(fields, sizeof(fields), "source=test nvs_writes=%u sd_records=%u",
+             s.nvsWrites, s.sdRecords + 1);
+    if (prune(LINE_CAPACITY) && writeRecord(diag::stamp(), "WARN", "TEST_NVS_SD", fields) && flushFile()) {
+      const uint64_t completed = nowMs();
+      portENTER_CRITICAL(&mux);
+      if (!nvsStress.sdRecords) nvsStress.firstSdMs = completed;
+      ++nvsStress.sdRecords; nvsStress.lastSdMs = completed;
+      portEXIT_CRITICAL(&mux);
+    }
+  } else {
+    snprintf(fields, sizeof(fields),
+      "source=test nvs_writes=%u nvs_errors=%u sd_records=%u key_removed=%u first_nvs_ms=%llu last_nvs_ms=%llu first_sd_ms=%llu last_sd_ms=%llu",
+      s.nvsWrites, s.nvsErrors, s.sdRecords, s.cleanupOk,
+      static_cast<unsigned long long>(s.firstNvsMs), static_cast<unsigned long long>(s.lastNvsMs),
+      static_cast<unsigned long long>(s.firstSdMs), static_cast<unsigned long long>(s.lastSdMs));
+    if (prune(LINE_CAPACITY) && writeRecord(diag::stamp(), "WARN", "TEST_NVS_END", fields) && flushFile()) {
+      portENTER_CRITICAL(&mux); nvsStress.summaryPending = false; portEXIT_CRITICAL(&mux);
+    }
+  }
+}
 void processTest() {
   portENTER_CRITICAL(&mux); Test test = pendingTest; pendingTest = Test::None; portEXIT_CRITICAL(&mux);
   if (test == Test::None) return;
@@ -638,10 +789,31 @@ void processTest() {
   if (test == Test::Full) writeRecord(diag::stamp(), "WARN", "TEST_FULL_WRITE", "source=test");
 }
 #endif
+// Writer review rule: never initiate flash, NVS or partition operations here or
+// from its callees. Use FatFS/SDMMC sector wrappers, never raw host/command APIs
+// with stack-local data buffers. Cache-off and DMA restrictions still apply.
 void writerTask(void*) {
   // The task stack and control block exist here, before formatter or SD work.
   // Do not add a startup barrier: main-task Wi-Fi setup may overlap these readings.
   captureStartup(StartupPoint::WriterEntry);
+  uint8_t stackMarker = 0;
+  uint8_t* const stackStart = pxTaskGetStackStart(nullptr); // Self, never a cleared handle.
+#if DIAG_WRITER_STACK_PSRAM
+  const void* const tcb = &writerTcb;
+#else
+  const void* const tcb = xTaskGetCurrentTaskHandle();
+#endif
+  const bool stackExternal = esp_ptr_external_ram(stackStart);
+  const bool stackLocalExternal = esp_ptr_external_ram(&stackMarker);
+  const bool tcbInternal = esp_ptr_internal(tcb) && esp_ptr_byte_accessible(tcb);
+  portENTER_CRITICAL(&mux);
+  snapshot.stackStart = reinterpret_cast<uintptr_t>(stackStart);
+  snapshot.stackExternal = stackExternal;
+  snapshot.stackLocalExternal = stackLocalExternal;
+  snapshot.tcbInternal = tcbInternal;
+  snapshot.placementValid = true;
+  snapshot.writerLifecycle = WriterLifecycle::Active;
+  portEXIT_CRITICAL(&mux);
   line = static_cast<char*>(heap_caps_malloc(LINE_CAPACITY, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   captureStartup(StartupPoint::AfterFormatter);
   if (!line) disable("formatter_allocation", ENOMEM);
@@ -655,6 +827,10 @@ void writerTask(void*) {
   while (good() && fd >= 0) {
     memorySample();
     if (closing()) {
+#if DIAG_TEST_HOOKS
+      nvsStressWriterTick(); // Main stopped the test; persist its final counts before close.
+      if (!good()) break;
+#endif
       setState(State::Closing);
       // Producers stop before the request; drain only the finite pre-close queue.
       if (!prune(QUEUE_COUNT * LINE_CAPACITY + 1024)) break;
@@ -675,6 +851,8 @@ void writerTask(void*) {
     }
 #if DIAG_TEST_HOOKS
     processTest();
+    if (!good()) break;
+    nvsStressWriterTick();
     if (!good()) break;
 #endif
     if (nowMs() >= nextClock) { diag::clockPoll(); nextClock = nowMs() + 1000; }
@@ -703,10 +881,28 @@ void writerTask(void*) {
   if (mounted) { SD_MMC.end(); mounted = false; }
   if (line) { heap_caps_free(line); line = nullptr; }
   portENTER_CRITICAL(&mux);
-  accepting = false; closeDone = true; writerHandle = nullptr;
+  accepting = false;
+  portEXIT_CRITICAL(&mux);
+  // Measure after all filesystem/formatter cleanup, while our own stack is valid.
+  const uint32_t finalMargin = uxTaskGetStackHighWaterMark(nullptr);
+  portENTER_CRITICAL(&mux);
+  snapshot.stackMin = min(snapshot.stackMin, finalMargin);
+  snapshot.stackFinalMargin = finalMargin;
+#if DIAG_WRITER_STACK_PSRAM
+  snapshot.writerLifecycle = WriterLifecycle::Parked;
+#else
+  snapshot.writerLifecycle = WriterLifecycle::Deleted; // Cleanup complete; RTOS exit follows.
+#endif
+  closeDone = true;
   portEXIT_CRITICAL(&mux);
   // Queue storage stays allocated: clock callbacks can still observe its disabled state.
+#if DIAG_WRITER_STACK_PSRAM
+  // Once per boot: retain the static TCB, PSRAM stack and task runtime state.
+  // Never free an executing stack. A stray resume immediately parks again.
+  for (;;) vTaskSuspend(nullptr);
+#else
   vTaskDelete(nullptr);
+#endif
 }
 } // namespace
 
@@ -737,7 +933,7 @@ void diagnosticsInitEarly() {
   if (initialized) return;
   initialized = true;
 #if DIAG_ENABLED
-  diag::initializeIdentityClock(); // NVS only here, never writer
+  diag::initializeIdentityClock(); // Boot-counter NVS on the main task, never writer
   bootStamp = diag::stamp();
   queue = static_cast<Event*>(heap_caps_calloc(QUEUE_COUNT, sizeof(Event), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   if (!queue) { disable("queue_allocation", ENOMEM); return; }
@@ -756,9 +952,30 @@ void diagnosticsStart() {
   diag::startClock(); // asynchronous; no wait for Wi-Fi or valid time
   captureStartup(StartupPoint::AfterClock);
   captureStartup(StartupPoint::BeforeWriter);
-  // ESP-IDF allocates ordinary task stacks internally even with PSRAM enabled.
-  if (xTaskCreatePinnedToCore(writerTask, "sd_logger", WRITER_STACK, nullptr, 1, &writerHandle, 0) != pdPASS) {
-    disable("writer_allocation", ENOMEM);
+  portENTER_CRITICAL(&mux);
+  snapshot.writerLifecycle = WriterLifecycle::Starting;
+  portEXIT_CRITICAL(&mux);
+#if DIAG_WRITER_STACK_PSRAM
+  StackType_t* const stack = static_cast<StackType_t*>(
+    heap_caps_malloc(WRITER_STACK, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+  // Fail closed if a different SDK changes the assumed memory placement.
+  const bool placementOk = stack && esp_ptr_external_ram(stack) &&
+    esp_ptr_internal(&writerTcb) && esp_ptr_byte_accessible(&writerTcb);
+  const bool created = placementOk &&
+    xTaskCreateStaticPinnedToCore(writerTask, "sd_logger", WRITER_STACK, nullptr,
+                                 1, stack, &writerTcb, 0) != nullptr;
+  if (!created) heap_caps_free(stack); // No task owns it on this path. Never free the TCB.
+#else
+  // Ordinary task stacks stay internal; do not retain a possibly stale task handle.
+  const bool created =
+    xTaskCreatePinnedToCore(writerTask, "sd_logger", WRITER_STACK, nullptr, 1, nullptr, 0) == pdPASS;
+#endif
+  if (!created) {
+    portENTER_CRITICAL(&mux);
+    snapshot.writerLifecycle = WriterLifecycle::CreateFailed;
+    closeDone = true;
+    portEXIT_CRITICAL(&mux);
+    disable("writer_allocation", ENOMEM); // No internal fallback for the PSRAM experiment.
   }
 #endif
 }
@@ -771,6 +988,9 @@ void diagnosticsSetupComplete() {
 }
 bool diagnosticsHealthDue() {
 #if DIAG_ENABLED
+#if DIAG_TEST_HOOKS
+  nvsStressMainTick(); // This existing background-tick entry is called only by the main task.
+#endif
   uint64_t now = nowMs();
   if (now < nextHealthCapture) return false;
   nextHealthCapture = now + 1000;
@@ -786,9 +1006,11 @@ void diagnosticsUpdateHealth(const DiagnosticsHealth& value) {
 }
 void diagnosticsPrintStatus() {
   Snapshot s = readSnapshot();
-  const bool measured = s.stackMin != UINT32_MAX;
+  const bool stackMeasured = s.stackMin != UINT32_MAX;
+  const bool measured = s.internalMin != UINT32_MAX;
+  if (!stackMeasured) s.stackMin = 0;
   if (!measured) {
-    s.stackMin = s.internalMin = s.internalLargest = s.dmaMin = s.dmaLargest = 0;
+    s.internalMin = s.internalLargest = s.dmaMin = s.dmaLargest = 0;
   }
   uint32_t queued;
   portENTER_CRITICAL(&mux); queued = count; portEXIT_CRITICAL(&mux);
@@ -802,6 +1024,21 @@ void diagnosticsPrintStatus() {
     measured,s.stackMin,s.internalMin,s.internalLargest,s.dmaMin,s.dmaLargest,s.writes,s.slowWrites,
     static_cast<unsigned long long>(s.writeMaxUs),static_cast<unsigned long long>(s.flushMaxUs),
     static_cast<unsigned long long>(s.sdMaxUs),s.rotations,s.pruned,s.oversized);
+  // Values were captured by the writer itself. Never dereference a task handle here.
+  const int stackUsed = stackMeasured ? int(WRITER_STACK - min(uint32_t(WRITER_STACK), s.stackMin)) : -1;
+  const int finalMargin = s.stackFinalMargin == UINT32_MAX ? -1 : int(s.stackFinalMargin);
+  USBSerial.printf("[LOG STACK] stack_mode=%s stack_bytes=%u placement_valid=%u stack_start=0x%lx stack_external=%d stack_local_external=%d tcb_internal=%d tcb_bytes=%u writer_lifecycle=%s stack_used_max=%d stack_final_margin=%d\n",
+    STACK_MODE, unsigned(WRITER_STACK), s.placementValid, static_cast<unsigned long>(s.stackStart),
+    s.placementValid ? int(s.stackExternal) : -1, s.placementValid ? int(s.stackLocalExternal) : -1,
+    s.placementValid ? int(s.tcbInternal) : -1, unsigned(sizeof(StaticTask_t)),
+    lifecycleName(s.writerLifecycle), stackUsed, finalMargin);
+#if DIAG_TEST_HOOKS
+  const NvsStress stress = readNvsStress();
+  USBSerial.printf("[LOG TEST] nvs_active=%u summary_pending=%u nvs_writes=%u nvs_errors=%u sd_records=%u key_removed=%u first_nvs_ms=%llu last_nvs_ms=%llu first_sd_ms=%llu last_sd_ms=%llu\n",
+    stress.active, stress.summaryPending, stress.nvsWrites, stress.nvsErrors, stress.sdRecords, stress.cleanupOk,
+    static_cast<unsigned long long>(stress.firstNvsMs), static_cast<unsigned long long>(stress.lastNvsMs),
+    static_cast<unsigned long long>(stress.firstSdMs), static_cast<unsigned long long>(stress.lastSdMs));
+#endif
   printStartupMemory();
 }
 #if DIAG_TEST_HOOKS
@@ -819,6 +1056,13 @@ void watchdogTest(void*) {
 bool diagnosticsCommand(const char* command) {
   if (!strcmp(command,"log status")) { diagnosticsPrintStatus(); return true; }
 #if DIAG_TEST_HOOKS
+  if (!strcmp(command, "log test nvs")) { startNvsStress(); return true; }
+  if (!strcmp(command, "log test nvs stop")) { finishNvsStress("serial_stop"); return true; }
+  // Keep the stress run separate from destructive faults and limit changes.
+  const NvsStress stress = readNvsStress();
+  if (!strncmp(command, "log test ", 9) && (stress.active || stress.summaryPending)) {
+    USBSerial.println("[LOG TEST] Finish NVS stress before another hook"); return true;
+  }
   if (diag::clockTest(command)) { USBSerial.println("[LOG TEST] clock hook applied"); return true; }
   if (!strcmp(command,"log test panic")) {
     diag::record("TEST_PANIC","source=serial",true);
@@ -856,13 +1100,16 @@ bool diagnosticsCommand(const char* command) {
 bool diagnosticsClose(bool deepSleep, uint32_t waitMs) {
 #if DIAG_ENABLED
   if (!initialized) return true;
+#if DIAG_TEST_HOOKS
+  finishNvsStress("close"); // Main-task-only cleanup of the deliberate dummy-key test.
+#endif
   diag::Stamp when = diag::stamp();
   diag::breadcrumb(false,deepSleep ? diag::Phase::Sleep : diag::Phase::Shutdown);
   portENTER_CRITICAL(&mux);
   if (!closeRequested) {
     closeStamp = when; sleepRequested = deepSleep; closeRequested = true; accepting = false;
   }
-  bool active = writerHandle != nullptr;
+  bool active = writerRunning(snapshot.writerLifecycle);
   portEXIT_CRITICAL(&mux);
   if (!active) return true;
   const uint64_t end = nowMs() + min(waitMs, uint32_t(500));
