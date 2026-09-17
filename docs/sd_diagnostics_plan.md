@@ -1,5 +1,9 @@
 # SD card diagnostic logging plan
 
+**2026-09-17: JP accepted Stage 1 and authorized Stage 1B USB retrieval.**
+The [checkpoint](sd_diagnostics_stage1_checkpoint.md) records the accepted scope and limitations.
+Earlier pending-acceptance statements below are historical.
+
 Project owner and bench tester: **JP**. References to the owner mean JP.
 
 Status: finalized proposal after [SD review and counter-review](sd_diagnostics_plan_review.md),

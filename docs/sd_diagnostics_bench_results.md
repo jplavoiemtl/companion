@@ -6130,3 +6130,9 @@ The [Stage 1 acceptance checkpoint](sd_diagnostics_stage1_checkpoint.md) summari
 passed evidence and explicit limits. Recommendation: accept the tested scope,
 then implement Stage 1B USB retrieval. JP has not yet accepted this checkpoint.
 No firmware change, build, flash, commit, push or card cleanup was performed.
+
+## 2026-09-17 - JP accepts Stage 1
+
+JP: "Please commit and push. Yes I accept Stage 1 let's continue."
+Stage 1 is accepted with the checkpoint's recorded limitations. Stage 1B USB
+retrieval is authorized. JP continues to compile and flash from VS Code.

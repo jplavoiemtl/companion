@@ -1,7 +1,6 @@
 # Stage 1 acceptance checkpoint — 2026-09-17
 
-**Recommendation: JP can accept the tested Stage 1 scope and proceed to Stage 1B.**
-Acceptance has not yet been given. This checkpoint supersedes older "next test"
+**JP accepted the tested Stage 1 scope on 2026-09-17 and authorized Stage 1B.** This checkpoint supersedes older "next test"
 and "not yet passed" statements in the chronological bench history.
 JP builds and flashes; no firmware, card contents or Git history changed during
 this final inspection.
@@ -39,7 +38,7 @@ failed experiments and the same-session performance pair.
 - Physical full-media behavior was not exhaustively tested; the write-failure
   hook and no-card path provide the recorded failure coverage.
 
-## Proposed next step after JP accepts
+## Authorized next step
 
 Keep the validated PSRAM writer configuration. Turn DIAG_TEST_HOOKS off in the
 next ordinary build; it is still 1 in the current test source/firmware.

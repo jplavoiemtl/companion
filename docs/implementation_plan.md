@@ -1,5 +1,9 @@
 # Return to Previous Screen (No Gen-Code Mod)
 
+**2026-09-17: JP accepted Stage 1 and authorized Stage 1B USB retrieval.**
+The [checkpoint](sd_diagnostics_stage1_checkpoint.md) records the accepted scope and limitations.
+Earlier pending-acceptance statements below are historical.
+
 This plan achieves the same goalâ€”returning to the previous screen after image viewingâ€”but respects the constraint of NOT modifying SquareLine Studio generated files (`ui.h`, `ui.c`, `ui_Screen2.c`).
 
 ## User Review Required
