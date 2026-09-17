@@ -1,5 +1,10 @@
 # Stage 1B USB retrieval - first bench handoff
 
+Current handoff: [2026-09-17 end-of-day checkpoint](../../docs/sd_diagnostics_checkpoint_2026-09-17.md).
+Live-only pacing was tested and reverted at JP's request. Flash restored source
+before resuming; keep archive 18 for remaining tests and later USB deletion.
+Earlier sections below preserve implementation and bench history.
+
 JP accepted Stage 1 on 2026-09-17. Stage 1B source is prepared, **not built or
 hardware-tested by the assistant**. Its gate remains pending.
 Stage 1 evidence and acceptance were pushed in 3d0b125 and 3f5b309.
@@ -307,3 +312,31 @@ large Live overlap, remaining abort/current pause and timeout tests, and
 on-board fixture deletion. Leave fixture 18 installed and DIAG_USB_TEST_FIXTURE=1
 until these finish; then use log test del 18 and restore flag 0. Do not rerun
 fixture generation. See docs/sd_diagnostics_bench_results.md for measured status.
+
+
+## Historical Live-only pacing trial (reverted at JP request, 2026-09-17)
+
+The A/B/A runs measured 3.021 fps without download, 2.766 during a 2 MiB
+transfer, then 3.002 without download. JP saw normal video but the concurrent
+run missed the 5% target. JP approved an easy adjustment only.
+
+While USB is active and Live is running, the existing writer now sends at
+most one transfer-protocol line per turn and yields for three scheduler ticks
+(pdMS_TO_TICKS(3)). The installed 3.3.11 sdkconfig has FREERTOS_HZ=1000.
+Outside Live it keeps four lines and one tick. Non-USB idle turns remain 20 ms.
+Both ordinary archive downloads and the current.log append-pause path use
+this pacing. State is rechecked each turn, restoring ordinary speed after Live.
+The Live boolean is now atomic so the writer can safely read it; the accessor
+publishes no video buffers or other video state. No new task, buffer or priority.
+Stage 0 probes, connection-loss tolerance, queue/abort/shutdown checks, CRC,
+5-second no-progress and 120-second current deadlines remain unchanged.
+Status/error output is not counted as file-data lines and retains its existing
+bounded control handling. Slower downloading during Live is the intended cost;
+actual throughput and FPS improvement await JP's measurements.
+
+Ten guard simulations and fourteen browser checks pass; code paths and SDK
+tick rate inspected. No firmware build/flash or commit. JP builds the 3.3.11
+profile; src-only changes do not require removing companion.ino.cpp.
+First take one full Live cycle without downloading, followed by status.
+Then, on separate instruction, repeat with archive 18 starting about 10 seconds
+into Live in the same sitting. Keep fault switches off and MQTT connected.

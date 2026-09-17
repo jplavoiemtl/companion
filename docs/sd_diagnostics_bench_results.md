@@ -1,5 +1,9 @@
 # SD diagnostics bench results
 
+Latest status and next tests: [end-of-day checkpoint, 2026-09-17](sd_diagnostics_checkpoint_2026-09-17.md).
+The optional Live pacing experiment was reverted; retain archive 18 until its
+remaining tests and safe serial deletion. Earlier sections are chronological evidence.
+
 Project owner and bench tester: **JP**. All owner observations below are JP's.
 
 ## 2026-09-15 — Step 0 USB connection check
@@ -6626,3 +6630,88 @@ Free-internal low becomes 92472 in the real-broker connect probe. Same boot rema
 JP requests commit/push checkpoint; Stage1B remains open, fixture flag=1/hooks=0.
 Keep archive18 for remaining tests, then verify serial deletion and disable flag.
 See [timing and evidence](core_3_3_11_trial.md).
+
+
+### 2026-09-17 16:02: fresh Live baseline recorded
+
+Boot 53, no concurrent download; JP reports normal video. 182 frames/60.242 s
+=3.021 fps; frame 331 ms, first 1323 ms, max gap 941 ms. Live sampled largest
+minimum 28660; TLS 31732; internal low 39960; writer margin 3320. No drops/errors.
+Next paired cycle downloads archive 18 about 10 s into Live, same session/build.
+Compare against this baseline, with about 2.870 fps as the 5% lower boundary.
+See [full baseline](core_3_3_11_trial.md). Documentation only.
+
+
+### 2026-09-17 16:05: large Live overlap works, FPS comparison outside target
+
+JP reports normal video. Archive18 downloads in 18.66 s with CRC OK and
+independent exact-byte match. Live 167 frames/60.378 s = 2.766 fps versus
+baseline 3.021 fps: about 8.45% lower, outside the 5% target. Maximum gap
+941 -> 1002 ms; HTTP 322 -> 352 ms, decode 61 -> 65 ms, blit 80 -> 87 ms.
+Memory remains above the gate: largest 28660, TLS largest 31732, writer
+margin 3320. No errors/drops, same boot 53. One 4 ms USB loss recovered.
+Integrity and memory pass; performance remains unresolved. Next: another
+full Live-only cycle in the same sitting to check network/timing variation
+before any pacing change. See [comparison table](core_3_3_11_trial.md).
+Documentation only; no firmware change, build, flash, commit or push.
+
+
+### 2026-09-17 16:10: Live-only control returns to baseline
+
+JP reports normal video. 181 frames/60.302 s =3.002 fps, within 0.65% of the
+first 3.021 fps control. The intervening loaded run 2.766 fps is 7.85% lower
+than this control. HTTP/decode/blit return to 324/61/80 ms. Memory minima
+and stack margin remain 39728/28660/3320 bytes; no drops/errors, same boot 53.
+This strengthens download-interference evidence; the 5% FPS gate remains
+unmet despite normal visual operation. Recommend a small Live-only USB pacing
+adjustment, then fresh paired measurements. No firmware changes yet.
+See [A/B/A results](core_3_3_11_trial.md). Documentation only.
+
+
+### Live-only pacing adjustment prepared for JP
+
+JP approved a small pacing trial. During Live, USB sends one protocol line
+per writer turn with a 3 ms tick-based yield; outside Live it retains four
+lines and one tick. Both archive and current append-pause paths are covered.
+Live flag reads are atomic. No changes to probes, timeouts, tasks or priorities.
+Ten guard simulations and fourteen browser checks pass; performance remains
+unverified until a fresh same-session Live-only and concurrent-download pair.
+See [implementation handoff](../src/diagnostics/STAGE1B.md).
+No firmware build, flash, commit or push.
+
+
+### 2026-09-17 16:20: pacing-build Live baseline ready
+
+Boot 55, JP reports normal video. 180 frames/60.170 s =2.992 fps; frame 334 ms,
+first 1109 ms, maximum gap 1025 ms. TLS largest minimum 31732; full Live 28660;
+internal low 41476. Writer margin 3752 before any download this boot.
+No errors/drops, queue 0/16 high 1, USB resultnone. Use this baseline for the
+same-build concurrent 2 MiB test, with 5% lower FPS boundary 2.842.
+Next: full Live, archive 18 about 10 seconds in, status after both finish.
+See [full baseline](core_3_3_11_trial.md). Documentation only.
+
+
+### 2026-09-17 16:22: paced Live download valid, tradeoff not compelling
+
+Boot 55, JP reports normal video. 2 MiB download 54.73 s; CRC and independent
+exact-byte verification pass. Concurrent Live 2.833 fps versus fresh 2.992:
+5.29% lower, still outside 5%. Max frame gap 1037 vs 1025 ms. Largest 28660,
+TLS 31732, stack margin 3320; no errors/drops. Two 4 ms-or-shorter USB losses recover.
+Pacing extends overlap to almost 50 s and transfer to about 2.9x the prior
+concurrent run. 3 x 54.73 =164.19 s also exceeds 120 s for a mixed-workload
+margin comparison. No archive timeout occurred. Recommend dropping this
+optional pacing experiment and seeking JP's explicit acceptance of the rare
+unpaced performance cost, not further tuning. Neither reversal nor gate
+exception is applied yet. See [full trial](core_3_3_11_trial.md).
+
+
+## End-of-day decision: pacing reverted, checkpoint requested
+
+JP agreed to revert the optional Live pacing and stop tuning this rare overlap.
+All four pacing-only source files were restored to a1dae68 after reviewing their
+diffs. This also removes the atomic Live flag added solely for the writer read.
+The USB connection-loss correction, retained diagnostics and fixture commands
+remain. The board still runs the paced build until JP rebuilds/flashes tomorrow.
+The narrow concurrent-Live FPS exception and remaining Stage 1B gates, including
+log test del 18 validation, are captured in the linked end-of-day checkpoint.
+JP requested commit and push. No build/flash or card deletion by Codex.

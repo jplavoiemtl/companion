@@ -105,6 +105,15 @@ reconnect guard and successful Latest requests after recovery.
 
 Project owner and bench tester: **JP**.
 
+**Current checkpoint (2026-09-17 evening):** Stage 1 is accepted. Stage 1B USB
+retrieval passes large-file integrity and MQTT-overlap tests; remaining abort,
+timeout, queue/pruning and cleanup gates are pending. Optional Live pacing was
+reverted; JP accepted its rare concurrent-download FPS tradeoff. Stage 2 has not
+started. See the [resume checklist](sd_diagnostics_checkpoint_2026-09-17.md).
+The dated findings below are historical; their earlier hold status is superseded
+by the accepted Stage 1 checkpoint.
+
+
 The [SD card diagnostic logging plan](sd_diagnostics_plan.md) has been
 [reviewed and counter-reviewed](sd_diagnostics_plan_review.md). It remains
 the accepted design reference. JP authorized Stage 1 after accepting the Step 0

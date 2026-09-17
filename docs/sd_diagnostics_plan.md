@@ -3,7 +3,9 @@
 ## Current status
 
 JP accepted Stage 1 on 2026-09-17, including its documented limitations.
-Stage 1B USB log retrieval is prepared for JP to build and bench-test; its gate is pending.
+Stage 1B USB retrieval passes normal and large-file integrity tests; remaining safety gates are pending.
+JP accepted the rare large-download/Live FPS tradeoff; optional pacing was reverted.
+See the [end-of-day checkpoint](sd_diagnostics_checkpoint_2026-09-17.md) for the exact resume steps.
 Stage 2 network-event logging has not started.
 
 - [Accepted Stage 1 checkpoint](sd_diagnostics_stage1_checkpoint.md)
@@ -580,6 +582,10 @@ Run gate tests one at a time:
    same-session performance and memory limits. Allow no additional UI stalls beyond
    existing MQTT blocking, no new watchdog resets and no queue drops. Check internal heap,
    largest internal block and writer-stack margin.
+   JP accepted an exception on 2026-09-17 for the roughly 8% Live FPS reduction
+   during a simultaneous 2 MiB USB download. The 5% comparison was not passed;
+   memory, integrity and other performance requirements remain unchanged. See the
+   [measured tradeoff and decision](sd_diagnostics_checkpoint_2026-09-17.md).
 4. **Debug and validation:** verify ordinary prints remain visible during retrieval.
    Use a page-side test switch to drop or damage one data line. Validation must reject
    the file, and a later retry must succeed.
