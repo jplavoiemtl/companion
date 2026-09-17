@@ -3,6 +3,7 @@
 **2026-09-17: JP accepted Stage 1 and authorized Stage 1B USB retrieval.**
 The [checkpoint](../../docs/sd_diagnostics_stage1_checkpoint.md) records the accepted scope and limitations.
 Earlier pending-acceptance statements below are historical.
+Continue with the [Stage 1B bench handoff](STAGE1B.md).
 
 **Current status (2026-09-17):** the agreed Stage 1 bench sequence is complete.
 See the [acceptance checkpoint](../../docs/sd_diagnostics_stage1_checkpoint.md)

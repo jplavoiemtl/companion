@@ -12,7 +12,15 @@
 #include "Arduino_GFX_Library.h"
 #include "ui.h"
 #include "Arduino_DriveBus_Library.h"
+#include <esp_arduino_version.h>
+// Keep the 3.1.3 profiles usable; newer cores must not pull in the legacy I2C driver.
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 2, 0)
+#define COMPANION_ADAFRUIT_EXPANDER 1
+#include <Adafruit_XCA9554.h>
+#else
+#define COMPANION_ADAFRUIT_EXPANDER 0
 #include <ESP_IOExpander_Library.h>
+#endif
 #include "HWCDC.h"
 #include "XPowersLib.h"
 #include <PubSubClient.h>
@@ -107,7 +115,12 @@ const unsigned long INCLINOMETER_DISPLAY_INTERVAL = 500; // 200ms = 5 Hz, 500
 // --- Global Objects ---
 HWCDC USBSerial;
 XPowersAXP2101 pmic;
+#if COMPANION_ADAFRUIT_EXPANDER
+static Adafruit_XCA9554 expanderInstance;
+static Adafruit_XCA9554* const expander = &expanderInstance;
+#else
 ESP_IOExpander *expander = NULL;
+#endif
 SemaphoreHandle_t i2c_mutex = NULL;
 
 // --- G-Meter Display Objects ---
@@ -181,8 +194,10 @@ bool g_mqttConfiguredLate = false;    // true after we configure MQTT on a late 
 std::shared_ptr<Arduino_IIC_DriveBus> IIC_Bus = nullptr;
 std::unique_ptr<Arduino_IIC> FT3168 = nullptr;
 
+#if !COMPANION_ADAFRUIT_EXPANDER
 #define _EXAMPLE_CHIP_CLASS(name, ...) ESP_IOExpander_##name(__VA_ARGS__)
 #define EXAMPLE_CHIP_CLASS(name, ...) _EXAMPLE_CHIP_CLASS(name, ##__VA_ARGS__)
+#endif
 
 #define LVGL_TICK_PERIOD_MS 2
 static const uint16_t screenWidth = 368;
@@ -200,8 +215,14 @@ static lv_color_t buf[screenWidth * screenHeight / 10];
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
 
+// The 3.3.11 trial profile pairs the core with Waveshare graphics 1.6.4.
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 3, 11)
+Arduino_GFX *gfx = new Arduino_SH8601(bus, -1 /* RST */,
+                                      0 /* rotation */, LCD_WIDTH, LCD_HEIGHT);
+#else
 Arduino_GFX *gfx = new Arduino_SH8601(bus, -1 /* RST */,
                                       0 /* rotation */, false /* IPS */, LCD_WIDTH, LCD_HEIGHT);
+#endif
 
 
 #if LV_USE_LOG != 0
@@ -1839,6 +1860,14 @@ void initPMIC() {
  * Sets up GPIO pins for LCD control
  */
 void initIOExpander() {
+#if COMPANION_ADAFRUIT_EXPANDER
+    // Wire is already initialized by setup(). Preserve address, reset pins and timing.
+    if (!expander->begin(0x20, &Wire)) {
+        USBSerial.println("ERROR: Adafruit XCA9554 initialization failed at 0x20");
+        // Do not continue to the display with its reset controller unavailable.
+        for (;;) delay(1000);
+    }
+#else
     // This is creating an error with the pin parameters from the I/O Expander constructor
     // But after extensive testing, it works correctly at runtime.
     expander = new EXAMPLE_CHIP_CLASS(TCA95xx_8bit,
@@ -1847,6 +1876,7 @@ void initIOExpander() {
     
     expander->init();
     expander->begin();
+#endif
     
     // Configure pins for LCD control
     expander->pinMode(0, OUTPUT);
@@ -1892,8 +1922,12 @@ void initDisplay() {
                        static_cast<long>(DISPLAY_QSPI_HZ));
     }
 
-    gfx->fillScreen(BLACK);
-    gfx->Display_Brightness(150);    
+    gfx->fillScreen(RGB565_BLACK);
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 3, 11)
+    static_cast<Arduino_SH8601*>(gfx)->setBrightness(150);
+#else
+    gfx->Display_Brightness(150);
+#endif
 }
 
 /****************************************************************************************************
@@ -2182,6 +2216,8 @@ void finalizeSetup() {
 //***************************************************************************************************
 void setup() {
   USBSerial.begin(115200);
+  USBSerial.printf("[BUILD] core=%s expander=%s\n", ESP_ARDUINO_VERSION_STR,
+                   COMPANION_ADAFRUIT_EXPANDER ? "Adafruit_XCA9554" : "ESP32_IO_Expander");
 
   // Boot banner. The CPU frequency is logged deliberately: the profile changed
   // from 80 to 240 MHz for the live video feed, and this is how you confirm the
@@ -2337,9 +2373,10 @@ void loop() {
     return; // Exit the loop immediately.
   }
 
-  // Normal IMU windows exclude media. Stage 1B must also pass false during USB downloads.
-  diagnosticsProbeNormalUpdate(!imageFetcherIsBusy() && !videoStreamActive());
-  netBenchLoop();  // Serial off/on/status commands; also runs while WiFi is down.
+  netBenchLoop();  // Serial commands, including while WiFi is down.
+  diagnosticsUsbMainTick();
+  // Evaluate after commands so an accepted download excludes this turn's IMU sample.
+  diagnosticsProbeNormalUpdate(!imageFetcherIsBusy() && !videoStreamActive() && !diagnosticsUsbTransferActive());
 
   // --- Task 1: Per-tick UI / sensor work (shared with boot-time keep-alive) ---
   // runBackgroundTick covers IMU read, motion state, G-meter dot, motion icon,

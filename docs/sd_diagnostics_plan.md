@@ -1,182 +1,18 @@
 # SD card diagnostic logging plan
 
-**2026-09-17: JP accepted Stage 1 and authorized Stage 1B USB retrieval.**
-The [checkpoint](sd_diagnostics_stage1_checkpoint.md) records the accepted scope and limitations.
-Earlier pending-acceptance statements below are historical.
+## Current status
 
-Project owner and bench tester: **JP**. References to the owner mean JP.
+JP accepted Stage 1 on 2026-09-17, including its documented limitations.
+Stage 1B USB log retrieval is prepared for JP to build and bench-test; its gate is pending.
+Stage 2 network-event logging has not started.
 
-Status: finalized proposal after [SD review and counter-review](sd_diagnostics_plan_review.md),
-[USB review](sd_usb_log_retrieval_plan_codex_review.md) and owner-accepted
-[USB counter-review](sd_usb_log_retrieval_plan_counter_review.md). This plan now covers
-logging and USB retrieval. Input: [USB investigation brief](ESP32_SD_Log_USB_Investigation.md).
-Step 0 passed on the tested board and Chrome with explicit DTR=true, RTS=false.
-The VS Code monitor disconnect freeze remains unresolved. See the
-[bench results](sd_diagnostics_bench_results.md) for evidence and scope.
-Stage 0 initial measurement coverage is complete: normal, Latest HTTPS, Live TLS,
-full Live and failed and successful MQTT connects. JP accepted this checkpoint and
-authorized Stage 1 on 2026-09-15. The baseline is committed as f406063.
-JP built and flashed Stage 1; the initial ready, clock-sync and normal-operation
-check passed. Latest then reached a 14836-byte largest internal block, failing
-the 20480-byte memory floor. No-card HTTPS recovered to 28660 bytes. An allocation-order
-experiment moved the writer after hardware and UI setup, before Wi-Fi initialization.
-The card-installed retest still measured 14836 bytes; the experiment did not fix the
-memory gate. JP verified retained startup snapshots through log status. The writer
-creation interval used 6528 internal bytes; mount readings overlap Wi-Fi startup.
-Latest still measured 14836 bytes. Stage 1 acceptance remains on hold. See [Stage 1 handoff](../src/diagnostics/STAGE1.md) for implementation
-choices and tests. USB file retrieval and later event hooks remain unimplemented.
-The accepted plan remains the review reference. JP requested committing this Stage 1
-checkpoint as fe3b5da for code review. Its allocation-order experiment was tested
-and showed no memory improvement.
+- [Accepted Stage 1 checkpoint](sd_diagnostics_stage1_checkpoint.md)
+- [Bench results and raw evidence](sd_diagnostics_bench_results.md)
+- [Implementation and bench handoff](../src/diagnostics/STAGE1.md)
 
-JP accepted the [memory experiment review](sd_diagnostics_memory_experiment_review_claude.md).
-JP built and tested the DIAG_WRITER_STACK_PSRAM A/B implementation with hooks off:
-internal 6144-byte stack versus experimental 8192-byte PSRAM stack and static
-internal TCB. Latest measured 14836 bytes in A and 26612 in B. B passes this
-initial 20480-byte memory check; both used 4204 bytes of stack with valid placement.
-The captures were about 84 minutes apart with different image sizes, so no
-performance improvement is inferred. On 2026-09-16, B completed a full Live cycle
-normally after about 11 hours 43 minutes of uptime. Both Live TLS windows and full
-Live measured 14324 bytes, below the unchanged 20480-byte floor. The pre-Live
-status already retained that minimum. Stage 1 acceptance stays on hold.
-Fresh-boot B then passed: TLS minima 25588 and 27636 bytes, full Live 25588 bytes,
-normal video and no logger errors or drops. The overnight cause is unresolved.
-Three more same-boot Live cycles passed at 25588, 25588 and 26612 bytes, with
-normal-window minima of 31732 bytes between cycles, normal video and no logger
-errors or drops. G-meter selection and ordinary saves to G-meter and dashboard
-then passed, with responsive display and following Live at 26612 bytes.
-No logger errors or drops occurred. Inclinometer navigation and both saves also
-passed; following Live measured 25588 bytes with unchanged stack usage and no
-errors or drops. Latest-to-Live then passed at 26612 bytes in both operation
-windows. Seven full Live cycles in boot 13 now pass. Normal shutdown
-and card-reader retrieval are complete. The [overnight analysis](sd_diagnostics_overnight_analysis.md)
-found a transient low between 07:07 and 07:08 during sampled offline operation,
-then reduced contiguous headroom at the 07:34 recorded reconnection.
-A short hotspot outage after Latest reproduced 14324 bytes inside mqtt_connect
-and subsequent Live. The no-media control passed at 31732 with a shorter outage.
-The retained image connection is the leading hypothesis. JP approved an explicit
-TLS close after still-body completion. JP built and tested the single stop call:
-boot 17 Latest measured 25588 bytes and MQTT reconnect 31732, with no errors or
-drops. This first patched sequence passes the unchanged 20480-byte floor.
-Full Live after reconnect also passed in the same boot: lowest block 25588,
-196 frames in 60.3 s, normal video, no errors or drops and unchanged stack margin.
-Manual early Live exit, hotspot loss during Live and subsequent Latest passed.
-Back also passed at 26612 bytes and 1427 ms. Automatic camera still-to-Live passed
-at 25588 bytes, first frame 1036 ms, with normal video. The targeted cleanup checks
-are complete; review this checkpoint before the remaining gates.
-The overnight cause remains unresolved;
-The same-session logging-OFF/ON pair passed on 2026-09-16: Live fps decreased
-3.46% (within 5%), ON media block minima were 26612, and normal IMU average was
-49.18 versus 49.26 Hz. No logger errors or drops; stack margin stayed 3988.
-The hooks-only NVS/SD runtime stress also passed: 283 flash commits and 993 SD
-records, no errors or drops, dummy key removed, writer stack margin 3476.
-Card inspection verified all 993 stress records, the final counters and normal
-SESSION_END with pending=0; a byte-identical backup is preserved. It also exposed
-startup watchdog resets before boots 19 and 21's successful timed tests.
-JP reproduced the pre-existing VS Code monitor-close freeze without flashing:
-UI remains frozen over 30 seconds; the browser opens but status commands get no
-reply. No automatic restart was observed. This remains separate from the earlier
-watchdog markers. Use USB recovery and browser-only serial monitoring while the
-host/core issue is investigated; no USB or watchdog settings were changed.
-JP confirmed recovery in boot 23. Normal-limit forced rotation passed in boot 24:
-one archive, generation 2, new file growth 449 to 1008 bytes, no errors/drops,
-writer margin 3412. Small-limit rotation/pruning also passed: generation 6,
-three archives, two pruned, no errors/drops and unchanged stack margin. Normal
-limits were restored by command. Simulated full-card failure then passed:
-logger disabled/parked as intended, final writer stack margin 3412, Latest still
-working at 26612-byte HTTPS minimum and 1274 ms completion. Reboot recovery
-also passed in boot 25: ready, generation 6 and three archives retained, file
-growth 4108 to 4664. Interrupted-rename recovery then passed in boot 26:
-JP confirmed the pause; generation 7, four archives and file growth 1259 to 1815
-were observed. Partial-header salvage then passed its runtime check in boot 27:
-generation 9, six archives, file growth 1284 to 1840, no errors/drops.
-The supplied card copy now confirms archives 3 through 8, retained sequence
-continuity, boot-25 append, boot-26 rename recovery, and boot-27 salvage into
-generation 9. Archive 8 preserves the deliberate partial prefix plus a shutdown
-record. Current ends with a clean shutdown at 15:11:53, pending=0.
-Byte-identical copies and hashes are retained in docs/bench_data/sd_logs_2026-09-16_1511/.
-The empty-header hook and intentional panic then passed runtime recovery in
-boot 29: generation 10, seven archives, file growth 1397 to 1953, no errors/drops.
-Paused file_bytes was a stale snapshot, not a measurement of the new empty file.
-Evening SD inspection corrects this coverage: reason=new confirms missing-file
-recovery after the empty-header pause; surviving-empty-file recovery is still untested.
-Controlled watchdog triggering, restart and continued logging passed in boot 30:
-diag_wdt timed out after about 5 seconds; the logger returned ready at generation
-10. Follow-up confirmed file growth 80950 to 82629 and writes 7 to 10, no errors
-or drops, largest block 31732 and writer margin 3588. Evening SD inspection verified
-panic and task_watchdog reset classes and both valid main/writer breadcrumbs. The spring clock hook then passed
-runtime checks: synced -> approx -> synced, file growth 85436 to 87852,
-writes 15 to 23, no errors or drops and unchanged memory/stack minima.
-The autumn hook also passed runtime checks: synced -> approx -> synced,
-file growth 88414 to 90798 and writes 24 to 32, with no errors/drops and unchanged
-memory/stack minima. Evening SD inspection verified both DST offsets, real-time
-restoration, approximate-to-synced correction records and the final clean shutdown.
-Eight files and hashes are backed up in docs/bench_data/sd_logs_2026-09-16_1802/.
-No-card startup and PSRAM-writer terminal cleanup then passed in boot 31:
-expected mount failure, parked writer, final stack margin 4116, Latest successful
-in 4722 ms with HTTPS largest block 26612. JP confirmed normal board operation.
-JP confirmed E:\sdcard as the actual card. Its logs matched the evening backup.
-The 92055-byte current file is preserved as archive 10, and a flushed, closed
-zero-byte current.log was prepared. Boot 32 then passed runtime recovery:
-generation 11, eight archives, file growth 1257 to 1814 and writes 8 to 9, no
-errors/drops, largest block 31732 and writer margin 3588. On-card
-reason=empty_recovery still needs verification. The next morning's small-limit
-attempt began with a 469869-byte current file, above the below-7000 precondition.
-It pruned eight backed-up archives, then disabled on the 32768-byte content budget
-with reserve_exhausted before rotating. Current remained 470005 bytes; the writer
-parked with margin 3412. The initially offline hotspot was not the cause.
-Normal reboot recovered logging in boot 33: ready, generation 11, current
-470855 bytes (850 bytes appended), five writes, no errors/drops and largest
-internal block 31732. Clock was still unknown at the early 17.5-second status.
-Card inspection then verified generation 11 reason=empty_recovery, contiguous
-boot-32/33 records, sync at boot-33 uptime 19372 ms and clean shutdown.
-The 472389-byte log is backed up in docs/bench_data/sd_logs_2026-09-17_0828/
-and preserved on card as archive 11. A flushed empty current.log is prepared.
-Boot 34 starting status is verified: ready, synced, generation 12, 1276 bytes,
-one archive, no errors/drops and largest internal block 31732. The small hook was
-accepted; idle fill then produced generation 13 and rotations=1 before restoring
-normal limits. Runtime rotation passes: no errors/drops, largest block 31732,
-writer margin 3380. Normal restoration was accepted and logging continued.
-Card inspection verified archive 12 at 8136 bytes, current reason=size,
-continuous boot-34 sequences 1-31 and clean shutdown. Natural rotation content
-verification passes. Originals are backed up in docs/bench_data/sd_logs_2026-09-17_0852/.
-The 56-byte incomplete-tail fixture recovered in boot 35: ready, generation 13,
-file growth 5099 to 5939, writes 7 to 10, unknown -> synced, no errors/drops,
-largest block 31732 and writer margin 3588. Runtime check passes; on-card
-TAIL_RECOVERY and prefix preservation await a combined inspection. JP requested
-a finite remaining checklist: tail content, unrelated-file protection/no-clock
-rotation and deep-sleep close/wake. JP explicitly deferred bad/unsupported-card
-testing for version 1 on 2026-09-17; retain this limitation. The 2026-09-17 09:31 card inspection confirms short-tail repair with the original
-prefix intact, complete sequences across boots 34–37, and clean deep-sleep close.
-Boot 37 records deep_sleep reset, wake_code=2, both retained sleep/close breadcrumbs,
-approximate time followed by sync (-118 ms), and a final clean normal shutdown.
-JP confirmed touch-only wake and normal operation. These checks pass.
-Backups and the preservation fixture are in
-[09:31 evidence](bench_data/sd_logs_2026-09-17_0931/README.md).
-Current was preserved as archive 13; an empty current and hashed unrelated files
-are ready for the remaining preservation and unknown-clock rotation test.
-Boot 38 passed the unknown-clock rotation runtime check: three rotations, two
-prunes, generation 17, three archives, no errors or drops. The normal-limit hook
-was sent and processed; logger stayed healthy. Final card inspection confirms
-three FILE_OPEN reason=size records with unknown time, continuous sequences 1–61,
-and clean shutdown. All six protected-file names and hashes match.
-The agreed bench sequence is complete. See the
-[Stage 1 acceptance checkpoint](sd_diagnostics_stage1_checkpoint.md).
-JP acceptance remains pending; no further Stage 1 runtime repeat is proposed.
-Do not repeat passed tests or start Stage 1B before acceptance.
-Earlier, the large-file/small-limit run disabled logging and rejected restoration.
-Subsequent guarded runs verified natural rotation and restoration. The original
-header-hook reset yielded reason=new; the separately prepared surviving-empty-file
-fixture later verified empty_recovery. Both histories remain in the bench record.
-Stage 1 acceptance remains pending.
-JP's local switch is 1 for diagnosis; the intended default remains 0. See the handoff.
+This document remains the design reference. JP compiles and flashes from VS Code.
 
-The completed September 16 controlled performance pair used the same patched source with
-DIAG_ENABLED=0 then 1, keeping probes, PSRAM selection and hooks-off settings
-identical. This holds HTTPS cleanup constant. The original Stage 0 commit remains
-the historical reference; the disabled build may retain static diagnostic storage.
-See the [exact paired procedure](../src/diagnostics/STAGE1.md).
-No performance pass is inferred from comparisons with another day.
+[Stage 1B first bench instructions](../src/diagnostics/STAGE1B.md) describe the prepared implementation.
 
 ## Design decisions
 
@@ -374,7 +210,7 @@ a blocked main-loop call; file sending runs in the writer task.
 
 | Command | Reply |
 |---------|-------|
-| `log status` | One `@@STATUS` line with boot, uptime, logger state, current size, newest archive, drops, card size, free space and file count. Extend the Stage 1 status snapshot. |
+| `log status` | One `@@STATUS` line with boot, uptime, logger state, current size, newest archive, drops, card size, free space and file count. A second bounded @@USB line reports transfer activity, paused state, bytes, result, queue and limits. Use status for the full bench snapshot. |
 | `log list` | One `@@FILE` line per managed file, then `@@LIST_END`. |
 | `log get current` | Download `/logs/current.log`. |
 | `log get <generation>` | Download `archive-NNNNNNNN.log`; for example `log get 124`. |
@@ -466,7 +302,7 @@ when current.log reaches its configured overall limit. Use `stalled` for a short
 or five seconds without progress, and
 `read_failed` for a read error or premature EOF. A lost connection stops output; error delivery must not hold logging paused.
 
-Pruning occurs at rotation. If it selects the archive being downloaded, abort and close
+Pruning can occur during logging batches or rotation. If it selects the archive being downloaded, abort and close
 that reader before pruning. No open download handle survives removal of its archive.
 
 Shutdown aborts the transfer immediately without sending a reply. Complete the bounded
@@ -505,6 +341,7 @@ One file: `tools/sd_log_browser.html`, with no build step or install.
   each result before continuing. Test single-file retrieval before this convenience loop.
 - Show non-protocol output in a console panel with a fixed history cap; discard oldest
   display entries when full. Do not retain unlimited partial lines or console text.
+- Bound browser file storage to **64 MiB** per download; reject larger BEGIN sizes. Normal managed files are at most 2 MiB.
 - Save normal browser downloads as `<boot>-<name>`, such as `214-archive-00000124.log`.
 - On cancellation, send abort and follow the confirmation rule. On transport loss,
   invalidate any incomplete download and release browser stream locks and the port.
@@ -718,6 +555,13 @@ Record pass and fail results and measurement coverage. **Stop: Stage 1B starts o
 the owner accepts Stage 1 results. Stage 2 starts only after Stage 1B acceptance.**
 
 ### Stage 1B: USB retrieval
+
+Implementation trial (2026-09-17): corrupted USB replies prompted pinning the
+existing writer to the setup and HWCDC interrupt core (core 1 here).
+Stage 1 used core 0. Stack placement, priority and transfer limits stay unchanged.
+Transport and same-session performance validation remain pending; see the
+[bench results](sd_diagnostics_bench_results.md).
+
 
 Start only after Stage 1 acceptance, using its writer, storage layout and rotation.
 The owner compiles and flashes in VS Code using the build precautions above.

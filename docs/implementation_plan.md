@@ -3,6 +3,8 @@
 **2026-09-17: JP accepted Stage 1 and authorized Stage 1B USB retrieval.**
 The [checkpoint](sd_diagnostics_stage1_checkpoint.md) records the accepted scope and limitations.
 Earlier pending-acceptance statements below are historical.
+Stage 1B USB retrieval source and browser are prepared for JP to build and test.
+See [the first bench handoff](../src/diagnostics/STAGE1B.md); the USB gate is pending.
 
 This plan achieves the same goalâ€”returning to the previous screen after image viewingâ€”but respects the constraint of NOT modifying SquareLine Studio generated files (`ui.h`, `ui.c`, `ui_Screen2.c`).
 

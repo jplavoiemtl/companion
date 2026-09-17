@@ -3,15 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Companion USB connection check</title>
+<title>Companion SD log browser</title>
 <style>
-:root{color-scheme:light dark;font:16px/1.5 system-ui,sans-serif}
+:root{color-scheme:dark;background:#0d131b;color:#e4edf7;font:16px/1.5 system-ui,sans-serif}
 body{max-width:1050px;margin:32px auto;padding:0 20px}
 h1{font-size:1.6rem;margin-bottom:4px} h2{font-size:1.1rem}
-.card{border:1px solid #8886;border-radius:10px;padding:16px;margin:16px 0}
+.card{background:#151e2a;border:1px solid #344256;border-radius:10px;padding:16px;margin:16px 0}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-button,input,select{font:inherit;padding:8px;border:1px solid #888;border-radius:5px}
-button{cursor:pointer}button:disabled{cursor:default;opacity:.5}
+button,input,select{font:inherit;padding:8px;background:#202d3e;color:#e4edf7;border:1px solid #62748c;border-radius:5px}
+button{--button-bg:#234b73;--button-hover:#2e608f;--button-border:#548bc0;
+cursor:pointer;background:var(--button-bg);border-color:var(--button-border);color:#f3f7fc;font-weight:600}
+#connect{--button-bg:#205b46;--button-hover:#297357;--button-border:#4d9874}
+#disconnect,#clear{--button-bg:#684b25;--button-hover:#805d30;--button-border:#b18a50}
+#bundle,#save{--button-bg:#514074;--button-hover:#655090;--button-border:#927abb}
+#abort{--button-bg:#733a42;--button-hover:#8e4852;--button-border:#bb707b}
+button:disabled{cursor:default;opacity:.45}
+button:not(:disabled):hover{background:var(--button-hover)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid #8bc8ff;outline-offset:3px}
+input[type=checkbox]{accent-color:#8bc8ff}
+a{color:#8bc8ff}
 input[type=text]{flex:1;min-width:200px}
 small,.muted{opacity:.8}
 #console{width:100%;height:340px;box-sizing:border-box;background:#111923;color:#e4edf7;
@@ -23,8 +33,8 @@ ol{padding-left:24px}li{margin:6px 0}
 </style>
 </head>
 <body>
-<h1>Companion USB connection check</h1>
-<p class="muted">Step 0 · Console only · 115200 baud · No SD file commands</p>
+<h1>Companion SD log browser</h1>
+<p class="muted">Stage 1B · USB serial · Verified SD log downloads · 115200 baud</p>
 <section class="card" aria-label="Connection">
 <p id="support" role="status"></p>
 <p id="compatibility"></p>
@@ -38,14 +48,30 @@ ol{padding-left:24px}li{margin:6px 0}
 <div class="row">
 <label>Mode <select id="mode">
 <option value="default">Leave driver default</option>
-<option value="explicit">Apply explicit values after open</option>
+<option value="explicit" selected>Apply explicit values after open</option>
 </select></label>
-<label>DTR <select id="dtr" disabled><option value="false">false</option><option value="true">true</option></select></label>
+<label>DTR <select id="dtr"><option value="false">false</option><option value="true" selected>true</option></select></label>
 <label>RTS <select id="rts" disabled><option value="false">false</option><option value="true">true</option></select></label>
 </div>
 <p id="signalStatus">Driver defaults: no setSignals call; actual DTR/RTS values are unknown.</p>
 <small>Explicit settings apply after the driver opens the port. They cannot prevent its first signal change or guarantee no reset.</small>
 </fieldset>
+</section>
+<section class="card" aria-label="Log files">
+<div class="row">
+<button id="refresh" disabled>Refresh files</button>
+<button id="bundle" disabled>Download current + newest 3</button>
+<button id="abort" disabled>Cancel download</button>
+</div>
+<p id="logStatus">Connect to read logger status and list files.</p>
+<p id="progress" role="status">No download running.</p>
+<table style="width:100%;text-align:left"><thead><tr><th>File</th><th>Bytes</th><th></th></tr></thead><tbody id="files"></tbody></table>
+<details><summary>Bench test switches (leave off for ordinary use)</summary>
+<p><label><input id="damage" type="checkbox"> Damage one data line in the next download</label></p>
+<p><label><input id="pauseReads" type="checkbox"> Stop browser reads (test stalled transfer)</label></p>
+<p><label><input id="slowReads" type="checkbox"> Read at 3-second intervals (large-file timeout test)</label></p>
+<small>Use a sufficiently large file for slow reads. USB/OS buffers can absorb a small file before the switch has an effect. A paused read resumes when unchecked or when cancelling.</small>
+</details>
 </section>
 <section class="card" aria-label="Console">
 <form id="commandForm" class="row">
@@ -61,20 +87,52 @@ ol{padding-left:24px}li{margin:6px 0}
 </div>
 </section>
 <section class="card">
-<h2>Step 0 checklist — use the existing firmware first</h2>
+<h2>First Stage 1B bench check</h2>
 <ol>
-<li>Only one application can use the COM port. Release it from other monitors before connecting. You can compare status uptime entirely within this page.</li>
-<li>Open this HTML file in desktop Chrome or Edge. Check the two capability values above. If disk access is blocked, serve this folder on localhost and open the page there.</li>
-<li>For the tested board, select explicit DTR=true, RTS=false. Click Connect, choose the companion, and send <code>status</code>. Save whether uptime restarted or new boot output appeared. The first page connection has no automatic pre-open reference.</li>
-<li>Click Disconnect and keep USB plugged in. Check that the board still works, reconnect here, and send <code>status</code> again. Compare uptime for a reset.</li>
-<li>For a new setup, repeat five times, including during Live. Compare driver defaults and explicit DTR/RTS settings only as a deliberate diagnostic test. Settings are locked while connected; disconnect before changing them.</li>
+<li>JP builds and flashes Stage 1B with logging and PSRAM writer enabled, fault hooks off. Keep the card installed.</li>
+<li>Connect using the tested DTR=true, RTS=false settings. Status and the managed-file list load automatically. Press Refresh files if startup was still running.</li>
+<li>Download one small archive. Only a file with verified size, sequence and CRC is saved. Compare it with the existing card-reader backup.</li>
+<li>Send <code>status</code> for the full memory/stack bench snapshot. Save the console and report the downloaded file, timing and normal board operation.</li>
 </ol>
-<p>JP's 2026-09-15 bench result: explicit DTR=true, RTS=false passed repeated connections and Live. Driver defaults caused a reset on disconnect; closing the VS Code monitor caused an unresolved freeze. Use the tested explicit settings on this setup.</p>
-<p>Send the saved console, before/after status lines, settings, browser version, and any reset or video interruption you observed. If a reset occurs, review it before proceeding.</p>
-<p>Stage 0 comes next: flash the probe-only firmware from VS Code, then capture normal idle, Latest, Live and MQTT connection measurements. USB file retrieval waits until Stage 1B.</p>
+<p>One program can own the COM port. JP observed an unresolved freeze when closing the VS Code monitor; explicit web settings passed repeated connections and Live. Use the established recovery if needed, then compare boot/uptime.</p>
+<p>Later tests cover current snapshots, a 2 MiB archive, Live/MQTT interference, validation, aborts, queue pressure, pruning and repeats. Downloads above 64 MiB are refused to bound browser memory. No upload or delete commands are provided.</p>
 </section>
 <script>
 "use strict";
+// BEGIN PROTOCOL CORE
+class LogFileReceiver {
+  constructor(expected) { this.expected = expected; this.name = null; this.offset = 0; this.lines = 0; this.crc = 0xffffffff; }
+  begin(text) {
+    const m = /^@@BEGIN version=1 name=(current\.log|archive-[0-9]{8}\.log) size=([0-9]+)$/.exec(text);
+    if (!m || this.name) throw new Error("Unsupported or malformed BEGIN");
+    const size = Number(m[2]);
+    if (!Number.isSafeInteger(size) || size > 64*1024*1024) throw new Error("File exceeds the 64 MiB browser limit");
+    if (this.expected && this.expected !== m[1]) throw new Error("Unexpected filename");
+    this.name = m[1]; this.size = size; this.bytes = new Uint8Array(size);
+  }
+  data(text) {
+    const m = /^@@D ([1-9][0-9]*) ([A-Za-z0-9+/]*={0,2})$/.exec(text);
+    if (!this.name || !m || Number(m[1]) !== this.lines + 1) throw new Error("Missing, duplicate or malformed data line");
+    const encoded = m[2];
+    if (!encoded.length || encoded.length > 192 || encoded.length % 4) throw new Error("Invalid base64 length");
+    const raw = atob(encoded);
+    if (btoa(raw) !== encoded || !raw.length || raw.length > 144) throw new Error("Invalid base64 encoding");
+    if (this.offset + raw.length > this.size) throw new Error("Received more than BEGIN size");
+    for (let i=0; i<raw.length; ++i) {
+      const byte = raw.charCodeAt(i); this.bytes[this.offset++] = byte; this.crc ^= byte;
+      for (let bit=0; bit<8; ++bit) this.crc = (this.crc >>> 1) ^ ((this.crc & 1) ? 0xedb88320 : 0);
+    }
+    ++this.lines;
+  }
+  end(text) {
+    const m = /^@@END name=(current\.log|archive-[0-9]{8}\.log) bytes=([0-9]+) lines=([0-9]+) crc32=([0-9A-Fa-f]{8})$/.exec(text);
+    if (!m || m[1] !== this.name || Number(m[2]) !== this.offset || this.offset !== this.size ||
+        Number(m[3]) !== this.lines || parseInt(m[4],16) !== ((this.crc ^ 0xffffffff) >>> 0))
+      throw new Error("END name, size, line count or CRC mismatch");
+    return this.bytes;
+  }
+}
+// END PROTOCOL CORE
 const el = id => document.getElementById(id);
 const supported = window.isSecureContext && "serial" in navigator;
 el("support").textContent = "isSecureContext = " + window.isSecureContext +
@@ -125,7 +183,12 @@ function receive(text) {
     partial += parts[i].slice(0, room);
     if (parts[i].length > room) partialCut = true;
     if (i < parts.length - 1) {
-      record("RX", partial.replace(/\r$/, "") + (partialCut ? " [line truncated]" : ""), partialStamp);
+      const received = partial.replace(/\r$/, "");
+      if (received.startsWith("@@")) protocolLine(received, partialCut);
+      else if (received) {
+        record("RX", received + (partialCut ? " [line truncated]" : ""), partialStamp);
+        if (received.startsWith("ESP-ROM:") && download) void cancelTransfer("Board restarted");
+      }
       partial = ""; partialStamp = ""; partialCut = false;
     }
   }
@@ -150,11 +213,19 @@ function controls() {
   el("command").disabled = !connected;
   el("send").disabled = !connected || sending;
   el("signalStatus").textContent = signalDescription();
+  el("refresh").disabled = !connected || !!download || listPending;
+  el("bundle").disabled = !connected || !!download || listPending || !files.size;
+  el("abort").disabled = !connected || !download;
+  for (const button of el("files").querySelectorAll("button")) button.disabled = !connected || !!download || listPending;
 }
 async function readLoop(session) {
   const decoder = new TextDecoder();
   try {
     while (!session.closing) {
+      while (!session.closing && el("pauseReads").checked) await sleep(100);
+      if (session.closing) break;
+      if (el("slowReads").checked) await sleep(3000);
+      if (session.closing) break;
       const {value, done} = await session.reader.read();
       if (done) break;
       if (value) receive(decoder.decode(value, {stream:true}));
@@ -172,6 +243,9 @@ async function readLoop(session) {
 async function disconnect(session = current, reason = "Disconnect clicked") {
   if (!session || session.closing) return;
   session.closing = true;
+  if (download) settleDownload(false, "Transport closed");
+  listPending = false;
+  files.clear(); renderFiles();
   el("state").textContent = "Disconnecting…";
   controls();
   record("EVENT", reason);
@@ -222,7 +296,8 @@ async function connect() {
     session.writer = port.writable.getWriter();
     session.readTask = readLoop(session);
     el("state").textContent = "Connected at 115200";
-    record("EVENT", "Connected. Send status; compare with the previous reading if available.");
+    record("EVENT", "Connected. Reading logger status and managed files.");
+    await refreshFiles();
   } catch (error) {
     record("ERROR", "Connect: " + error.message);
     if (session) await disconnect(session, "Connection setup failed");
@@ -232,29 +307,191 @@ async function connect() {
 }
 async function send(event) {
   event.preventDefault();
-  const session = current;
-  if (!session || !session.writer || session.closing || sending) return;
-  const command = el("command").value;
-  if (!command.trim() || command.length > 23 || /[^\x20-\x7e]/.test(command)) {
-    record("ERROR", "Use 1–23 printable ASCII characters.");
+  const command = el("command").value.trim();
+  if (command === "log list") { await refreshFiles(); return; }
+  if (command === "log abort") { await cancelTransfer("Cancelled"); return; }
+  if (command.startsWith("log get ")) {
+    const arg = command.slice(8);
+    if (arg === "current") await downloadFile("current.log");
+    else if (/^[0-9]{1,8}$/.test(arg)) await downloadFile("archive-" + arg.padStart(8,"0") + ".log");
+    else record("ERROR","Invalid generation. Use 0 through 99999999.");
     return;
   }
-  sending = true; controls();
-  try {
-    await session.writer.write(new TextEncoder().encode(command + "\r\n"));
-    record("TX", command + " [CRLF]");
-  } catch (error) {
-    record("ERROR", "Send: " + error.message);
-  } finally {
-    sending = false; controls();
-  }
+  try { await sendCommand(command); } catch (error) { record("ERROR",error.message); }
 }
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve,ms));
+const files = new Map();
+let listPending = false, listCount = 0, listAt = 0, boardBoot = "unknown";
+let download = null, sendQueue = Promise.resolve(), bundleRunning = false;
+function sendCommand(command) {
+  if (!command || command.length > 23 || /[^\x20-\x7e]/.test(command)) return Promise.reject(new Error("Use 1–23 printable ASCII characters"));
+  const session = current;
+  const action = async () => {
+    if (!session || current !== session || !session.writer || session.closing) throw new Error("Not connected");
+    sending = true; controls();
+    try {
+      await session.writer.write(new TextEncoder().encode(command + "\r\n"));
+      record("TX",command + " [CRLF]");
+    } finally { sending = false; controls(); }
+  };
+  const result = sendQueue.then(action);
+  sendQueue = result.catch(() => {});
+  return result;
+}
+function renderFiles() {
+  const body = el("files"); body.replaceChildren();
+  const sorted = [...files.entries()].sort((a,b) => a[0] === "current.log" ? -1 : b[0] === "current.log" ? 1 : b[0].localeCompare(a[0]));
+  for (const [name,size] of sorted) {
+    const row=document.createElement("tr");
+    for (const value of [name,size.toLocaleString()]) { const td=document.createElement("td"); td.textContent=value; row.append(td); }
+    const td=document.createElement("td"), button=document.createElement("button");
+    button.textContent="Download"; button.addEventListener("click",()=>void downloadFile(name));
+    td.append(button); row.append(td); body.append(row);
+  }
+  controls();
+}
+async function refreshFiles() {
+  if (download || listPending) return;
+  listPending=true; listCount=0; listAt=performance.now(); files.clear(); renderFiles();
+  try { await sendCommand("log status"); await sendCommand("log list"); }
+  catch(error) { listPending=false; record("ERROR",error.message); controls(); }
+}
+function saveBytes(bytes,name) {
+  const url=URL.createObjectURL(new Blob([bytes],{type:"application/octet-stream"}));
+  const a=document.createElement("a"); a.href=url; a.download=boardBoot+"-"+name;
+  a.click(); setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+function settleDownload(ok,reason) {
+  const job=download;
+  if (!job) return;
+  download=null;
+  if (job.abortTimer) clearTimeout(job.abortTimer);
+  el("progress").textContent=(ok ? "Verified: " : "Failed: ")+reason;
+  record(ok ? "DOWNLOAD" : "ERROR",reason);
+  job.resolve(ok); controls();
+}
+async function cancelTransfer(reason="Cancelled") {
+  if (!download) { try { await sendCommand("log abort"); } catch(e) { record("ERROR",e.message); } return; }
+  if (download.cancelling) return;
+  const job=download; job.cancelling=true; job.failure=reason;
+  el("pauseReads").checked=false; el("slowReads").checked=false;
+  el("progress").textContent=reason+". Waiting for abort confirmation…";
+  job.abortTimer=setTimeout(()=>{
+    if (download===job) void disconnect(current,"Abort confirmation timed out; reconnect before retry");
+  },8000);
+  try { await sendCommand("log abort"); }
+  catch(e) { void disconnect(current,"Abort send failed: "+e.message); }
+}
+async function downloadFile(name) {
+  if (download || listPending || !current || current.closing) return false;
+  if (!/^(current\.log|archive-[0-9]{8}\.log)$/.test(name)) return false;
+  let resolve;
+  const promise=new Promise(r=>resolve=r);
+  download={receiver:new LogFileReceiver(name),resolve,start:performance.now(),last:performance.now(),
+    cancelling:false,damage:el("damage").checked,wireBytes:0};
+  el("damage").checked=false; controls();
+  el("progress").textContent="Requesting "+name+"…";
+  try { await sendCommand(name==="current.log" ? "log get current" : "log get "+Number(name.slice(8,16))); }
+  catch(e) { settleDownload(false,e.message); }
+  return promise;
+}
+function protocolLine(text,truncated) {
+  if (truncated || text.length+2>240 || /[^\x20-\x7e]/.test(text)) {
+    // Keep rejection strict, but retain bounded evidence for a real USB failure.
+    const bad = text.search(/[^\x20-\x7e]/);
+    const invalid = bad < 0 ? "none" : bad + ":U+" +
+      text.codePointAt(bad).toString(16).toUpperCase().padStart(4,"0");
+    const preview = JSON.stringify(text.slice(0,240)).replace(/[^\x20-\x7e]/g,
+      ch => "\\u" + ch.charCodeAt(0).toString(16).padStart(4,"0"));
+    record("ERROR","Protocol rejected: chars=" + text.length + " wire_bytes_if_ascii=" +
+      (text.length+2) + " truncated=" + !!truncated + " first_non_ascii=" + invalid +
+      " preview=" + preview + (text.length>240 ? " [preview capped]" : ""));
+    if (download) void cancelTransfer("Oversized or non-ASCII protocol line");
+    else record("ERROR","Invalid protocol line");
+    return;
+  }
+  if (text.startsWith("@@STATUS ")) {
+    record("RX",text);
+    const boot=/\bboot=([0-9]+)/.exec(text);
+    if (boot) {
+      if (boardBoot!=="unknown" && boardBoot!==boot[1] && download) void cancelTransfer("Boot changed");
+      boardBoot=boot[1];
+    }
+    el("logStatus").textContent=text.slice(9); return;
+  }
+  if (text.startsWith("@@USB ")) { record("RX",text); return; }
+  if (text.startsWith("@@ERR ")) {
+    record("RX",text);
+    const reason=/\breason=([a-z_]+)/.exec(text)?.[1] || "unknown";
+    if (download) {
+      if (download.cancelling) {
+        if (reason==="aborted") settleDownload(false,download.failure+"; abort confirmed");
+      } else if (reason!=="busy") settleDownload(false,"Device: "+reason);
+      else if (!download.receiver.name) void cancelTransfer("Device busy");
+      // A rejected extra command must not cancel an already-started transfer.
+    }
+    if (listPending) { listPending=false; controls(); }
+    return;
+  }
+  if (text.startsWith("@@FILE ")) {
+    const m=/^@@FILE name=(current\.log|archive-[0-9]{8}\.log) size=([0-9]+)$/.exec(text);
+    if (!listPending || !m || files.has(m[1]) || files.size>=257 || !Number.isSafeInteger(Number(m[2]))) {
+      record("ERROR","Invalid or unexpected file-list entry"); void disconnect(current,"Invalid list; reconnect before retry"); return;
+    }
+    files.set(m[1],Number(m[2])); ++listCount; listAt=performance.now(); return;
+  }
+  if (text.startsWith("@@LIST_END")) {
+    const m=/^@@LIST_END count=([0-9]+)$/.exec(text);
+    if (!listPending || !m || Number(m[1])!==listCount) { files.clear(); record("ERROR","File list incomplete"); void disconnect(current,"Invalid list completion"); return; }
+    else record("EVENT","Listed "+listCount+" managed files");
+    listPending=false; renderFiles(); return;
+  }
+  if (!download) return; // No data accepted outside a requested BEGIN/END exchange.
+  const job=download;
+  job.last=performance.now(); job.wireBytes+=text.length+2;
+  if (job.cancelling) return;
+  try {
+    if (text.startsWith("@@BEGIN")) job.receiver.begin(text);
+    else if (text.startsWith("@@D ")) {
+      if (!job.receiver.name) return; // Ignore data outside BEGIN-to-END.
+      if (job.damage) { job.damage=false; text=text.replace(/ ([A-Za-z0-9+/])/, " !"); }
+      job.receiver.data(text);
+      const pct=job.receiver.size ? (100*job.receiver.offset/job.receiver.size).toFixed(1) : "100";
+      el("progress").textContent=job.receiver.name+": "+pct+"% ("+job.receiver.offset+" / "+job.receiver.size+" bytes)";
+    } else if (text.startsWith("@@END")) {
+      const bytes=job.receiver.end(text), seconds=(performance.now()-job.start)/1000;
+      saveBytes(bytes,job.receiver.name);
+      settleDownload(true,job.receiver.name+" | "+bytes.length+" bytes | "+seconds.toFixed(2)+" s | decoded "+
+        Math.round(bytes.length/seconds)+" B/s | protocol wire "+Math.round(job.wireBytes/seconds)+" B/s | CRC OK");
+    } else throw new Error("Unexpected protocol record");
+  } catch(error) { void cancelTransfer(error.message); }
+}
+el("refresh").addEventListener("click",()=>void refreshFiles());
+el("abort").addEventListener("click",()=>void cancelTransfer());
+el("bundle").addEventListener("click",async()=>{
+  if (bundleRunning || download) return;
+  bundleRunning=true;
+  const names=[...files.keys()].filter(n=>n!=="current.log").sort().reverse().slice(0,3);
+  if (files.has("current.log")) names.unshift("current.log");
+  try { for (const name of names) if (!await downloadFile(name)) break; }
+  finally { bundleRunning=false; }
+});
+setInterval(()=>{
+  if (listPending && performance.now()-listAt>15000) {
+    record("ERROR","File list timed out"); void disconnect(current,"Reconnect after startup finishes before retrying the list");
+  }
+  // The reader-pause switch deliberately disables the page watchdog so the
+  // firmware's independent stall guard can be observed on resumed reads.
+  if (download && !download.cancelling && !el("pauseReads").checked &&
+      performance.now()-download.last>15000) void cancelTransfer("Missing response or END");
+},1000);
 el("connect").addEventListener("click", connect);
 el("disconnect").addEventListener("click", () => disconnect());
 el("commandForm").addEventListener("submit", send);
 for (const id of ["mode","dtr","rts"]) el(id).addEventListener("change", controls);
 el("clear").addEventListener("click", () => {
-  entries = []; chars = 0; partial = ""; partialStamp = ""; partialCut = false;
+  entries = []; chars = 0; // Clearing display must not discard an in-flight protocol fragment.
   record("EVENT", "Console cleared.");
 });
 el("save").addEventListener("click", () => {

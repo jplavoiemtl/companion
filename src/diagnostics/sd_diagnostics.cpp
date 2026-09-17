@@ -1,4 +1,5 @@
 #include "sd_diagnostics.h"
+#include "diagnostics_usb.h"
 #include "diagnostics_internal.h"
 #include "../../pin_config.h"
 #include <Arduino.h>
@@ -92,6 +93,7 @@ struct Snapshot {
   uint32_t stackMin = UINT32_MAX;
   uint32_t stackFinalMargin = UINT32_MAX;
   uintptr_t stackStart = 0;
+  int writerCore = -1;
   WriterLifecycle writerLifecycle = WriterLifecycle::Off;
   bool placementValid = false, stackExternal = false, stackLocalExternal = false;
   bool tcbInternal = false;
@@ -328,6 +330,7 @@ bool prune(uint64_t incoming, uint32_t futureArchive = 0) {
     if (enoughSpace && enoughCount && enoughContent) break;
     if (!files.any) { disable("reserve_exhausted", ENOSPC); return false; }
     char path[80]; archivePath(files.oldest, path, sizeof(path));
+    diagnosticsUsbBeforePrune(files.oldest); // Reader must close before removal.
     if (unlink(path)) { disable("archive_delete", errno); return false; }
     portENTER_CRITICAL(&mux); ++snapshot.pruned; portEXIT_CRITICAL(&mux);
     vTaskDelay(1);
@@ -789,6 +792,39 @@ void processTest() {
   if (test == Test::Full) writeRecord(diag::stamp(), "WARN", "TEST_FULL_WRITE", "source=test");
 }
 #endif
+DiagnosticsUsbStatus usbStatus() {
+  const Snapshot s = readSnapshot();
+  portENTER_CRITICAL(&mux);
+  const uint32_t queued = count;
+#if DIAG_TEST_HOOKS
+  const bool testBusy = pendingTest != Test::None || nvsStress.active || nvsStress.summaryPending;
+#else
+  const bool testBusy = false;
+#endif
+  portEXIT_CRITICAL(&mux);
+  return {diag::identity.boot, nowMs(), s.size, s.cardBytes, s.freeBytes,
+          s.newest, s.archives + (s.generation ? 1u : 0u), s.drops, queued, QUEUE_COUNT,
+          stateName(s.state), s.state == State::Ready && !testBusy, closing()};
+}
+bool usbBegin(const char* name) {
+  char fields[128]; snprintf(fields,sizeof(fields),"name=%s bytes=0 duration_ms=0 result=started",name);
+  return prune(2 * LINE_CAPACITY) &&
+         writeRecord(diag::stamp(),"INFO","USB_GET_BEGIN",fields);
+}
+bool usbResume() {
+  if (!good()) return false;
+  if (fd >= 0) return true;
+  fd = openCurrentForWrite(O_WRONLY | O_APPEND); // Never create/truncate as recovery.
+  if (fd < 0) { disable("current_reopen",errno); return false; }
+  return true;
+}
+void usbEnd(const char* name, uint64_t bytes, uint64_t elapsed, const char* result) {
+  char fields[160];
+  snprintf(fields,sizeof(fields),"name=%s bytes=%llu duration_ms=%llu result=%s",
+           name,(unsigned long long)bytes,(unsigned long long)elapsed,result);
+  // Queue after appends resume; never recursively rotate from a prune callback.
+  diag::record("USB_GET_END",fields,true);
+}
 // Writer review rule: never initiate flash, NVS or partition operations here or
 // from its callees. Use FatFS/SDMMC sector wrappers, never raw host/command APIs
 // with stack-local data buffers. Cache-off and DMA restrictions still apply.
@@ -807,6 +843,7 @@ void writerTask(void*) {
   const bool stackLocalExternal = esp_ptr_external_ram(&stackMarker);
   const bool tcbInternal = esp_ptr_internal(tcb) && esp_ptr_byte_accessible(tcb);
   portENTER_CRITICAL(&mux);
+  snapshot.writerCore = xPortGetCoreID();
   snapshot.stackStart = reinterpret_cast<uintptr_t>(stackStart);
   snapshot.stackExternal = stackExternal;
   snapshot.stackLocalExternal = stackLocalExternal;
@@ -818,15 +855,19 @@ void writerTask(void*) {
   captureStartup(StartupPoint::AfterFormatter);
   if (!line) disable("formatter_allocation", ENOMEM);
   else if (openStorage()) {
-    USBSerial.printf("[LOG] ready file=/logs/current.log boot=%llu queue_bytes=%u stack_bytes=%u core=0\n",
-      static_cast<unsigned long long>(diag::identity.boot), unsigned(QUEUE_COUNT * sizeof(Event)), unsigned(WRITER_STACK));
+    USBSerial.printf("[LOG] ready file=/logs/current.log boot=%llu queue_bytes=%u stack_bytes=%u core=%d\n",
+      static_cast<unsigned long long>(diag::identity.boot), unsigned(QUEUE_COUNT * sizeof(Event)), unsigned(WRITER_STACK), int(xPortGetCoreID()));
   }
   captureStartup(StartupPoint::StorageDone);
   nextHealth = nowMs() + HEALTH_MS;
   nextClock = nowMs();
-  while (good() && fd >= 0) {
-    memorySample();
+  uint64_t nextMemorySample = 0;
+  while (good() && (fd >= 0 || diagnosticsUsbPaused())) {
+    // USB uses shorter turns, but retain the ordinary writer sampling cadence.
+    if (nowMs() >= nextMemorySample) { memorySample(); nextMemorySample = nowMs() + 20; }
     if (closing()) {
+      diagnosticsUsbStop(); // Close reader and resume append before the close drain.
+      if (!good()) break;
 #if DIAG_TEST_HOOKS
       nvsStressWriterTick(); // Main stopped the test; persist its final counts before close.
       if (!good()) break;
@@ -856,6 +897,11 @@ void writerTask(void*) {
     if (!good()) break;
 #endif
     if (nowMs() >= nextClock) { diag::clockPoll(); nextClock = nowMs() + 1000; }
+    if (diagnosticsUsbPaused()) {
+      diagnosticsUsbTick(); // Bounds and queue checks continue while append is closed.
+      vTaskDelay(1);
+      continue;
+    }
     bool queued;
     portENTER_CRITICAL(&mux); queued = count != 0; portEXIT_CRITICAL(&mux);
     bool health = nowMs() >= nextHealth;
@@ -873,8 +919,10 @@ void writerTask(void*) {
       if (health && good()) { writeHealth(); nextHealth = nowMs() + HEALTH_MS; }
     }
     if (dirty && nowMs() - lastFlush >= FLUSH_MS) flushFile();
-    vTaskDelay(pdMS_TO_TICKS(20)); // always yield, including fault hooks
+    if (good()) diagnosticsUsbTick(); // Logging batches have priority over USB.
+    vTaskDelay(diagnosticsUsbBusy() ? 1 : pdMS_TO_TICKS(20)); // Idle watchdog always runs.
   }
+  diagnosticsUsbStop();
   if (fd >= 0) { // terminal error: release handle, never retry writes this boot
     int old = fd; fd = -1; ::close(old);
   }
@@ -932,6 +980,7 @@ bool record(const char* event, const char* fields, bool important) {
 void diagnosticsInitEarly() {
   if (initialized) return;
   initialized = true;
+  diagnosticsUsbInit({usbStatus, usbBegin, closeFile, usbResume, usbEnd});
 #if DIAG_ENABLED
   diag::initializeIdentityClock(); // Boot-counter NVS on the main task, never writer
   bootStamp = diag::stamp();
@@ -955,6 +1004,11 @@ void diagnosticsStart() {
   portENTER_CRITICAL(&mux);
   snapshot.writerLifecycle = WriterLifecycle::Starting;
   portEXIT_CRITICAL(&mux);
+  // Called from setup(), where USBSerial.begin() allocated the HWCDC interrupt.
+  // Core 3.1.3 task writes flush the FIFO without the ISR sharing their TX mutex.
+  // Keep this writer on that same core so a task flush cannot run concurrently
+  // with the ISR filling a packet on the other core. Still a separate task.
+  const BaseType_t writerCore = xPortGetCoreID();
 #if DIAG_WRITER_STACK_PSRAM
   StackType_t* const stack = static_cast<StackType_t*>(
     heap_caps_malloc(WRITER_STACK, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
@@ -963,12 +1017,12 @@ void diagnosticsStart() {
     esp_ptr_internal(&writerTcb) && esp_ptr_byte_accessible(&writerTcb);
   const bool created = placementOk &&
     xTaskCreateStaticPinnedToCore(writerTask, "sd_logger", WRITER_STACK, nullptr,
-                                 1, stack, &writerTcb, 0) != nullptr;
+                                 1, stack, &writerTcb, writerCore) != nullptr;
   if (!created) heap_caps_free(stack); // No task owns it on this path. Never free the TCB.
 #else
   // Ordinary task stacks stay internal; do not retain a possibly stale task handle.
   const bool created =
-    xTaskCreatePinnedToCore(writerTask, "sd_logger", WRITER_STACK, nullptr, 1, nullptr, 0) == pdPASS;
+    xTaskCreatePinnedToCore(writerTask, "sd_logger", WRITER_STACK, nullptr, 1, nullptr, writerCore) == pdPASS;
 #endif
   if (!created) {
     portENTER_CRITICAL(&mux);
@@ -1027,11 +1081,11 @@ void diagnosticsPrintStatus() {
   // Values were captured by the writer itself. Never dereference a task handle here.
   const int stackUsed = stackMeasured ? int(WRITER_STACK - min(uint32_t(WRITER_STACK), s.stackMin)) : -1;
   const int finalMargin = s.stackFinalMargin == UINT32_MAX ? -1 : int(s.stackFinalMargin);
-  USBSerial.printf("[LOG STACK] stack_mode=%s stack_bytes=%u placement_valid=%u stack_start=0x%lx stack_external=%d stack_local_external=%d tcb_internal=%d tcb_bytes=%u writer_lifecycle=%s stack_used_max=%d stack_final_margin=%d\n",
+  USBSerial.printf("[LOG STACK] stack_mode=%s stack_bytes=%u placement_valid=%u stack_start=0x%lx stack_external=%d stack_local_external=%d tcb_internal=%d tcb_bytes=%u writer_lifecycle=%s stack_used_max=%d stack_final_margin=%d writer_core=%d\n",
     STACK_MODE, unsigned(WRITER_STACK), s.placementValid, static_cast<unsigned long>(s.stackStart),
     s.placementValid ? int(s.stackExternal) : -1, s.placementValid ? int(s.stackLocalExternal) : -1,
     s.placementValid ? int(s.tcbInternal) : -1, unsigned(sizeof(StaticTask_t)),
-    lifecycleName(s.writerLifecycle), stackUsed, finalMargin);
+    lifecycleName(s.writerLifecycle), stackUsed, finalMargin, s.writerCore);
 #if DIAG_TEST_HOOKS
   const NvsStress stress = readNvsStress();
   USBSerial.printf("[LOG TEST] nvs_active=%u summary_pending=%u nvs_writes=%u nvs_errors=%u sd_records=%u key_removed=%u first_nvs_ms=%llu last_nvs_ms=%llu first_sd_ms=%llu last_sd_ms=%llu\n",
@@ -1040,6 +1094,11 @@ void diagnosticsPrintStatus() {
     static_cast<unsigned long long>(stress.firstSdMs), static_cast<unsigned long long>(stress.lastSdMs));
 #endif
   printStartupMemory();
+  diagnosticsUsbCommand("log status");
+}
+bool diagnosticsUsbTransferActive() { return diagnosticsUsbBusy(); }
+void diagnosticsUsbMainTick() {
+  if (!writerRunning(readSnapshot().writerLifecycle)) diagnosticsUsbOfflineTick();
 }
 #if DIAG_TEST_HOOKS
 namespace {
@@ -1054,7 +1113,7 @@ void watchdogTest(void*) {
 }
 #endif
 bool diagnosticsCommand(const char* command) {
-  if (!strcmp(command,"log status")) { diagnosticsPrintStatus(); return true; }
+  if (diagnosticsUsbCommand(command)) return true;
 #if DIAG_TEST_HOOKS
   if (!strcmp(command, "log test nvs")) { startNvsStress(); return true; }
   if (!strcmp(command, "log test nvs stop")) { finishNvsStress("serial_stop"); return true; }
@@ -1092,7 +1151,7 @@ bool diagnosticsCommand(const char* command) {
   }
 #endif
   if (!strncmp(command,"log ",4)) {
-    USBSerial.println("[LOG] Use log status. File retrieval is not implemented; fault hooks require DIAG_TEST_HOOKS=1.");
+    USBSerial.println("[LOG] Use log status. Use log list, log get current, log get <generation>, or log abort; fault hooks require DIAG_TEST_HOOKS=1.");
     return true;
   }
   return false;

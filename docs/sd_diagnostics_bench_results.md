@@ -6136,3 +6136,205 @@ No firmware change, build, flash, commit, push or card cleanup was performed.
 JP: "Please commit and push. Yes I accept Stage 1 let's continue."
 Stage 1 is accepted with the checkpoint's recorded limitations. Stage 1B USB
 retrieval is authorized. JP continues to compile and flash from VS Code.
+
+## 2026-09-17 - Stage 1B implementation prepared; hardware gate pending
+
+Stage 1 evidence and acceptance pushed as 3d0b125 and 3f5b309.
+Prepared the single-writer USB command module and Web Serial file browser.
+The new code remains uncommitted pending JP's bench feedback. No firmware was
+compiled or flashed. Fault hooks are off; logging and the PSRAM writer stay on.
+The generated build/build_amoled-1-8/sketch/companion.ino.cpp was removed.
+
+Eleven Node checks pass against the actual page code, including saved archive bytes,
+CRC, fragmented reads, strict validation, damaged-line cancellation and retry,
+missing END and preservation of partial protocol input when clearing the console.
+Firmware source review used installed core 3.1.3 HWCDC behavior; firmware compilation,
+writer stack/heap impact, throughput, timing and board behavior require JP's tests.
+
+JP requested a shorter status section in the main plan. Replaced its long
+chronology with the current acceptance/implementation state and evidence links;
+the detailed bench history and Waveshare SDMMC reference remain available.
+
+First test: [Stage 1B handoff](../src/diagnostics/STAGE1B.md).
+Download archive-00000014.log (8059 bytes, CRC32 99C24CB1), capture full status
+before/after, and compare the saved file with the existing card-reader reference.
+No further gate tests requested until that result is reviewed.
+
+
+## 2026-09-17 11:11 - First Stage 1B archive download rejected
+
+Boot 41, hooks off, logger ready, three archives, generation 17.
+JP requested archive 14. The page sent log abort within about 71 ms and
+received @@ERR reason=aborted. It reported an oversized or non-ASCII protocol
+line; the original page did not retain that line, so the cause is not yet known.
+No verified file was saved. This does not establish corruption on the SD card.
+
+Pre-download status: internal minimum 33852 bytes, largest block 25588,
+writer stack margin 3588, queue drops zero, logger error none.
+There is no post-download status yet. Stage 1B acceptance remains pending.
+
+Added browser-only rejection evidence: bounded escaped line preview, length,
+truncation flag and first unexpected character position/code point.
+Validation and firmware remain unchanged. Twelve browser tests pass,
+including non-ASCII rejection and abort confirmation.
+Next: reload the page, keep all transfer test switches off, retry archive 14,
+then capture log status and the complete console.
+
+
+## 2026-09-17 11:17 - Archive retrieval stalls; cleanup remains healthy
+
+Same boot 41. Reconnection listed all four managed files successfully.
+Archive 14 was requested at 11:17:06.452. The board replied
+@@ERR reason=stalled at 11:17:11.510 (about five seconds later).
+JP subsequently reported the page progress as 1152/8059 bytes.
+The fresh 11:19:59 status retained bytes=1296 result=stalled active=0 paused=0.
+The sender count measures bytes accepted by HWCDC, not receipt by the browser.
+These observations do not yet identify why output stopped.
+
+Logger remains ready, current.log grows, drops=0, error=none.
+Largest internal block remains 25588 bytes. Writer stack margin reached
+2980 bytes (5212 of 8192 used); no allocation failure is reported.
+
+Added diagnostic fields to the firmware's existing stalled reply:
+phase, bytes, line_bytes, tx_free and write_bytes. Values describe the last
+transfer send attempt; -1 means that stage of the attempt was not reached.
+No timeout, chunk size, USB setting or scheduling change.
+Browser-only tests now total 13, including partial transfer followed by a
+diagnostic stalled reply without saving a file. Firmware was not compiled or flashed.
+Next: JP rebuilds/flashes, retries only archive 14 with test switches off,
+then sends status and the full console. The cause and Stage 1B gate remain open.
+
+
+## 2026-09-17 11:25 - Corrupted file list; same-core writer trial
+
+After JP flashed the stall diagnostics, boot 43 remained ready with zero drops.
+The initial list exchange was corrupted. The received STATUS line ended with
+free_mib=15185 filesent.log size=21646, joining a status prefix to the suffix
+of a FILE record. The page rejected the incomplete list and closed the port.
+The capture shows a page-initiated disconnect, not evidence of a board reset.
+
+Source evidence:
+- setup() calls USBSerial.begin(), then diagnosticsStart(), on Arduino core 1.
+- Installed SDK esp_intr_alloc.h says allocation occurs on the calling core.
+- Core 3.1.3 HWCDC.cpp:350 allocates the USB interrupt. Its ISR at lines 95-102
+  fills and commits a packet; write() at 442 and 463 also commits the FIFO.
+  The task TX mutex is not shared with the ISR.
+- SDK usb_serial_jtag_ll.h:135-143 writes until space runs out and returns the
+  actual count. HWCDC's ISR ignores that count and returns the whole ring item.
+  An opposite-core task committing the FIFO during this loop could lose bytes.
+- Stage 1's writer was pinned to core 0. Stage 1B added repeated USB sends there.
+
+This is a source-supported race hypothesis, not a confirmed hardware diagnosis.
+Prepared a focused trial: pin the same writer to its setup caller's core
+(core 1 in this build), for both stack modes. Report actual writer_core in status
+and the startup banner. Keep the PSRAM stack, priority, queue, SD ownership,
+timeouts, chunk size and pacing unchanged. No extra task or core-library patch.
+The earlier stalled-reply diagnostics remain enabled.
+
+No firmware build, flash or commit by the assistant. Bench confirmation is pending.
+First repeat connection, full status, and archive 14 download, then full status.
+Expect writer_core=1. If transport recovers, repeat same-session Live/memory
+measurements because changing affinity can affect scheduling and allocation timing.
+Stage 1 acceptance remains historical; Stage 1B has not passed.
+
+
+## 2026-09-17 11:32 - Same-core trial lists files successfully
+
+JP flashed the affinity trial. Boot 45 status confirms writer_core=1,
+PSRAM stack 8192 bytes, placement_valid=1, internal TCB.
+Initial automatic STATUS and USB replies arrived intact; all four managed
+files were listed, without the previous incomplete-list disconnect.
+Full status also arrived. Logger ready, hooks off, queue drops zero, error none.
+Pre-download largest internal block 31732 bytes, internal minimum 84652,
+writer stack margin 3588 bytes (4604 used).
+
+This is an initial list/status success only. The capture contains no archive
+download, so transfer integrity, throughput and the race hypothesis remain
+unconfirmed. Next: download archive 14 in the same session, send status, and
+provide the console and saved file path for byte comparison.
+
+
+## 2026-09-17 11:33 - Core-1 transfer still stalls; upgrade investigation
+
+Boot 45, writer_core=1. Archive 14 reached 1008/8059 bytes in the page.
+Request was at 11:33:51.692. At 11:34:07.730 the page sent log abort after
+its missing-response watchdog expired; the board acknowledged aborted.
+The fresh 11:34:53 status retained bytes=1152 result=stalled active=0 paused=0.
+Thus the device had already stalled; its original error did not arrive in
+the capture. The earlier 11:32:55 STATUS companion USB line arrived only at
+11:33:51, alongside the next normal probe. Output delivery is delayed as well
+as previously corrupted. Pinning to core 1 alone did not resolve retrieval.
+
+Logger remained ready, drops=0, error=none. Largest internal block 31732,
+internal minimum 84652, writer stack margin 2980 bytes. This run contains
+no TLS or Live window and cannot replace those memory/performance gates.
+
+Checked installed HWCDC.cpp and SDK usb_serial_jtag_ll.h. The old ISR ignores
+partial FIFO write counts, lacks a terminating empty-packet flush in its
+empty-ring branch, and has unprotected interrupt enable changes.
+These are credible causes; the exact hardware sequence remains unobserved.
+
+JP suggested a newer core and offered to check the maker's product page.
+Paused the proposed project-local transmit-service workaround; it was not implemented.
+Read-only upstream investigation found:
+- [Espressif PR 12606](https://github.com/espressif/arduino-esp32/pull/12606)
+  fixes HWCDC sustained-write data loss and hangs, including interrupt races,
+  partial FIFO writes and missing terminating zero-length packets.
+- [Core 3.3.11 HWCDC.cpp](https://github.com/espressif/arduino-esp32/blob/3.3.11/cores/esp32/HWCDC.cpp)
+  contains those fixes.
+- [Release 3.3.11](https://github.com/espressif/arduino-esp32/releases/tag/3.3.11)
+  uses ESP-IDF 5.5.5; this is a candidate, not validated for this application.
+
+Local README.md records reset-loop I2C conflicts with 3.2.0 and 3.3.0.
+The current link map identifies ESP32_IO_Expander 0.0.3 ESP_IOExpander.cpp
+as the caller pulling in legacy i2c_driver_install. The library compatibility
+and PSRAM-stack/SDK audit must precede an upgrade trial. Board support alone
+does not establish compatibility of this pinned application.
+
+No core, library, build profile or firmware change in this investigation.
+No compile, flash, commit or push. Proposed next direction: review the maker's
+exact core/library recommendation, then prepare an isolated upgrade build profile
+with 3.1.3 preserved for rollback. Stage 1B remains pending.
+
+
+### 2026-09-17: core 3.3.11 trial prepared; no new bench result
+
+JP authorized the smaller upgrade trial after installing core 3.3.11 and Adafruit XCA9554.
+The new Maker profile was still pinned to 3.1.3; it is now corrected, with both Adafruit libraries.
+The sketch chooses the expander by core version, preserving the original profile paths.
+Graphics and the Stage 1B USB implementation are unchanged for this experiment.
+Installed SDK and tagged-source checks found no blocker for attempting compilation.
+See [core trial preparation](core_3_3_11_trial.md). JP compiles next; no new firmware has been built or flashed by Codex.
+
+
+### 2026-09-17: first core 3.3.11 compilation failed in graphics 1.4.9
+
+The intended core and Adafruit libraries were selected. The old graphics
+library fails to compile three spiFrequencyToClockDiv calls in its ordinary
+SPI and SPI DMA backends; the core now requires a bus pointer argument.
+The active display uses QSPI, but these other source files are compiled too.
+The downloaded original-board Waveshare graphics 1.6.4 includes compatibility
+helpers for this exact signature change. See [trial details](core_3_3_11_trial.md).
+No new hardware result or flash. Graphics migration choice pending JP.
+
+
+JP subsequently accepted the separate Waveshare graphics 1.6.4 copy.
+The new profile now selects it, and constructor/brightness API changes are gated
+for the new core. The old graphics folder and both 3.1.3 profiles are preserved.
+Copied library files were hash-verified. No second build or hardware test yet;
+JP recompiles next. The 20 MHz display clock and memory gate remain unchanged.
+
+
+The second 3.3.11 compile selected graphics 1.6.4 correctly, but reported the
+removed BLACK alias in initDisplay(). Replaced it with RGB565_BLACK, present
+in both library versions with the same value. Trial remains compile-pending;
+no flash or new bench result.
+
+
+### 2026-09-17: core 3.3.11 compilation passed
+
+JP's build completed successfully with the intended core 3.3.11, separate
+Waveshare graphics 1.6.4, XCA9554 1.0.0 and BusIO 1.17.4. The other pinned
+application libraries remain selected; the old ESP32_IO_Expander is absent.
+First bench flash/startup/status check is next. USB download, memory and
+runtime compatibility remain unverified on this build; Stage 1B is pending.

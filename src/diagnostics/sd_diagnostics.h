@@ -16,10 +16,12 @@ struct DiagnosticsHealth {
   bool moving = false;
 };
 void diagnosticsInitEarly(); // setup, internal stack: NVS, RTC, queue, clock
-void diagnosticsStart();     // after board power initialization; does not wait for SD
+void diagnosticsStart();     // setup only, same core as USBSerial.begin(); does not wait for SD
 void diagnosticsSetupComplete();
 bool diagnosticsHealthDue(); // main task only: health rate limit and optional NVS stress tick
 void diagnosticsUpdateHealth(const DiagnosticsHealth& health);
 void diagnosticsPrintStatus(); // snapshots only; never waits for SD
-bool diagnosticsCommand(const char* command); // log status and compile-time test hooks
+bool diagnosticsCommand(const char* command); // Bounded USB commands and fault hooks
+bool diagnosticsUsbTransferActive();
+void diagnosticsUsbMainTick(); // Control-only fallback when writer is disabled/off
 bool diagnosticsClose(bool deepSleep, uint32_t waitMs = 500); // bounded, idempotent
