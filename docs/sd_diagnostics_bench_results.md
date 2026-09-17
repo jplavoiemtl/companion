@@ -6338,3 +6338,291 @@ Waveshare graphics 1.6.4, XCA9554 1.0.0 and BusIO 1.17.4. The other pinned
 application libraries remain selected; the old ESP32_IO_Expander is absent.
 First bench flash/startup/status check is next. USB download, memory and
 runtime compatibility remain unverified on this build; Stage 1B is pending.
+
+
+### 2026-09-17 14:21: core 3.3.11 first hardware/status checkpoint
+
+JP reports normal Latest, Back, Live, inclinometer, G-meter, motion and IMU.
+Boot 47 lists all four files cleanly. Logger ready, clock synced, hooks=0,
+no errors or drops; final USB state idle and appends not paused.
+Internal minimum=92760, sampled largest minimum=51188 bytes; writer PSRAM
+placement valid, internal TCB=352 bytes, core 1, remaining stack margin=3768.
+The short 18.267-second normal probe averages 42.31 Hz IMU (min 26.31 Hz),
+to revisit with a full window rather than treating visual success as a
+performance result. TLS/Live quantitative gates remain pending.
+See [detailed trial measurements](core_3_3_11_trial.md).
+Next: the original archive-14 retrieval, expected 8059 bytes and CRC 99C24CB1.
+No code change, compile, flash or commit by Codex.
+
+
+### 2026-09-17 14:22: first successful USB archive download on core 3.3.11
+
+Boot 47: archive 14 downloaded in 0.12 s, 8059 bytes, CRC OK;
+post-status reports bytes=8059, result=ok, active=0 and paused=0.
+Logger ready with zero drops/errors, writer stack margin 3320 bytes,
+internal minimum 92760 and sampled largest minimum 51188 bytes.
+JP confirms the file was saved. Its path and independent byte comparison
+remain pending. Strong evidence favors the newer HWCDC fixes, but the core,
+graphics and expander changed together, so a single causal fix is not proven.
+The full 60-second normal IMU window averages 42.45 Hz; this warrants follow-up
+and cannot now be attributed solely to the short initial window.
+See [trial details](core_3_3_11_trial.md). Stage 1B is not yet fully accepted.
+
+
+### Archive-14 independent file comparison passed
+
+Located `C:/Users/photo/Downloads/47-archive-00000014.log` and compared its raw
+bytes with `docs/bench_data/sd_logs_2026-09-17_offline_rotation/logs/archive-00000014.log.txt`.
+They are identical: 8059 bytes, CRC32 99C24CB1,
+SHA-256 5ec652cb9e9268d92c44511b452746bbc43f82d3dc246eb9eea69a7e23c12eb0.
+This completes the small-archive independent integrity check, not the entire USB gate.
+Next: one normal current.log download, immediate status, then another status
+70 seconds later to check append growth. All page fault switches stay off.
+Current snapshot prefix comparison and later gate cases remain pending.
+
+
+### 2026-09-17 14:28: current download and append resume passed
+
+Boot 47 current.log: 128183 bytes in 1.28 s, CRC OK, saved locally with
+CRC32 11E25C6B and complete UTF-8 records. USB returns to idle/unpaused.
+Current grows from 128345 to 128908 bytes over the next 63.298 seconds;
+writes 18 -> 19, no drops or errors, writer stack margin 3320 bytes.
+Current-prefix integrity comparison and remaining stress gates stay pending.
+
+The saved file additionally reveals an earlier task-watchdog reset into boot 47
+at approximately 14:20:38, before both successful downloads. JP was asked for
+context, especially VS Code monitor closure. Cause is not established.
+Full-minute IMU averages remain about 42.5 Hz. See [trial details](core_3_3_11_trial.md).
+
+
+### JP clarification: earlier reset associated with VS Code monitor closure
+
+JP confirms a freeze/restart when closing the VS Code monitor, followed by
+stable operation. The successful boot-47 USB downloads remain valid results;
+monitor-close behavior remains an open issue on the core 3.3.11 trial.
+This observation does not establish the underlying watchdog mechanism.
+Next: current plus newest three with page fault switches off, then status.
+No firmware change or rebuild. The separate 2 MiB throughput gate is pending.
+
+
+### 2026-09-17 14:37: four-file USB bundle passed
+
+JP confirms current plus archives 16, 15 and 14 downloaded successfully.
+All browser CRC checks pass: 157514 bytes total in 1.742 seconds from first
+command to final completion. Boot 47 remains ready with no drops or errors;
+USB ends idle and unpaused. Writer stack margin remains 3320 bytes.
+Internal minimum=44540 and sampled largest minimum=31732 bytes. The free-heap
+low already appears in the pre-transfer normal probe; its cause is not isolated.
+Next is a full Live baseline with no retrieval, followed by a same-session
+Live/download comparison. The 2 MiB throughput gate remains pending.
+See [trial details](core_3_3_11_trial.md). Documentation only; no commit.
+
+
+### 2026-09-17 14:39: full Live baseline, no retrieval
+
+JP reports normal video for the entire cycle. Boot 47: 181 frames in 60.426 s,
+reported 3.0 fps, average frame 334 ms, first frame 1190 ms, max gap 1106 ms.
+Decode=61 ms, blit=80 ms, HTTP=325 ms. Live probe largest minimum=26612 bytes;
+TLS windows each have largest minimum=31732. Exact boot free-internal low=37628.
+Writer stack margin=3320; no errors, drops or reset. Logger remains ready.
+The 10 ms probe has 6042 samples and max gap 11226 us.
+Next: repeat a full Live cycle in the same sitting, downloading current plus
+newest three once after about ten seconds, then capture status.
+See [trial details](core_3_3_11_trial.md) for the baseline and migration follow-ups.
+
+
+### Live with downloads: visual report received, capture pending
+
+JP reports continuous video with the in-frame seconds advancing during the
+downloads, and all files downloaded successfully. The supplied attachment
+(d765b4c4-885d-48ed-a5cc-f51d1ae11696) repeats the 14:39-14:40 baseline capture;
+it contains no new get commands or DOWNLOAD lines. Record this as a positive
+visual report only. Paired timing, memory and CRC verification await the
+actual concurrent-transfer capture; no repeat test requested yet.
+
+
+### 2026-09-17 14:45: measured Live plus bundle passed
+
+JP repeated the test and supplied the concurrent-transfer capture. Both
+baseline and download runs produce 181 frames, in 60.426 and 60.256 seconds
+respectively (about +0.28 percent fps, within the approximately 5 percent gate).
+Maximum frame gap is 901 ms versus baseline 1106 ms. Four downloads all have
+CRC OK, totaling 165287 bytes in 1.971 seconds during Live.
+Live and TLS sampled largest minima=31732 bytes, above 20480. Writer stack
+margin stays 3320. Same boot 47; no errors/drops/reset, USB idle/unpaused.
+The earlier visual report and this replacement capture now support the
+ordinary-size concurrent-download case. See [trial details](core_3_3_11_trial.md).
+Next: page-side damaged-line rejection followed by a normal current.log retry.
+Remaining Stage 1B gates are still pending; no firmware changes or commit.
+
+
+### 2026-09-17 14:49: damaged-line rejection and retry passed
+
+The page rejects the deliberately malformed current.log data line, sends
+log abort, and receives reason=aborted with abort confirmation. Normal retry
+saves 145280 bytes in 1.44 s with CRC OK. JP confirms success.
+Boot remains 47, logger ready, USB idle/unpaused, no errors or drops.
+Writer margin=3320; internal minimum=37552, retained largest minimum=26612.
+Next: stopped-browser-reader case; host buffering may make this file too
+small to exercise the five-second firmware stall guard. Capture status
+before retry to retain the first attempt's result. Documentation only.
+
+
+### 2026-09-17 14:52: stopped reader triggers retained stalled result
+
+Final USB status: bytes=9072 result=stalled active=0 paused=0. Logger ready,
+no errors or drops; boot 47 and memory/stack minima unchanged. The page did
+not receive the original error, then timed out and obtained an abort reply.
+Firmware cleanup precedes a bounded five-second terminal-reply window, which
+may expire while browser reads remain paused. The capture confirms cleanup
+but does not directly time the five-second stall or prove error delivery.
+Next: normal current download and status with all switches off, no restart.
+See [trial analysis](core_3_3_11_trial.md). Recovery retry remains pending.
+
+
+### 2026-09-17 14:54: normal retry after stopped-reader test failed
+
+JP observes roughly 68 percent progress then a stop. Firmware retains
+bytes=101808 result=stalled; page later aborts for missing response/END.
+Logger cleanup succeeds (ready, USB idle/unpaused, zero drops/errors), same
+boot 47, unchanged memory minima and stack margin. USB recovery gate fails;
+Stage 1B remains pending. A causal link to the previous paused read is not
+yet proven. Detailed sender evidence was absent because its terminal reply
+was not received. Next: reopen only the web serial connection, verify boot
+and uptime, retry current.log, then status. No firmware changes.
+See [trial analysis](core_3_3_11_trial.md).
+
+
+### 2026-09-17 14:58: connection-only recovery and new failure timing evidence
+
+Reopening web serial restores a 150788-byte current download in 1.53 s, CRC OK.
+Boot remains 47 with continuing uptime; logger/USB clean, memory and writer
+margin unchanged. This is one successful recovery without board reset.
+The saved log supplies earlier USB_GET_END durations: deliberate stopped
+reader=5133 ms at 9072 bytes; ordinary failed retry=1054 ms at 101808 bytes.
+The latter cannot be a five-second no-progress expiry. The sender also maps
+negative send results to stalled; exact failure branch remains unrecorded
+in the surviving status. The later browser timeout is a separate event.
+Recommend retaining exact stop/send observations in status before repeating
+fault tests. No firmware change implemented; Stage 1B remains pending.
+See [trial analysis](core_3_3_11_trial.md).
+
+
+### 2026-09-17 15:11: diagnostic build flashed, ordinary retrieval passed
+
+JP again needed USB cable unplug/replug after closing the VS Code monitor;
+board restarted. Boot 49 then completes a 160243-byte current download
+in 1.61 s with CRC OK. New LOG USB FAIL/SEND lines are present and valid=0
+throughout, as expected before a stall. Logger ready, zero drops/errors,
+USB idle/unpaused. Stack margin=3320, internal minimum=94856 and sampled
+largest minimum=51188. No reset during this captured web transfer.
+Next: paused-reader failure with status, then ordinary retry with status,
+without reconnecting, to capture the exact failure checks if it recurs.
+Monitor-close freeze remains open; Stage 1B not yet accepted.
+
+
+### 2026-09-17 15:13: five-second stall identified, normal retry passed
+
+Boot 49 snapshot: path=stop_guard, idle_ms=5000, elapsed_ms=5138,
+check=space, tx_free=119 versus line_bytes=201, write_bytes=-1, bytes=9216.
+Browser receives the original stalled error. This confirms the intentional
+no-progress timeout and that no write was attempted with insufficient space.
+Normal retry succeeds without reconnecting: 162580 bytes in 1.62 s, CRC OK.
+Final USB idle/unpaused/result=ok; retained snapshot remains unchanged, as
+designed. No logger errors/drops or new memory/stack low.
+This case passes; the previous early normal-transfer failure remains open.
+Next: three normal current downloads, status after each, stop on failure.
+See [trial details](core_3_3_11_trial.md). Documentation only.
+
+
+### 2026-09-17 15:16: three consecutive ordinary downloads passed
+
+Boot 49: 164029, 164352 and 165239 bytes in 1.64, 1.69 and 1.75 s;
+all CRC OK. Each status is ready, no errors/drops, USB idle/unpaused/result=ok.
+Memory minima and writer margin remain unchanged (94856/51188 bytes and
+3320 bytes respectively). Historical stall snapshot stays at up_ms=248461.
+The intermittent early failure remains unresolved. Next is a longer paused
+read (at least twelve seconds), status, normal retry and status without
+reconnecting, to cover late resumption after the terminal-reply window.
+See [trial details](core_3_3_11_trial.md). Documentation only.
+
+
+### 2026-09-17 15:19: longer reader pause and recovery passed
+
+Stalled reply arrives 15.685 s after request. Retained diagnostics identify
+the five-second guard: elapsed_ms=5124 idle_ms=5000, check=space,
+tx_free=104 for a 201-byte line, no write attempted, bytes=9072.
+Normal retry saves 167580 bytes in 1.74 s with CRC OK, same boot 49.
+Logger clean, USB idle/unpaused, memory/stack minima unchanged.
+No need to repeat for omitted intermediate status: the failure snapshot
+survived the successful retry. Error delivery may have been buffered.
+Move to retrieval while MQTT is unavailable; earlier unexpected early
+failure and remaining Stage 1B gates stay open. Documentation only.
+
+
+### 2026-09-17 15:22: USB bundle with MQTT off passed
+
+All four CRC checks pass: 169031/7942/7936/8059 bytes; current takes 1.66 s.
+Two ghost-broker retries take about five seconds each. Downloads occur
+between those attempts, so blocking-connect overlap is not exercised.
+Real broker reconnects in 508 ms after on. Same boot49; logger ready,
+USB idle/unpaused, no drops/errors. Writer margin=3320, largest minimum=51188.
+Free-internal low=94596 occurs in real MQTT connect; retained stall unchanged.
+Next planned gate needs a 2 MiB archive. Proposed test-only writer fixture
+generator avoids card removal; no such change implemented yet.
+See [trial details](core_3_3_11_trial.md). Documentation only.
+
+
+### 2026-09-17 15:39: 2 MiB fixture created; download failed
+
+Boot51 creates archive18 (2097152 bytes) in 52.523 s, result=ok.
+Download ends with retained result=disconnected, bytes=904320 (43.125%),
+then the page times out and obtains abort confirmation. Same boot responds;
+logger ready, zero drops/errors, internal minimum=92524, largest=49140,
+writer margin=3336. USB inactive/unpaused. The archive has no 120-second limit.
+Failure snapshot valid=0 because it currently captures stalled only.
+Installed HWCDC source permits transient false connection readings; firmware
+currently aborts on the first false. Brief connection-loss tolerance plus
+retained disconnected diagnostics is the proposed next correction, pending
+implementation. Keep archive18 for retry; no card removal or repeat generation.
+See [source analysis and details](core_3_3_11_trial.md). Stage 1B remains open.
+Documentation only; no build, flash, commit or push.
+
+
+### Boot 51 follow-up: connection-loss tolerance ready for JP
+
+Implemented JP-approved 1000 ms sustained-loss guard. No sending on a false
+connection reading; brief recovery resumes the pending line. Five-second
+no-progress protection and current's 120-second limit remain unchanged.
+Retained diagnostics now include disconnected failures and connection-loss
+counts/durations. Ten guard source simulations and fourteen browser checks
+pass; no firmware build or flash. Hardware validation is pending.
+Next: retry existing archive18 once, then status before refresh or retry.
+See [handoff](../src/diagnostics/STAGE1B.md). No commit or push.
+
+
+### 2026-09-17 15:52: 2 MiB gate passed; 3 ms link loss recovered
+
+Boot53 downloads archive18, 2097152 bytes in 20.39 s, CRC OK.
+Saved file independently matches every expected byte (CRC32 8D218D21).
+LOG USB LINK losses=1 max_loss_ms=3 pending=0 confirms a brief connection
+indication recovered without terminating the transfer. No retained failure.
+USB idle/unpaused/result=ok; logger ready, no drops/errors. Internal minimum
+95088, largest minimum51188, writer margin3320. The 120 s current deadline
+exceeds 3 x 20.39 s = 61.17 s, so needs no increase.
+Next: same archive with MQTT off, starting immediately to overlap its first
+blocking retry, then on and status. No build or card removal needed.
+See [trial details](core_3_3_11_trial.md). Stage1B acceptance remains pending.
+
+
+### 2026-09-17 15:55: 2 MiB download during blocking MQTT retry passed
+
+Boot53: archive18 downloads with CRC OK in 22.67 s; every saved byte independently
+verified. Command was sent during retry 1 and finishes during retry 2, confirming
+actual overlap with a blocking MQTT attempt. Browser time includes command wait.
+One 4 ms USB connection indication recovers. No logger errors/drops, USB idle,
+writer margin=3320 and largest minimum=51188 unchanged. MQTT on reconnects in 618 ms.
+Free-internal low becomes 92472 in the real-broker connect probe. Same boot remains.
+JP requests commit/push checkpoint; Stage1B remains open, fixture flag=1/hooks=0.
+Keep archive18 for remaining tests, then verify serial deletion and disable flag.
+See [timing and evidence](core_3_3_11_trial.md).

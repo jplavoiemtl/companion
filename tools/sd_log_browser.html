@@ -7,7 +7,7 @@
 <style>
 :root{color-scheme:dark;background:#0d131b;color:#e4edf7;font:16px/1.5 system-ui,sans-serif}
 body{max-width:1050px;margin:32px auto;padding:0 20px}
-h1{font-size:1.6rem;margin-bottom:4px} h2{font-size:1.1rem}
+h1{font-size:1.6rem;margin-bottom:4px}
 .card{background:#151e2a;border:1px solid #344256;border-radius:10px;padding:16px;margin:16px 0}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
 button,input,select{font:inherit;padding:8px;background:#202d3e;color:#e4edf7;border:1px solid #62748c;border-radius:5px}
@@ -26,18 +26,15 @@ input[type=text]{flex:1;min-width:200px}
 small,.muted{opacity:.8}
 #console{width:100%;height:340px;box-sizing:border-box;background:#111923;color:#e4edf7;
 font:13px/1.5 ui-monospace,monospace;resize:vertical;border:0;padding:12px}
-#state{font-weight:600}#support{font-family:ui-monospace,monospace}
+#state{font-weight:600}
 fieldset{border:0;padding:0;margin:10px 0}
 legend{font-weight:600}
-ol{padding-left:24px}li{margin:6px 0}
 </style>
 </head>
 <body>
 <h1>Companion SD log browser</h1>
 <p class="muted">Stage 1B · USB serial · Verified SD log downloads · 115200 baud</p>
 <section class="card" aria-label="Connection">
-<p id="support" role="status"></p>
-<p id="compatibility"></p>
 <div class="row">
 <button id="connect" disabled>Connect</button>
 <button id="disconnect" disabled>Disconnect</button>
@@ -53,8 +50,6 @@ ol{padding-left:24px}li{margin:6px 0}
 <label>DTR <select id="dtr"><option value="false">false</option><option value="true" selected>true</option></select></label>
 <label>RTS <select id="rts" disabled><option value="false">false</option><option value="true">true</option></select></label>
 </div>
-<p id="signalStatus">Driver defaults: no setSignals call; actual DTR/RTS values are unknown.</p>
-<small>Explicit settings apply after the driver opens the port. They cannot prevent its first signal change or guarantee no reset.</small>
 </fieldset>
 </section>
 <section class="card" aria-label="Log files">
@@ -85,17 +80,6 @@ ol{padding-left:24px}li{margin:6px 0}
 <button id="save" type="button">Save console</button>
 <button id="clear" type="button">Clear console</button>
 </div>
-</section>
-<section class="card">
-<h2>First Stage 1B bench check</h2>
-<ol>
-<li>JP builds and flashes Stage 1B with logging and PSRAM writer enabled, fault hooks off. Keep the card installed.</li>
-<li>Connect using the tested DTR=true, RTS=false settings. Status and the managed-file list load automatically. Press Refresh files if startup was still running.</li>
-<li>Download one small archive. Only a file with verified size, sequence and CRC is saved. Compare it with the existing card-reader backup.</li>
-<li>Send <code>status</code> for the full memory/stack bench snapshot. Save the console and report the downloaded file, timing and normal board operation.</li>
-</ol>
-<p>One program can own the COM port. JP observed an unresolved freeze when closing the VS Code monitor; explicit web settings passed repeated connections and Live. Use the established recovery if needed, then compare boot/uptime.</p>
-<p>Later tests cover current snapshots, a 2 MiB archive, Live/MQTT interference, validation, aborts, queue pressure, pruning and repeats. Downloads above 64 MiB are refused to bound browser memory. No upload or delete commands are provided.</p>
 </section>
 <script>
 "use strict";
@@ -135,11 +119,6 @@ class LogFileReceiver {
 // END PROTOCOL CORE
 const el = id => document.getElementById(id);
 const supported = window.isSecureContext && "serial" in navigator;
-el("support").textContent = "isSecureContext = " + window.isSecureContext +
-  " | navigator.serial = " + ("serial" in navigator);
-el("compatibility").textContent = supported
-  ? "Web Serial is available. Close VS Code's Serial Monitor before connecting."
-  : "Connect is unavailable. Use desktop Chrome or Edge in a secure context; try localhost if opening from disk is blocked.";
 const MAX_ENTRIES = 1000, MAX_CHARS = 512 * 1024, MAX_LINE = 4096;
 let entries = [], chars = 0, partial = "", partialStamp = "", partialCut = false;
 let current = null, choosing = false, sending = false, renderPending = false;
@@ -212,7 +191,6 @@ function controls() {
   el("rts").disabled = el("mode").value !== "explicit";
   el("command").disabled = !connected;
   el("send").disabled = !connected || sending;
-  el("signalStatus").textContent = signalDescription();
   el("refresh").disabled = !connected || !!download || listPending;
   el("bundle").disabled = !connected || !!download || listPending || !files.size;
   el("abort").disabled = !connected || !download;
@@ -510,6 +488,7 @@ if ("serial" in navigator) {
 window.addEventListener("pagehide", () => { if (current) void disconnect(current, "Page closing"); });
 controls();
 record("EVENT", "Console ready. " + navigator.userAgent);
+if (!supported) record("ERROR", "Web Serial unavailable. Use desktop Chrome or Edge in a secure context; try localhost if opening from disk is blocked.");
 </script>
 </body>
 </html>

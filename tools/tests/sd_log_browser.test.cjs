@@ -37,6 +37,18 @@ check('empty, standard CRC vector and multi-chunk binary round trips',()=>{
     assert.deepEqual(Buffer.from(r.end(end)),bytes);
   }
 });
+check('2 MiB synthetic archive crosses large sequence numbers and verifies every byte',()=>{
+  const bytes=Buffer.alloc(2*1024*1024, '.');
+  for (let offset=0; offset<bytes.length; offset+=64) {
+    bytes.write('USB_TEST_FIXTURE line='+String(offset/64).padStart(8,'0')+' ',offset,'ascii');
+    bytes[offset+63]=10;
+  }
+  assert.equal(crc32(bytes),'8D218D21');
+  const name='archive-00000018.log', r=new Receiver(name), lines=wire(bytes,name);
+  r.begin(lines.shift()); const end=lines.pop(); lines.forEach(l=>r.data(l));
+  assert.ok(r.lines>10000);
+  assert.deepEqual(Buffer.from(r.end(end)),bytes);
+});
 check('BEGIN rejects version, path, unexpected name and unbounded size',()=>{
   for (const line of ['@@BEGIN version=2 name=current.log size=0','@@BEGIN version=1 name=../current.log size=0',
     '@@BEGIN version=1 name=archive-00000014.log size=0','@@BEGIN version=1 name=current.log size=67108865',

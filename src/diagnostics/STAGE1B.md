@@ -118,3 +118,192 @@ JP rebuilds/flashes, reconnects, sends status, downloads only archive 14, and se
 status again. Send the complete console and any downloaded file path.
 If the trial fixes corruption, Live performance and memory need a same-session
 recheck before accepting Stage 1B. The cross-core race remains a hypothesis until tested.
+
+
+## Retained USB stall diagnostics (2026-09-17 follow-up)
+
+JP authorized a diagnostic-only firmware change after the normal retry failed
+in 1054 ms, too soon to be the five-second no-progress timeout.
+`status` and `log status` now append two ordinary console lines after @@USB:
+
+```text
+[LOG USB FAIL] valid=0 at_ms=0 elapsed_ms=0 idle_ms=0 phase=none path=none
+[LOG USB SEND] file=none bytes=0 line_bytes=0 tx_free=-1 write_bytes=-1 check=none stop=none
+```
+
+With valid=1 these describe the most recent stalled transfer, captured before
+cleanup and independently of whether the original error reply arrives.
+
+- at_ms is device uptime at the failure. elapsed_ms is time since request
+  acceptance; idle_ms is time since the last complete line was enqueued.
+- path=stop_guard identifies the normal limit check. path=send_failed
+  identifies a negative send result. path=stop_recheck identifies the
+  pre-write guard, including its original stop reason if it later clears.
+- check identifies the last send step: length, connected_before_space,
+  space, connected_after_space, stop_recheck, complete or short_write.
+- tx_free is the last availableForWrite return; write_bytes is the last
+  write return. -1 means that operation was not reached. line_bytes is the
+  requested complete wire-line length. bytes counts completed file payload.
+- The snapshot survives listing, successful retry, late abort and serial
+  reconnection. Another stall replaces it; reboot clears it. A zero write
+  return alone cannot distinguish the driver's internal reasons.
+
+Storage is a fixed writer-owned RAM struct; no dynamic allocation, new task,
+per-frame print or SD record. The transfer protocol, cleanup order, USB settings,
+limits and Stage 0 probes are unchanged. Only explicit status output grows.
+The page's requested introductory paragraphs and bottom bench instructions
+were removed. Signal controls remain; unsupported Web Serial reports an error
+in the console. Existing browser checks pass.
+
+JP builds/flashes profile amoled-1-8-core-3-3-11, keeps hooks=0 and PSRAM writer
+enabled. This change is in src/ only; companion.ino was not edited.
+First test: reload the HTML page, connect with the established explicit
+signals, send status, download current normally, then send status again.
+Paste the entire output, especially both new LOG USB lines. If this passes,
+repeat the paused-reader/recovery sequence with separate instructions.
+No firmware build or flash performed by Codex; hardware results pending.
+
+
+## 2 MiB synthetic archive and safe serial deletion
+
+JP authorized creating and later deleting the test archive without removing
+the card. This bench build sets DIAG_USB_TEST_FIXTURE=1 and leaves
+DIAG_TEST_HOOKS=0 and DIAG_WRITER_STACK_PSRAM=1. The fixture flag must return
+to 0 for ordinary builds after testing. It is separate from panic, watchdog,
+clock and storage fault hooks; enabling both hook flags is rejected at compile
+time. No automatic fixture is created at startup.
+
+Commands (type in the web console):
+
+- `log test file`: create one synthetic 2097152-byte archive. Wait for
+  `[LOG FIXTURE] result=ok archive=NNNNNNNN bytes=2097152 errno=0`.
+- `status`: includes `[LOG FIXTURE]` with active, archive, byte count, result
+  and errno while this bench flag is enabled.
+- `log test del 18`: example deleting archive 18. Substitute the actual
+  number printed by creation. Wait for result=deleted, then Refresh files.
+  This is NOT a general log-delete command. It refuses wrong sizes or any
+  byte that differs from the synthetic pattern, including normal SD logs.
+
+Implementation and ownership:
+
+- Existing writer owns every file operation. It writes or validates only
+  1024 bytes per turn, using the existing PSRAM formatter and normal 20 ms
+  idle yield. Events, clock work and flushes retain priority. No new task,
+  PSRAM allocation, NVS write or transport setting is introduced.
+- Creation uses O_EXCL on /logs/usb-fixture.tmp. It refuses an existing temp
+  file, insufficient free space or retention headroom rather than pruning
+  diagnostic evidence for test data. It reserves an archive generation
+  above both current generation and archive high-water mark.
+- The complete file is fsynced, closed, checked for destination collision,
+  then renamed to archive-NNNNNNNN.log and inventoried. Generation gaps are
+  expected; current.log stays open and is not replaced or padded.
+- Each of 32768 64-byte lines starts USB_TEST_FIXTURE line= followed by an
+  eight-digit zero-based index and a space, dots to byte 62, then LF.
+  These are labelled synthetic records, not normal diagnostic event records.
+- The test archive participates in normal archive listing and retention.
+  Creation queues USB_TEST_FIXTURE in current.log; deletion queues USB_TEST_DELETE.
+- Listing and downloading are refused while fixture creation/validation is
+  active; status remains available. Start only when no USB transfer is active.
+- Deletion opens only an exact numeric archive path, checks size, compares
+  every byte in bounded batches, closes its reader and then unlinks it.
+  Normal pruning closes a fixture-validation reader before unlinking.
+- Shutdown cancels pending work and closes its handle. Failed creation removes
+  only the temp file exclusively created by this invocation. Failed validation
+  preserves the target. A pre-existing temp left by abrupt power loss is
+  preserved and causes temp_open_failed; report it instead of repeatedly trying.
+- Generation and validation have a 120-second operation deadline checked
+  between batches. This is separate from USB download limits. Creating or
+  verifying for deletion should take roughly a minute at 1 KiB per 20 ms turn;
+  status reports progress. Do not benchmark Live while generating/deleting.
+
+Known reference: size 2097152, CRC32 **8D218D21**, SHA256
+`b79a649116ba358243b2c9388b68ac718b9f65cef94f241236ad8550394f65be`.
+`python tools/verify_usb_fixture.py <downloaded-file>` independently compares
+every byte on the computer. No card-reader copy is needed for this synthetic
+fixture; this does not replace the real current.log prefix integrity test.
+
+### Next bench test only
+
+1. JP compiles/flashes amoled-1-8-core-3-3-11. Prepared flags above need no edit.
+   Keep the SD card installed. No companion.ino changes, so this src-only
+   update does not require deleting its generated .ino.cpp.
+2. Reload the web page. Connect with explicit DTR=true, RTS=false. All browser
+   fault switches off; hotspot on; Live stopped. Send status.
+3. Send log test file once. Wait for result=ok and retain the archive number.
+   If it fails, stop and paste the console. Do not send the command repeatedly.
+4. Click Refresh files and download the new archive showing 2097152 bytes.
+5. Send status and paste the console plus the saved file path. Report whether
+   the board stayed responsive. Keep the archive for the remaining large-file
+   tests; log test del <number> will remove it when done.
+
+Acceptance here: CRC and independent expected bytes, duration at most 40 s
+for the initial 120 s >= 3x measured transfer-time margin, no unexpected
+stall/reset/drop or memory/stack failure. If throughput requires a longer
+current limit, discuss and set that before accepting the gate. A successful
+2 MiB archive does not validate current-file timeout or MQTT overlap by itself.
+
+Desktop verification: 14 existing/extended browser checks pass, including
+full 2 MiB sequencing and CRC; independent Python verifier accepts the
+reference and rejects a changed last byte, truncation and ordinary log text.
+Writer code reviewed for exclusive create, bounded work, collision checking,
+shutdown cleanup and delete validation. Firmware was not compiled or flashed
+by Codex; on-board generation and deletion are still unverified.
+
+
+## Connection-loss tolerance prepared after boot 51
+
+JP approved this correction. The writer stops sending immediately on a false
+USB connection reading, but aborts as disconnected only after 1000 ms of
+continuously observed loss. Recovery before that resumes the pending line.
+The five-second no-progress deadline remains active during loss or flapping;
+connection checks do not reset progress. Current retains its 120-second limit.
+Archives still have no overall time limit. Abort, queue pressure and shutdown
+checks continue to run. No sleep, new task or per-line serial output was added.
+
+Both pre-write connection checks now return retry without writing on a false
+reading. A final stop check that observes loss also prevents the write.
+Control replies use their existing bounded retry period for transient loss.
+Short or failed writes still terminate the transfer; they are never retried
+as a whole line, which would risk duplicate or corrupt protocol data.
+A connection change inside the core's write call remains possible; this
+change cannot make connection checking and driver writing atomic.
+
+Retained LOG USB FAIL now covers stalled and disconnected outcomes and adds
+reason and loss_ms. LOG USB LINK reports losses, max_loss_ms, pending and
+grace_ms=1000 for the latest transfer. These observations reset at the next
+list/download, so request status before Refresh files or another download.
+The failure snapshot survives successful retries, listing and late aborts.
+A sustained disconnect still closes the reader and resumes current appends
+before release; no reply is attempted while classified disconnected.
+
+Desktop validation: ten source-level guard simulations and fourteen browser
+protocol checks pass. Simulation covers brief loss, continuous loss, loss
+at each pre-write check, flapping, unchanged deadlines, abort/queue/shutdown,
+short writes and control replies. This is not a C++ firmware build or a
+hardware validation. JP builds and flashes from VS Code. No commit or push.
+
+Next bench test: build/flash the 3.3.11 profile, keep the card installed and
+archive18 unchanged, connect with explicit DTR=true RTS=false, all browser
+fault switches off, hotspot on and Live stopped. Download archive18 once,
+then send status before any refresh/retry. Send the whole console, saved-file
+path if successful, and whether the board stayed responsive. Do not regenerate
+or delete the fixture yet. Only src changed, so this update does not require
+removing the generated companion.ino.cpp. Large-file acceptance remains CRC
+and independent byte verification, no unexpected failure, and at most 40 s
+for the initial 120-second current-file deadline's three-times margin.
+
+
+## Hardware checkpoint: 2026-09-17 15:56
+
+Fixture creation and two full 2 MiB downloads now pass, with independent exact
+byte verification. Ordinary transfer 20.39 s; MQTT-overlap run 22.67 s includes
+waiting for the command to be processed after a blocked main-loop connect.
+Completion occurs during the next blocking MQTT attempt. Connection-loss
+observations 3 ms and 4 ms recover; zero logger drops/errors. MQTT restores normally.
+Keep the 120-second current deadline (required 3x margins: 61.17 s and 68.01 s).
+
+This is a bench checkpoint, not Stage1B acceptance. Remaining cases include
+large Live overlap, remaining abort/current pause and timeout tests, and
+on-board fixture deletion. Leave fixture 18 installed and DIAG_USB_TEST_FIXTURE=1
+until these finish; then use log test del 18 and restore flag 0. Do not rerun
+fixture generation. See docs/sd_diagnostics_bench_results.md for measured status.

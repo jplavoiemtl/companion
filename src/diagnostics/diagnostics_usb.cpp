@@ -18,6 +18,7 @@ extern HWCDC USBSerial;
 namespace {
 constexpr size_t WIRE = 240, CHUNK = 144, MAX_ENTRIES = 256;
 constexpr uint64_t STALL_MS = 5000, CURRENT_MS = 120000;
+constexpr uint64_t DISCONNECT_MS = 1000;
 constexpr char ROOT[] = "/sdcard/logs/";
 enum class Request : uint8_t { None, List, Current, Archive };
 enum class Phase : uint8_t { Idle, Begin, Data, End, List, Terminal };
@@ -43,12 +44,34 @@ int reader = -1;
 bool isCurrent = false, paused = false, begun = false;
 uint32_t fileNumber = 0, dataLines = 0, crc = 0xffffffff;
 uint64_t fileSize = 0, sentBytes = 0, startedAt = 0, lastProgress = 0;
+// Writer-owned connection observations. Reset only at the next transfer.
+// A false reading stops writes immediately, but needs sustained loss to abort.
+bool connectionLost = false;
+uint64_t connectionLostAt = 0, longestLoss = 0;
+uint32_t connectionLosses = 0;
 char filename[24] = {};
 const char* terminalReason = nullptr;
 const char* terminalPhase = "idle";
 // Retain the last transfer-write observation; status/error writes do not overwrite it.
 size_t lastLineBytes = 0;
 int lastTxFree = -1, lastWriteBytes = -1;
+const char* lastSendCheck = "none";
+const char* lastSendStop = "none";
+// Writer-owned snapshot of the last stalled/disconnected transfer.
+// Listing, successful retries and late aborts do not erase it.
+struct FailureSnapshot {
+  bool valid = false;
+  uint64_t at = 0, elapsed = 0, idle = 0, bytes = 0;
+  uint64_t lossMs = 0;
+  const char* reason = "none";
+  size_t lineBytes = 0;
+  int txFree = -1, writeBytes = -1;
+  const char* phase = "none";
+  const char* path = "none";
+  const char* check = "none";
+  const char* stop = "none";
+  char file[24] = {};
+} lastFailure;
 const char* phaseName(Phase value) {
   switch (value) {
     case Phase::Begin: return "begin";
@@ -63,6 +86,19 @@ uint8_t statusPart = 0;
 uint64_t statusAt = 0;
 
 uint64_t milliseconds() { return esp_timer_get_time() / 1000; }
+bool transferConnected() {
+  const bool connected = USBSerial.isConnected();
+  const uint64_t now = milliseconds();
+  if (connected) {
+    if (connectionLost && now - connectionLostAt > longestLoss)
+      longestLoss = now - connectionLostAt;
+    connectionLost = false;
+  } else {
+    if (!connectionLost) { connectionLost = true; connectionLostAt = now; ++connectionLosses; }
+    if (now - connectionLostAt > longestLoss) longestLoss = now - connectionLostAt;
+  }
+  return connected;
+}
 void publish() {
   portENTER_CRITICAL(&usbMux);
   publishedBytes = sentBytes; publishedPaused = paused;
@@ -94,20 +130,36 @@ void queueError(const char* reason) {
   portEXIT_CRITICAL(&usbMux);
 }
 // Never spin on space. Caller retries on another writer turn and rechecks limits.
-// Core 3.1.3 serial mutex/timeout are unchanged; space is not a reservation.
+// Core serial mutex/timeouts are unchanged; space is not a reservation.
 const char* stopReason();
 int sendLine(const char* bytes, bool transfer = false) {
   const size_t length = strlen(bytes);
-  if (transfer) { lastLineBytes = length; lastTxFree = lastWriteBytes = -1; }
+  if (transfer) {
+    lastLineBytes = length; lastTxFree = lastWriteBytes = -1;
+    lastSendCheck = "length"; lastSendStop = "none";
+  }
   if (!length || length > WIRE) return -1;
-  if (!USBSerial.isConnected()) return -1;
+  if (transfer) lastSendCheck = "connected_before_space";
+  if (!(transfer ? transferConnected() : USBSerial.isConnected())) return 0;
   const int space = USBSerial.availableForWrite();
-  if (transfer) lastTxFree = space;
+  if (transfer) { lastTxFree = space; lastSendCheck = "space"; }
   if (space < int(length)) return 0;
-  if (!USBSerial.isConnected()) return -1;
-  if (transfer && stopReason()) return -2;
+  if (transfer) lastSendCheck = "connected_after_space";
+  if (!(transfer ? transferConnected() : USBSerial.isConnected())) return 0;
+  if (transfer) {
+    if (const char* reason = stopReason()) {
+      lastSendCheck = "stop_recheck"; lastSendStop = reason; return -2;
+    }
+    // stopReason() also samples the link. Do not write if that last sample
+    // became false even though its disconnect grace has not expired.
+    if (connectionLost) { lastSendCheck = "connected_before_write"; return 0; }
+    lastSendCheck = "write";
+  }
   const size_t written = USBSerial.write(reinterpret_cast<const uint8_t*>(bytes), length);
-  if (transfer) lastWriteBytes = int(written);
+  if (transfer) {
+    lastWriteBytes = int(written);
+    lastSendCheck = written == length ? "complete" : "short_write";
+  }
   return written == length ? 1 : -1;
 }
 void release() {
@@ -128,7 +180,20 @@ bool closeReaderAndResume(bool recordEnd, const char* result, bool keepEvent = f
   }
   return ok;
 }
-void finishError(const char* reason, bool reply = true) {
+void finishError(const char* reason, bool reply = true, const char* path = "stop_guard") {
+  // Capture before cleanup resets lastProgress or error/status writes run.
+  if ((!strcmp(reason,"stalled") || !strcmp(reason,"disconnected")) &&
+      phase != Phase::Idle && phase != Phase::Terminal) {
+    const uint64_t now = milliseconds();
+    lastFailure.valid = true; lastFailure.at = now; lastFailure.reason = reason;
+    lastFailure.lossMs = connectionLost ? now - connectionLostAt : 0;
+    lastFailure.elapsed = now - startedAt; lastFailure.idle = now - lastProgress;
+    lastFailure.bytes = sentBytes; lastFailure.lineBytes = lastLineBytes;
+    lastFailure.txFree = lastTxFree; lastFailure.writeBytes = lastWriteBytes;
+    lastFailure.phase = phaseName(phase); lastFailure.path = path;
+    lastFailure.check = lastSendCheck; lastFailure.stop = lastSendStop;
+    snprintf(lastFailure.file, sizeof(lastFailure.file), "%s", phase == Phase::List ? "list" : filename);
+  }
   if (!strcmp(reason,"aborted")) {
     portENTER_CRITICAL(&usbMux); abortRequested = false; portEXIT_CRITICAL(&usbMux);
   }
@@ -144,7 +209,8 @@ const char* stopReason() {
   const auto s = hooks.status();
   if (s.closing) return "shutdown";
   if (!s.ready) return "logger_failed";
-  if (!USBSerial.isConnected()) return "disconnected";
+  const bool connected = transferConnected();
+  if (!connected && milliseconds() - connectionLostAt >= DISCONNECT_MS) return "disconnected";
   portENTER_CRITICAL(&usbMux); bool abort = abortRequested; portEXIT_CRITICAL(&usbMux);
   if (abort) return "aborted";
   if (s.queued * 2 >= s.capacity) return "logger_busy";
@@ -199,7 +265,9 @@ void start(Request request, uint32_t number, uint64_t accepted) {
   isCurrent = request == Request::Current; fileNumber = number;
   startedAt = lastProgress = accepted; sentBytes = fileSize = 0; dataLines = 0; crc = 0xffffffff;
   begun = paused = false; terminalReason = nullptr; pendingBytes = 0;
-  terminalPhase = "idle"; lastLineBytes = 0; lastTxFree = lastWriteBytes = -1; publish();
+  connectionLost = false; connectionLostAt = longestLoss = 0; connectionLosses = 0;
+  terminalPhase = "idle"; lastLineBytes = 0; lastTxFree = lastWriteBytes = -1;
+  lastSendCheck = lastSendStop = "none"; publish();
   buffers = static_cast<Buffers*>(heap_caps_calloc(1, sizeof(Buffers), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   if (!buffers) { finishError("memory"); return; }
   if (const char* reason = stopReason()) { finishError(reason, strcmp(reason,"shutdown") && strcmp(reason,"disconnected")); return; }
@@ -245,7 +313,7 @@ void controlTick() {
       (unsigned long long)s.boot,(unsigned long long)s.uptime,s.logger,(unsigned long long)s.size,
       (unsigned long)s.newest,(unsigned long)s.drops,(unsigned long long)(s.cardBytes >> 20),
       (unsigned long long)(s.freeBytes >> 20),(unsigned long)s.files);
-  } else {
+  } else if (statusPart == 2) {
     portENTER_CRITICAL(&usbMux);
     const bool active = reserved, pause = publishedPaused;
     const uint64_t bytes = publishedBytes; const char* result = lastResult;
@@ -253,9 +321,26 @@ void controlTick() {
     snprintf(wire,sizeof(wire),"\n@@USB active=%u paused=%u bytes=%llu result=%s queue=%lu/%lu current_limit_ms=%llu stall_ms=%llu\n",
       active,pause,(unsigned long long)bytes,result,(unsigned long)s.queued,(unsigned long)s.capacity,
       (unsigned long long)CURRENT_MS,(unsigned long long)STALL_MS);
+  } else if (statusPart == 3) {
+    snprintf(wire,sizeof(wire),
+      "\n[LOG USB FAIL] valid=%u at_ms=%llu elapsed_ms=%llu idle_ms=%llu phase=%s path=%s reason=%s loss_ms=%llu\n",
+      unsigned(lastFailure.valid),(unsigned long long)lastFailure.at,
+      (unsigned long long)lastFailure.elapsed,(unsigned long long)lastFailure.idle,
+      lastFailure.phase,lastFailure.path,lastFailure.reason,(unsigned long long)lastFailure.lossMs);
+  } else if (statusPart == 4) {
+    snprintf(wire,sizeof(wire),
+      "\n[LOG USB SEND] file=%s bytes=%llu line_bytes=%u tx_free=%d write_bytes=%d check=%s stop=%s\n",
+      lastFailure.valid ? lastFailure.file : "none",(unsigned long long)lastFailure.bytes,
+      unsigned(lastFailure.lineBytes),lastFailure.txFree,lastFailure.writeBytes,
+      lastFailure.check,lastFailure.stop);
+  } else {
+    snprintf(wire,sizeof(wire),
+      "\n[LOG USB LINK] losses=%lu max_loss_ms=%llu pending=%u grace_ms=%llu\n",
+      (unsigned long)connectionLosses,(unsigned long long)longestLoss,
+      unsigned(connectionLost),(unsigned long long)DISCONNECT_MS);
   }
   const int sent = sendLine(wire);
-  if (sent > 0) statusPart = statusPart == 1 ? 2 : 0;
+  if (sent > 0) statusPart = statusPart < 5 ? statusPart + 1 : 0;
   else if (sent < 0 || milliseconds() - statusAt >= STALL_MS) statusPart = 0;
 }
 } // namespace
@@ -346,14 +431,15 @@ void diagnosticsUsbTick() {
       }
     }
     // Space checking itself takes a driver mutex. Recheck all abort conditions
-    // on every turn; the single write has the existing 100 ms driver timeout.
+    // on every turn. Driver timeouts/retry policy are unchanged.
     const int sent = sendLine(wire,true);
     if (sent == -2) {
-      const char* reason = stopReason();
-      if (!reason) reason = "stalled";
-      finishError(reason, strcmp(reason,"shutdown") && strcmp(reason,"disconnected")); break;
+      // Preserve the reason observed before the write; a new connection
+      // sample could recover and otherwise mislabel a disconnect as a stall.
+      const char* reason = lastSendStop;
+      finishError(reason, strcmp(reason,"shutdown") && strcmp(reason,"disconnected"), "stop_recheck"); break;
     }
-    if (sent < 0) { finishError("stalled"); break; }
+    if (sent < 0) { finishError("stalled", true, "send_failed"); break; }
     if (!sent) break;
     lastProgress = milliseconds();
     if (phase == Phase::Begin) phase = Phase::Data;

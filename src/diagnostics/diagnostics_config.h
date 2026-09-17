@@ -6,6 +6,14 @@
 #ifndef DIAG_TEST_HOOKS
 #define DIAG_TEST_HOOKS 0
 #endif
+// Temporary Stage 1B bench command: log test file creates a synthetic 2 MiB archive.
+// Set back to 0 for normal builds. This does not enable the fault/reset hooks.
+#ifndef DIAG_USB_TEST_FIXTURE
+#define DIAG_USB_TEST_FIXTURE 1
+#endif
+#if DIAG_USB_TEST_FIXTURE && DIAG_TEST_HOOKS
+#error "Generate the USB fixture with DIAG_TEST_HOOKS=0"
+#endif
 // A/B bench experiment: 0 keeps the internal 6144-byte stack.
 // 1 uses an 8192-byte PSRAM stack with a static internal control block.
 #ifndef DIAG_WRITER_STACK_PSRAM

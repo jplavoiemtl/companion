@@ -168,6 +168,28 @@ struct Inventory {
   bool any = false;
 };
 
+#if DIAG_USB_TEST_FIXTURE
+constexpr char FIXTURE_TEMP[] = "/sdcard/logs/usb-fixture.tmp";
+static_assert(LINE_CAPACITY % 64 == 0 && FILE_LIMIT % LINE_CAPACITY == 0,
+              "Fixture batches and records must exactly fill 2 MiB");
+// Only busy/request and status fields cross tasks, always under mux.
+struct FixtureStatus {
+  bool busy = false, requested = false, deleting = false;
+  uint32_t bytes = 0, number = 0;
+  const char* result = "none";
+  int error = 0;
+} fixture;
+int fixtureFd = -1; // Writer only.
+bool fixtureOwnsTemp = false, fixtureDeleting = false;
+void fixtureFinish(const char* result, int code = 0);
+uint64_t fixtureStarted = 0;
+uint32_t fixtureWritten = 0, fixtureNumber = 0;
+bool fixtureBusy() {
+  portENTER_CRITICAL(&mux); bool busy = fixture.busy; portEXIT_CRITICAL(&mux);
+  return busy;
+}
+#endif
+
 uint64_t nowMs() { return esp_timer_get_time() / 1000; }
 Snapshot readSnapshot() {
   portENTER_CRITICAL(&mux); Snapshot copy = snapshot; portEXIT_CRITICAL(&mux);
@@ -331,6 +353,10 @@ bool prune(uint64_t incoming, uint32_t futureArchive = 0) {
     if (!files.any) { disable("reserve_exhausted", ENOSPC); return false; }
     char path[80]; archivePath(files.oldest, path, sizeof(path));
     diagnosticsUsbBeforePrune(files.oldest); // Reader must close before removal.
+#if DIAG_USB_TEST_FIXTURE
+    if (fixtureFd >= 0 && fixtureDeleting && fixtureNumber == files.oldest)
+      fixtureFinish("pruned"); // Close fixture-validation reader before normal pruning.
+#endif
     if (unlink(path)) { disable("archive_delete", errno); return false; }
     portENTER_CRITICAL(&mux); ++snapshot.pruned; portEXIT_CRITICAL(&mux);
     vTaskDelay(1);
@@ -342,6 +368,158 @@ bool prune(uint64_t incoming, uint32_t futureArchive = 0) {
   diag::breadcrumb(true, diag::Phase::Idle);
   return true;
 }
+#if DIAG_USB_TEST_FIXTURE
+void fixtureFinish(const char* result, int code) {
+  if (fixtureFd >= 0) {
+    const int old = fixtureFd; fixtureFd = -1;
+    if (::close(old) && !code) { code = errno; result = "close_failed"; }
+  }
+  // Never remove a pre-existing temp file, a real archive or current.log.
+  if (fixtureOwnsTemp) {
+    if (unlink(FIXTURE_TEMP) && !code) { code = errno; result = "temp_cleanup_failed"; }
+    fixtureOwnsTemp = false;
+  }
+  portENTER_CRITICAL(&mux);
+  fixture.busy = fixture.requested = false;
+  fixture.bytes = fixtureWritten; fixture.number = fixtureNumber;
+  fixture.result = result; fixture.error = code;
+  portEXIT_CRITICAL(&mux);
+  diag::breadcrumb(true, diag::Phase::Idle);
+  USBSerial.printf("[LOG FIXTURE] result=%s archive=%08lu bytes=%lu errno=%d\n",
+    result, (unsigned long)fixtureNumber, (unsigned long)fixtureWritten, code);
+}
+// One 1 KiB batch per writer turn. Regular events/flushes run first; no new
+// task, NVS access, heap buffer, or busy loop. The formatter is already PSRAM.
+void fixtureTick() {
+  bool start, deleting; uint32_t requestedNumber;
+  portENTER_CRITICAL(&mux);
+  start = fixture.requested; fixture.requested = false;
+  deleting = fixture.deleting; requestedNumber = fixture.number;
+  portEXIT_CRITICAL(&mux);
+  if (start) {
+    fixtureDeleting = deleting;
+    fixtureWritten = 0; fixtureNumber = deleting ? requestedNumber : 0;
+    fixtureStarted = nowMs();
+    if (diagnosticsUsbBusy() || fileLimit != FILE_LIMIT || archiveLimit != ARCHIVE_LIMIT) {
+      fixtureFinish("busy_or_test_limits"); return;
+    }
+    Inventory files;
+    if (!inventory(files)) { fixtureFinish("inventory_failed"); return; }
+    if (deleting) {
+      char path[80]; archivePath(fixtureNumber, path, sizeof(path));
+      fixtureFd = open(path, O_RDONLY);
+      if (fixtureFd < 0) { fixtureFinish("fixture_open_failed", errno); return; }
+      struct stat info{};
+      if (fstat(fixtureFd, &info) || !S_ISREG(info.st_mode) || info.st_size != FILE_LIMIT) {
+        fixtureFinish("not_test_fixture"); return;
+      }
+    } else {
+      uint64_t total = 0, free = 0;
+      if (esp_vfs_fat_info("/sdcard", &total, &free) != ESP_OK || !total || free > total) {
+        fixtureFinish("space_query_failed"); return;
+      }
+      // Refuse rather than prune real evidence to make room for test data.
+      // Extra headroom allows ordinary logging to continue during generation.
+      if (files.count + 2 > archiveLimit || free < reserveBytes + FILE_LIMIT + 65536 ||
+          files.bytes + sizeBytes + FILE_LIMIT + 65536 > uint64_t(archiveLimit + 1) * fileLimit) {
+        fixtureFinish("insufficient_headroom"); return;
+      }
+      const uint32_t highest = max(generation, archiveFloor);
+      if (highest >= MAX_GENERATION - 1) { fixtureFinish("generation_exhausted"); return; }
+      fixtureNumber = highest + 1;
+      fixtureFd = open(FIXTURE_TEMP, O_WRONLY | O_CREAT | O_EXCL, 0666);
+      if (fixtureFd < 0) { fixtureFinish("temp_open_failed", errno); return; }
+      fixtureOwnsTemp = true;
+      // Reserve this number even if ordinary logging rotates during generation.
+      archiveFloor = fixtureNumber + 1;
+      portENTER_CRITICAL(&mux); fixture.number = fixtureNumber; portEXIT_CRITICAL(&mux);
+    }
+  }
+  if (fixtureFd < 0) return;
+  if (closing() || !good()) { fixtureFinish("cancelled"); return; }
+  if (nowMs() - fixtureStarted >= 120000) { fixtureFinish("generation_timeout"); return; }
+  if (fixtureDeleting) {
+    if (fixtureWritten < FILE_LIMIT) {
+      const uint64_t begin = esp_timer_get_time();
+      const ssize_t got = read(fixtureFd, line, LINE_CAPACITY);
+      const int code = errno;
+      memorySample(esp_timer_get_time() - begin);
+      if (got != ssize_t(LINE_CAPACITY)) {
+        fixtureFinish("fixture_read_failed", got < 0 ? code : EIO); return;
+      }
+      // Validate EVERY byte, not only a marker or a CRC, before any removal.
+      for (unsigned offset = 0; offset < LINE_CAPACITY; offset += 64) {
+        char prefix[48];
+        const int n = snprintf(prefix, sizeof(prefix), "USB_TEST_FIXTURE line=%08lu ",
+          (unsigned long)((fixtureWritten + offset) / 64));
+        for (int i = 0; i < 64; ++i) {
+          const char expected = i < n ? prefix[i] : i == 63 ? '\n' : '.';
+          if (line[offset + i] != expected) { fixtureFinish("not_test_fixture"); return; }
+        }
+      }
+      fixtureWritten += LINE_CAPACITY;
+      portENTER_CRITICAL(&mux); fixture.bytes = fixtureWritten; portEXIT_CRITICAL(&mux);
+      return;
+    }
+    const int old = fixtureFd; fixtureFd = -1;
+    if (::close(old)) { fixtureFinish("close_failed", errno); return; }
+    char target[80]; archivePath(fixtureNumber, target, sizeof(target));
+    if (unlink(target)) { fixtureFinish("fixture_delete_failed", errno); return; }
+    Inventory files;
+    if (!inventory(files) || !spaceAvailable()) { fixtureFinish("refresh_failed"); return; }
+    char fields[80];
+    snprintf(fields, sizeof(fields), "archive=%08lu synthetic=true",
+      (unsigned long)fixtureNumber);
+    diag::record("USB_TEST_DELETE", fields, true);
+    fixtureFinish("deleted");
+    return;
+  }
+  if (fixtureWritten < FILE_LIMIT) {
+    // 32768 deterministic 64-byte lines. Every line visibly marks test data.
+    for (unsigned offset = 0; offset < LINE_CAPACITY; offset += 64) {
+      char* row = line + offset;
+      const int n = snprintf(row, 64, "USB_TEST_FIXTURE line=%08lu ",
+        (unsigned long)((fixtureWritten + offset) / 64));
+      memset(row + n, '.', 63 - n); row[63] = '\n';
+    }
+    diag::breadcrumb(true, diag::Phase::SdWrite);
+    const uint64_t begin = esp_timer_get_time();
+    const ssize_t written = write(fixtureFd, line, LINE_CAPACITY);
+    const int code = errno;
+    memorySample(esp_timer_get_time() - begin);
+    if (written > 0) fixtureWritten += uint32_t(written);
+    portENTER_CRITICAL(&mux); fixture.bytes = fixtureWritten; portEXIT_CRITICAL(&mux);
+    if (written != ssize_t(LINE_CAPACITY)) {
+      fixtureFinish("write_failed", written < 0 ? code : EIO); return;
+    }
+    diag::breadcrumb(true, diag::Phase::Idle);
+    return;
+  }
+  diag::breadcrumb(true, diag::Phase::SdFlush);
+  const uint64_t begin = esp_timer_get_time();
+  const int syncResult = fsync(fixtureFd), syncError = errno;
+  memorySample(esp_timer_get_time() - begin);
+  if (syncResult) { fixtureFinish("flush_failed", syncError); return; }
+  const int old = fixtureFd; fixtureFd = -1;
+  if (::close(old)) { fixtureFinish("close_failed", errno); return; }
+  char target[80]; archivePath(fixtureNumber, target, sizeof(target));
+  struct stat info{};
+  if (stat(target, &info) == 0) { fixtureFinish("archive_exists", EEXIST); return; }
+  if (errno != ENOENT) { fixtureFinish("archive_lookup_failed", errno); return; }
+  // Only this writer mutates the directory. Rename publishes only a complete
+  // closed fixture; interrupted partial temp files never enter the USB list.
+  if (rename(FIXTURE_TEMP, target)) { fixtureFinish("rename_failed", errno); return; }
+  fixtureOwnsTemp = false;
+  Inventory files;
+  if (!inventory(files) || !spaceAvailable()) { fixtureFinish("refresh_failed"); return; }
+  char fields[112];
+  snprintf(fields, sizeof(fields), "archive=%08lu bytes=%lu synthetic=true",
+    (unsigned long)fixtureNumber, (unsigned long)fixtureWritten);
+  diag::record("USB_TEST_FIXTURE", fields, true);
+  fixtureFinish("ok");
+}
+#endif
+
 bool flushFile() {
   if (fd < 0 || !dirty) return true;
   diag::breadcrumb(true, diag::Phase::SdFlush);
@@ -801,10 +979,15 @@ DiagnosticsUsbStatus usbStatus() {
 #else
   const bool testBusy = false;
 #endif
+#if DIAG_USB_TEST_FIXTURE
+  const bool fixtureActive = fixture.busy;
+#else
+  const bool fixtureActive = false;
+#endif
   portEXIT_CRITICAL(&mux);
   return {diag::identity.boot, nowMs(), s.size, s.cardBytes, s.freeBytes,
           s.newest, s.archives + (s.generation ? 1u : 0u), s.drops, queued, QUEUE_COUNT,
-          stateName(s.state), s.state == State::Ready && !testBusy, closing()};
+          stateName(s.state), s.state == State::Ready && !testBusy && !fixtureActive, closing()};
 }
 bool usbBegin(const char* name) {
   char fields[128]; snprintf(fields,sizeof(fields),"name=%s bytes=0 duration_ms=0 result=started",name);
@@ -866,6 +1049,9 @@ void writerTask(void*) {
     // USB uses shorter turns, but retain the ordinary writer sampling cadence.
     if (nowMs() >= nextMemorySample) { memorySample(); nextMemorySample = nowMs() + 20; }
     if (closing()) {
+#if DIAG_USB_TEST_FIXTURE
+      if (fixtureBusy()) fixtureFinish("shutdown");
+#endif
       diagnosticsUsbStop(); // Close reader and resume append before the close drain.
       if (!good()) break;
 #if DIAG_TEST_HOOKS
@@ -920,8 +1106,14 @@ void writerTask(void*) {
     }
     if (dirty && nowMs() - lastFlush >= FLUSH_MS) flushFile();
     if (good()) diagnosticsUsbTick(); // Logging batches have priority over USB.
+#if DIAG_USB_TEST_FIXTURE
+    if (good() && fixtureBusy()) fixtureTick();
+#endif
     vTaskDelay(diagnosticsUsbBusy() ? 1 : pdMS_TO_TICKS(20)); // Idle watchdog always runs.
   }
+#if DIAG_USB_TEST_FIXTURE
+  if (fixtureBusy()) fixtureFinish("logger_stopped");
+#endif
   diagnosticsUsbStop();
   if (fd >= 0) { // terminal error: release handle, never retry writes this boot
     int old = fd; fd = -1; ::close(old);
@@ -1093,6 +1285,11 @@ void diagnosticsPrintStatus() {
     static_cast<unsigned long long>(stress.firstNvsMs), static_cast<unsigned long long>(stress.lastNvsMs),
     static_cast<unsigned long long>(stress.firstSdMs), static_cast<unsigned long long>(stress.lastSdMs));
 #endif
+#if DIAG_USB_TEST_FIXTURE
+  portENTER_CRITICAL(&mux); const FixtureStatus f = fixture; portEXIT_CRITICAL(&mux);
+  USBSerial.printf("[LOG FIXTURE] enabled=1 active=%u archive=%08lu bytes=%lu result=%s errno=%d\n",
+    unsigned(f.busy), (unsigned long)f.number, (unsigned long)f.bytes, f.result, f.error);
+#endif
   printStartupMemory();
   diagnosticsUsbCommand("log status");
 }
@@ -1113,6 +1310,30 @@ void watchdogTest(void*) {
 }
 #endif
 bool diagnosticsCommand(const char* command) {
+#if DIAG_USB_TEST_FIXTURE
+  const bool createFixture = !strcmp(command, "log test file");
+  const bool deleteFixture = !strncmp(command, "log test del ", 13);
+  if (createFixture || deleteFixture) {
+    uint64_t requestedNumber = 0;
+    if (deleteFixture && (strlen(command + 13) > 8 ||
+        !decimal(command + 13, MAX_GENERATION, requestedNumber) || !requestedNumber)) {
+      USBSerial.println("[LOG FIXTURE] Use log test del <archive number>"); return true;
+    }
+    const bool usbBusy = diagnosticsUsbBusy();
+    portENTER_CRITICAL(&mux);
+    const bool available = !usbBusy && snapshot.state == State::Ready && !closeRequested && !fixture.busy;
+    if (available) {
+      fixture.busy = fixture.requested = true;
+      fixture.bytes = 0; fixture.number = uint32_t(requestedNumber);
+      fixture.deleting = deleteFixture; fixture.result = "queued"; fixture.error = 0;
+    }
+    portEXIT_CRITICAL(&mux);
+    USBSerial.println(!available ? "[LOG FIXTURE] unavailable or busy" : deleteFixture ?
+      "[LOG FIXTURE] queued: verify every test byte before deleting; wait for result=deleted" :
+      "[LOG FIXTURE] queued: synthetic 2 MiB archive; wait for result=ok");
+    return true;
+  }
+#endif
   if (diagnosticsUsbCommand(command)) return true;
 #if DIAG_TEST_HOOKS
   if (!strcmp(command, "log test nvs")) { startNvsStress(); return true; }
