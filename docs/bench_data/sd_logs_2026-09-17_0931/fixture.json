@@ -1,0 +1,46 @@
+{
+  "card_root": "E:\\sdcard",
+  "purpose": "Preservation during pruning and rotation while clock is unknown",
+  "preserved_current_as": "logs/archive-00000013.log",
+  "preserved_sha256": "99c63407d743c451cbe340e7dd90ade8085593334e00c6f3467adf7da21a6df5",
+  "current_bytes": 0,
+  "expected_generation": 14,
+  "expected_newest_archive": 13,
+  "expected_managed_archive_count": 2,
+  "managed_archive_bytes": 29769,
+  "sentinels": {
+    "images/diag-preserve-test.txt": {
+      "bytes": 75,
+      "sha256": "a49590da78daf637a9fd476615db9f1ebd66b5a51b0fd8226d72b8ffe5f1ddfa",
+      "expected_utf8": "DIAG preservation fixture: dummy future image-folder data. Keep unchanged.\n"
+    },
+    "logs/diag-keep.txt": {
+      "bytes": 48,
+      "sha256": "500b94a760afd7c4bef4bf0d7c4f5e85eeb280e7dc3ba774169aa5361491eefa",
+      "expected_utf8": "DIAG unrelated log-folder file. Keep unchanged.\n"
+    },
+    "logs/archive-0000001.log": {
+      "bytes": 58,
+      "sha256": "2d7e672f3e660bdb16845529926870916249ceca025fcada17bb819141aaf5df",
+      "expected_utf8": "DIAG seven digits: not a managed archive. Keep unchanged.\n"
+    },
+    "logs/archive-00000014.log.bak": {
+      "bytes": 58,
+      "sha256": "58f2621fe0eda4d348daa7a6338fd717678e58cb142a7cbe14496d52fd109ec8",
+      "expected_utf8": "DIAG extra suffix: not a managed archive. Keep unchanged.\n"
+    },
+    "logs/Archive-00000098.log": {
+      "bytes": 58,
+      "sha256": "97812d2cc605c0fb5fe9bcac31ee3a5e0af88d2c3e949e747197e654d45fe79c",
+      "expected_utf8": "DIAG case variant: not a managed archive. Keep unchanged.\n"
+    },
+    "logs/archive-00000099.log/keep.txt": {
+      "bytes": 55,
+      "sha256": "c0f923536a121f0976a0d39852f4e890eca351fabae534b2de96e782496bb31d",
+      "expected_utf8": "DIAG directory with archive-like name. Keep unchanged.\n"
+    }
+  },
+  "instructions": "Cold boot with hotspot OFF and USB connected. First send log status only. Verify ready, clock=unknown, generation=14, newest=13, archives=2, file_bytes<7000 before authorizing small mode.",
+  "later_test": "Small mode uses 8192-byte files and 32768-byte total content budget. Natural growth must exercise real pruning and rotation without sync. Restore normal limits promptly after capture; do not leave small mode unattended overnight.",
+  "verification": "Only managed archives may be pruned. All sentinel bytes and names must remain identical, including the archive-like directory. Confirm FILE_OPEN reason=size has time=unknown on the next card inspection."
+}

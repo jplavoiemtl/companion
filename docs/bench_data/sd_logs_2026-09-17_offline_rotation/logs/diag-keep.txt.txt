@@ -1,0 +1,1 @@
+DIAG unrelated log-folder file. Keep unchanged.

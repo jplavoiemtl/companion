@@ -1,0 +1,38 @@
+2026-09-17 10:23:10.678 EVENT Console cleared.
+2026-09-17 10:23:25.859 TX log status [CRLF]
+2026-09-17 10:23:25.863 RX [LOG] state=ready boot=38 session=boot-38 up_ms=2606726 clock=unknown setup=1 hooks=1 file_bytes=1487 generation=17 newest=16 archives=3 card_bytes=15931539456 free_bytes=15922692096 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-17 10:23:25.863 RX [LOG] measured=1 stack_min=3380 internal_min=128640 internal_largest=65524 dma_min=121144 dma_largest=65524 writes=56 slow=0 write_max_us=2332 flush_max_us=5635 sd_max_us=164744 rotations=3 pruned=2 oversized=0
+2026-09-17 10:23:25.864 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4812 stack_final_margin=-1
+2026-09-17 10:23:25.865 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-17 10:23:25.866 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-17 10:23:25.866 RX [LOG MEM] phase=before_clock up_us=1785267 free=172680 largest=110580 heap_min_boot=172680
+2026-09-17 10:23:25.866 RX [LOG MEM] phase=after_clock up_us=1785957 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 10:23:25.866 RX [LOG MEM] phase=before_writer up_us=1786013 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 10:23:25.866 RX [LOG MEM] phase=writer_entry up_us=1786222 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 10:23:25.866 RX [LOG MEM] phase=after_formatter up_us=1786306 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 10:23:25.866 RX [LOG MEM] phase=before_mount up_us=1786865 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 10:23:25.866 RX [LOG MEM] phase=after_mount up_us=1951489 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 10:23:25.866 RX [LOG MEM] phase=before_current_open up_us=1965015 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 10:23:25.866 RX [LOG MEM] phase=after_current_open up_us=1967297 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 10:23:25.866 RX [LOG MEM] phase=storage_done up_us=2003752 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 10:23:31.110 RX [PROBE] window=normal run=40 ms=60005 heap_min_boot=128640 largest_min=65524 interval_ms=10 samples=6000 gap_max_us=11482 scan_max_us=1634 timer=on imu_n=2934 imu_min_hz=35.27 imu_avg_hz=49.02
+2026-09-17 10:23:31.361 RX Retrying WiFi (primary): iphone-jp
+2026-09-17 10:23:31.362 RX E (2621790) wifi:sta is connecting, return error
+2026-09-17 10:23:31.551 TX log test normal [CRLF]
+2026-09-17 10:23:31.556 RX [LOG TEST] hook queued
+2026-09-17 10:23:48.465 TX log status [CRLF]
+2026-09-17 10:23:48.471 RX [LOG] state=ready boot=38 session=boot-38 up_ms=2629335 clock=unknown setup=1 hooks=1 file_bytes=1600 generation=17 newest=16 archives=3 card_bytes=15931539456 free_bytes=15922692096 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-17 10:23:48.472 RX [LOG] measured=1 stack_min=3380 internal_min=128640 internal_largest=65524 dma_min=121144 dma_largest=65524 writes=57 slow=0 write_max_us=3965 flush_max_us=5635 sd_max_us=164744 rotations=3 pruned=2 oversized=0
+2026-09-17 10:23:48.473 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4812 stack_final_margin=-1
+2026-09-17 10:23:48.473 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-17 10:23:48.474 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-17 10:23:48.474 RX [LOG MEM] phase=before_clock up_us=1785267 free=172680 largest=110580 heap_min_boot=172680
+2026-09-17 10:23:48.474 RX [LOG MEM] phase=after_clock up_us=1785957 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 10:23:48.474 RX [LOG MEM] phase=before_writer up_us=1786013 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 10:23:48.474 RX [LOG MEM] phase=writer_entry up_us=1786222 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 10:23:48.475 RX [LOG MEM] phase=after_formatter up_us=1786306 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 10:23:48.475 RX [LOG MEM] phase=before_mount up_us=1786865 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 10:23:48.475 RX [LOG MEM] phase=after_mount up_us=1951489 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 10:23:48.476 RX [LOG MEM] phase=before_current_open up_us=1965015 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 10:23:48.476 RX [LOG MEM] phase=after_current_open up_us=1967297 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 10:23:48.476 RX [LOG MEM] phase=storage_done up_us=2003752 free=129836 largest=65524 heap_min_boot=128640

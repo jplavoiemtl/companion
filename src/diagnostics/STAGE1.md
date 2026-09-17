@@ -1,5 +1,11 @@
 # Stage 1 SD logging — JP bench handoff
 
+**Current status (2026-09-17):** the agreed Stage 1 bench sequence is complete.
+See the [acceptance checkpoint](../../docs/sd_diagnostics_stage1_checkpoint.md)
+for the recommendation and recorded limits. JP acceptance is pending.
+Earlier sections below retain the development and test history.
+
+
 Status: JP built and flashed Stage 1 on 2026-09-15. The initial readiness and
 normal-operation check passed: ready, synced, growing file, no drops or errors.
 Latest succeeded but its 14836-byte largest internal block failed the 20480-byte
@@ -256,7 +262,85 @@ parked means cleanup is complete and only suspension follows.
 A formatter failure can leave heap measurements unavailable (measured=0) while
 a valid final stack measurement still exists.
 
-### Current next check: controlled watchdog restart
+### Current checkpoint: ready for JP's Stage 1 acceptance review
+
+The final card inspection passes offline size rotation, pruning and preservation.
+Archives 14–16 and current generation 17 contain boot-38 sequences 1–61,
+all time=unknown. Three FILE_OPEN reason=size records and final
+SESSION_END reason=shutdown pending=0 are verified.
+All six protected-file hashes and names match; the archive-like directory survives.
+Ten files (27614 bytes) were backed up byte-identically; the card was not modified.
+
+Read the [acceptance checkpoint](../../docs/sd_diagnostics_stage1_checkpoint.md)
+for the complete tested scope and deferred/unverified limits.
+No additional Stage 1 runtime test is proposed. Acceptance is pending JP.
+After acceptance, proceed to Stage 1B USB retrieval with test hooks disabled
+in the next ordinary build and the validated PSRAM writer retained.
+Do not start Stage 2 network event hooks.
+
+The card can be safely ejected and reinstalled with the board fully off.
+Harmless preservation fixtures remain. No firmware or configuration was changed
+during inspection; DIAG_TEST_HOOKS is still 1 in the current source.
+
+### Deep-sleep procedure supplied for this capture
+
+JP accepted deferral of bad/unsupported-card tests for version 1 on 2026-09-17.
+They remain untested limitations; no-card and injected write-failure tests pass.
+Stage 1 acceptance is not yet granted. Tail runtime recovery passes in boot 35;
+its on-card contents await the next grouped inspection.
+
+Keep the card installed. No rebuild, setting change or new test hook is needed.
+Use the battery-equipped board with the hotspot on.
+
+1. Unplug USB and let the stationary board shut down normally.
+2. Start it with its power button on battery only. Do not connect USB.
+3. Once normal connected operation returns, tap the dashboard once. Then hold
+   the edges and gently tilt the unit every 10-15 seconds, keeping the movement
+   icon active without touching the screen.
+4. After about one minute without touch, expect Sleeping... and the screen off.
+   Stop moving, wait five seconds, then tap the screen once to wake it.
+5. Verify it wakes from that touch before connecting USB. Once the normal screen
+   returns, connect USB and the web console with DTR=true and RTS=false.
+6. Send log status, wait 65 seconds and send log status again. Paste results and
+   report whether Sleeping... appeared, touch alone woke it, and operation is normal.
+
+If no sleep occurs after about two minutes, or touch does not wake the board,
+stop and report before using another wake method. Do not substitute power-button
+or USB wake and call that a touch-wake pass.
+
+The fresh battery-only boot is required: the USB-ever-present branch keeps
+moving boards awake after USB loss and otherwise shuts down. Actual inactivity
+timeout is 60 seconds, despite older comments saying 30 seconds. The motion hold
+is 30 seconds, so regular gentle movement should keep that condition active.
+Do not touch the screen while waiting, since touch restarts the inactivity timer.
+
+Expect logger ready and resumed append/growth after wake. Generation 13 and
+archive 12 should remain unless another documented operation changes them.
+Later SD evidence must show SESSION_END reason=deep_sleep pending=0, then the
+deep_sleep reset/wake classification and retained breadcrumbs/time. Serial may
+attach after sync; do not require it to capture the early approximate clock.
+
+### Remaining checklist after this test
+
+| Item | Status or next evidence |
+|---|---|
+| Incomplete-tail contents | Passed: 09:31 card inspection confirms newline, TAIL_RECOVERY and original prefix. |
+| Unrelated files and no-clock rotation | Passed: 3 size rotations with unknown clock, continuous records, 2 prunes, all six sentinel hashes unchanged. |
+| Deep-sleep close/wake | Passed: JP confirmed touch wake; 09:31 card inspection verifies close, reset, breadcrumbs and clock. |
+| Bad/unsupported media | Deferred by JP for version 1; not passed. |
+| Brownout retention | Conditional/practical only; remains unverified. No improvised electrical test requested. |
+
+Memory/performance, media/reconnect, NVS/SD stress, normal shutdown, no-card cleanup,
+header salvage, surviving-empty-file recovery, natural rotation, pruning outcomes,
+panic/watchdog records and both DST transitions have already passed their recorded
+checks. Do not repeat without new evidence.
+The short-tail fixture does not cover near-cap tail rotation or actual power-loss
+durability. Keep these scope limits visible at the final Stage 1 review.
+No firmware change, build, flash, commit or push for these instructions.
+
+### Completed empty-header and watchdog test procedure
+
+The following history records completed triggers; do not repeat them now.
 
 Empty-current hook recovery passed its runtime check across boots 28 to 29.
 The header pause and intentional panic were captured. Boot 29 became ready,

@@ -1,0 +1,10 @@
+{
+  "card_root": "E:\\sdcard",
+  "preserved_archive": "archive-00000010.log",
+  "preserved_bytes": 92055,
+  "preserved_sha256": "48bf15790e1c50656fac1985763a67283b60f005d99e848665a4f0679720fa6c",
+  "current_bytes": 0,
+  "next_expected_generation": 11,
+  "backup": "docs/bench_data/sd_logs_2026-09-16_1802",
+  "empty_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -1,0 +1,1 @@
+DIAG case variant: not a managed archive. Keep unchanged.

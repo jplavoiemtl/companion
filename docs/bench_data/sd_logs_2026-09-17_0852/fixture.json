@@ -1,0 +1,14 @@
+{
+  "card_root": "E:\\sdcard",
+  "file": "current.log",
+  "original_bytes": 4087,
+  "original_sha256": "819d2f01747f520ecc917ae6cd339a2975708785175e6a7ab451d4847dabf078",
+  "appended_fragment": "DIAG_TEST_PARTIAL_RECORD source=card_fixture incomplete=",
+  "appended_bytes": 56,
+  "fixture_bytes": 4143,
+  "fixture_sha256": "9d5fc29d263b5c148c3b918877f306a1a47d79d43487f6b53d797ea505e020d7",
+  "expected_generation": 13,
+  "expected_newest_archive": 12,
+  "expected_archive_count": 1,
+  "expected_recovery_event": "TAIL_RECOVERY action=added_newline"
+}

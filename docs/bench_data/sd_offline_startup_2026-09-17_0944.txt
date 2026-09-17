@@ -1,0 +1,122 @@
+6-09-17 09:40:08.989 EVENT Console cleared.
+2026-09-17 09:40:12.337 EVENT Connect requested. After open: DTR=true, RTS=false.
+2026-09-17 09:40:14.766 EVENT Explicit signals applied. After open: DTR=true, RTS=false.
+2026-09-17 09:40:14.766 EVENT Connected. Send status; compare with the previous reading if available.
+2026-09-17 09:40:14.767 RX  secondary network: iphone-jp
+2026-09-17 09:40:14.767 RX Starting non-blocking scan for SSID: iphone-jp
+2026-09-17 09:40:14.767 RX 
+2026-09-17 09:40:14.767 RX Scan complete. Found 8 networks.
+2026-09-17 09:40:14.767 RX Specified SSID not found.
+2026-09-17 09:40:14.767 RX SSID 'iphone-jp
+2026-09-17 09:40:14.767 RX Failed to connect to both Wi-Fi networks.
+2026-09-17 09:40:14.767 RX USB power present. Waiting 45 seconds before retry...
+2026-09-17 09:40:16.971 TX log status [CRLF]
+2026-09-17 09:40:51.924 RX WiFi Connection Retry #1 of 4
+2026-09-17 09:40:51.924 RX Attempting to connect to primary network: iphone-jp
+2026-09-17 09:40:51.924 RX Starting non-blocking scan for SSID: iphone-jp
+2026-09-17 09:40:54.778 RX 
+2026-09-17 09:40:54.778 RX Scan complete. Found 8 networks.
+2026-09-17 09:40:54.778 RX Specified SSID not found.
+2026-09-17 09:40:54.778 RX Primary network not found in scan.
+2026-09-17 09:40:54.778 RX Attempting to connect to secondary network: iphone-jp
+2026-09-17 09:40:54.778 RX Starting non-blocking scan for SSID: iphone-jp
+2026-09-17 09:40:57.612 RX 
+2026-09-17 09:40:57.612 RX Scan complete. Found 8 networks.
+2026-09-17 09:40:57.612 RX Specified SSID not found.
+2026-09-17 09:40:57.612 RX SSID 'iphone-jp' not found in scan.
+2026-09-17 09:40:57.612 RX Failed to connect to both Wi-Fi networks.
+2026-09-17 09:40:57.613 RX USB power present. Waiting 45 seconds before retry...
+2026-09-17 09:41:42.847 RX WiFi Connection Retry #2 of 4
+2026-09-17 09:41:42.847 RX Attempting to connect to primary network: iphone-jp
+2026-09-17 09:41:42.847 RX Starting non-blocking scan for SSID: iphone-jp
+2026-09-17 09:41:45.695 RX 
+2026-09-17 09:41:45.695 RX Scan complete. Found 8 networks.
+2026-09-17 09:41:45.695 RX Specified SSID not found.
+2026-09-17 09:41:45.695 RX Primary network not found in scan.
+2026-09-17 09:41:45.695 RX Attempting to connect to secondary network: iphone-jp
+2026-09-17 09:41:45.695 RX Starting non-blocking scan for SSID: iphone-jp
+2026-09-17 09:41:48.527 RX 
+2026-09-17 09:41:48.527 RX Scan complete. Found 8 networks.
+2026-09-17 09:41:48.527 RX Specified SSID not found.
+2026-09-17 09:41:48.527 RX SSID 'iphone-jp' not found in scan.
+2026-09-17 09:41:48.527 RX Failed to connect to both Wi-Fi networks.
+2026-09-17 09:41:48.528 RX USB power present. Waiting 45 seconds before retry...
+2026-09-17 09:42:33.776 RX WiFi Connection Retry #3 of 4
+2026-09-17 09:42:33.776 RX Attempting to connect to primary network: iphone-jp
+2026-09-17 09:42:33.776 RX Starting non-blocking scan for SSID: iphone-jp
+2026-09-17 09:42:36.624 RX 
+2026-09-17 09:42:36.625 RX Scan complete. Found 8 networks.
+2026-09-17 09:42:36.625 RX Specified SSID not found.
+2026-09-17 09:42:36.625 RX Primary network not found in scan.
+2026-09-17 09:42:36.625 RX Attempting to connect to secondary network: iphone-jp
+2026-09-17 09:42:36.625 RX Starting non-blocking scan for SSID: iphone-jp
+2026-09-17 09:42:39.457 RX 
+2026-09-17 09:42:39.457 RX Scan complete. Found 8 networks.
+2026-09-17 09:42:39.457 RX Specified SSID not found.
+2026-09-17 09:42:39.457 RX SSID 'iphone-jp' not found in scan.
+2026-09-17 09:42:39.457 RX Failed to connect to both Wi-Fi networks.
+2026-09-17 09:42:39.458 RX USB power present. Waiting 45 seconds before retry...
+2026-09-17 09:43:24.707 RX WiFi Connection Retry #4 of 4
+2026-09-17 09:43:24.708 RX Attempting to connect to primary network: iphone-jp
+2026-09-17 09:43:24.708 RX Starting non-blocking scan for SSID: iphone-jp
+2026-09-17 09:43:27.557 RX 
+2026-09-17 09:43:27.557 RX Scan complete. Found 8 networks.
+2026-09-17 09:43:27.557 RX Specified SSID not found.
+2026-09-17 09:43:27.557 RX Primary network not found in scan.
+2026-09-17 09:43:27.557 RX Attempting to connect to secondary network: iphone-jp
+2026-09-17 09:43:27.557 RX Starting non-blocking scan for SSID: iphone-jp
+2026-09-17 09:43:30.390 RX 
+2026-09-17 09:43:30.390 RX Scan complete. Found 8 networks.
+2026-09-17 09:43:30.390 RX Specified SSID not found.
+2026-09-17 09:43:30.390 RX SSID 'iphone-jp' not found in scan.
+2026-09-17 09:43:30.390 RX Failed to connect to both Wi-Fi networks.
+2026-09-17 09:43:30.391 RX Maximum retry attempts reached. Continuing in local-only mode (USB powered).
+2026-09-17 09:43:30.440 RX WiFi unavailable; running in local-only mode.
+2026-09-17 09:43:30.440 RX WiFi initialization complete
+2026-09-17 09:43:30.440 RX Skipping MQTT init - no WiFi at boot. Forcing G-meter screen.
+2026-09-17 09:43:30.440 RX Creating G-meter UI elements...
+2026-09-17 09:43:30.448 RX G-meter display elements created
+2026-09-17 09:43:30.449 RX Free heap: 129728 bytes, Free PSRAM: 8339784 bytes
+2026-09-17 09:43:30.449 RX [ScreenMem] Screen 2 selected, save scheduled in 30 seconds
+2026-09-17 09:43:31.015 RX Motion baseline reset: Accel=0.99 m/s², Gyro=8.99 °/s (averaged from 20 readings)
+2026-09-17 09:43:31.016 RX --- Setup complete: CPU 240 MHz | heap 129728 | PSRAM 8339784 ---
+2026-09-17 09:43:31.016 RX 
+2026-09-17 09:43:31.016 RX [TEST] Serial bench commands: off, on, status, log status. Send with CR or LF.
+2026-09-17 09:43:31.016 RX [LOG] state=ready boot=38 session=boot-38 up_ms=211805 clock=unknown setup=1 hooks=1 file_bytes=2480 generation=14 newest=13 archives=2 card_bytes=15931539456 free_bytes=15922724864 queue=1/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-17 09:43:31.017 RX [LOG] measured=1 stack_min=3588 internal_min=128640 internal_largest=65524 dma_min=121144 dma_largest=65524 writes=8 slow=0 write_max_us=1179 flush_max_us=4027 sd_max_us=164744 rotations=0 pruned=0 oversized=0
+2026-09-17 09:43:31.018 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4604 stack_final_margin=-1
+2026-09-17 09:43:31.018 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-17 09:43:31.019 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-17 09:43:31.019 RX [LOG MEM] phase=before_clock up_us=1785267 free=172680 largest=110580 heap_min_boot=172680
+2026-09-17 09:43:31.019 RX [LOG MEM] phase=after_clock up_us=1785957 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 09:43:31.019 RX [LOG MEM] phase=before_writer up_us=1786013 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 09:43:31.019 RX [LOG MEM] phase=writer_entry up_us=1786222 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 09:43:31.019 RX [LOG MEM] phase=after_formatter up_us=1786306 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 09:43:31.021 RX [LOG MEM] phase=before_mount up_us=1786865 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 09:43:31.021 RX [LOG MEM] phase=after_mount up_us=1951489 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 09:43:31.021 RX [LOG MEM] phase=before_current_open up_us=1965015 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 09:43:31.021 RX [LOG MEM] phase=after_current_open up_us=1967297 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 09:43:31.021 RX [LOG MEM] phase=storage_done up_us=2003752 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 09:43:31.048 RX Retrying WiFi (primary): iphone-jp
+2026-09-17 09:43:46.500 RX Movement Detected! (Accel: 0.01, Gyro: 15.95)
+2026-09-17 09:43:48.163 RX Screen 3 Unloading: Cleaning up G-meter objects and resetting pointers
+2026-09-17 09:43:48.164 RX [ScreenMem] Screen 1 already saved; no NVS write needed
+2026-09-17 09:43:48.164 RX Screen touched, resetting inactivity timer.
+2026-09-17 09:44:01.053 RX Retrying WiFi (secondary): iphone-jp
+2026-09-17 09:44:01.054 RX E (251409) wifi:sta is connecting, return error
+2026-09-17 09:44:12.528 TX log status [CRLF]
+2026-09-17 09:44:12.531 RX [LOG] state=ready boot=38 session=boot-38 up_ms=253322 clock=unknown setup=1 hooks=1 file_bytes=3115 generation=14 newest=13 archives=2 card_bytes=15931539456 free_bytes=15922724864 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-17 09:44:12.532 RX [LOG] measured=1 stack_min=3588 internal_min=128640 internal_largest=65524 dma_min=121144 dma_largest=65524 writes=10 slow=0 write_max_us=1393 flush_max_us=4027 sd_max_us=164744 rotations=0 pruned=0 oversized=0
+2026-09-17 09:44:12.533 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c213008 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4604 stack_final_margin=-1
+2026-09-17 09:44:12.534 RX [LOG TEST] nvs_active=0 summary_pending=0 nvs_writes=0 nvs_errors=0 sd_records=0 key_removed=0 first_nvs_ms=0 last_nvs_ms=0 first_sd_ms=0 last_sd_ms=0
+2026-09-17 09:44:12.534 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-17 09:44:12.534 RX [LOG MEM] phase=before_clock up_us=1785267 free=172680 largest=110580 heap_min_boot=172680
+2026-09-17 09:44:12.534 RX [LOG MEM] phase=after_clock up_us=1785957 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 09:44:12.534 RX [LOG MEM] phase=before_writer up_us=1786013 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 09:44:12.534 RX [LOG MEM] phase=writer_entry up_us=1786222 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 09:44:12.534 RX [LOG MEM] phase=after_formatter up_us=1786306 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 09:44:12.535 RX [LOG MEM] phase=before_mount up_us=1786865 free=167100 largest=102388 heap_min_boot=166992
+2026-09-17 09:44:12.535 RX [LOG MEM] phase=after_mount up_us=1951489 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 09:44:12.535 RX [LOG MEM] phase=before_current_open up_us=1965015 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 09:44:12.535 RX [LOG MEM] phase=after_current_open up_us=1967297 free=129836 largest=65524 heap_min_boot=128640
+2026-09-17 09:44:12.535 RX [LOG MEM] phase=storage_done up_us=2003752 free=129836 largest=65524 heap_min_boot=128640

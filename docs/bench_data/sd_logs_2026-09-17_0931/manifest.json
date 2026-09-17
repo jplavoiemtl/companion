@@ -1,0 +1,12 @@
+{
+  "archive-00000012.log": {
+    "bytes": 8136,
+    "sha256": "64188f3519d5659c26e2925837892a689b9bae805d6f8d9da35995a414388369",
+    "backup": "archive-00000012.log.txt"
+  },
+  "current.log": {
+    "bytes": 21633,
+    "sha256": "99c63407d743c451cbe340e7dd90ade8085593334e00c6f3467adf7da21a6df5",
+    "backup": "current.log.txt"
+  }
+}

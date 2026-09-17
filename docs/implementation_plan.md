@@ -187,8 +187,75 @@ Byte-identical copies and hashes are retained in docs/bench_data/sd_logs_2026-09
 The empty-header hook and intentional panic then passed runtime recovery in
 boot 29: generation 10, seven archives, file growth 1397 to 1953, no errors/drops.
 Paused file_bytes was a stale snapshot, not a measurement of the new empty file.
-The recovery header and reset breadcrumbs await the next combined card inspection.
-Next is the controlled watchdog test; remaining storage and clock/reset gates
-are still pending.
+Evening SD inspection corrects this coverage: reason=new confirms missing-file
+recovery after the empty-header pause; surviving-empty-file recovery is still untested.
+Controlled watchdog triggering, restart and continued logging passed in boot 30:
+diag_wdt timed out after about 5 seconds; the logger returned ready at generation
+10. Follow-up confirmed file growth 80950 to 82629 and writes 7 to 10, no errors
+or drops, largest block 31732 and writer margin 3588. Evening SD inspection verified
+panic and task_watchdog reset classes and both valid main/writer breadcrumbs. The spring clock hook then passed
+runtime checks: synced -> approx -> synced, file growth 85436 to 87852,
+writes 15 to 23, no errors or drops and unchanged memory/stack minima.
+The autumn hook also passed runtime checks: synced -> approx -> synced,
+file growth 88414 to 90798 and writes 24 to 32, with no errors/drops and unchanged
+memory/stack minima. Evening SD inspection verified both DST offsets, real-time
+restoration, approximate-to-synced correction records and the final clean shutdown.
+Eight files and hashes are backed up in docs/bench_data/sd_logs_2026-09-16_1802/.
+No-card startup and PSRAM-writer terminal cleanup then passed in boot 31:
+expected mount failure, parked writer, final stack margin 4116, Latest successful
+in 4722 ms with HTTPS largest block 26612. JP confirmed normal board operation.
+JP confirmed E:\sdcard as the actual card. Its logs matched the evening backup.
+The 92055-byte current file is preserved as archive 10, and a flushed, closed
+zero-byte current.log was prepared. Boot 32 then passed runtime recovery:
+generation 11, eight archives, file growth 1257 to 1814 and writes 8 to 9, no
+errors/drops, largest block 31732 and writer margin 3588. On-card
+reason=empty_recovery still needs verification. The next morning's small-limit
+attempt began with a 469869-byte current file, above the below-7000 precondition.
+It pruned eight backed-up archives, then disabled on the 32768-byte content budget
+with reserve_exhausted before rotating. Current remained 470005 bytes; the writer
+parked with margin 3412. The initially offline hotspot was not the cause.
+Normal reboot recovered logging in boot 33: ready, generation 11, current
+470855 bytes (850 bytes appended), five writes, no errors/drops and largest
+internal block 31732. Clock was still unknown at the early 17.5-second status.
+Card inspection then verified generation 11 reason=empty_recovery, contiguous
+boot-32/33 records, sync at boot-33 uptime 19372 ms and clean shutdown.
+The 472389-byte log is backed up in docs/bench_data/sd_logs_2026-09-17_0828/
+and preserved on card as archive 11. A flushed empty current.log is prepared.
+Boot 34 starting status is verified: ready, synced, generation 12, 1276 bytes,
+one archive, no errors/drops and largest internal block 31732. The small hook was
+accepted; idle fill then produced generation 13 and rotations=1 before restoring
+normal limits. Runtime rotation passes: no errors/drops, largest block 31732,
+writer margin 3380. Normal restoration was accepted and logging continued.
+Card inspection verified archive 12 at 8136 bytes, current reason=size,
+continuous boot-34 sequences 1-31 and clean shutdown. Natural rotation content
+verification passes. Originals are backed up in docs/bench_data/sd_logs_2026-09-17_0852/.
+The 56-byte incomplete-tail fixture recovered in boot 35: ready, generation 13,
+file growth 5099 to 5939, writes 7 to 10, unknown -> synced, no errors/drops,
+largest block 31732 and writer margin 3588. Runtime check passes; on-card
+TAIL_RECOVERY and prefix preservation await a combined inspection. JP requested
+a finite remaining checklist: tail content, unrelated-file protection/no-clock
+rotation and deep-sleep close/wake. JP explicitly deferred bad/unsupported-card
+testing for version 1 on 2026-09-17; retain this limitation. The 2026-09-17 09:31 card inspection confirms short-tail repair with the original
+prefix intact, complete sequences across boots 34–37, and clean deep-sleep close.
+Boot 37 records deep_sleep reset, wake_code=2, both retained sleep/close breadcrumbs,
+approximate time followed by sync (-118 ms), and a final clean normal shutdown.
+JP confirmed touch-only wake and normal operation. These checks pass.
+Backups and the preservation fixture are in
+[09:31 evidence](bench_data/sd_logs_2026-09-17_0931/README.md).
+Current was preserved as archive 13; an empty current and hashed unrelated files
+are ready for the remaining preservation and unknown-clock rotation test.
+Boot 38 passed the unknown-clock rotation runtime check: three rotations, two
+prunes, generation 17, three archives, no errors or drops. The normal-limit hook
+was sent and processed; logger stayed healthy. Final card inspection confirms
+three FILE_OPEN reason=size records with unknown time, continuous sequences 1–61,
+and clean shutdown. All six protected-file names and hashes match.
+The agreed bench sequence is complete. See the
+[Stage 1 acceptance checkpoint](sd_diagnostics_stage1_checkpoint.md).
+JP acceptance remains pending; no further Stage 1 runtime repeat is proposed.
+Do not repeat passed tests or start Stage 1B before acceptance.
+Earlier, the large-file/small-limit run disabled logging and rejected restoration.
+Subsequent guarded runs verified natural rotation and restoration. The original
+header-hook reset yielded reason=new; the separately prepared surviving-empty-file
+fixture later verified empty_recovery. Both histories remain in the bench record.
 Stage 1 acceptance remains pending.
 JP's local switch is 1 for diagnosis; the intended default remains 0.

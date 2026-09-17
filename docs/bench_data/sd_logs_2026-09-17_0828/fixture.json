@@ -1,0 +1,9 @@
+{
+  "card_root": "E:\\sdcard",
+  "archive": "archive-00000011.log",
+  "bytes": 472389,
+  "sha256": "0eb39ffc9594cdfcea686ae61ce79a9ffcdf7e2fcaf2577f3d4ab5f01a2b5efe",
+  "current_bytes": 0,
+  "expected_generation": 12,
+  "backup": "docs/bench_data/sd_logs_2026-09-17_0828/current.log.txt"
+}

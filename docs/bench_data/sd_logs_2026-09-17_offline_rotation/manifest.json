@@ -1,0 +1,52 @@
+{
+  "images/diag-preserve-test.txt": {
+    "bytes": 75,
+    "sha256": "a49590da78daf637a9fd476615db9f1ebd66b5a51b0fd8226d72b8ffe5f1ddfa",
+    "backup": "images/diag-preserve-test.txt.txt"
+  },
+  "logs/archive-0000001.log": {
+    "bytes": 58,
+    "sha256": "2d7e672f3e660bdb16845529926870916249ceca025fcada17bb819141aaf5df",
+    "backup": "logs/archive-0000001.log.txt"
+  },
+  "logs/archive-00000014.log": {
+    "bytes": 8059,
+    "sha256": "5ec652cb9e9268d92c44511b452746bbc43f82d3dc246eb9eea69a7e23c12eb0",
+    "backup": "logs/archive-00000014.log.txt"
+  },
+  "logs/archive-00000014.log.bak": {
+    "bytes": 58,
+    "sha256": "58f2621fe0eda4d348daa7a6338fd717678e58cb142a7cbe14496d52fd109ec8",
+    "backup": "logs/archive-00000014.log.bak.txt"
+  },
+  "logs/archive-00000015.log": {
+    "bytes": 7936,
+    "sha256": "cb905691afc125bc2d3aa3878ac9ce8919d119e735a6f426267c711e951e0997",
+    "backup": "logs/archive-00000015.log.txt"
+  },
+  "logs/archive-00000016.log": {
+    "bytes": 7942,
+    "sha256": "ec3c995b53a2d80a8ce97bd2368d688c2e40cf5127de1f7066088967ac442226",
+    "backup": "logs/archive-00000016.log.txt"
+  },
+  "logs/Archive-00000098.log": {
+    "bytes": 58,
+    "sha256": "97812d2cc605c0fb5fe9bcac31ee3a5e0af88d2c3e949e747197e654d45fe79c",
+    "backup": "logs/Archive-00000098.log.txt"
+  },
+  "logs/archive-00000099.log/keep.txt": {
+    "bytes": 55,
+    "sha256": "c0f923536a121f0976a0d39852f4e890eca351fabae534b2de96e782496bb31d",
+    "backup": "logs/archive-00000099.log/keep.txt.txt"
+  },
+  "logs/current.log": {
+    "bytes": 3325,
+    "sha256": "0ed08119d4e0407030170e2c4293a7173a9301942717744eafae679447f0688d",
+    "backup": "logs/current.log.txt"
+  },
+  "logs/diag-keep.txt": {
+    "bytes": 48,
+    "sha256": "500b94a760afd7c4bef4bf0d7c4f5e85eeb280e7dc3ba774169aa5361491eefa",
+    "backup": "logs/diag-keep.txt.txt"
+  }
+}

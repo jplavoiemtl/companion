@@ -1,0 +1,1 @@
+DIAG preservation fixture: dummy future image-folder data. Keep unchanged.
