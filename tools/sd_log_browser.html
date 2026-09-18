@@ -64,8 +64,8 @@ legend{font-weight:600}
 <details><summary>Bench test switches (leave off for ordinary use)</summary>
 <p><label><input id="damage" type="checkbox"> Damage one data line in the next download</label></p>
 <p><label><input id="pauseReads" type="checkbox"> Stop browser reads (test stalled transfer)</label></p>
-<p><label><input id="slowReads" type="checkbox"> Read at 3-second intervals (large-file timeout test)</label></p>
-<small>Use a sufficiently large file for slow reads. USB/OS buffers can absorb a small file before the switch has an effect. A paused read resumes when unchecked or when cancelling.</small>
+<p><label><input id="slowReads" type="checkbox"> Slow reads: up to 1 KiB/s (select before Connect)</label></p>
+<small>For slow reads, disconnect here, select the switch, then reconnect. Keep this tab visible. Uncheck to drain buffered output; Cancel ends the transfer. USB and Windows buffering still affect when the device limit is reached.</small>
 </details>
 </section>
 <section class="card" aria-label="Console">
@@ -196,17 +196,25 @@ function controls() {
   el("abort").disabled = !connected || !download;
   for (const button of el("files").querySelectorAll("button")) button.disabled = !connected || !!download || listPending;
 }
+const SLOW_READ_BYTES = 256, SLOW_WIRE_BYTES_PER_SECOND = 1024;
 async function readLoop(session) {
   const decoder = new TextDecoder();
   try {
     while (!session.closing) {
       while (!session.closing && el("pauseReads").checked) await sleep(100);
       if (session.closing) break;
-      if (el("slowReads").checked) await sleep(3000);
-      if (session.closing) break;
-      const {value, done} = await session.reader.read();
-      if (done) break;
+      // Test connections use BYOB to bound the actual bytes read, not merely
+      // how often an arbitrarily sized default-reader chunk is delivered.
+      const {value, done} = session.boundedReads
+        ? await session.reader.read(new Uint8Array(SLOW_READ_BYTES))
+        : await session.reader.read();
       if (value) receive(decoder.decode(value, {stream:true}));
+      if (done) break;
+      // No accumulated credit after idle time, so there is no catch-up burst.
+      // At most 250 ms per wait. Uncheck or Cancel drains subsequent reads.
+      if (value?.byteLength && session.boundedReads && download &&
+          !download.cancelling && el("slowReads").checked && !session.closing)
+        await sleep(1000 * value.byteLength / SLOW_WIRE_BYTES_PER_SECOND);
     }
     receive(decoder.decode());
   } catch (error) {
@@ -254,9 +262,11 @@ async function connect() {
   try {
     // This call is directly in the click handler's task: permission needs a user gesture.
     const port = await navigator.serial.requestPort();
-    session = {port, opened:false, closing:false, reader:null, writer:null, readTask:null};
+    session = {port, opened:false, closing:false, reader:null, writer:null, readTask:null,
+      boundedReads:el("slowReads").checked};
     current = session;
-    await port.open({baudRate:115200});
+    await port.open(session.boundedReads
+      ? {baudRate:115200, bufferSize:SLOW_READ_BYTES} : {baudRate:115200});
     session.opened = true;
     if (session.closing) { await port.close(); return; }
     if (el("mode").value === "explicit") {
@@ -270,11 +280,15 @@ async function connect() {
     }
     if (session.closing) return;
     if (!port.readable || !port.writable) throw new Error("Serial streams unavailable");
-    session.reader = port.readable.getReader();
+    // Require BYOB for this test; an unbounded fallback would invalidate it.
+    session.reader = session.boundedReads
+      ? port.readable.getReader({mode:"byob"}) : port.readable.getReader();
     session.writer = port.writable.getWriter();
     session.readTask = readLoop(session);
     el("state").textContent = "Connected at 115200";
     record("EVENT", "Connected. Reading logger status and managed files.");
+    if (session.boundedReads)
+      record("EVENT", "Slow-read connection armed: 256-byte browser buffer and reads; up to 1024 wire B/s during downloads. Keep tab visible.");
     await refreshFiles();
   } catch (error) {
     record("ERROR", "Connect: " + error.message);
@@ -364,6 +378,12 @@ async function cancelTransfer(reason="Cancelled") {
 async function downloadFile(name) {
   if (download || listPending || !current || current.closing) return false;
   if (!/^(current\.log|archive-[0-9]{8}\.log)$/.test(name)) return false;
+  if (el("slowReads").checked && !current.boundedReads) {
+    record("ERROR", "Slow reads require reconnecting with the switch selected; download not started.");
+    return false;
+  }
+  if (el("slowReads").checked)
+    record("EVENT", "Slow-read test started: up to 1024 wire B/s, waits at most 250 ms; uncheck to drain.");
   let resolve;
   const promise=new Promise(r=>resolve=r);
   download={receiver:new LogFileReceiver(name),resolve,start:performance.now(),last:performance.now(),
@@ -445,6 +465,14 @@ function protocolLine(text,truncated) {
     } else throw new Error("Unexpected protocol record");
   } catch(error) { void cancelTransfer(error.message); }
 }
+el("slowReads").addEventListener("change", () => {
+  if (el("slowReads").checked && current && !current.boundedReads) {
+    el("slowReads").checked=false;
+    record("ERROR", "Disconnect here first, select Slow reads, then reconnect to arm the bounded reader.");
+  } else record("EVENT", el("slowReads").checked
+    ? "Slow reads selected. Reconnect if disconnected; keep tab visible."
+    : "Slow reads off: draining buffered output at normal speed.");
+});
 el("refresh").addEventListener("click",()=>void refreshFiles());
 el("abort").addEventListener("click",()=>void cancelTransfer());
 el("bundle").addEventListener("click",async()=>{

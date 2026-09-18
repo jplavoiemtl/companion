@@ -6,10 +6,11 @@
 #ifndef DIAG_TEST_HOOKS
 #define DIAG_TEST_HOOKS 0
 #endif
-// Temporary Stage 1B bench command: log test file creates a synthetic 2 MiB archive.
-// Set back to 0 for normal builds. This does not enable the fault/reset hooks.
+// Temporary Stage 1B commands: create/delete the USB fixture and pace one download.
+// log test slow on arms 100 ms per data line; off restores normal sending.
+// Off in normal builds; set to 1 only for USB bench tests, with fault hooks off.
 #ifndef DIAG_USB_TEST_FIXTURE
-#define DIAG_USB_TEST_FIXTURE 1
+#define DIAG_USB_TEST_FIXTURE 0
 #endif
 #if DIAG_USB_TEST_FIXTURE && DIAG_TEST_HOOKS
 #error "Generate the USB fixture with DIAG_TEST_HOOKS=0"

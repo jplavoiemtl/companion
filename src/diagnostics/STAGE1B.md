@@ -10,6 +10,59 @@ hardware-tested by the assistant**. Its gate remains pending.
 Stage 1 evidence and acceptance were pushed in 3d0b125 and 3f5b309.
 JP requested committing and pushing the pre-flash checkpoint. Core 3.1.3 download attempts failed; JP has now compiled the core 3.3.11 trial successfully. First hardware validation of that trial is pending. See [current trial instructions](../../docs/core_3_3_11_trial.md) before following the original handoff below.
 
+## 2026-09-18: temporary sender-paced deadline test
+
+Bench update at 09:19: JP's boot 60 passes the current deadline at exactly
+120000 ms, cleanup, automatic test reset and ordinary retry (260449 bytes,
+2.57 s, CRC OK). The procedure below is retained as the reproduction recipe.
+Archive 18 also passed at 09:25: 154.83 s total, all 2097152 bytes independently
+verified, logging continued. USB deletion of archive 18 then passed at 09:30.
+Source now defaults DIAG_USB_TEST_FIXTURE=0; enable it explicitly to reproduce
+these tests. The running boot 60 still has it enabled. See the checkpoint and
+bench results for remaining checks; Stage 1B is not yet fully accepted.
+
+JP authorized this control after two browser-throttled tests ended on other
+USB guards before 120 seconds. We are testing the firmware's current-file pause
+limit, not a browser timeout. The normal browser reader must keep draining USB.
+
+With DIAG_USB_TEST_FIXTURE=1 (already enabled for the synthetic archive), use:
+
+- `log test slow on`: while idle, arm the next file download for one successful
+  data line every 100 ms (at most 1440 file bytes/s). Listing does not consume it.
+- `log test slow off`: disarm it, or restore normal speed during a download.
+- `status`: includes `[LOG USB TEST] slow_armed=... slow_active=... data_interval_ms=100`.
+
+The test defaults off at boot. Success, failure or cancellation of the file
+transfer switches it off; shutdown clears it too. It is absent when the fixture
+flag is off. It uses no new task, allocation or blocking delay. All safety checks
+run before the pacing wait; only complete successful data lines count as progress.
+No Live-specific policy has been restored. The 120000 ms current deadline,
+5000 ms stall limit, 1000 ms connection-loss guard and 50% queue rule are unchanged.
+The retained failure snapshot now includes timeout elapsed/idle times and bytes.
+
+Next single test for JP:
+1. Build and flash the core 3.3.11 profile with fixture=1, fault hooks=0 and
+   PSRAM writer enabled. Only src files changed; companion.ino was not edited,
+   so this update does not require deleting its generated build intermediate.
+2. Reload and connect the web page with all three browser test switches off.
+   Keep hotspot and MQTT connected, Live stopped, and the card installed.
+3. Send `log test slow on`. Wait for `slow_armed=1 slow_active=0` in its reply.
+4. Download current.log (currently about 250 kB, larger than the roughly
+   172800 bytes this test can send in 120 seconds). Expect `Device: timeout`
+   at about two minutes. A rejected partial download must not be saved.
+5. Send `status`. Expect result=timeout, active=0, paused=0, slow_armed=0,
+   slow_active=0, logger ready and zero drops. Retained elapsed_ms should be
+   around 120000, with recent progress. Then download current.log normally
+   without rearming, and send `status` again. Paste the full console.
+
+If a different guard fires, report it rather than repeating or changing limits.
+Do not delete archive 18 yet. A later separate test will check a paced archive
+past 120 seconds, then use slow off to finish at normal speed.
+
+Local validation: 16 connection/pacing source simulations and 19 browser checks
+pass. These are not a firmware build or hardware validation. JP builds/flashes;
+no commit or push is authorized by this change.
+
 ## Prepared implementation
 
 - diagnostics_usb.h/.cpp is serviced only by the existing writer for filesystem

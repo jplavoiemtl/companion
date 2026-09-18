@@ -1,4 +1,5 @@
 #include "diagnostics_usb.h"
+#include "diagnostics_config.h"
 #include "HWCDC.h"
 #include <esp_heap_caps.h>
 #include <esp_timer.h>
@@ -35,6 +36,12 @@ uint64_t controlAt = 0;
 uint64_t publishedBytes = 0;
 bool publishedPaused = false;
 const char* lastResult = "none";
+#if DIAG_USB_TEST_FIXTURE
+// One-shot bench setting, shared with the serial parser under usbMux.
+constexpr uint64_t TEST_DATA_INTERVAL_MS = 100;
+bool testSlowArmed = false, testSlowActive = false;
+uint64_t testLastDataAt = 0; // Writer only; successful data lines only.
+#endif
 // Remaining state belongs exclusively to the writer (or terminal/off fallback).
 Phase phase = Phase::Idle;
 Buffers* buffers = nullptr;
@@ -57,7 +64,7 @@ size_t lastLineBytes = 0;
 int lastTxFree = -1, lastWriteBytes = -1;
 const char* lastSendCheck = "none";
 const char* lastSendStop = "none";
-// Writer-owned snapshot of the last stalled/disconnected transfer.
+// Writer-owned snapshot of the last stalled/disconnected/timed-out transfer.
 // Listing, successful retries and late aborts do not erase it.
 struct FailureSnapshot {
   bool valid = false;
@@ -86,6 +93,19 @@ uint8_t statusPart = 0;
 uint64_t statusAt = 0;
 
 uint64_t milliseconds() { return esp_timer_get_time() / 1000; }
+#if DIAG_USB_TEST_FIXTURE
+void testStartDownload(bool fileDownload) {
+  if (!fileDownload) return; // Listing must not consume the armed test.
+  portENTER_CRITICAL(&usbMux);
+  testSlowActive = testSlowArmed; testSlowArmed = false;
+  portEXIT_CRITICAL(&usbMux);
+  testLastDataAt = 0;
+}
+bool testDataWaiting() {
+  portENTER_CRITICAL(&usbMux); const bool slow = testSlowActive; portEXIT_CRITICAL(&usbMux);
+  return slow && dataLines && milliseconds() - testLastDataAt < TEST_DATA_INTERVAL_MS;
+}
+#endif
 bool transferConnected() {
   const bool connected = USBSerial.isConnected();
   const uint64_t now = milliseconds();
@@ -166,7 +186,12 @@ void release() {
   if (buffers) heap_caps_free(buffers);
   if (entries) heap_caps_free(entries);
   buffers = nullptr; entries = nullptr; phase = Phase::Idle; pendingBytes = 0;
-  portENTER_CRITICAL(&usbMux); reserved = false; portEXIT_CRITICAL(&usbMux);
+  portENTER_CRITICAL(&usbMux);
+  reserved = false;
+#if DIAG_USB_TEST_FIXTURE
+  testSlowActive = false; // Success or failure: the next download is normal.
+#endif
+  portEXIT_CRITICAL(&usbMux);
 }
 bool closeReaderAndResume(bool recordEnd, const char* result, bool keepEvent = false) {
   bool ok = true;
@@ -182,7 +207,7 @@ bool closeReaderAndResume(bool recordEnd, const char* result, bool keepEvent = f
 }
 void finishError(const char* reason, bool reply = true, const char* path = "stop_guard") {
   // Capture before cleanup resets lastProgress or error/status writes run.
-  if ((!strcmp(reason,"stalled") || !strcmp(reason,"disconnected")) &&
+  if ((!strcmp(reason,"stalled") || !strcmp(reason,"disconnected") || !strcmp(reason,"timeout")) &&
       phase != Phase::Idle && phase != Phase::Terminal) {
     const uint64_t now = milliseconds();
     lastFailure.valid = true; lastFailure.at = now; lastFailure.reason = reason;
@@ -262,6 +287,9 @@ bool captureList() {
   return true;
 }
 void start(Request request, uint32_t number, uint64_t accepted) {
+#if DIAG_USB_TEST_FIXTURE
+  testStartDownload(request == Request::Current || request == Request::Archive);
+#endif
   isCurrent = request == Request::Current; fileNumber = number;
   startedAt = lastProgress = accepted; sentBytes = fileSize = 0; dataLines = 0; crc = 0xffffffff;
   begun = paused = false; terminalReason = nullptr; pendingBytes = 0;
@@ -333,14 +361,26 @@ void controlTick() {
       lastFailure.valid ? lastFailure.file : "none",(unsigned long long)lastFailure.bytes,
       unsigned(lastFailure.lineBytes),lastFailure.txFree,lastFailure.writeBytes,
       lastFailure.check,lastFailure.stop);
-  } else {
+  } else if (statusPart == 5) {
     snprintf(wire,sizeof(wire),
       "\n[LOG USB LINK] losses=%lu max_loss_ms=%llu pending=%u grace_ms=%llu\n",
       (unsigned long)connectionLosses,(unsigned long long)longestLoss,
       unsigned(connectionLost),(unsigned long long)DISCONNECT_MS);
   }
+#if DIAG_USB_TEST_FIXTURE
+  else {
+    portENTER_CRITICAL(&usbMux);
+    const bool armed = testSlowArmed, active = testSlowActive;
+    portEXIT_CRITICAL(&usbMux);
+    snprintf(wire,sizeof(wire),"\n[LOG USB TEST] slow_armed=%u slow_active=%u data_interval_ms=%llu\n",
+      unsigned(armed),unsigned(active),(unsigned long long)TEST_DATA_INTERVAL_MS);
+  }
+  constexpr uint8_t lastStatusPart = 6;
+#else
+  constexpr uint8_t lastStatusPart = 5;
+#endif
   const int sent = sendLine(wire);
-  if (sent > 0) statusPart = statusPart < 5 ? statusPart + 1 : 0;
+  if (sent > 0) statusPart = statusPart < lastStatusPart ? statusPart + 1 : 0;
   else if (sent < 0 || milliseconds() - statusAt >= STALL_MS) statusPart = 0;
 }
 } // namespace
@@ -351,6 +391,21 @@ bool diagnosticsUsbBusy() {
 }
 bool diagnosticsUsbPaused() { return paused; }
 bool diagnosticsUsbCommand(const char* command) {
+#if DIAG_USB_TEST_FIXTURE
+  const bool slowOn = !strcmp(command,"log test slow on");
+  if (slowOn || !strcmp(command,"log test slow off")) {
+    portENTER_CRITICAL(&usbMux);
+    const bool busy = slowOn && reserved;
+    if (!busy) {
+      testSlowArmed = slowOn;
+      if (!slowOn) testSlowActive = false; // Off is allowed during a download.
+      statusRequested = true;
+    }
+    portEXIT_CRITICAL(&usbMux);
+    if (busy) queueError("busy");
+    return true;
+  }
+#endif
   if (!strcmp(command,"log status")) {
     portENTER_CRITICAL(&usbMux); statusRequested = true; portEXIT_CRITICAL(&usbMux); return true;
   }
@@ -382,6 +437,10 @@ void diagnosticsUsbTick() {
   pending = Request::None;
   portEXIT_CRITICAL(&usbMux);
   if (abort) {
+#if DIAG_USB_TEST_FIXTURE
+    // A cancelled queued file request consumes the one-shot test as well.
+    if (request == Request::Current || request == Request::Archive) testStartDownload(true);
+#endif
     if (phase != Phase::Idle || request != Request::None) finishError("aborted");
     else queueError("aborted");
   } else if (request != Request::None) start(request,number,accepted);
@@ -410,11 +469,18 @@ void diagnosticsUsbTick() {
       if (sentBytes == fileSize) {
         if (!closeReaderAndResume(false,"ok",true)) { finishError("logger_failed"); break; }
         phase = Phase::End;
-      } else if (!pendingBytes) {
-        const size_t wanted = fileSize-sentBytes < CHUNK ? size_t(fileSize-sentBytes) : CHUNK;
-        const ssize_t got = read(reader,buffers->raw,wanted);
-        if (got <= 0) { finishError("read_failed"); break; }
-        pendingBytes = size_t(got);
+      } else {
+#if DIAG_USB_TEST_FIXTURE
+        // Return to the writer loop, never sleep here. Guards/control handling
+        // above still run on every tick; waiting is not transfer progress.
+        if (testDataWaiting()) break;
+#endif
+        if (!pendingBytes) {
+          const size_t wanted = fileSize-sentBytes < CHUNK ? size_t(fileSize-sentBytes) : CHUNK;
+          const ssize_t got = read(reader,buffers->raw,wanted);
+          if (got <= 0) { finishError("read_failed"); break; }
+          pendingBytes = size_t(got);
+        }
       }
       if (phase == Phase::Data) {
         const int prefix = snprintf(wire,WIRE+1,"\n@@D %lu ",(unsigned long)(dataLines+1));
@@ -444,6 +510,9 @@ void diagnosticsUsbTick() {
     lastProgress = milliseconds();
     if (phase == Phase::Begin) phase = Phase::Data;
     else if (phase == Phase::Data) {
+#if DIAG_USB_TEST_FIXTURE
+      testLastDataAt = lastProgress;
+#endif
       crc = updateCrc(crc,buffers->raw,pendingBytes); sentBytes += pendingBytes;
       pendingBytes = 0; ++dataLines; publish();
     } else if (phase == Phase::End) {
@@ -455,6 +524,9 @@ void diagnosticsUsbTick() {
 void diagnosticsUsbStop() {
   portENTER_CRITICAL(&usbMux);
   pending = Request::None; abortRequested = statusRequested = false; controlError = nullptr;
+#if DIAG_USB_TEST_FIXTURE
+  testSlowArmed = testSlowActive = false;
+#endif
   portEXIT_CRITICAL(&usbMux);
   statusPart = 0;
   if (phase != Phase::Idle || paused || reader >= 0) closeReaderAndResume(false,"shutdown");

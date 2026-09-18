@@ -72,8 +72,8 @@ check('END rejects CRC, filename, byte count, line count and truncation',()=>{
   const r=new Receiver();r.begin(good[0]);assert.throws(()=>r.end(good[2]));
 });
 
-function page() {
-  const nodes=new Map(), intervals=[], timers=new Map(), sent=[], saved=[];
+function page(autoReadTimers=false) {
+  const nodes=new Map(), intervals=[], timers=new Map(), sent=[], saved=[], waits=[];
   let now=0, nextTimer=1;
   function node(id) {
     if (nodes.has(id)) return nodes.get(id);
@@ -88,16 +88,19 @@ function page() {
     navigator:{serial:{addEventListener(){}},userAgent:'test'},
     window:{isSecureContext:true,addEventListener(){}},
     document:{getElementById:node,createElement:()=>node('new'+nextTimer++)},
-    setTimeout:(fn,ms)=>{const id=nextTimer++;timers.set(id,{fn,ms});return id},clearTimeout:id=>timers.delete(id),
+    setTimeout:(fn,ms)=>{const id=nextTimer++;
+      if (autoReadTimers && ms<=250) { waits.push(ms); queueMicrotask(fn); }
+      else timers.set(id,{fn,ms});return id},clearTimeout:id=>timers.delete(id),
     setInterval:fn=>intervals.push(fn),queueMicrotask,
     mockWriter:{write:async data=>sent.push(new TextDecoder().decode(data)),abort:async()=>{},releaseLock(){}},
     mockPort:{close:async()=>{}},
   });
   vm.runInContext(script+`
     current={opened:true,closing:false,writer:mockWriter,reader:null,port:mockPort};
-    globalThis.api={receive,downloadFile,cancelTransfer,refreshFiles,controls,consoleText,
+    globalThis.api={receive,downloadFile,cancelTransfer,refreshFiles,controls,consoleText,readLoop,
+      setBounded:()=>{current.boundedReads=true},
       job:()=>download,files:()=>files,partial:()=>partial,disconnected:()=>current===null};`,context);
-  return {api:context.api,node,sent,saved,advance:ms=>{now+=ms;intervals.forEach(f=>f())}};
+  return {api:context.api,node,sent,saved,waits,advance:ms=>{now+=ms;intervals.forEach(f=>f())}};
 }
 async function main() {
   let p=page();
@@ -166,6 +169,62 @@ async function main() {
   assert.equal(p.saved.length,0);
   assert.match(p.api.consoleText(),/tx_free=128 write_bytes=-1/);
   ++checks;console.log('PASS partial transfer retains stall diagnostics and saves no file');
+  p=page();p.node('slowReads').checked=true;
+  assert.equal(await p.api.downloadFile('current.log'),false);
+  assert.equal(p.sent.length,0);
+  assert.match(p.api.consoleText(),/reconnecting/);
+  p.node('slowReads').handlers.change();
+  assert.equal(p.node('slowReads').checked,false);
+  ++checks;console.log('PASS unarmed slow test refuses download and requires reconnect');
+
+  async function readerCase(bounded, releaseSlow=false) {
+    const q=page(true);q.api.setBounded();q.node('slowReads').checked=bounded;
+    const result=q.api.downloadFile('current.log');
+    const payload=Buffer.alloc(4097,65);
+    const input=Buffer.from(wire(payload).join('\n')+'\n');
+    let offset=0, calls=0, released=false;
+    const session={boundedReads:bounded,closing:false,reader:{
+      async read(view) {
+        ++calls;
+        if (bounded) assert.equal(view.byteLength,256);
+        else assert.equal(view,undefined);
+        if (offset===input.length) { session.closing=true;return {done:true}; }
+        // Alternate full and short reads. Default-reader path can deliver the
+        // whole stream; BYOB must never return more than its supplied buffer.
+        const n=Math.min(input.length-offset,bounded ? (calls%2 ? 256 : 128) : input.length);
+        const chunk=input.subarray(offset,offset+n);offset+=n;
+        if (releaseSlow && calls===2) q.node('slowReads').checked=false;
+        if (view) {view.set(chunk);return {value:view.subarray(0,n),done:false};}
+        return {value:new Uint8Array(chunk),done:false};
+      },releaseLock(){released=true}
+    }};
+    await q.api.readLoop(session);
+    assert.equal(await result,true);assert.ok(released);
+    assert.equal(q.saved.length,1);
+    return q;
+  }
+  p=await readerCase(true);
+  assert.ok(p.waits.includes(250));assert.ok(p.waits.includes(125));
+  assert.ok(p.waits.every(ms=>ms<=250));
+  ++checks;console.log('PASS bounded slow reader paces actual byte counts and preserves split-line CRC');
+  p=await readerCase(true,true);
+  assert.equal(p.waits.filter(ms=>ms===250).length,1);
+  assert.equal(p.waits.filter(ms=>ms===125).length,0);
+  ++checks;console.log('PASS disabling slow reads drains remaining data without pacing');
+  p=await readerCase(false);
+  assert.ok(p.waits.every(ms=>ms===100)); // Console rendering only.
+  ++checks;console.log('PASS ordinary default reader has no new read-size limit or pacing');
+
+  p=page();p.api.setBounded();p.node('slowReads').checked=true;
+  const timeout=p.api.downloadFile('current.log');
+  p.api.receive('@@BEGIN version=1 name=current.log size=1440\n@@D 1 '+Buffer.alloc(144).toString('base64')+'\n');
+  p.api.receive('@@ERR reason=timeout\n');
+  assert.equal(await timeout,false);assert.equal(p.saved.length,0);
+  p.node('slowReads').checked=false;
+  const recovered=p.api.downloadFile('current.log');
+  wire(Buffer.from('retry')).forEach(l=>p.api.receive(l+'\n'));
+  assert.equal(await recovered,true);
+  ++checks;console.log('PASS device overall timeout rejects partial file and permits ordinary retry');
   console.log(`${checks} checks passed; no hardware accessed.`);
 }
 const deadline = setTimeout(()=>{console.error('Test promise did not settle');process.exit(1)},5000);

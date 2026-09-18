@@ -6715,3 +6715,428 @@ remain. The board still runs the paced build until JP rebuilds/flashes tomorrow.
 The narrow concurrent-Live FPS exception and remaining Stage 1B gates, including
 log test del 18 validation, are captured in the linked end-of-day checkpoint.
 JP requested commit and push. No build/flash or card deletion by Codex.
+
+
+### 2026-09-18 08:26: restored pacing policy flashed; Latest passes
+
+JP compiled/flashed the current reverted source in VS Code. Boot 58 connects
+Wi-Fi and MQTT; web status/list succeeds with five managed files and archive 18
+still present. Latest retrieves 33871 bytes, HTTPS response 914 ms, total 2173 ms
+from button press, JPEG decode and screen return successful. Same-day USB
+recovery/download testing can proceed; this capture contains no file download.
+No comparison with yesterday's network timing is used as a performance gate.
+
+HTTPS probe:913 ms,92 samples at 10 ms, sampled largest minimum 31732,
+free-internal low 44272. Logger ready/synced, hooks 0, fixture enabled 1,
+queue 0/16 high 1, no errors/drops/suppression/truncation. Writer PSRAM placement
+valid; margin 3752 before any transfer this boot, core 1. USB idle/unpaused,
+resultnone, no retained failure/loss. Current 225839 bytes, generation 17,
+newest 18, four archives. Boot stays 58 throughout the capture.
+
+Normal IMU averages 42.77/42.87 Hz in short windows, then 43.19 Hz over a minute.
+That final window includes minimum 8.62 Hz; cause is not identified by this
+capture. Record it for the existing IMU/core follow-up, without attributing
+it to SD or USB or claiming the minimum is normal. No reset/error is shown.
+
+Next single bench case: archive 18 manual Cancel download after visible
+progress, await abort confirmation, status, then retry the same archive to
+completion and status again without resetting/reconnecting. This exercises
+explicit cancel cleanup and gives a normal download on the restored build.
+Keep Live stopped, MQTT connected, browser fault switches off. Do not delete
+archive 18 yet. Documentation only; no firmware change/build/commit/push.
+
+
+### 2026-09-18 08:31: manual cancel and same-connection retry passed
+
+JP reports normal test operation. Boot 58, archive 18 request 08:31:01.713;
+log abort 08:31:04.291; device confirms aborted 08:31:04.305 (14 ms host interval).
+Status reports USB idle/unpaused, bytes 264240 resultaborted. No logger error,
+drop or retained transport failure. This is an expected cancellation, not a fault.
+
+Without reconnect/reset, retry at 08:31:19.386 completes 08:31:39.647:
+2097152 bytes in 20.26 s, decoded 103514 B/s, wire 146104 B/s, CRC OK.
+Independent verification of Downloads/58-archive-00000018.log matches every
+reference byte, CRC 32 8D 218D 21. One 2 ms connection indication recovered.
+Final same boot 58, logger ready/synced, queue 0/16 high 1, no errors/drops/
+suppression/truncation; USB idle/unpaused/resultok. Internal low 44272 and
+largest minimum 31732 unchanged; writer margin 3320 after exercising download,
+consistent with earlier transfer use. Current grows 228992 ->229335, writes 14 ->16.
+Three-times download time 60.78 s remains below the 120-second current limit.
+
+Manual cancel cleanup and immediate successful reuse pass on the restored
+firmware. Next single case: close only the web tab while archive 18 is actively
+downloading, leave USB attached, wait 10 seconds, reopen/connect and status;
+then retry archive 18 and status without resetting. A closed page loses its
+console, so preserve pre-close output if needed and paste the new console.
+Record any board freeze/reset; stop if unresponsive. This is page-close recovery,
+not the separate physical USB-unplug case. Documentation only; no firmware
+change, build, flash, commit or push.
+
+
+### 2026-09-18 08:35: page-close recovery and retry passed
+
+JP reports normal operation; reopening the HTML page took longer than the
+suggested ten seconds. This does not invalidate the cleanup/recovery case.
+The new capture begins after reopening. Boot 58 remains unchanged; initial
+status uptime 547121 ms versus the prior test 338559 ms, so no intervening reset
+is indicated. Exact tab-close time is absent; do not infer a disconnect latency.
+
+Retained failure identifies the expected no-reader stall: archive 18, bytes 183744,
+phase=data, path=stop_guard, elapsed 6783 ms, idle 5001 ms, loss 0 ms. Space 117
+was below the 203-byte pending line; write_bytes=-1 means no write attempted.
+Cleanup left USB idle/unpaused and logger ready without errors/drops. Reopening
+runs automatic listing, which resets the generic byte count to 0; the retained
+failure snapshot preserves the aborted archive's actual submitted byte count.
+The five-second guard handled the closed page even without a disconnected result.
+
+Retry completes 2097152 bytes in 20.18 s, decoded 103911 B/s, wire 146665 B/s,
+CRC OK. Downloads/58-archive-00000018 (1).log independently matches every expected
+fixture byte (CRC 32 8D 218D 21). One 1 ms link indication recovers during retry.
+Final boot 58 uptime 578971 ms; USB idle/unpaused/resultok. Retained stalled
+snapshot remains historical by design, not an ongoing failure. Memory lows
+44272/31732 and writer margin 3320 unchanged; queue 0/16 high 1, no errors/drops/
+suppression/truncation. Current grows 231936 ->232279, writes 22 ->24.
+
+Next single case: physical USB unplug during archive 18 download on JP's
+battery-equipped board. Leave browser tab open; unplug only USB after progress,
+wait about 10 seconds observing board, reconnect cable and web port, status,
+then ordinary retry and status. Stop/report if board powers down, freezes or
+restarts; do not treat it as a clean transport-only result. Keep archive 18.
+Documentation only; no firmware change, build, flash, commit or push.
+
+
+### 2026-09-18 08:39: battery-powered USB unplug and recovery passed
+
+JP reports normal operation. Capture begins after reconnection; boot 58 and
+uptime 779810 ms continue the earlier boot, with no reset indicated. Retained
+archive 18 failure: reason=disconnected, loss_ms=1000, elapsed 2955 ms,
+idle 1004 ms, bytes 200880. Last check connected_before_space, no write attempted.
+This exercises the one-second sustained-loss guard. Automatic reopening/listing
+resets generic USB bytes/link counters; retained failure preserves the evidence.
+
+Retry 2097152 bytes in 20.41 s, CRC OK, decoded 102753 B/s, wire 145030 B/s.
+Downloads/58-archive-00000018 (2).log independently matches every reference byte.
+Final boot 58 uptime 808406, logger ready/synced, no errors/drops/suppression/
+truncation, queue 0/16 high 1. USB idle/unpaused/resultok, no link losses in retry;
+retained disconnect is historical. Memory lows 44272/31732 and writer margin 3320
+unchanged. Current 234322 ->235229, writes 29 ->32, confirming continued logging.
+
+Manual cancel, page-close and physical unplug recovery cases now pass.
+Next: use the existing Read at 3-second intervals switch on current.log to
+exercise the 120-second overall limit while reads continue; other switches off,
+Live stopped, MQTT connected. Disable slow reads after terminal result (or about
+150 seconds to drain buffered output), capture status, then ordinary retry and
+status if cleanly finished. Browser buffering can delay the displayed terminal
+reply; host receive time alone is not exact device timeout time. If the file
+completes early, record that and do not count the timeout gate as exercised.
+No firmware changes, build, flash, commit or push. Keep archive 18 for its later
+long-progress test and eventual serial deletion.
+
+
+### 2026-09-18 08:42: slow-read test hit stall, not overall timeout
+
+Current requested at 08:42:43.643; stalled reply displayed at 08:45:20.096,
+156.453 seconds later. Retained device evidence is definitive: elapsed 5121 ms,
+idle 5000 ms, phase=data, path=stop_guard, reasonstalled, bytes 9072, loss 0 ms.
+The pending 201-byte line had only 113 bytes of transmit space; no write attempted.
+The host timestamp includes delayed draining of buffered data and must not be
+interpreted as a late device deadline. Normal probe summaries arriving together
+with the terminal reply also reflect buffering.
+
+The page sleeps 3000 ms before each reader.read(), whose returned chunk size is
+not fixed by this test. Such reading does not guarantee that enough driver TX
+space becomes available for a complete protocol line within five seconds.
+This attempt exercised current-file stall cleanup, not the intended 120-second
+progressing-transfer timeout. The test method needs revision; do not repeat
+it unchanged or increase production timeouts to accommodate the test.
+
+JP unchecked slow reads after the failure. No automatic resume is expected:
+finishError has closed the transfer and resumed appends; a new download request
+is required. Status confirms USB inactive/unpaused/resultstalled, logger ready,
+current 238946 bytes, writes 40, same boot 58. Queue 0/16 high 1, no errors/drops/
+suppression/truncation; internal lows 44272/31732 and stack margin 3320 unchanged.
+
+Next single step: all browser switches off, download current.log once and then
+status. Preserve the resulting file for recovery and SD event timing inspection.
+Do not reset/reconnect or remove the card. Overall deadline gate remains open;
+use a more controlled progress test after this ordinary recovery check.
+Documentation only; no firmware/page change, build, flash, commit or push.
+
+
+### 2026-09-18 08:48: ordinary current download recovered; SD timing verified
+
+With the test switches off, JP downloaded current.log successfully: 240805 bytes
+in 2.33 s, decoded 103461 B/s, protocol wire 145428 B/s, CRC OK. The saved
+Downloads/58-current.log is 240805 bytes with independently computed CRC32
+980232E6. Boot 58 continued without a reset. USB finished inactive and unpaused,
+result=ok. Current grew to 240968 bytes, and writes increased to 45.
+
+Logger ready/synced, queue 0/16 high 1, zero errors, drops, suppression and
+truncation. Internal heap minimum 44272 bytes, lowest largest block 31732 bytes,
+and writer stack margin 3320 bytes are unchanged. No USB link losses were recorded.
+The retained stalled failure at up_ms=1002873 is the earlier failed test;
+it remains visible after successful downloads by design.
+
+The downloaded SD records establish the earlier timeout timing directly:
+USB_GET_BEGIN at 08:42:43.646, up_ms=997781; USB_GET_END at 08:42:48.745,
+up_ms=1002880, bytes=9072, duration_ms=5128, result=stalled. The retained
+5121 ms value was captured before final cleanup. Minute HEALTH records continued
+from 08:43:08 onward, well before the browser displayed the buffered failure at
+08:45:20. The board resumed logging after about five seconds, not 156 seconds.
+The successful download includes its own BEGIN; its END occurs after the snapshot.
+
+Current-file stall recovery passes. The 120-second progressing-transfer gate
+remains untested. Next, correct the slow-read test method before asking JP to
+repeat it; retain the production five-second stall and 120-second current limits.
+Keep fixture archive 18 for the remaining long-transfer test and later serial
+deletion. Documentation only; no firmware or page edits, build, flash, commit
+or push.
+
+
+### 2026-09-18: corrected page-only slow-progress test, awaiting JP
+
+JP authorized correcting the test page. The old three-second sleep before an
+arbitrarily sized read is replaced by a bounded test connection. Select Slow
+reads before connecting: the page opens with bufferSize=256 and requests a BYOB
+reader. Each read accepts at most 256 bytes. During a download, the subsequent
+wait is actual bytes / 1024 seconds, at most 250 ms. There is no accumulated
+credit after idle time. Console and file-list reads outside downloads are not paced.
+
+Ordinary connections keep their default reader and original open options.
+Firmware, baud rate, DTR and RTS values, and device timeout limits are unchanged.
+Turning the switch off or cancelling removes pacing, including on the bounded
+connection. Selecting it on an ordinary connection is refused with reconnect
+instructions. Unsupported BYOB setup fails instead of silently using an unbounded
+reader. The test tab must stay visible; browser scheduling and Windows buffers
+remain hardware-test variables. A successful simulation is not a deadline gate pass.
+
+API reference: [Chrome Web Serial documentation](https://developer.chrome.com/docs/capabilities/serial)
+describes BYOB support since Chrome 106 and the bufferSize open option. JP uses
+Chrome 152. No assumption is made that this also fixes the VS Code close issue.
+
+Validation: all 19 checks in tools/tests/sd_log_browser.test.cjs pass. New cases
+cover refusal when unarmed, bounded full and short reads with byte-based delays,
+split-line CRC integrity, unchecking to drain, unchanged ordinary reads, and
+partial-file rejection plus retry after a device timeout. No board accessed.
+
+Next single bench case (no rebuild or flash):
+1. Disconnect using the web page, leave the USB cable connected, then reload it.
+2. Select only Slow reads before Connect. Use DTR=true and RTS=false. Confirm
+   the console says the slow-read connection is armed, then wait for the file list.
+3. With hotspot and MQTT connected and Live stopped, download current.log.
+   Keep the tab visible. The desired terminal result is Device: timeout.
+4. If no terminal result is visible after about 150 seconds, uncheck Slow reads
+   to drain buffered output. Do not cancel first: preserve the device's reason.
+5. With Slow reads off, send status and paste the whole test console. If it
+   reports stalled or completes normally, the overall-deadline gate remains open.
+
+Keep fixture 18 for the later archive-over-120-seconds case and serial deletion.
+No firmware edit, build, flash, commit or push.
+
+
+### 2026-09-18 09:01: bounded slow reads ended on connection indication
+
+JP used the updated page: slow-read connection armed with 256-byte buffer and
+BYOB reads, capped at 1024 wire B/s. Current requested at 09:01:09.903;
+the browser sent log abort at 09:02:46.711 (96.808 s later) and received aborted
+confirmation at 09:02:46.726. The page reported Missing response or END.
+
+The retained firmware evidence explains which guard fired first:
+- reason=disconnected, at_ms=2173235, elapsed_ms=69194, idle_ms=1554.
+- loss_ms=1000, phase=data, path=stop_guard, bytes=56304.
+- Last check connected_before_space, tx_free=-1, write_bytes=-1: the writer
+  did not attempt that line's write after observing the disconnected indication.
+- Later USB status inactive/unpaused, result=disconnected, bytes=56304.
+
+The firmware had already ended the transfer after 69.194 seconds and resumed
+appends. For disconnected it deliberately omits terminal output. Buffered data
+can continue reaching the page, followed by its 15-second no-response watchdog;
+the later abort acknowledgment does not change the original failure cause.
+This is not the 120-second limit and not the five-second no-progress guard.
+It records a core USB connection indication, not proof of cable removal or a
+Wi-Fi disconnection. The cause of the sustained false indication is unverified.
+The installed HWCDC implementation bases connection state on its SOF watchdog
+and TX interrupt activity; it is not a direct application-readiness signal.
+
+Board stayed on boot 58, uptime 2216954 ms at final status. Logger ready/synced,
+queue 0/16 high 1, no errors, drops, suppression or truncation. Current increased
+248084 -> 249551 bytes. Writer stack margin 3320 bytes; internal minimum 41836,
+lowest largest block 28660, above the unchanged 20480 floor. The heap minimum
+41836 was already present before this transfer; do not attribute its decrease
+from the earlier session reading to this test. No reset or logger failure shown.
+
+The revised page simulation passed, but the hardware deadline gate remains open.
+Do not ask JP to repeat browser throttling unchanged. Recommend a temporary,
+explicit serial test control under the existing USB fixture build flag that
+paces successful data lines from the writer while the browser reads normally.
+It should be off by default, remain responsive between lines without a blocking
+sleep, and retain all connection, stall, queue and overall limits. This would
+exercise the real current deadline without host receive-buffer pressure; it
+would not claim to solve arbitrary slow-host behavior. A separate archive run
+could continue beyond 120 seconds before restoring normal speed or cancelling.
+This firmware test change is proposed only, not implemented or approved yet.
+JP would build and flash once if accepted. Keep fixture archive 18.
+
+Source capture: attachment 551c6eb9-9c8e-4d2f-b707-b7b3737eff9d/pasted-text.txt.
+Documentation only this turn; no firmware/page edits, build, flash, commit or push.
+
+
+### 2026-09-18: sender-paced deadline control prepared with JP's approval
+
+JP approved implementing the firmware test and asked what the 120 seconds tests.
+It tests the firmware's maximum current.log append pause, even when transfer
+progress continues; it is not a browser deadline. The browser must read normally.
+
+Added fixture-build-only `log test slow on` and `log test slow off`. On arms one
+file request while idle. Data lines are then separated by at least 100 ms without
+sleeping in the sender. Off works during transfer; ending the transfer clears the
+active setting automatically. Listing preserves an unused arm. A queued file
+request cancelled before start consumes the arm as well. Shutdown clears both.
+No task, buffer or heap allocation added. Fault hooks stay off; normal transfers
+retain their existing four-lines-per-turn policy. This is not the reverted Live
+performance optimization. All device safety limits and checks remain in force.
+
+Status gains the fixture-only LOG USB TEST line. The retained LOG USB FAIL
+snapshot also captures reason=timeout so its elapsed time can be checked directly.
+Browser test switches must all be off for the next run. Current at about 250 kB
+exceeds the roughly 172800-byte maximum at 100 ms per 144-byte line over 120 s.
+A progressing archive remains exempt from the overall limit, tested separately.
+
+Validation: 16 source-level connection/pacing simulations pass, covering serial
+arming/disarming, one-shot lifecycle, exact data spacing, current deadline,
+archive exemption and existing connection/stall/queue/abort/shutdown guards.
+All 19 browser checks pass. No firmware build, flash, commit or push performed.
+Next single test is documented in src/diagnostics/STAGE1B.md: JP flashes, arms
+slow sending, downloads current, checks timeout cleanup/status, then retries
+normally without rearming. Gate remains pending hardware evidence.
+
+
+### 2026-09-18 09:16: current-file overall deadline and recovery passed
+
+JP flashed the sender-control build and reports a successful test, boot 60.
+At 09:16:42, log test slow on returned slow_armed=1, slow_active=0 and a 100 ms
+interval. Current requested at 09:16:50.340; Device: timeout received at
+09:18:50.349. The retained device snapshot establishes the actual guard:
+reason=timeout, elapsed_ms=120000, idle_ms=38, at_ms=162416, bytes=170352.
+The last 203-byte wire line completed with tx_free=256 and write_bytes=203.
+Data was still progressing, so this is the overall limit, not a stall.
+Two transient link losses reached only 2 ms and did not abort the test.
+
+After timeout, USB inactive/unpaused, result=timeout, both slow-test flags zero;
+logger ready/synced, boot 60 unchanged. Queue 0/16 high 1, no errors, drops,
+suppression or truncation. Internal minimum 95012 bytes, lowest largest block
+53236, writer stack margin 3320. Normal retry without rearming downloaded
+260449 bytes in 2.57 s, decoded 101275 B/s, wire 142385 B/s, CRC OK.
+Final USB result=ok, inactive/unpaused, no link losses, slow flags still zero.
+Memory readings unchanged, writes 10 -> 12, current 260288 -> 260611 bytes.
+The retained timeout after retry is historical, as designed.
+
+Independently inspected Downloads/60-current.log: 260449 bytes, CRC32 5806D2A2.
+Its boot-60 USB_GET_END records result=timeout, bytes=170352, duration_ms=120006
+including cleanup, followed by HEALTH at up_ms=162438. This confirms logging
+resumed immediately after the timeout. The successful retry's own BEGIN is in
+its snapshot; its END is written afterward. Use duration_ms and retained elapsed
+for timing, not differences between queued record timestamps.
+
+The current-file 120-second progressing-transfer and normal-retry gate passes.
+Stage 1B as a whole is still pending. Next single case: prove archive downloads
+can exceed 120 seconds without pausing appends. Keep browser switches off and
+Live stopped. Send log test slow on, download archive 18, wait about 2 min 15 s,
+then send log test slow off while it is still downloading. Let it finish at
+normal speed and send status. Expect full 2097152 bytes with CRC OK, total time
+above 120 s, result=ok, logger ready with no drops, and both slow flags zero.
+Keep the downloaded fixture for independent byte verification. No new flash is
+needed, and archive 18 stays on the card until subsequent serial deletion test.
+
+Source capture: attachment d161b4c7-684e-4431-ae31-913140aadfab/pasted-text.txt.
+Documentation only this turn; no firmware/page edits, build, flash, commit or push.
+
+
+### 2026-09-18 09:23: archive beyond 120 seconds passed
+
+JP reports normal operation, boot 60. Slow test armed at 09:22:56.779; archive 18
+requested at 09:23:06.623. JP sent log test slow off at 09:25:22.318, after
+135.695 seconds. At that point USB was active, appends were not paused, bytes
+192672, and both slow flags became zero. Current had grown 262864 -> 264162 bytes
+while the archive was being read. The previous result=ok in an active status is
+historical; final DOWNLOAD and idle status establish completion.
+
+Full archive completed at 09:25:41.450: 2097152 bytes in 154.83 s, CRC OK.
+Reported average decoded rate 13545 B/s and wire rate 19118 B/s include the
+intentional 100 ms pacing phase; they are not normal-speed throughput measures.
+Independently checked Downloads/60-archive-00000018.log with
+tools/verify_usb_fixture.py: every expected byte matches, CRC32 8D218D21,
+SHA256 b79a649116ba358243b2c9388b68ac718b9f65cef94f241236ad8550394f65be.
+
+Final uptime 579801 ms, same boot 60; USB inactive/unpaused, result=ok,
+bytes=2097152, slow flags zero. Logger ready/synced, current 264336, writes 20,
+queue 0/16 high 1, zero errors, drops, suppression and truncation. Internal
+minimum 95012, lowest largest block 53236, writer margin 3320 unchanged.
+Five transient link indications reached at most 5 ms; pending=0. The retained
+current.log timeout remains the earlier successful timeout test, not a new fault.
+
+Archive exemption from the 120-second overall limit passes, alongside the
+current-file deadline and recovery case. Large-file duration/integrity tests
+using archive 18 are complete. Next single test is the already implemented
+serial deletion: log test del 18, wait for result=deleted (roughly a minute
+for full-pattern verification), Refresh files, then status. Confirm only archive
+18 is removed and current plus archives 14, 15 and 16 remain. JP keeps the
+verified downloaded copy. No card removal or new flash is needed.
+
+Queue-pressure and selected-archive pruning gates remain separate outstanding
+work; any sacrificial file needed for those should be prepared explicitly, not
+by risking retained diagnostic archives. Stage 1B is not fully accepted yet.
+Source capture: attachment 6782d3d8-c279-4511-ad92-db38a3acbe65/pasted-text.txt.
+Documentation only; no firmware/page changes, build, flash, commit or push.
+
+
+### 2026-09-18 09:30: fixture deletion over USB passed; normal default restored
+
+JP agreed to retain test source but exclude it from normal builds. JP sent
+log test del 18 at 09:29:39.843. Full-pattern verification and deletion completed
+at 09:30:32.354 (52.511 s host interval): result=deleted, archive=00000018,
+bytes=2097152, errno=0. Refresh listed four managed files instead of five;
+newest returned to 16 and archives to three. Current.log remained and grew to
+267861 bytes. JP reports the file was deleted successfully. The pasted summary
+does not enumerate the individual remaining names, but its counts and newest
+number agree with removal of the synthetic archive only.
+
+Final boot 60 uptime 920256 ms: logger ready/synced, queue 0/16 high 1, no errors,
+drops, suppression or truncation. Internal minimum 95012, lowest largest block
+53236, stack margin 3320 unchanged. USB inactive/unpaused; slow flags zero.
+Available space increased from 15920332800 to 15922429952 bytes: exactly
+2097152 bytes recovered. The brief active=1 during Refresh was listing activity;
+subsequent status is inactive. Retained timeout still refers to the intentional
+current-file test at up_ms=162416, not a deletion failure.
+
+Set the source default DIAG_USB_TEST_FIXTURE to 0 as agreed. This excludes the
+fixture generator, safe deletion and sender-speed commands from normal builds;
+source remains available for future bench testing. DIAG_TEST_HOOKS stays 0,
+PSRAM writer stays enabled. Real USB retrieval and all production safety limits
+remain enabled. JP's boot 60 still has fixture=1 until he flashes a newer build.
+No need to flash only for this flag yet; prepare the remaining focused gate tests
+before the next bench build. Queue pressure and selected-archive pruning remain
+open, along with final evidence review and owner acceptance. Preserve real
+archives when preparing any future sacrificial test file.
+
+No build, flash, commit or push. This turn changed only the fixture default and
+documentation; deletion was performed by JP through the existing serial command.
+
+
+### 2026-09-18: normal-build and commit checkpoint
+
+JP requested committing and pushing this checkpoint and asked to compile/flash
+with the temporary tests disabled. Confirmed source defaults: USB fixture=0,
+fault hooks=0, PSRAM writer=1; selected VS Code profile is
+amoled-1-8-core-3-3-11. No matching test-flag overrides were found in sketch.yaml
+or .vscode. Normal logging, USB retrieval and safety deadlines remain enabled.
+JP may build/flash this normal configuration now, with all browser test switches
+off, then send status and download current.log once to verify the configuration.
+The normal status should no longer include LOG FIXTURE or LOG USB TEST output.
+companion.ino has not changed; no generated-sketch deletion is required here.
+
+All 35 local checks passed again (16 firmware-source simulations, 19 browser
+checks); git diff --check clean. This is not a firmware compilation. No build
+or flash by Codex. Stage 1B remains pending its queue/pruning checks and final
+review. The separate owner document docs/sd_iphone_log_download_plan.md is outside
+this commit's scope and remains untouched.

@@ -1,5 +1,16 @@
 # SD diagnostics checkpoint — 2026-09-17, end of day
 
+Resume update (2026-09-18 09:31): boot 60 passes both duration cases and USB
+fixture deletion. Archive 18 was verified and deleted in 52.51 s; exactly 2 MiB
+was recovered, four managed files remain, and logging has zero drops. Source
+now defaults `DIAG_USB_TEST_FIXTURE=0`; the running board still has it enabled
+until JP reflashes. Queue-pressure and selected-archive pruning checks remain
+open, so Stage 1B is not fully accepted. JP can now flash the normal configuration
+and check status plus one current.log download; further fault tests will use a
+separate bench build.
+See the [bench results](sd_diagnostics_bench_results.md) and
+[test controls](../src/diagnostics/STAGE1B.md).
+
 ## Where we stopped
 
 JP accepted Stage 1 (SD logging basics). Stage 1B (USB retrieval) is implemented
@@ -66,11 +77,12 @@ Resume one test at a time. Preserve passed results rather than repeating the
 whole suite. After JP flashes the restored source, take status and one normal
 download to confirm the bench is on the intended configuration.
 
-1. Finish explicit abort, page-close and physical USB-unplug recovery cases.
+1. Explicit abort/retry, page-close/retry and battery-powered physical
+   USB-unplug/retry passed on 2026-09-18. No repeat currently needed.
    JP's board has a battery: unplug USB only with the battery powering it.
    Account for the existing inactivity shutdown timer; check subsequent logging.
-2. Exercise slow progress: current.log reaches its **120-second** limit;
-   a progressing archive can exceed 120 seconds. Check append recovery and retry.
+2. Both duration cases passed on 2026-09-18: current timeout and recovery at
+   09:19; a progressing archive completed in 154.83 s at 09:25 with exact bytes.
 3. Exercise the **50% queue** guard while current appends are paused, and pruning
    of the archive being read. Check cleanup, continued logging and zero drops.
    Plan any required test-hook build separately; fixture and fault-hook flags
@@ -78,18 +90,16 @@ download to confirm the bench is on the intended configuration.
 4. Review remaining real-current snapshot/prefix integrity evidence, accumulated
    memory/handle stability, and the Web Serial/VS Code round-trip limitation.
    Repeated success/abort/retry evidence already exists; repeat only uncovered cases.
-5. **Delete the large fixture over USB after it is no longer needed:** send
-   `log test del 18`, wait for `[LOG FIXTURE] result=deleted`, then Refresh files
-   and `status`. Validation checks every synthetic byte before deletion and may
-   take roughly a minute. Confirm archive 18 is gone and current/other archives
-   remain. This command exists but deletion has not yet been tested on hardware.
-6. Set `DIAG_USB_TEST_FIXTURE=0` for the final ordinary build, keep
-   `DIAG_TEST_HOOKS=0` and PSRAM writer enabled, then JP accepts the Stage 1B
-   checkpoint with explicit remaining limitations before Stage 2 starts.
+5. Fixture deletion over USB passed at 09:30 on 2026-09-18. Archive 18 is gone,
+   four managed files remain, and exactly 2 MiB was recovered. No repeat needed.
+6. Source defaults now have `DIAG_USB_TEST_FIXTURE=0`, `DIAG_TEST_HOOKS=0` and
+   PSRAM writer enabled. JP's boot 60 still contains the USB test commands.
+   After remaining checks and final ordinary-build verification, JP accepts
+   Stage 1B with explicit limitations before Stage 2 starts.
 
-**Keep archive 18 on the card tonight.** Do not regenerate it or remove the card.
-The current bench source intentionally leaves `DIAG_USB_TEST_FIXTURE=1` so its
-create/delete commands remain available. No deletion was performed tonight.
+Keep test source for future use, excluded from normal builds. Prepare a separate
+sacrificial file if needed for the remaining pruning test; preserve real archives.
+No card removal was needed for fixture cleanup.
 
 ## Main project steps afterward
 
