@@ -6,7 +6,7 @@
 #ifndef DIAG_TEST_HOOKS
 #define DIAG_TEST_HOOKS 0
 #endif
-// Temporary Stage 1B commands: create/delete the USB fixture and pace one download.
+// Temporary Stage 1B commands: fixture create/delete, pacing, queue/prune gates.
 // log test slow on arms 100 ms per data line; off restores normal sending.
 // Off in normal builds; set to 1 only for USB bench tests, with fault hooks off.
 #ifndef DIAG_USB_TEST_FIXTURE

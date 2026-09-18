@@ -5,7 +5,7 @@
 JP accepted Stage 1 on 2026-09-17, including its documented limitations.
 Stage 1B USB retrieval passes normal and large-file integrity tests; remaining safety gates are pending.
 JP accepted the rare large-download/Live FPS tradeoff; optional pacing was reverted.
-See the [end-of-day checkpoint](sd_diagnostics_checkpoint_2026-09-17.md) for the exact resume steps.
+See the [end-of-day checkpoint](sd_diagnostics_checkpoint_2026-09-18.md) for the exact resume steps.
 Stage 2 network-event logging has not started.
 
 - [Accepted Stage 1 checkpoint](sd_diagnostics_stage1_checkpoint.md)
@@ -603,9 +603,12 @@ Run gate tests one at a time:
    Confirm appending resumes and the next download succeeds. Verify abort confirmation ordering.
 6. **Current pause:** generate events while retrieving current.log. Exercise the 50% queue
    abort and verify zero dropped events, resumed appends and an error reply when connected.
-7. **Pruning:** use the existing small rotation and retention test limits. Make pruning
-   select the archive being downloaded. Confirm its reader is closed before deletion,
-   the transfer fails cleanly and logging continues.
+7. **Pruning:** exercise removal of the archive being downloaded. The focused
+   Stage 1B hook selects only a synthetic archive created this boot and uses the
+   production close-reader-before-unlink helper. Keep retention limits unchanged
+   to preserve real logs. Confirm a clean transfer failure and continued logging.
+   Stage 1 covers retention threshold selection separately; this hook covers
+   the active-reader removal path. See the Stage 1B handoff for the procedure.
 8. **Repeated downloads:** repeat successful and aborted transfers. Check heap, largest
    block, writer stack and file handles for leaks or accumulating resource loss.
 9. **Round trip:** disconnect the page and reopen VS Code. Confirm output and status,

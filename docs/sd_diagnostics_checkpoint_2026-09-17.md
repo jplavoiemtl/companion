@@ -1,15 +1,17 @@
 # SD diagnostics checkpoint — 2026-09-17, end of day
 
-Resume update (2026-09-18 09:31): boot 60 passes both duration cases and USB
-fixture deletion. Archive 18 was verified and deleted in 52.51 s; exactly 2 MiB
-was recovered, four managed files remain, and logging has zero drops. Source
-now defaults `DIAG_USB_TEST_FIXTURE=0`; the running board still has it enabled
-until JP reflashes. Queue-pressure and selected-archive pruning checks remain
-open, so Stage 1B is not fully accepted. JP can now flash the normal configuration
-and check status plus one current.log download; further fault tests will use a
-separate bench build.
-See the [bench results](sd_diagnostics_bench_results.md) and
-[test controls](../src/diagnostics/STAGE1B.md).
+Superseded for resume instructions by the [September 18 checkpoint](sd_diagnostics_checkpoint_2026-09-18.md). Historical results below remain valid.
+
+Resume update (2026-09-18 09:43): JP flashed the normal build, boot 62, with
+USB fixture and fault hooks off. Status and current.log retrieval pass:
+276169 bytes in 2.81 s, CRC OK, zero drops or USB failures. Source and board
+now match the normal configuration in ad01fb8. Both duration cases and USB
+fixture deletion passed earlier. Queue-pressure and selected-archive pruning
+checks remain open. JP approved preparation of two one-shot bench controls;
+source is ready for the queue test first, not yet compiled or flashed. Keep the
+normal default at fixture=0; JP enables fixture=1 for the separate bench build.
+Stage 1B acceptance remains pending. See the [bench results](sd_diagnostics_bench_results.md)
+and [test controls](../src/diagnostics/STAGE1B.md).
 
 ## Where we stopped
 
@@ -23,7 +25,7 @@ no-progress guard. A false connection reading pauses sending immediately;
 short glitches can recover. CRC and sequence validation remain mandatory.
 Current downloads retain a 120-second overall limit; archives have none.
 
-**Repository and board differ tonight:** the optional Live pacing experiment
+**Historical September 17 state (superseded by the resume update above):** the optional Live pacing experiment
 has been reverted in source. JP's last flashed board (boot 55) still contains
 that experiment. Tomorrow, build and flash the restored source before collecting
 more results. All reverted edits were under `src/`; no generated
@@ -74,8 +76,8 @@ measurements meet the 120-second deadline's 3x margin. The slower experiment's
 ## Remaining Stage 1B work
 
 Resume one test at a time. Preserve passed results rather than repeating the
-whole suite. After JP flashes the restored source, take status and one normal
-download to confirm the bench is on the intended configuration.
+whole suite. Normal-build status and download verification passed at 09:43 on
+2026-09-18; no repeat is currently needed.
 
 1. Explicit abort/retry, page-close/retry and battery-powered physical
    USB-unplug/retry passed on 2026-09-18. No repeat currently needed.
@@ -93,8 +95,8 @@ download to confirm the bench is on the intended configuration.
 5. Fixture deletion over USB passed at 09:30 on 2026-09-18. Archive 18 is gone,
    four managed files remain, and exactly 2 MiB was recovered. No repeat needed.
 6. Source defaults now have `DIAG_USB_TEST_FIXTURE=0`, `DIAG_TEST_HOOKS=0` and
-   PSRAM writer enabled. JP's boot 60 still contains the USB test commands.
-   After remaining checks and final ordinary-build verification, JP accepts
+   PSRAM writer enabled. JP's boot 62 passed ordinary-build verification.
+   After the remaining checks and final evidence review, JP accepts
    Stage 1B with explicit limitations before Stage 2 starts.
 
 Keep test source for future use, excluded from normal builds. Prepare a separate

@@ -109,7 +109,7 @@ Project owner and bench tester: **JP**.
 retrieval passes large-file integrity and MQTT-overlap tests; remaining abort,
 timeout, queue/pruning and cleanup gates are pending. Optional Live pacing was
 reverted; JP accepted its rare concurrent-download FPS tradeoff. Stage 2 has not
-started. See the [resume checklist](sd_diagnostics_checkpoint_2026-09-17.md).
+started. See the [resume checklist](sd_diagnostics_checkpoint_2026-09-18.md).
 The dated findings below are historical; their earlier hold status is superseded
 by the accepted Stage 1 checkpoint.
 

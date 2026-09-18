@@ -7140,3 +7140,63 @@ checks); git diff --check clean. This is not a firmware compilation. No build
 or flash by Codex. Stage 1B remains pending its queue/pruning checks and final
 review. The separate owner document docs/sd_iphone_log_download_plan.md is outside
 this commit's scope and remains untouched.
+
+
+### 2026-09-18 09:43: normal build with USB fixture disabled passed
+
+JP compiled/flashed the normal configuration from checkpoint ad01fb8 and supplied
+status, current download and status, boot 62. hooks=0, PSRAM stack placement valid,
+writer active on core 1. LOG FIXTURE and LOG USB TEST lines are absent from both
+complete status replies, consistent with DIAG_USB_TEST_FIXTURE=0. The ordinary
+MQTT [TEST] ON status remains intentional and is not the disabled USB fixture.
+
+Current downloaded 276169 bytes in 2.81 s, decoded 98386 B/s, wire 138343 B/s,
+CRC OK. Saved Downloads/62-current.log independently measured 276169 bytes,
+CRC32 0685E3ED. Earlier Downloads/60-current.log was no longer at that location,
+so no independent prefix comparison was performed in this turn.
+
+Final USB inactive/unpaused, result=ok, bytes=276169. Logger ready/synced,
+queue 0/16 high 1, zero drops, suppression, truncation and errors; no retained
+USB failure or link losses. Same boot and advancing uptime, current grew
+276010 -> 276329 bytes and writes 7 -> 9. Three archives remain, newest 16;
+fixture 18 remains absent by the reported inventory. Internal minimum 92572
+and lowest largest block 49140 stayed unchanged across this download; the
+largest block is above the unchanged 20480 floor. Writer margin after first
+transfer is 3400 bytes (4792 used of 8192), versus 3752 before it. This is the
+expected deeper exercised path, not evidence of a leak. A short normal IMU
+window reports 42.97 Hz average, 31.67 minimum; no fresh performance A/B claim.
+
+Normal-build status/download smoke check passes. Stage 1B still needs focused
+queue-pressure and selected-archive pruning coverage plus final evidence review
+and JP acceptance. Next recommendation is to prepare those focused tests for a
+separate bench build, preserving this normal configuration as the checkpoint.
+No further test is required from JP on this normal build right now.
+
+Source capture: attachment aca39999-450d-4a7d-8234-2bd648c9e59c/pasted-text.txt.
+Documentation only; no firmware/page edit, build, flash, commit or push this turn.
+
+
+## 2026-09-18: queue-pressure and selected-archive gate controls prepared
+
+JP approved preparing the remaining focused Stage 1B controls after boot 62's
+normal-build smoke passed. No new hardware result is claimed here.
+
+- `log test queue` arms one current-file transfer. After at least 1440 bytes,
+  the writer adds bounded USB_QUEUE_TEST events to the real PSRAM ring until
+  half its slots are occupied. Existing entries and reserved capacity remain.
+  The production logger_busy guard must close the download and resume appends.
+- `log test prune N` accepts only a complete 2 MiB synthetic fixture created
+  this boot. After transfer progress it rechecks ownership/type/size and invokes
+  the same close-reader-before-unlink helper used by normal pruning. It leaves
+  retention limits and real archives alone. This tests reader removal, not
+  retention threshold selection; Stage 1 supplies the separate pruning evidence.
+- Both controls are one-shot, report `[LOG USB GATE]` in status, and compile out
+  with DIAG_USB_TEST_FIXTURE=0, which remains the source default. Fault hooks
+  remain off; PSRAM writer and all guards/probes are unchanged.
+- 12 logger-gate source simulations, 16 USB guard/pacing simulations and
+  19 browser checks pass. These do not establish hardware behavior or compilation.
+
+Next: JP builds the fixture-enabled bench configuration and runs only the queue
+procedure in [STAGE1B.md](../src/diagnostics/STAGE1B.md). Review console and
+retrieved records before the disposable-archive test. No firmware build, flash,
+commit or push performed by the assistant. Stage 1B acceptance remains open.

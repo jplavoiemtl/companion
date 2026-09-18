@@ -179,6 +179,14 @@ struct FixtureStatus {
   const char* result = "none";
   int error = 0;
 } fixture;
+enum class UsbGate : uint8_t { None, Queue, Prune };
+struct UsbGateStatus {
+  UsbGate armed = UsbGate::None, active = UsbGate::None;
+  uint32_t target = 0, added = 0, queued = 0;
+  bool fired = false;
+  const char* result = "none";
+  const char* outcome = "none";
+} usbGate; // Cross-task accesses use mux; filesystem actions are writer-only.
 int fixtureFd = -1; // Writer only.
 bool fixtureOwnsTemp = false, fixtureDeleting = false;
 void fixtureFinish(const char* result, int code = 0);
@@ -338,6 +346,20 @@ bool spaceAvailable() {
   portEXIT_CRITICAL(&mux);
   return true;
 }
+// Shared removal path: retention chooses the oldest; bench code may select only
+// a synthetic archive successfully created during this boot.
+bool pruneArchive(uint32_t number) {
+  char path[80]; archivePath(number, path, sizeof(path));
+  diagnosticsUsbBeforePrune(number); // Reader must close before removal.
+#if DIAG_USB_TEST_FIXTURE
+  if (fixtureFd >= 0 && fixtureDeleting && fixtureNumber == number)
+    fixtureFinish("pruned"); // Close fixture-validation reader before normal pruning.
+#endif
+  if (unlink(path)) { disable("archive_delete", errno); return false; }
+  portENTER_CRITICAL(&mux); ++snapshot.pruned; portEXIT_CRITICAL(&mux);
+  vTaskDelay(1);
+  return true;
+}
 bool prune(uint64_t incoming, uint32_t futureArchive = 0) {
   diag::breadcrumb(true, diag::Phase::SdPrune);
   Inventory files;
@@ -351,15 +373,7 @@ bool prune(uint64_t incoming, uint32_t futureArchive = 0) {
     const bool enoughContent = files.bytes + sizeBytes + incoming <= uint64_t(archiveLimit + 1) * fileLimit;
     if (enoughSpace && enoughCount && enoughContent) break;
     if (!files.any) { disable("reserve_exhausted", ENOSPC); return false; }
-    char path[80]; archivePath(files.oldest, path, sizeof(path));
-    diagnosticsUsbBeforePrune(files.oldest); // Reader must close before removal.
-#if DIAG_USB_TEST_FIXTURE
-    if (fixtureFd >= 0 && fixtureDeleting && fixtureNumber == files.oldest)
-      fixtureFinish("pruned"); // Close fixture-validation reader before normal pruning.
-#endif
-    if (unlink(path)) { disable("archive_delete", errno); return false; }
-    portENTER_CRITICAL(&mux); ++snapshot.pruned; portEXIT_CRITICAL(&mux);
-    vTaskDelay(1);
+    if (!pruneArchive(files.oldest)) return false;
     if (!inventory(files)) return false;
   }
   portENTER_CRITICAL(&mux);
@@ -970,6 +984,87 @@ void processTest() {
   if (test == Test::Full) writeRecord(diag::stamp(), "WARN", "TEST_FULL_WRITE", "source=test");
 }
 #endif
+#if DIAG_USB_TEST_FIXTURE
+const char* gateName(UsbGate gate) {
+  return gate == UsbGate::Queue ? "queue" : gate == UsbGate::Prune ? "prune" : "none";
+}
+void printUsbGate() {
+  portENTER_CRITICAL(&mux); const UsbGateStatus g = usbGate; portEXIT_CRITICAL(&mux);
+  USBSerial.printf("[LOG USB GATE] armed=%s active=%s target=%lu fired=%u added=%lu queued_at_test=%lu/%u result=%s outcome=%s\n",
+    gateName(g.armed),gateName(g.active),(unsigned long)g.target,unsigned(g.fired),
+    (unsigned long)g.added,(unsigned long)g.queued,unsigned(QUEUE_COUNT),g.result,g.outcome);
+}
+void usbGateBegin(const char* name) {
+  uint32_t number = 0;
+  const bool current = !strcmp(name,"current.log");
+  const bool archive = archiveNumber(name,number);
+  portENTER_CRITICAL(&mux);
+  if (usbGate.armed != UsbGate::None) {
+    const bool match = usbGate.armed == UsbGate::Queue ? current : archive && number == usbGate.target;
+    usbGate.active = match ? usbGate.armed : UsbGate::None;
+    usbGate.armed = UsbGate::None;
+    usbGate.result = match ? "waiting_for_data" : "wrong_file";
+  }
+  portEXIT_CRITICAL(&mux);
+}
+void usbGateEnd(const char* outcome) {
+  portENTER_CRITICAL(&mux);
+  if (usbGate.active != UsbGate::None) {
+    usbGate.outcome = outcome; usbGate.active = UsbGate::None;
+    if (!usbGate.fired) usbGate.result = "ended_before_test";
+  }
+  portEXIT_CRITICAL(&mux);
+}
+void usbGateTick() {
+  portENTER_CRITICAL(&mux); const UsbGateStatus g = usbGate; portEXIT_CRITICAL(&mux);
+  if (g.active == UsbGate::None || g.fired) return;
+  bool current; uint32_t number; uint64_t bytes;
+  if (!diagnosticsUsbTestProgress(current,number,bytes) || bytes < 1440) return;
+  if (g.active == UsbGate::Queue && current && diagnosticsUsbPaused()) {
+    // Real PSRAM queue entries, not a fake status count. Prepare outside the lock,
+    // then fill only to the guard threshold atomically; preserve all real entries.
+    writerEvent = Event{}; writerEvent.when = diag::stamp();
+    strcpy(writerEvent.event,"USB_QUEUE_TEST");
+    strcpy(writerEvent.fields,"source=bench synthetic=true");
+    constexpr uint32_t target = (QUEUE_COUNT + 1) / 2;
+    static_assert(target <= QUEUE_COUNT - IMPORTANT_RESERVE, "Bench fill must leave important reserve");
+    portENTER_CRITICAL(&mux);
+    if (accepting && queue) {
+      while (count < target) {
+        queue[(head + count) % QUEUE_COUNT] = writerEvent; ++count; ++usbGate.added;
+      }
+      snapshot.highWater = max(snapshot.highWater,count);
+      usbGate.queued = count; usbGate.result = usbGate.added ? "injected" : "already_busy";
+    } else usbGate.result = "queue_unavailable";
+    usbGate.fired = true;
+    portEXIT_CRITICAL(&mux);
+    // The unchanged diagnosticsUsbTick() below must detect >=50%, resume the
+    // append handle, and let the normal writer drain the injected events.
+  } else if (g.active == UsbGate::Prune && !current && number == g.target) {
+    portENTER_CRITICAL(&mux);
+    const bool owned = !fixture.busy && fixture.number == number &&
+      fixture.bytes == FILE_LIMIT && !strcmp(fixture.result,"ok");
+    usbGate.fired = true;
+    portEXIT_CRITICAL(&mux);
+    const char* result = "fixture_not_owned";
+    if (owned) {
+      // Do not lower retention limits: only the freshly generated fixture is
+      // eligible. The same close-reader/unlink helper is used by real pruning.
+      char path[80]; archivePath(number,path,sizeof(path));
+      struct stat info{};
+      if (stat(path,&info) || !S_ISREG(info.st_mode) || info.st_size != FILE_LIMIT) result = "fixture_changed";
+      else if (pruneArchive(number)) {
+        Inventory files;
+        result = inventory(files) && spaceAvailable() ? "pruned" : "refresh_failed";
+        portENTER_CRITICAL(&mux); fixture.result = "pruned_by_test"; portEXIT_CRITICAL(&mux);
+        diag::record("USB_PRUNE_TEST","synthetic=true",true);
+      } else result = "prune_failed";
+    }
+    portENTER_CRITICAL(&mux); usbGate.result = result; portEXIT_CRITICAL(&mux);
+  }
+  printUsbGate();
+}
+#endif
 DiagnosticsUsbStatus usbStatus() {
   const Snapshot s = readSnapshot();
   portENTER_CRITICAL(&mux);
@@ -991,8 +1086,12 @@ DiagnosticsUsbStatus usbStatus() {
 }
 bool usbBegin(const char* name) {
   char fields[128]; snprintf(fields,sizeof(fields),"name=%s bytes=0 duration_ms=0 result=started",name);
-  return prune(2 * LINE_CAPACITY) &&
-         writeRecord(diag::stamp(),"INFO","USB_GET_BEGIN",fields);
+  const bool ok = prune(2 * LINE_CAPACITY) &&
+                  writeRecord(diag::stamp(),"INFO","USB_GET_BEGIN",fields);
+#if DIAG_USB_TEST_FIXTURE
+  if (ok) usbGateBegin(name);
+#endif
+  return ok;
 }
 bool usbResume() {
   if (!good()) return false;
@@ -1002,6 +1101,9 @@ bool usbResume() {
   return true;
 }
 void usbEnd(const char* name, uint64_t bytes, uint64_t elapsed, const char* result) {
+#if DIAG_USB_TEST_FIXTURE
+  usbGateEnd(result);
+#endif
   char fields[160];
   snprintf(fields,sizeof(fields),"name=%s bytes=%llu duration_ms=%llu result=%s",
            name,(unsigned long long)bytes,(unsigned long long)elapsed,result);
@@ -1051,6 +1153,8 @@ void writerTask(void*) {
     if (closing()) {
 #if DIAG_USB_TEST_FIXTURE
       if (fixtureBusy()) fixtureFinish("shutdown");
+      usbGateEnd("shutdown");
+      portENTER_CRITICAL(&mux); usbGate.armed = UsbGate::None; portEXIT_CRITICAL(&mux);
 #endif
       diagnosticsUsbStop(); // Close reader and resume append before the close drain.
       if (!good()) break;
@@ -1083,6 +1187,10 @@ void writerTask(void*) {
     if (!good()) break;
 #endif
     if (nowMs() >= nextClock) { diag::clockPoll(); nextClock = nowMs() + 1000; }
+#if DIAG_USB_TEST_FIXTURE
+    usbGateTick();
+    if (!good()) break;
+#endif
     if (diagnosticsUsbPaused()) {
       diagnosticsUsbTick(); // Bounds and queue checks continue while append is closed.
       vTaskDelay(1);
@@ -1113,6 +1221,8 @@ void writerTask(void*) {
   }
 #if DIAG_USB_TEST_FIXTURE
   if (fixtureBusy()) fixtureFinish("logger_stopped");
+  usbGateEnd("logger_stopped");
+  portENTER_CRITICAL(&mux); usbGate.armed = UsbGate::None; portEXIT_CRITICAL(&mux);
 #endif
   diagnosticsUsbStop();
   if (fd >= 0) { // terminal error: release handle, never retry writes this boot
@@ -1289,6 +1399,7 @@ void diagnosticsPrintStatus() {
   portENTER_CRITICAL(&mux); const FixtureStatus f = fixture; portEXIT_CRITICAL(&mux);
   USBSerial.printf("[LOG FIXTURE] enabled=1 active=%u archive=%08lu bytes=%lu result=%s errno=%d\n",
     unsigned(f.busy), (unsigned long)f.number, (unsigned long)f.bytes, f.result, f.error);
+  printUsbGate();
 #endif
   printStartupMemory();
   diagnosticsUsbCommand("log status");
@@ -1311,6 +1422,36 @@ void watchdogTest(void*) {
 #endif
 bool diagnosticsCommand(const char* command) {
 #if DIAG_USB_TEST_FIXTURE
+  if (!strcmp(command,"log test usb off")) {
+    if (diagnosticsUsbBusy()) {
+      USBSerial.println("[LOG USB GATE] busy: use log abort, then disarm while idle"); return true;
+    }
+    portENTER_CRITICAL(&mux);
+    usbGate.armed = usbGate.active = UsbGate::None; usbGate.result = "disarmed";
+    portEXIT_CRITICAL(&mux);
+    printUsbGate(); return true;
+  }
+  const bool queueTest = !strcmp(command,"log test queue");
+  const bool pruneTest = !strncmp(command,"log test prune ",15);
+  if (queueTest || pruneTest) {
+    uint64_t number = 0;
+    if (pruneTest && (strlen(command+15)>8 || !decimal(command+15,MAX_GENERATION,number) || !number)) {
+      USBSerial.println("[LOG USB GATE] Use log test prune <fresh fixture number>"); return true;
+    }
+    const bool busy = diagnosticsUsbBusy();
+    portENTER_CRITICAL(&mux);
+    const bool owned = !pruneTest || (fixture.number == number && fixture.bytes == FILE_LIMIT && !strcmp(fixture.result,"ok"));
+    const bool allowed = !busy && snapshot.state == State::Ready && !closeRequested && !fixture.busy && owned;
+    if (allowed) {
+      usbGate = UsbGateStatus{};
+      usbGate.armed = queueTest ? UsbGate::Queue : UsbGate::Prune;
+      usbGate.target = uint32_t(number); usbGate.result = "armed";
+    }
+    portEXIT_CRITICAL(&mux);
+    if (!allowed) USBSerial.println("[LOG USB GATE] refused: busy, unavailable, or not a fixture created this boot");
+    else printUsbGate();
+    return true;
+  }
   const bool createFixture = !strcmp(command, "log test file");
   const bool deleteFixture = !strncmp(command, "log test del ", 13);
   if (createFixture || deleteFixture) {

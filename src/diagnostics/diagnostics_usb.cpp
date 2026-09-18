@@ -543,3 +543,11 @@ void diagnosticsUsbOfflineTick() {
   if (abort) queueError("aborted");
   controlTick(); // No filesystem access while the writer is absent/parked.
 }
+
+#if DIAG_USB_TEST_FIXTURE
+bool diagnosticsUsbTestProgress(bool& current, uint32_t& number, uint64_t& bytes) {
+  if (phase != Phase::Data || reader < 0) return false;
+  current = isCurrent; number = fileNumber; bytes = sentBytes;
+  return true;
+}
+#endif

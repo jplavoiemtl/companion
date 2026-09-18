@@ -1,14 +1,68 @@
 # Stage 1B USB retrieval - first bench handoff
 
-Current handoff: [2026-09-17 end-of-day checkpoint](../../docs/sd_diagnostics_checkpoint_2026-09-17.md).
-Live-only pacing was tested and reverted at JP's request. Flash restored source
-before resuming; keep archive 18 for remaining tests and later USB deletion.
-Earlier sections below preserve implementation and bench history.
+Current handoff: [checkpoint](../../docs/sd_diagnostics_checkpoint_2026-09-18.md).
+JP accepted Stage 1. Stage 1B is substantially tested; acceptance remains pending.
+Normal build boot 62 passed retrieval with both test flags off on September 18.
+Archive 18 was deleted successfully. Earlier sections preserve bench history.
+JP builds and flashes; the assistant has not built or flashed these changes.
 
-JP accepted Stage 1 on 2026-09-17. Stage 1B source is prepared, **not built or
-hardware-tested by the assistant**. Its gate remains pending.
-Stage 1 evidence and acceptance were pushed in 3d0b125 and 3f5b309.
-JP requested committing and pushing the pre-flash checkpoint. Core 3.1.3 download attempts failed; JP has now compiled the core 3.3.11 trial successfully. First hardware validation of that trial is pending. See [current trial instructions](../../docs/core_3_3_11_trial.md) before following the original handoff below.
+## 2026-09-18: remaining queue and pruning gate controls
+
+Prepared, not yet bench-tested. Normal source still defaults
+`DIAG_USB_TEST_FIXTURE=0`. Set it to 1 for this separate bench build; retain
+`DIAG_TEST_HOOKS=0` and `DIAG_WRITER_STACK_PSRAM=1`. Use profile
+`amoled-1-8-core-3-3-11`. These edits only touch src files, so there is no new
+companion.ino intermediate to delete for this change.
+
+Leave all browser test switches off, keep Wi-Fi and MQTT connected, and stop
+Live. No new task, allocation, retention limit or transfer timeout is added.
+Both controls fire once after at least 1440 file bytes have been sent.
+Listing preserves the arm. Downloading the wrong file consumes it without
+injection. Ending a transfer clears its active control. Reset clears both.
+`log test usb off` disarms while idle; during transfer use `log abort` first.
+`status` includes `[LOG USB GATE]` with armed, active, target, fired, added,
+queued_at_test, result and outcome. Normal builds omit these controls and fields.
+
+### First test: current-file queue pressure
+
+1. Build and flash the bench configuration above. Connect the web page and send
+   `status` to capture the starting state.
+2. Send `log test queue`. Expect `armed=queue result=armed`.
+3. Download current.log. Expect `Device: logger_busy`, with no partial file saved.
+4. Send `status`. Expect `fired=1`, `result=injected`, `outcome=logger_busy`,
+   `queued_at_test=8/16`, and added greater than zero. Existing events are preserved.
+   The real queue is filled only to half capacity with USB_QUEUE_TEST records;
+   the unchanged production guard must abort and reopen appends. Queue high-water
+   may exceed eight when USB_GET_END is enqueued, but drops must stay zero.
+5. Download current.log again without rearming, then send `status` again.
+   Expect CRC OK, ready, active=0, paused=0, no logger error and no drops.
+   Send the full console and the downloaded file for checking the injected
+   records and USB_GET_END evidence. Stop here for review.
+
+### Later test: selected synthetic archive pruning
+
+After the queue result is reviewed, in the same bench build:
+
+1. Send `log test file` and wait for result=ok. Use the archive number printed;
+   do not reuse the old number 18 by assumption. Refresh the file list.
+2. Send `log test prune N`, replacing N with that new number. Only a complete
+   synthetic fixture successfully created during this boot is accepted.
+3. Download that archive. Expect `Device: pruned` and no saved partial download.
+4. Refresh files and send `status`. The fixture alone must disappear, pruned
+   must rise by one, and the gate must report result=pruned and outcome=pruned.
+   Logger readiness, zero drops and ordinary files must be preserved.
+5. Download current.log normally, then send `status`. Send console and file.
+
+The hook rechecks fixture ownership, regular-file type and exact 2 MiB size.
+It uses the production removal helper, which notifies USB to close the reader
+before unlink. It does not lower retention limits or choose a real archive.
+This covers the active-reader removal path; it does not recreate the retention
+threshold selection already exercised in Stage 1. The fixture is removed by
+this test, so no card removal or separate deletion is needed after success.
+
+Local checks: 12 new logger-gate source simulations, 16 USB guard/pacing
+simulations and 19 browser checks pass. Firmware compilation and bench results
+remain JP's next steps. No commit or push performed.
 
 ## 2026-09-18: temporary sender-paced deadline test
 
