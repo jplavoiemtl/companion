@@ -2216,6 +2216,13 @@ void finalizeSetup() {
 //***************************************************************************************************
 void setup() {
   USBSerial.begin(115200);
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 3, 11)
+  // A plugged-in PC can stop reading while HWCDC still reports connected.
+  // The installed 3.3.11 driver retries a full TX buffer up to 20 times.
+  // Limit each wait to 1 ms (about 20 ms without progress, instead of 2 s).
+  // Debug output may be dropped; the paced log protocol checks every write.
+  USBSerial.setTxTimeoutMs(1);
+#endif
   USBSerial.printf("[BUILD] core=%s expander=%s\n", ESP_ARDUINO_VERSION_STR,
                    COMPANION_ADAFRUIT_EXPANDER ? "Adafruit_XCA9554" : "ESP32_IO_Expander");
 

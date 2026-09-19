@@ -2,6 +2,14 @@
 
 ## Resume here
 
+**2026-09-19 update:** The USB startup TX-wait fix passed JP's no-console boot
+and ordinary current.log download check on boot 67 (292363 bytes, 2.85 s,
+CRC OK, zero drops/errors, appends resumed). Resume the queue-pressure test
+below on this flashed build; no rebuild is needed. The local fixture flag is 1,
+fault hooks are 0 and PSRAM writer is 1. Keep the committed fixture default 0.
+The separate VS Code monitor-close freeze remains unresolved. Stage 1B is not
+yet accepted. See the latest bench entry; older board-state notes below are history.
+
 JP stopped for the day before testing the new queue and pruning controls.
 Stage 1 is accepted. Stage 1B USB retrieval is substantially tested, but its
 remaining safety checks and JP's acceptance are still pending. Stage 2 has not started.

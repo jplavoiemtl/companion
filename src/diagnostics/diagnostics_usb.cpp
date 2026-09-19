@@ -150,7 +150,7 @@ void queueError(const char* reason) {
   portEXIT_CRITICAL(&usbMux);
 }
 // Never spin on space. Caller retries on another writer turn and rechecks limits.
-// Core serial mutex/timeouts are unchanged; space is not a reservation.
+// setup() bounds core TX waits on 3.3.11; space is not a reservation.
 const char* stopReason();
 int sendLine(const char* bytes, bool transfer = false) {
   const size_t length = strlen(bytes);

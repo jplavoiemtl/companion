@@ -7200,3 +7200,76 @@ Next: JP builds the fixture-enabled bench configuration and runs only the queue
 procedure in [STAGE1B.md](../src/diagnostics/STAGE1B.md). Review console and
 retrieved records before the disposable-archive test. No firmware build, flash,
 commit or push performed by the assistant. Stage 1B acceptance remains open.
+
+
+## 2026-09-19: USB-powered startup delay, before queue-pressure test
+
+JP reports a blank screen after plugging in USB, then Connecting with a frozen
+spinner after about 30 seconds. Opening the web console allows normal startup
+and MQTT connection. Queue-pressure testing is paused; this report is not a
+queue-test result. The current local fixture flag is 1; fault hooks remain 0.
+
+Source inspection found a plausible cause: the installed core 3.3.11 HWCDC.cpp
+uses a 100 ms TX wait, with 20 consecutive failed ring-buffer sends before
+returning a short write. USB can remain connected while no application reads.
+Each blocked debug write can therefore wait about two seconds. The sketch
+prints repeatedly before initializing the display and during Wi-Fi startup.
+This matches the symptoms; hardware confirmation is still pending.
+
+A minimal candidate fix sets USBSerial.setTxTimeoutMs(1) after begin and before
+first sketch output, for core 3.3.11 and later. The installed SDK has a 1000 Hz
+FreeRTOS tick. Its consecutive no-progress waits now total about 20 ms per
+write, rather than two seconds. This is not a nonblocking serial redesign or a
+promise about other SDK versions. The 3.1.3 rollback settings are unchanged.
+Debug text can be dropped or shortened when the host does not drain output.
+The USB file sender still checks space and returned byte counts; its five-second
+stall, one-second disconnect grace and current-only 120-second limit are intact.
+No core files, USB signals, SD settings, task placement or probe logic changed.
+
+Next bench check: hotspot on, VS Code monitor and web connection closed; boot
+from USB and verify the display, connection and touch work without opening a
+serial console. Then connect the web page with DTR=true and RTS=false, send
+status, download current.log normally and send status again. Compare uptime and
+report startup delay, any freezes, console output and CRC result. Do not arm
+queue or pruning controls yet. The older VS Code monitor-close freeze remains
+an unresolved issue; this patch does not establish its cause or resolution.
+
+JP builds and flashes. No assistant build, flash, commit or push.
+
+Validation: git diff --check is clean. The 16 USB guard/pacing source simulations
+and 19 browser protocol checks pass. They do not simulate the hardware TX driver
+or prove this startup fix. Removed only the active profile's generated
+build/build_amoled-1-8-core-3-3-11/sketch/companion.ino.cpp for JP's next rebuild.
+Preserved JP's existing DIAG_USB_TEST_FIXTURE=1 edit and the untracked iPhone plan.
+
+
+## 2026-09-19 09:11: USB startup fix and ordinary retrieval pass (boot 67)
+
+JP compiled and flashed the TX-wait change, then reports that the board woke
+normally on USB insertion without first opening the web console. The requested
+startup/download check passed visually. No startup duration was measured.
+
+- Same boot 67 before and after retrieval; uptime advances from 27273 to
+  41120 ms. Wi-Fi and MQTT connected, clock synced, logger ready.
+- Downloaded current.log: 292363 bytes in 2.85 s, browser CRC OK, decoded
+  102656 B/s. This is browser integrity evidence, not a card-reader prefix check.
+- File grows from 292204 to 292523 bytes; writes rise from 7 to 9.
+  Final USB active=0, paused=0, bytes=292363, result=ok. No USB failure or
+  link loss reported. Queue empty, high-water 1, drops=0 and error=none.
+- Reported internal low-water 95164 bytes and largest-block minimum 51188
+  remain unchanged. Writer PSRAM stack margin changes from 3720 to 3368
+  bytes after download; placement valid, core 1. No TLS memory gate was run.
+- Normal probe covers 15322 ms, IMU average 42.18 Hz, minimum 30.02 Hz.
+  This short window does not replace the pending controlled IMU comparison.
+- Fixture enabled, fault hooks off, queue/prune controls unarmed and unfired.
+  Sender slow mode off. Transfer limits remain 120000 ms current-only,
+  5000 ms stalled and 1000 ms disconnect grace.
+
+This passes the targeted no-console startup and normal retrieval smoke check.
+It supports the serial-backpressure explanation but does not isolate every USB
+signal behavior or resolve the separate VS Code monitor-close freeze. Resume
+only the queue-pressure test next; Stage 1B acceptance remains pending.
+
+Source: attachment 81b7e1f4-aa97-4624-9cb0-c1d9dd61d90d/Pasted text.txt and JP's
+visual report. JP requested commit and push. Keep the temporary fixture=1 edit
+local for the next bench test; committed normal-build default remains 0.
