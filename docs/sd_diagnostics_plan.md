@@ -2,10 +2,12 @@
 
 ## Current status
 
-JP accepted Stage 1 on 2026-09-17, including its documented limitations.
-Stage 1B USB retrieval passes normal and large-file integrity tests; remaining safety gates are pending.
+JP accepted Stage 1 on 2026-09-17 on core 3.1.3 with the writer on core 0.
+Stage 1B runs on the 3.3.11 trial with the writer on core 1. Queue and pruning gates now pass.
+Storage/close/NVS regression, resource stability and physical-card prefix checks pass.
+JP accepts the newer profile's 42-43 Hz IMU rate; final TLS/performance evidence review and Stage 1B acceptance remain.
 JP accepted the rare large-download/Live FPS tradeoff; optional pacing was reverted.
-See the [end-of-day checkpoint](sd_diagnostics_checkpoint_2026-09-18.md) for the exact resume steps.
+See the [end-of-day checkpoint](sd_diagnostics_checkpoint_2026-09-19.md) for the exact resume steps.
 Stage 2 network-event logging has not started.
 
 - [Accepted Stage 1 checkpoint](sd_diagnostics_stage1_checkpoint.md)
@@ -27,7 +29,7 @@ This document remains the design reference. JP compiles and flashes from VS Code
 - **Writer:** one low-priority task owns SD access; producers use a bounded queue. Flush pending data about every **2
   seconds** and prioritize failures.
 - **Memory:** about **8 KiB** of explicitly allocated PSRAM event storage; internal queue controls, DMA descriptors and
-  initial writer stack.
+  TCB. The accepted writer stack is **8192 bytes in PSRAM**; it parks after cleanup.
 - **Breadcrumbs:** validated RTC no-init records, with separate main-task and writer phases.
 - **Shutdown:** close in both power-down helpers, with at most **500 ms** caller wait inside their existing **1-second**
   display delay.
@@ -131,7 +133,8 @@ records are coarse; add detail without changing recovery policy.
 [SDMMC example for this board](https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.8/blob/main/examples/esp-idf/09_sdmmc/main/sd_card_example_main.c)
 as a starting point to save implementation time. Adapt its mounting, card information, file operations and unmounting
 patterns where useful. Inspect the board support package behind `bsp_sdcard_mount()` for board initialization details.
-This is an ESP-IDF example; adapt it to our pinned Arduino ESP32 core 3.1.3 and `SD_MMC` configuration below.
+This is an ESP-IDF example; adapt it to the selected Arduino profile and `SD_MMC` configuration below.
+Stage 1 used core 3.1.3; Stage 1B currently uses the 3.3.11 trial.
 Keep the logger's append, archive preservation and graceful error handling rules: the demo uses truncating writes,
 deletes an existing demo destination and aborts on some errors. Keep automatic formatting disabled.
 
@@ -282,7 +285,9 @@ The writer task checks this independently of main-loop MQTT calls; the host cont
 reading USB while those calls block. Keep applicable timers active during TX-space waits.
 
 The space check does not reserve capacity. A concurrent print can cause a wait, so bound
-work per writer turn and measure interference. Keep the existing global USB timeout.
+work per writer turn and measure interference. The September 19 startup fix sets
+the low-level TX wait to 1 ms on core 3.3.11 and later; installed 3.3.11 caps
+consecutive no-progress retries at 20. Transfer deadlines remain unchanged.
 Do not use periodic application acknowledgments.
 
 A connection check reports the driver's state, not browser receipt. In core 3.1.3,
@@ -381,8 +386,10 @@ bounded output queue and small paced chunks, without bulk printing or flushing.
 - **USB liveness:** driver connection state and successful writes do not establish browser receipt. Test a forced
   read stall; check the no-progress timer and current.log's configured overall timer between bounded operations.
   Neither can cancel an in-flight filesystem call. Main-loop MQTT blocking can delay serial command parsing.
-- **USB environment:** Step 0 verifies reset behavior and disk-page permission on the installed browser and Windows
-  driver. Post-open DTR and RTS settings cannot prevent the driver's first change.
+- **USB environment:** Web connections with DTR=true and RTS=false are bench-tested.
+  Closing the VS Code monitor can still freeze or reset the board; this predates the logger.
+  Use the web console for bench work. The no-console startup fix does not establish
+  that monitor-close behavior is resolved. Post-open signals cannot prevent the driver's first change.
 - **USB performance:** throughput, queue headroom and serial contention need same-session measurements. Base64 and
   CRC validate the file; they do not preserve every ordinary debug print.
 
@@ -402,7 +409,8 @@ reference for code review. This editing pass makes no commits.
 - `docs/sd_usb_log_retrieval_plan_counter_review.md`
 
 **Every stage:** the owner compiles and flashes from VS Code. Stage 1 touches both `companion.ino` and `src/`; before
-each rebuild delete **`build/build_amoled-1-8/sketch/companion.ino.cpp`** per the stale-build rule in
+each rebuild delete the selected profile's **`build/build_<profile>/sketch/companion.ino.cpp`**
+(`amoled-1-8-core-3-3-11` for the trial, `amoled-1-8` for rollback) per the stale-build rule in
 [CLAUDE.md](../CLAUDE.md). The assistant does not compile or flash.
 
 ### Step 0: USB connection check
@@ -461,11 +469,12 @@ CLAUDE.md; figures from another day are not comparable.
 ### Stage 1 — basics only; stop for bench acceptance
 
 JP authorized this stage after accepting the recorded Step 0 and Stage 0 results.
-The implementation is prepared in src/diagnostics; see the
-[Stage 1 handoff](../src/diagnostics/STAGE1.md). Bench results now support the
-[acceptance checkpoint](sd_diagnostics_stage1_checkpoint.md); JP acceptance is pending.
+The implementation is accepted on core 3.1.3 as of September 17; see the
+[acceptance checkpoint](sd_diagnostics_stage1_checkpoint.md) and
+[Stage 1 handoff](../src/diagnostics/STAGE1.md). This does not accept the newer SDK.
 The initial writer used a 6144-byte internal stack. The validated B configuration
-uses an 8192-byte PSRAM stack and internal TCB on core 0 at priority 1. Other choices are
+used an 8192-byte PSRAM stack and internal TCB on core 0 at priority 1.
+Stage 1B currently uses core 1 at the same priority; stack placement is unchanged. Other choices are
 a PSRAM queue of at most 8192 bytes with four reserved slots, a 1024-byte PSRAM
 formatter, and 20 MHz SDMMC. Directory scans stop after 256 entries and yield
 every eight. Writes run in batches of at most four records, with 20 ms waits.
@@ -484,8 +493,9 @@ Carry-forward implementation notes (not implemented in Stage 0):
 
 - Add a `DIAG_TEST_HOOKS` pause after creating current.log, before writing its header,
   with a short-prefix variant to test salvage of a real partial header.
-- The task watchdog checks core 0 idle (5 seconds, panic). A writer on core 0 must
-  block or yield in long loops, including listing, pruning, backward tail reads and USB transfers.
+- The task watchdog checks core 0 idle (5 seconds, panic). Long writer loops must
+  block or yield, including listing, pruning, backward tail reads and USB transfers.
+  This protected core 0 idle in Stage 1 and also limits interference on core 1 now.
 
 No network, image, Live or UI event hooks yet. Health uses available snapshots;
 event-derived fields remain unavailable until their stages. Storage works before
@@ -561,8 +571,13 @@ the owner accepts Stage 1 results. Stage 2 starts only after Stage 1B acceptance
 Implementation trial (2026-09-17): corrupted USB replies prompted pinning the
 existing writer to the setup and HWCDC interrupt core (core 1 here).
 Stage 1 used core 0. Stack placement, priority and transfer limits stay unchanged.
-Transport and same-session performance validation remain pending; see the
-[bench results](sd_diagnostics_bench_results.md).
+Transport gates have substantial passing evidence, including queue/pruning on September 19.
+The 3.3.11/IDF 5.5.5, GFX 1.6.4 and Adafruit expander profile passed the
+bounded storage/close/NVS, resource and integrity cases. The three-way IMU
+comparison is complete; JP accepts the newer profile's 42-43 Hz rate. Final
+TLS/performance evidence review and JP Stage 1B acceptance remain.
+See the gate-by-gate evidence table at the end of the [bench results](sd_diagnostics_bench_results.md).
+Core 3.1.3 remains a rollback profile with known USB retrieval stalls.
 
 
 Start only after Stage 1 acceptance, using its writer, storage layout and rotation.
@@ -595,8 +610,9 @@ Run gate tests one at a time:
    not a transport-disconnect test; back up the card before such deliberate interruption.
    With a battery, USB loss enables inactivity shutdown, so account for that timer.
    Observe connection state and verify the five-second no-progress abort with
-   `reason=stalled`. Add a **page-side slow-read test switch** to keep current.log making
-   progress at intervals shorter than five seconds while exceeding its overall limit.
+   `reason=stalled`. For the overall deadline, use the approved **firmware sender-paced
+   test** (`log test slow on`, fixture build only, 100 ms per data line), with normal
+   browser reads. Page slow reads hit other guards first and remain an exploratory control.
    Keep queue occupancy below 50% for this case. Verify `reason=timeout` at the accepted
    current.log limit (initially 120 seconds). An archive making continued progress must
    not abort at that overall limit. No TX-space wait may bypass an applicable timer.
@@ -609,8 +625,10 @@ Run gate tests one at a time:
    to preserve real logs. Confirm a clean transfer failure and continued logging.
    Stage 1 covers retention threshold selection separately; this hook covers
    the active-reader removal path. See the Stage 1B handoff for the procedure.
-8. **Repeated downloads:** repeat successful and aborted transfers. Check heap, largest
-   block, writer stack and file handles for leaks or accumulating resource loss.
+8. **Repeated downloads:** run about five aborted and five successful downloads in one boot.
+   Compare current free internal memory and largest block at matching idle points, plus
+   writer stack margin. Retained minima alone cannot diagnose leaks. Check continued
+   file opens against the three-handle limit; no handle-count telemetry exists yet.
 9. **Round trip:** disconnect the page and reopen VS Code. Confirm output and status,
    and check for resets against the Step 0 observations.
 
@@ -640,6 +658,11 @@ After an incident, download current and recent archives over USB, or power down 
 Inspect Montreal time and boot markers. Weekly rotation remains deferred pending demonstrated need.
 
 ## Appendix — evidence and retention arithmetic
+
+The following configuration and source facts are the **historical 3.1.3 review**,
+not the current 3.3.11 trial. See [trial profile and SDK evidence](core_3_3_11_trial.md)
+for IDF 5.5.5, current core-1 writer and changed libraries. Stage 1 acceptance
+does not transfer automatically between these SDKs.
 
 Counter-review: 2026-09-14, firmware `main` at `4ae23bf`. `sketch.yaml`, `amoled-1-8` and generated
 `build/build_amoled-1-8/build.options.json` agree: ESP32 **3.1.3**, CPU **240 MHz**, PSRAM enabled, LoopCore=1,
@@ -691,7 +714,7 @@ Current adds zero to nearly one file. At **1 MiB**, durations halve and the cap 
 give about **30,000 health bytes**; other events and larger records add volume. Above 1 MiB per day, two days normally
 exceed a 2 MiB file; **8 MiB** is a later sizing option with count and budget adjusted explicitly.
 
-### HWCDC build facts (USB review, 2026-09-15)
+### Historical HWCDC build facts (core 3.1.3 review, 2026-09-15)
 
 Checked against `sketch.yaml`, firmware, core 3.1.3 and the generated `sdkconfig`.
 The generated SDK configuration matches the installed configuration.
@@ -767,4 +790,4 @@ than A for this version.
 | A5 | Refine: profile and broker recovery correlation; reject “no trace” since coarse `[NET]` exists. |
 | A6 | Agree with bounds: existing parser, snapshots, writer-owned tail and chunked output. |
 | A7 | Agree: attribute measured gaps and keep unexplained excess. |
-| USB | Accepted counter-review merged: shared serial, bounded current pause, 50% queue, 5 s stalled and current-only overall limit (initially 120 s, at least 3× measured 2 MiB time); Stage 1B includes slow reads and battery-aware unplugging. |
+| USB | Accepted counter-review merged: shared serial, bounded current pause, 50% queue, 5 s stalled and current-only overall limit (initially 120 s, at least 3× measured 2 MiB time); Stage 1B uses sender pacing for the overall deadline and battery-aware unplugging. |

@@ -3,8 +3,8 @@
 **2026-09-17: JP accepted Stage 1 and authorized Stage 1B USB retrieval.**
 The [checkpoint](sd_diagnostics_stage1_checkpoint.md) records the accepted scope and limitations.
 Earlier pending-acceptance statements below are historical.
-Stage 1B USB retrieval source and browser are prepared for JP to build and test.
-See [the first bench handoff](../src/diagnostics/STAGE1B.md); the USB gate is pending.
+Stage 1B USB retrieval is substantially bench-tested; JP acceptance remains pending.
+See the [September 19 checkpoint](sd_diagnostics_checkpoint_2026-09-19.md) for current state.
 
 This plan achieves the same goalâ€”returning to the previous screen after image viewingâ€”but respects the constraint of NOT modifying SquareLine Studio generated files (`ui.h`, `ui.c`, `ui_Screen2.c`).
 
@@ -105,11 +105,12 @@ reconnect guard and successful Latest requests after recovery.
 
 Project owner and bench tester: **JP**.
 
-**Current checkpoint (2026-09-17 evening):** Stage 1 is accepted. Stage 1B USB
-retrieval passes large-file integrity and MQTT-overlap tests; remaining abort,
-timeout, queue/pruning and cleanup gates are pending. Optional Live pacing was
-reverted; JP accepted its rare concurrent-download FPS tradeoff. Stage 2 has not
-started. See the [resume checklist](sd_diagnostics_checkpoint_2026-09-18.md).
+**Current checkpoint (2026-09-19):** Stage 1 is accepted. Stage 1B transport,
+storage/close/NVS regression, resource and card-prefix tests pass. JP accepts
+the rare concurrent-download Live FPS tradeoff and the newer profile's 42-43 Hz
+IMU rate. Core 3.3.11 logging on is restored with test flags off. Final
+TLS/performance evidence review and JP Stage 1B acceptance remain; Stage 2
+has not started. See the [resume checklist](sd_diagnostics_checkpoint_2026-09-19.md).
 The dated findings below are historical; their earlier hold status is superseded
 by the accepted Stage 1 checkpoint.
 

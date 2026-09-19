@@ -85,7 +85,7 @@ extern HWCDC USBSerial;  // Required for serial output
 
 ## Key Dependencies (Version-Critical)
 
-- **ESP32 Core**: 3.1.3 is the rollback baseline. Profile `amoled-1-8-core-3-3-11` is an unvalidated 3.3.11 trial using Adafruit XCA9554 to avoid the old expander's legacy I2C driver. The trial now uses a separate Waveshare graphics 1.6.4 copy after 1.4.9 failed to compile; baseline profiles retain 1.4.9. See `docs/core_3_3_11_trial.md`.
+- **ESP32 Core**: 3.1.3 is the rollback baseline. Profile `amoled-1-8-core-3-3-11` is a bench-tested 3.3.11 trial pending final TLS/performance evidence review and Stage 1B acceptance using Adafruit XCA9554 to avoid the old expander's legacy I2C driver. The trial now uses a separate Waveshare graphics 1.6.4 copy after 1.4.9 failed to compile; baseline profiles retain 1.4.9. See `docs/core_3_3_11_trial.md`.
 - **LVGL**: 8.4.0
 - **PubSubClient**: 2.8
 - **SensorLib**: 0.3.1 (QMI8658 driver)

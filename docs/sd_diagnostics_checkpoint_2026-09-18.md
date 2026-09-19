@@ -1,14 +1,12 @@
 # SD diagnostics checkpoint - 2026-09-18, end of day
 
-## Resume here
+## Superseded checkpoint
 
-**2026-09-19 update:** The USB startup TX-wait fix passed JP's no-console boot
-and ordinary current.log download check on boot 67 (292363 bytes, 2.85 s,
-CRC OK, zero drops/errors, appends resumed). Resume the queue-pressure test
-below on this flashed build; no rebuild is needed. The local fixture flag is 1,
-fault hooks are 0 and PSRAM writer is 1. Keep the committed fixture default 0.
-The separate VS Code monitor-close freeze remains unresolved. Stage 1B is not
-yet accepted. See the latest bench entry; older board-state notes below are history.
+Resume from the [September 19 checkpoint](sd_diagnostics_checkpoint_2026-09-19.md).
+JP restored core 3.3.11 with logging enabled and both test flags off, and accepts
+its approximately 42-43 Hz IMU rate. Stage 1B acceptance remains pending.
+The material below preserves the September 18 handoff and earlier plans;
+do not use its board state or next-test instructions as current.
 
 JP stopped for the day before testing the new queue and pruning controls.
 Stage 1 is accepted. Stage 1B USB retrieval is substantially tested, but its
@@ -122,3 +120,23 @@ JP to accept Stage 1B before implementing Stage 2. Reuse existing passed evidenc
 3. Stage 3: still/Live lifecycle, buttons, power/motion and cause-tagged loop gaps;
    optional log tail afterward.
 4. Stage 4: car use, incident-log review and retention tuning from measured growth.
+
+
+## Agreed remaining regression order (2026-09-19)
+
+Stage 1 acceptance on 3.1.3/core 0 is preserved. Reuse passed results but check
+storage recovery, both close paths and NVS/SD overlap on 3.3.11/core 1.
+Then run approximately five aborted and five successful downloads with matching
+idle current-memory readings, and download current before power-off/card-copy
+prefix comparison. No new broad fault campaign or unsupported-card tests.
+
+In one sitting, record three normal 60-second IMU windows per configuration:
+3.3.11 logging off, 3.3.11 logging on, 3.1.3 logging off. Delete the selected
+profile's generated companion.ino.cpp when switching. Compare writer core 0
+versus 1 only if the 3.3.11 logging-on leg explains the drop. Historical boot 45
+already had core-1 writer and 48.63 Hz IMU, so core placement alone is unproven.
+The controlled SDK comparison must also close the outstanding paired Latest/Live
+TLS memory/performance coverage. Keep all Stage 0 probes and the 20480-byte gate.
+
+Restore fixture=0 and hooks=0 before normal-build acceptance. Record the known
+VS Code monitor-close limitation explicitly. JP accepts Stage 1B before Stage 2.

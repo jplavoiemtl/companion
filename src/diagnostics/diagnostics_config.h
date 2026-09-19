@@ -15,8 +15,8 @@
 #if DIAG_USB_TEST_FIXTURE && DIAG_TEST_HOOKS
 #error "Generate the USB fixture with DIAG_TEST_HOOKS=0"
 #endif
-// A/B bench experiment: 0 keeps the internal 6144-byte stack.
-// 1 uses an 8192-byte PSRAM stack with a static internal control block.
+// Accepted default: 1 uses an 8192-byte PSRAM stack and static internal TCB.
+// 0 retains the internal 6144-byte stack for controlled comparisons.
 #ifndef DIAG_WRITER_STACK_PSRAM
 #define DIAG_WRITER_STACK_PSRAM 1
 #endif

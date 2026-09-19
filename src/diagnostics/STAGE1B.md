@@ -1,14 +1,19 @@
 # Stage 1B USB retrieval - first bench handoff
 
-Current handoff: [checkpoint](../../docs/sd_diagnostics_checkpoint_2026-09-18.md).
+Current handoff: [checkpoint](../../docs/sd_diagnostics_checkpoint_2026-09-19.md).
 JP accepted Stage 1. Stage 1B is substantially tested; acceptance remains pending.
-Normal build boot 62 passed retrieval with both test flags off on September 18.
-Archive 18 was deleted successfully. Earlier sections preserve bench history.
+September 19 queue/pruning, storage/close/NVS, resource and card-prefix cases
+pass. JP accepts 42-43 Hz IMU operation and restored 3.3.11 logging on with both
+test flags off. Final TLS/performance evidence review remains. Earlier sections
+preserve bench history and test instructions, not the current next action.
 JP builds and flashes; the assistant has not built or flashed these changes.
 
 ## 2026-09-18: remaining queue and pruning gate controls
 
-Prepared, not yet bench-tested. Normal source still defaults
+Queue gate passed on boot 67 on September 19: 8/16 triggered logger_busy,
+eight saved test records verified, ordinary retry CRC OK, zero drops.
+Selected-archive pruning also passed on boot 67: fresh fixture 18 removed,
+pruned=1, normal current retry CRC OK. Continue with the bounded SDK regression. Normal source defaults
 `DIAG_USB_TEST_FIXTURE=0`. Set it to 1 for this separate bench build; retain
 `DIAG_TEST_HOOKS=0` and `DIAG_WRITER_STACK_PSRAM=1`. Use profile
 `amoled-1-8-core-3-3-11`. These edits only touch src files, so there is no new
@@ -447,3 +452,24 @@ profile; src-only changes do not require removing companion.ino.cpp.
 First take one full Live cycle without downloading, followed by status.
 Then, on separate instruction, repeat with archive 18 starting about 10 seconds
 into Live in the same sitting. Keep fault switches off and MQTT connected.
+
+## Next SDK regression case: interrupted rotation recovery (2026-09-19)
+
+First use Download all to preserve a PC copy. JP then builds and flashes
+amoled-1-8-core-3-3-11 with fixture=0, hooks=1, PSRAM writer=1 and logging=1.
+Keep the hotspot on, Live stopped and all browser test switches off.
+
+1. Connect and send status; require logger ready and hooks=1.
+2. Send log test rename once. Wait for writer paused at requested boundary.
+3. Turn the board fully off with its normal power button, then restart.
+   Unplugging USB alone does not power off this battery board. The hook has
+   closed and renamed current but has not created its replacement.
+4. Reconnect, refresh files and send status. Expect ready, a fresh current
+   file and an additional archive preserving the old current file.
+5. Download that new archive and current.log. Wait about 70 seconds and send
+   status again. Expect CRC OK, current growth, zero drops and no logger error.
+   Send the console; inspect the saved files for preserved content and headers.
+
+Stop after this one case. Do not enable small retention limits. This tests a
+completed filesystem boundary, not arbitrary power loss during an SD write.
+Queue/pruning tests are already passed; no repeat is needed.

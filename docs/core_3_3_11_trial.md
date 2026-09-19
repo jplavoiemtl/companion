@@ -1,8 +1,19 @@
 # Core 3.3.11 trial
 
-Latest status and next tests: [end-of-day checkpoint, 2026-09-17](sd_diagnostics_checkpoint_2026-09-17.md).
-The optional Live pacing experiment was reverted; retain archive 18 until its
-remaining tests and safe serial deletion. Earlier sections are chronological evidence.
+Latest status and next tests: [current checkpoint](sd_diagnostics_checkpoint_2026-09-19.md).
+USB retrieval, queue protection and selected-reader pruning now have passing evidence.
+The old fixture 18 was deleted September 18; a fresh fixture 18 was created and
+pruned successfully September 19. No fixture remains from those tests.
+Bounded storage/close/NVS regression and resource/prefix checks now pass.
+The same-sitting IMU comparison measures 42.27 Hz logging off and 42.67 Hz on
+with 3.3.11, versus 49.25 Hz with 3.1.3 logging off. Logging does not explain
+the profile-associated drop; its source remains unresolved. JP accepts the
+42-43 Hz rate with normal observed operation; no further IMU investigation is
+planned. JP restored and flashed 3.3.11 logging on with test flags off. Final new-profile
+TLS/performance gate review and JP acceptance remain. Historical preparations
+below are not current gate status.
+The September 19 startup fix sets the installed core TX wait to 1 ms; the USB
+transfer deadlines stay unchanged. Live-specific pacing remains reverted.
 
 Prepared for JP on 2026-09-17. JP requested committing and pushing this pre-flash checkpoint. JP confirmed successful compilation with core 3.3.11 and the separate Waveshare graphics 1.6.4 copy after the compatibility corrections. JP has flashed the trial and reports normal Latest, Back, Live, inclinometer, G-meter, motion detection and IMU operation. Boot-47 startup/status checks are healthy and the first 8059-byte archive download passed browser CRC validation. Independent saved-file comparison and the remaining quantitative/runtime gates are pending.
 

@@ -7273,3 +7273,567 @@ only the queue-pressure test next; Stage 1B acceptance remains pending.
 Source: attachment 81b7e1f4-aa97-4624-9cb0-c1d9dd61d90d/Pasted text.txt and JP's
 visual report. JP requested commit and push. Keep the temporary fixture=1 edit
 local for the next bench test; committed normal-build default remains 0.
+
+
+## 2026-09-19 09:14: Stage 1B queue-pressure gate passes (boot 67)
+
+JP reports normal operation. Profile remains amoled-1-8-core-3-3-11 with the
+startup TX-wait fix, fixture=1, fault hooks=0 and the PSRAM writer on core 1.
+
+- At 09:14:37 log test queue arms the next current download. The hook adds
+  eight real events and records queued_at_test=8/16, fired=1, result=injected.
+  Production protection returns logger_busy after 1584 bytes. Final gate
+  outcome is logger_busy; both armed and active clear.
+- Logger resumes ready with queue=0/16, high=9, drops=0 and error=none.
+  The ninth queued entry is consistent with USB_GET_END after the eight test
+  records. File grows from 294212 to 295628 bytes; writes rise from 12 to 22.
+- Retry without rearming succeeds: current.log 296353 bytes in 2.85 s,
+  browser CRC OK, decoded 104141 B/s. Final active=0, paused=0, result=ok;
+  file_bytes=296515 and writes=25. Same boot, no USB link losses or failure.
+- Reported internal minimum 41156, largest-block minimum 28660 and writer
+  stack margin 3368 bytes stay unchanged across this test. These are retained
+  minima, not a current-free-memory leak test. They were already lower before
+  arming than in the earlier startup smoke capture.
+- The opening 60-second normal probe averages 42.90 Hz with a 6.41 Hz minimum,
+  before queue arming. The cause of that isolated slow interval is unverified;
+  retain it for the planned controlled IMU comparison, not a queue regression.
+
+Read the saved C:/Users/photo/Downloads/67-current (1).log directly: 296353
+bytes, computed CRC32 F4B06442. Boot 67 sequences 14-21 contain exactly eight
+USB_QUEUE_TEST source=bench synthetic=true records. Sequence 22 is USB_GET_END
+bytes=1584 duration_ms=69 result=logger_busy. Sequence 23 is a later HEALTH
+record with drops=0; sequence 24 starts the successful retry. The retry's own
+end record falls after its snapshot and is instead confirmed by serial status.
+This is saved-file content verification, not the still-pending card-reader
+current-file prefix comparison. The file also records SETUP_COMPLETE at
+11592 ms for boot 67, adding a device startup measurement to JP's visual report.
+
+Queue-pressure gate passes. Next: selected synthetic-archive pruning, on the
+same running build. No reflash or card removal needed. Stage 1B acceptance,
+the agreed documentation reconciliation and bounded SDK regression remain open.
+Source console: attachment 08a9bcd9-dc3a-459e-9c46-3b84d1599b4f/Pasted text.txt.
+Documentation updated only; no firmware edit, build, flash, commit or push.
+
+
+## 2026-09-19 09:17: selected-archive pruning gate passes (boot 67)
+
+JP reports normal operation. A new synthetic archive 00000018 was created in
+this boot: 2097152 bytes, result=ok at 09:18:39. Creation took about 52.6 s.
+It is distinct from the old archive 18 deleted on September 18.
+
+log test prune 18 armed the matching transfer. At 09:19:45 the production
+close-reader-before-unlink path returned reason=pruned; gate fired=1,
+result=pruned and outcome=pruned. Managed count returned from five to four,
+newest from 18 to 16, archive count to three, and pruned rose from zero to one.
+The fixture reports pruned_by_test. Its roughly 2 MiB of space was reclaimed.
+The original current file and archive count were preserved; the full console
+list does not print every surviving filename.
+
+Ordinary current download then succeeded: 300115 bytes in 3.03 s, browser CRC
+OK, decoded 99005 B/s. Read Downloads/67-current (2).log directly: 300115 bytes,
+CRC32 BCC256A0. Boot 67 seq 29 records fixture creation, seq 31 begins its
+retrieval, seq 32 ends it with bytes=1728 duration_ms=61 result=pruned,
+and seq 33 records USB_PRUNE_TEST. The following HEALTH shows archives=3,
+pruned=1 and drops=0; seq 35 begins the successful current retry. It also
+contains the prior queue retry's successful END (seq 25).
+
+Final status: same boot, logger ready, queue=0/16, high=9 from the prior queue
+test, zero drops/errors, USB inactive/unpaused/result=ok. File grew to 300277.
+Retained internal minimum 41156, largest minimum 28660, writer stack margin
+3368 bytes unchanged. One 2 ms connection indication recovered within the
+1000 ms grace; no retained USB failure. This is not an observed cable outage.
+
+Selected-reader pruning gate passes. Fixture is already removed; no delete
+command or card removal is required. Source: attachment
+c93603a9-33dd-4f67-abd5-9c973e20b56b/Pasted text.txt and saved download above.
+
+## 2026-09-19: evidence reconciliation before the bounded SDK regression
+
+Historical correction: JP's September 17 boot-45 capture, before the 3.3.11
+upgrade, already reported writer_core=1. At 11:33:51.328 the normal probe was
+ms=60006, samples=6000, imu_n=2910, imu_min_hz=27.03, imu_avg_hz=48.63.
+It used core 3.1.3. This is not a same-session comparison with the later 42-43 Hz
+on 3.3.11, but moving the writer to core 1 alone does not explain the drop.
+Source is JP's inline 11:33/11:34 capture in this conversation. Driver, graphics,
+scheduling and logging costs remain unisolated. Run the agreed three-way test;
+compare writer cores only if the logging-on leg explains the slowdown.
+
+### Stage 1B evidence by gate (2026-09-19)
+
+| Gate | Evidence and remaining work |
+|---|---|
+| 1 Integrity | Archive 14 matches its card-reader copy (8059 bytes, CRC 99C24CB1); 2 MiB synthetic content independently verified. Current integrity now also passes: September 19 boot-74 USB download (130783 bytes, CRC 9E5F4441) exactly matches the physical card file prefix. Later records include clean shutdown; see the 10:02 entry. |
+| 2 Throughput | September 17 2 MiB download: 20.39 s; 3x is 61.17 s, below unchanged 120 s. Current plus three archives completed at 14:37. |
+| 3 Non-interference | Same-session Live and MQTT overlap measured. JP accepts only the roughly 8% large-download Live FPS exception; pacing reverted. Frame gaps and visual reports available; no separate cause-tagged main-loop gap measurement yet. Bounded storage/close/NVS and resource regression now pass. Final new-profile paired TLS/memory/performance evidence review remains; JP accepts the measured IMU profile difference. |
+| 4 Debug and rejection | September 17 damaged-line rejection and clean retry passed. Ordinary MQTT attempt BEGIN at 15:55:50.881 appears during the download ending 15:55:54.270. This proves visibility in that run, not lossless debug output under backpressure. |
+| 5 Abort/liveness | Explicit abort, page close, battery unplug, 5000 ms stall and recovery passed. September 18 sender-paced current reached elapsed_ms=120000, then normal retry passed; progressing archive completed in 154.83 s. Browser slow reads hit other guards, so JP approved sender pacing for the deadline case. |
+| 6 Current pause | September 19 boot 67: eight queued events triggered logger_busy at 8/16; all eight saved, zero drops, appends resumed and retry passed. |
+| 7 Pruning | September 19 boot 67: new synthetic archive 18 reader closed and archive removed, pruned=1; current retry passed. Stage 1 separately covered retention selection on 3.1.3. |
+| 8 Resources | Passed September 19, boot 74: five deliberate aborts and five CRC-checked retries. Matching idle HEALTH readings stayed at 105488 bytes free internal memory and 57332 bytes largest block; PSRAM and writer stack margin unchanged. No handle counter; repeated successful opens exercise the three-handle limit. See the 09:56-09:58 entry. |
+| 9 Round trip | Web DTR=true/RTS=false reconnects work. VS Code monitor close can freeze/reset the board and predates SD logging (Step 0). It remains an explicit limitation. September 19 no-console startup fix passed; monitor-close resolution was not tested. |
+
+JP's agreed order now proceeds to a bounded 3.3.11 regression: storage recovery,
+shutdown and deep-sleep close, NVS/SD overlap; resource series; current-file
+card-copy prefix; three-way same-sitting IMU comparison, three normal 60-second
+windows each (3.3.11 logging off, 3.3.11 on, 3.1.3 off). Reuse existing passed
+checks. Keep the 20480 gate, transfer limits and narrow Live exception. Restore
+fixture=0 and hooks=0 for normal use. JP accepts Stage 1B before Stage 2.
+Documentation and a config comment only; no behavior, flag, build, flash,
+commit or push changes in this turn.
+
+
+## 2026-09-19 09:29: interrupted rename recovery, archive verification pending
+
+JP reports the test passed visually. Boot 69 ran hooks=1, fixture=0, PSRAM
+writer=1 on core 1. log test rename was queued at 09:29:59.271, and the writer
+confirmed its requested boundary pause at 09:29:59.326. USB disappeared during
+the requested power cycle; boot 70 subsequently recovered to ready.
+
+Generation advanced 17 -> 18, newest archive 16 -> 17, archives 3 -> 4.
+The new current file had 1259 bytes at uptime 43184 ms. Download of current
+succeeded: 1418 bytes, 0.06 s, browser CRC OK. Inspected Downloads/70-current.log:
+FILE_OPEN format=1 generation=18 reason=new, BOOT reset=power_on, LOGGER_START
+mount=ok and SETUP_COMPLETE result=ready. CLOCK_SYNC and Montreal -0400 offset
+follow. Computed CRC32: F85E81B5.
+
+After about 70 seconds, current grew to 2135 bytes, writes 8 -> 11. Same boot
+70, ready/synced, queue empty, high=1, zero drops/errors, USB inactive/unpaused,
+result=ok, no USB losses. Retained internal minimum 92476 and largest minimum
+51188 bytes; PSRAM writer stack margin 3304 after retrieval. rotations=0 is a
+new-boot counter and does not contradict recovery of the prior boot's rename.
+
+The supplied console and Downloads contain the current download but no new
+archive-00000017.log download. Recovery and continued append pass; preserved
+archive bytes remain to be checked before closing this case. A pre-test backup
+exists as Downloads/67-current (3).log (303257 bytes), alongside archives 14-16.
+Next action only: download archive 17 with log get 17, then send status. Compare
+its prefix to the pre-test backup and inspect its final pre-rotation records.
+No reflash, restart, card removal or new fault trigger needed.
+
+Source: attachment fc6c08c2-89bb-43d5-a4b1-863c6fc46676/Pasted text.txt and
+Downloads/70-current.log. Documentation only; no build, flash, commit or push.
+
+## 2026-09-19 09:34: renamed archive verified; recovery case passes
+
+Archive 17 downloaded successfully: 308745 bytes in 2.99 s, browser CRC OK.
+Read Downloads/70-archive-00000017.log: computed CRC32 541A8F0C. Its first
+303257 bytes exactly match Downloads/67-current (3).log, the pre-test backup.
+Later records include boot 69's setup and the deliberate TEST_HOOK at uptime
+56456 ms, immediately before the archived file's end. Thus the known pre-test
+contents survived the rename; the newly created generation-18 current file was
+already verified in the preceding entry. This completes this recovery case.
+This USB-to-USB comparison does not replace the separately agreed current-file
+prefix comparison against a physical card-reader copy.
+
+Boot 70 remains ready/synced with current growing to 3600 bytes, writes=15,
+queue=0/16 high=1, drops=0 and error=none. USB inactive/unpaused, result=ok,
+bytes=308745, no link losses or retained failure. Historical internal minimum
+92476, largest minimum 51188 and writer stack margin 3304 bytes unchanged.
+Source: JP's inline 09:34 console and the two saved files above.
+
+Next single recovery case: a deliberately partial current-file header. Keep
+this build (fixture=0, hooks=1, PSRAM writer=1), normal retention, hotspot on,
+Live stopped and browser test switches off. Download current first as backup;
+send log test partial and wait for the boundary pause, then power fully off
+and restart. Refresh/status, download both newly added archives and current,
+then wait 70 seconds and status. Expected: one archive preserves the old current,
+one preserves the deliberately incomplete header, a valid new current grows,
+and logger remains ready without drops/errors. The power-down close path may
+append shutdown records after the deliberate fragment; preserve that evidence.
+No rebuild or card removal required. No firmware edits, commit or push.
+
+## 2026-09-19 09:37: partial-header salvage passes (boot 71)
+
+JP reports normal operation. The console begins after restart, but the saved
+files directly establish the injected partial header and recovery:
+
+- Downloads/71-archive-00000018.log: 5177 bytes, CRC32 8E2CF931. Its first
+  4323 bytes exactly match Downloads/70-current (1).log, the pre-test backup.
+  Later records end with the deliberate TEST_HOOK in boot 70 at up_ms=314608.
+- Downloads/71-archive-00000019.log: 153 bytes, CRC32 A7DA7C08. Starts with
+  the exact incomplete fragment local=unknown time=unk, immediately followed
+  by SESSION_END reason=shutdown pending=0 from boot 70 at up_ms=357326.
+  This malformed concatenation is the expected injected artifact; it was
+  preserved rather than appended to as a valid current header after restart.
+- Downloads/71-current.log: 2131 bytes, CRC32 D528B520. Starts with FILE_OPEN
+  generation=20 reason=corrupt_header, then BOOT context=boot_after_salvage
+  reset=power_on. Mount and setup succeed; Montreal time synchronizes.
+  Browser CRC checks pass for all three downloads.
+
+Final boot-71 status: ready/synced, generation=20, newest=19, six archives;
+current grows 1303 -> 3410 bytes, writes 8 -> 16. Queue empty, high=1,
+drops=0 and error=none; USB inactive/unpaused/result=ok and no link losses.
+Retained internal minimum 92476 and largest minimum 51188 bytes; PSRAM
+writer core 1, stack margin 3304 after downloads. Full normal 60-second probe
+averages 43.24 Hz, minimum 25.64 Hz; not a controlled IMU comparison.
+
+Interrupted-rename and partial-header recovery now pass on the 3.3.11 trial.
+No extra recovery repetition requested. The fragment's shutdown record proves
+the paused-writer close path ran, but an ordinary active-writer close remains
+the next bounded regression case. The physical card-reader prefix check is
+still separate from these USB-download comparisons.
+
+Next test, same build, no new hook: with hotspot on and Live stopped, send
+status and download current as backup. Unplug USB on the battery-equipped
+board, leave it stationary without touching it, and wait up to two minutes
+for Shutdown and screen off. Do not use the power button to force this step.
+After it switches off, reconnect USB, connect the web console, send status,
+download current, wait 70 seconds and send status again. Check the saved log
+for the prior boot's SESSION_END reason=shutdown pending=0, then new boot
+append and continued health records. Report any failure to shut down rather
+than treating a forced power-off as a pass. Deep-sleep close is a later case.
+
+Source: attachment a556c851-1cc3-4492-b82f-444ccda5715c/Pasted text.txt and
+Downloads files above. Documentation only; no build, flash, commit or push.
+
+## 2026-09-19 09:41: ordinary shutdown close and restart pass (boots 71-72)
+
+JP reports the requested automatic-shutdown test passed. Browser loses USB at
+09:41:37.743 after unplug. Downloads/72-current.log contains boot 71 seq 21:
+SESSION_END reason=shutdown pending=0 at 09:42:08.588 (up_ms=301001).
+This is about 31 seconds after cable removal and consistent with the existing
+30-second USB-loss grace once other inactivity conditions are satisfied.
+The next BOOT is boot 72, reset=power_on, context=append, not a watchdog reset.
+
+The downloaded 6293-byte file (0.09 s, browser CRC OK) has computed CRC32
+29CD556E. Its first 4694 bytes exactly match Downloads/71-current (1).log,
+the pre-shutdown download. The prior successful USB_GET_END, shutdown record,
+new BOOT and successful mount/setup/sync follow in the same file. No extra
+FILE_OPEN is inserted: generation 20 and six archives/newest 19 are retained.
+This comparison verifies append preservation, not the pending card-reader check.
+
+Boot 72 final current grows 6134 -> 7008 bytes and writes 7 -> 10. Logger
+ready/synced, queue=0/16 high=1, zero drops/errors, USB inactive/unpaused/result=ok,
+no link losses or retained failure. Internal minimum 95036, largest minimum
+51188, writer core 1 with valid PSRAM placement and stack margin 3304 bytes.
+Normal 60-second probe averages 42.94 Hz, minimum 29.40 Hz. Hooks=1, fixture=0.
+No normal shutdown close deadline is measured by this capture; the persisted
+SESSION_END and successful append establish the tested close/restart behavior.
+
+Next single case: deep-sleep close and touch wake on this same build. Hotspot
+on, unplug USB and let the stationary board shut down; start with the power
+button on battery only. After connection tap the dashboard once, then gently
+tilt every 10-15 seconds without touching the screen to keep motion active.
+After roughly 60 seconds without touch expect Sleeping and screen off. Stop
+moving, wait five seconds, touch once to wake BEFORE reconnecting USB. After
+normal operation returns, reconnect USB/web, status, download current, wait
+70 seconds and status. Report observed sleep and touch-only wake. If no sleep
+within two minutes or touch fails, stop and report rather than substituting a
+power-button/USB wake. Fresh battery-only startup is needed because a boot
+that has seen USB uses the different shutdown/grace branch. No rebuild needed.
+
+Source: attachment 393ed93f-7fd5-49bf-bf4e-a811d12005f4/Pasted text.txt and
+saved Downloads/71-current (1).log and 72-current.log. Documentation only;
+no firmware edit, build, flash, commit or push.
+
+## 2026-09-19 09:47: deep-sleep close and wake pass (boots 73-74)
+
+JP reports the requested test passed. Downloads/74-current.log directly records:
+
+- Boot 72 SESSION_END reason=shutdown pending=0 at 09:45:58.992, followed by
+  a fresh battery-only power-on boot 73.
+- Boot 73 SESSION_END reason=deep_sleep pending=0 at 09:47:21.717,
+  up_ms=76563. Boot 74 follows with reset=deep_sleep, reset_code=8, wake_code=2.
+  The firmware enables EXT0 on TP_INT for touch wake. Boot 74's timing precedes
+  the browser's USB-available event at 09:47:53.675, consistent with waking
+  before USB was reconnected, rather than rebooting on cable insertion.
+- Valid retained breadcrumbs identify prior boot 73: main phase=sleep,
+  writer phase=sd_close. Initial time quality is approx, later synced with
+  prior_known=1 and correction_ms=-99. No crash reset in this sleep/wake cycle.
+
+Downloaded current: 11491 bytes in 0.17 s, browser CRC OK, computed CRC32
+C940757D. Its first 6293 bytes exactly match Downloads/72-current.log. This
+verifies preserved append history across shutdown, battery boot and sleep wake.
+Generation remains 20, newest=19, six archives. No card-reader comparison yet.
+
+Final boot 74 status: ready/synced, current 11332 -> 12207 bytes, writes 7 -> 10,
+queue empty, high=1, drops=0 and error=none. USB inactive/unpaused/result=ok,
+no link losses or retained failure. PSRAM writer placement valid, core 1,
+stack margin 3304 bytes; internal minimum 92500, largest minimum 53236.
+Normal 60-second probe averages 43.24 Hz with minimum 22.87 Hz. These values
+are evidence for this run, not a paired performance comparison.
+
+Both ordinary shutdown and deep-sleep close/restart cases now pass on 3.3.11.
+Next single case: the existing 30-second NVS/SD overlap test on this same
+hooks=1, fixture=0, PSRAM=1 build. Keep USB, hotspot and real MQTT connected,
+Live stopped, dashboard selected and browser test switches off. Send status,
+then log test nvs once. Leave the unit alone until NVS stress ended; wait two
+seconds, then status. Require inactive, summary_pending=0, key_removed=1,
+nvs_errors=0, positive overlapping NVS/SD counts, zero logger drops/errors and
+adequate stack. Download current after completion, then status, for saved
+TEST_NVS_START/SD/END verification. Stop on a reset, error or pending summary.
+No rebuild or other fault trigger needed. The writer does not call NVS; this
+checks interleaved main-task flash commits and PSRAM-stack writer SD activity.
+
+Source: attachment 8f43a693-4d08-4a71-9ac2-deb4bf783eff/Pasted text.txt,
+Downloads/74-current.log, Downloads/72-current.log and JP's pass report.
+Documentation only; no build, flash, commit or push.
+
+## 2026-09-19 09:51: NVS/SD overlap passes on 3.3.11 (boot 74)
+
+JP reports normal operation. The early status was taken during the active test;
+the later status and saved file establish completion, so no repeat is needed.
+The two early downloads returned unavailable by design: usbStatus excludes
+active NVS stress and a pending final summary from retrieval readiness.
+
+- Stress ran for 30 seconds: 278 successful NVS commits, zero NVS errors,
+  736 SD test records, key_removed=1. The 300 commits are a maximum, not a
+  required count. Final nvs_active=0 and summary_pending=0.
+- NVS completion times span 225275-255229 ms; SD completion times span
+  225308-255280 ms. The saved file contains one TEST_NVS_START, exactly 736
+  TEST_NVS_SD records and one TEST_NVS_END with the matching final counts.
+- Downloads/74-current (1).log is 122914 bytes, browser CRC OK, independently
+  computed CRC32 D5321915. Its prefix exactly matches all 11491 bytes of
+  Downloads/74-current.log. This is not the pending physical-card comparison.
+- Post-test logger ready/synced, queue=0/16 high=1, drops=0, error=none.
+  Internal minimum 92500 and largest minimum 53236 bytes; writer stack margin
+  3304 bytes, valid PSRAM placement, core 1. No reset; boot remains 74.
+  Writes=753, write_max_us=52978, flush_max_us=11960; slow=0.
+  USB inactive/unpaused, result=ok, no retained failure or link losses.
+- The stress-containing normal probe has gap_max_us=62770 and imu_min_hz=11.18.
+  Deliberate flash stress affects this window; do not use it for the ordinary
+  three-way IMU comparison or claim unchanged sampling under flash writes.
+
+This verifies the bounded main-task NVS/PSRAM-stack writer overlap case.
+Storage recovery and both close paths also have passing new-SDK evidence.
+No firmware changes, build, flash, commit or push in this review.
+Source: attachment 72b75716-06be-45d5-a386-20ccf399ebef/Pasted text.txt,
+Downloads/74-current (1).log, prior Downloads/74-current.log and JP's report.
+
+Next single test: resource stability, same boot/build, hooks=1 but no active
+fault hook, fixture=0. Keep USB/hotspot/MQTT connected, Live stopped and the
+same dashboard screen. Leave ordinary browser switches off. Wait 70 seconds,
+send status and download current as a baseline. Run five pairs: enable Damage
+one data line, download current and wait for abort confirmed; then download
+current normally and require CRC OK. The damage checkbox clears itself for
+the retry. After the fifth pair wait another 70 seconds, send status and
+save one final current download. Send the full console and keep all saved
+files. These are five deliberate aborts and five successful retries, plus
+baseline/final evidence downloads. Stop on an unexpected error or reset.
+Compare current internal_free/internal_largest in idle HEALTH records before
+and after, not only the retained minima in serial status. Also compare writer
+stack, drops, errors and successful repeated file opens. There is no open-handle
+counter; repeated opens exercise the configured three-handle limit. No reflash.
+
+## 2026-09-19 09:56-09:58: resource series passes (boot 74)
+
+JP reports normal operation. The console contains five damaged-line aborts,
+each confirmed by the device, and five successful ordinary retries with CRC OK.
+The saved log records all five USB_GET_END result=aborted entries, with 288-1152
+bytes sent and 38-50 ms durations, followed by successful retries. Baseline and
+final evidence downloads also succeeded. No restart; all results are boot 74.
+
+Matching idle HEALTH records before and after the series (09:55:35.296 and
+09:58:35.373) have screen=1, operation=idle, moving=0, Wi-Fi/MQTT connected:
+
+| Measurement | Before | After |
+|---|---:|---:|
+| Current free internal memory | 105488 | 105488 |
+| Current largest internal block | 57332 | 57332 |
+| Current free PSRAM | 8339860 | 8339860 |
+| Writer minimum stack margin | 3304 | 3304 |
+| Boot internal minimum | 92500 | 92500 |
+| Queue high water / drops | 1 / 0 | 1 / 0 |
+
+Intermediate idle HEALTH records agree. No accumulating memory loss observed
+in this bounded series. Status remains ready/synced, error=none, zero drops,
+USB inactive/unpaused/result=ok, and no retained failure or link loss. File
+writes increase 757 -> 782; current grows 125344 -> 130621 before the final
+download. The repeated successful opens exercise the configured three-handle
+limit; there is no direct open-handle count.
+
+All seven saved downloads preserve the preceding file as an exact byte prefix.
+Baseline Downloads/74-current (2).log: 125506 bytes, CRC32 AF0DEA59.
+Final Downloads/74-current (8).log: 130783 bytes, CRC32 9E5F4441.
+Five successful retries: 126723, 127373, 128023, 128674 and 129891 bytes;
+1.22-1.33 seconds each. Test build remains hooks=1 with stress inactive,
+fixture=0, PSRAM writer=1, core 3.3.11 and writer core 1.
+
+Next single case: physical-card prefix comparison. Reuse the final verified
+USB download above; no need to download again. Disconnect USB and leave the
+battery board stationary until its normal shutdown finishes. With power off,
+remove the card and make it available to the computer as before (E:/sdcard,
+or report the actual path). Read-only compare the first 130783 bytes of the
+card's logs/current.log to Downloads/74-current (8).log; later appended health
+and shutdown records are expected. Preserve both files. This is the one
+remaining test before the agreed three-way IMU comparison, in one sitting.
+No firmware change, build, flash, commit or push.
+
+Source: attachment 55da2776-988a-4352-a093-be2a85445a5a/Pasted text.txt,
+Downloads/74-current (2).log through 74-current (8).log, and JP's pass report.
+
+## 2026-09-19 10:02: physical-card current-file prefix passes
+
+Read E:/sdcard/logs/current.log without modifying the card. Its first 130783
+bytes exactly match Downloads/74-current (8).log, CRC32 9E5F4441. The full card
+file is 133346 bytes, CRC32 40B6D40C. The additional 2563 bytes contain the
+successful USB_GET_END, four subsequent HEALTH records and SESSION_END
+reason=shutdown pending=0 at 10:02:39.947 (boot 74, up_ms=906857).
+This closes the previously pending physical-card current-download integrity
+check. The USB snapshot is preserved byte for byte; later appends are expected.
+
+The resource-series matching idle comparison remains unchanged. Later HEALTH
+records after the comparison include motion and USB unplug, with free internal
+memory 105284 then 105168 bytes; largest block remains 57332. Those are different
+operating conditions and do not replace the matching-idle series readings.
+
+Next: agreed three-way IMU comparison in one sitting. First arm only:
+amoled-1-8-core-3-3-11, DIAG_ENABLED=0, DIAG_TEST_HOOKS=0,
+DIAG_USB_TEST_FIXTURE=0, DIAG_WRITER_STACK_PSRAM=1. These are instructions to JP;
+source flags have not been changed in this review. Stage 0 probes remain active
+when DIAG_ENABLED=0; the logger clock/queue/writer initialization is excluded.
+Return the card to the powered-off board and keep it installed for all arms.
+JP deletes the selected profile's companion.ino.cpp intermediate, then builds
+and flashes from VS Code. Leave hotspot/USB connected and use the web console
+with DTR=true, RTS=false. Automatic log list may report unavailable with logging
+disabled; normal probe lines should still arrive. Send status once, then stay
+on dashboard screen 1, stationary, no Live/images/downloads or test commands.
+Wait for stable Wi-Fi/MQTT and collect three consecutive complete normal
+windows of about 60000 ms. Exclude startup/partial or interrupted windows;
+send full console including status and all three probe lines. Next arm is
+3.3.11 logging on, then 3.1.3 logging off, in the same sitting with identical
+conditions. Writer-core A/B is conditional on logging explaining the drop.
+No build, flash, firmware edit, commit or push in this review.
+
+## 2026-09-19 10:09-10:13: IMU arm A, core 3.3.11 logging off
+
+JP supplied four consecutive complete normal windows on the requested
+amoled-1-8-core-3-3-11 profile. Status confirms Wi-Fi/MQTT connected,
+logger=off, hooks=0, measured=0 and writer_lifecycle=off. Boot=0 and absent
+logger memory/placement snapshots are expected with DIAG_ENABLED=0; the Stage 0
+probe timer remains on. Local config also reads enabled=0, hooks=0, fixture=0,
+PSRAM selection=1. No writer task is running in this arm.
+
+| Run | Window ms | IMU samples | IMU minimum Hz | IMU average Hz | Largest block minimum bytes |
+|---|---:|---:|---:|---:|---:|
+| 1 | 60004 | 2513 | 27.02 | 42.30 | 59380 |
+| 2 | 60006 | 2508 | 27.03 | 42.22 | 59380 |
+| 3 | 60000 | 2511 | 22.73 | 42.28 | 59380 |
+| 4, extra confirmation | 60006 | 2510 | 30.30 | 42.25 | 57332 |
+
+The first three reported averages have a mean of 42.27 Hz; all four range
+42.22-42.30 Hz. These are averages of existing sampling_frequency readings,
+not sample-count divided by wall time. Boot internal minimum remains 95812;
+10 ms timer has 6000-6001 samples per window, maximum gap 11070 us and maximum
+scan 1034 us. No connection transition or active media transfer is reported.
+
+The approximately 42 Hz behavior persists with the SD logger/writer absent.
+It therefore cannot be attributed solely to that task or its core placement.
+Do not yet assign the cause to the SDK: the logging-on arm and old-profile
+logging-off arm are still required. Old versus new profiles also differ in
+graphics and expander dependencies. No writer-core comparison is warranted
+from this first arm alone.
+
+Next single arm, same sitting: retain core 3.3.11 profile and all physical/UI
+conditions, change only DIAG_ENABLED to 1. Keep hooks=0, fixture=0, PSRAM=1.
+JP rebuilds/flashes (delete selected profile companion.ino.cpp intermediate),
+then uses the same web console, dashboard, stationary unit, connected hotspot
+and MQTT. Send status after connection, then collect three complete normal
+60-second windows without Live, images, downloads or test commands. Automatic
+file listing on initial connection may split the first window; use full ones.
+Source: JP inline 10:09-10:13 capture. Documentation only; flags not changed by
+Codex, no build, flash, commit or push.
+
+## 2026-09-19 10:17-10:20: IMU arm B, core 3.3.11 logging on
+
+JP supplied three complete normal windows in the same sitting as arm A.
+Boot 77 status: ready/synced, hooks=0, PSRAM writer active on core 1 with valid
+placement, stack margin 3752 bytes, queue empty/high=1, zero drops/errors.
+Wi-Fi and MQTT connected, USB inactive with no failure or link loss. Local
+config confirms enabled=1, hooks=0, fixture=0, PSRAM=1.
+
+| Run | Window ms | IMU samples | IMU minimum Hz | IMU average Hz | Largest block minimum bytes |
+|---|---:|---:|---:|---:|---:|
+| 2 | 60005 | 2508 | 25.64 | 42.31 | 57332 |
+| 3 | 60007 | 2534 | 24.39 | 42.71 | 57332 |
+| 4 | 60004 | 2548 | 28.57 | 42.98 | 57332 |
+
+Mean of the three reported averages: 42.67 Hz, versus 42.27 Hz logging off
+(first three full arm-A windows). Difference is +0.40 Hz, about +0.95%; this
+small sequential-run difference is not evidence that logging improves IMU
+performance. The measurements show no logger-induced average-rate reduction
+in this comparison. Both arms remain near 42-43 Hz. Do not run the conditional
+writer-core 0/1 experiment: logging on does not explain the observed drop.
+Boot heap minimum remains 95144 throughout; timer interval=10 ms, 6000-6001
+samples, maximum gap 10967 us and maximum scan 1118 us.
+
+Next single arm: switch Arduino Maker profile to amoled-1-8 (verified pinned
+core 3.1.3), set DIAG_ENABLED=0 and retain hooks=0, fixture=0, PSRAM=1. Delete
+build/build_amoled-1-8/sketch/companion.ino.cpp before JP compiles/flashes.
+Keep card installed, USB and hotspot connected, dashboard selected and unit
+stationary. Connect the same web console, status, then three consecutive full
+normal 60-second windows without media/downloads/test commands. Logger off
+and unavailable file listing are expected. Send build library/platform versions
+and the console so the old profile is identifiable even if startup text is lost.
+This compares complete profiles: old graphics and expander libraries also
+change, so a difference would not isolate the ESP32 core alone. Continue in
+this sitting. Source: JP inline 10:17-10:20 capture and local sketch.yaml.
+Documentation only; no firmware edits, build, flash, commit or push.
+
+## 2026-09-19 10:31-10:33: IMU arm C completes the three-way comparison
+
+JP supplied three complete normal windows with logging off. Status confirms
+Wi-Fi/MQTT connected, logger=off, hooks=0 and writer_lifecycle=off. Local
+Arduino Maker selection is amoled-1-8; build.options.json identifies core
+3.1.3 and CPUFreq=240, with an ELF timestamp of 10:29:28. libraries.cache
+identifies the old graphics folder and ESP32_IO_Expander 0.0.3. These local
+artifacts support the requested old-profile run, although status itself has
+no core-version field. Source flags enabled=0, hooks=0, fixture=0, PSRAM=1.
+
+| Run | Window ms | IMU samples | IMU minimum Hz | IMU average Hz |
+|---|---:|---:|---:|---:|
+| 1 | 60004 | 2947 | 31.26 | 49.21 |
+| 2 | 60002 | 2948 | 33.22 | 49.23 |
+| 3 | 60004 | 2952 | 30.27 | 49.30 |
+
+Boot internal minimum 86972 and largest-block minimum 31732 stay unchanged.
+Probe interval 10 ms, 6000-6001 samples/window, maximum gap 10928 us and
+maximum scan 1003 us. No connection transitions reported during these windows.
+
+Same-sitting means of three reported imu_avg_hz values:
+
+| Profile | Logging | Mean Hz |
+|---|---|---:|
+| 3.3.11 | Off | 42.27 |
+| 3.3.11 | On | 42.67 |
+| 3.1.3 | Off | 49.25 |
+
+The new-profile logging-off average is about 14.2% lower than the old-profile
+logging-off average. Logging on did not lower the new-profile average in this
+bounded comparison. The writer is not the sole cause of the rate change; the
+conditional writer-core A/B is not warranted. These are software motion-update
+frequency observations, not a direct measurement of the sensor hardware ODR.
+The configured updateMotionState minimum interval remains 20 ms; actual calls
+are serviced by the application loop. SDK, graphics and expander dependencies
+change together between profiles, so the test does not identify the responsible
+component. The timer sampler itself stayed at its expected cadence.
+
+Next recommended action: bounded read-only timing/source review of the changed
+profile's IMU/I2C and main-loop/UI paths before choosing a targeted probe or
+fix. Do not alter the IMU update interval or move writer cores on this evidence.
+No additional broad bench series is requested now. Board/source currently
+remain on the 3.1.3 logging-off comparison build; restoring 3.3.11 logging on
+is still required before ordinary SD use and final acceptance. Stage 1B remains
+pending JP acceptance and the remaining new-profile TLS/performance gate review.
+Source: JP inline 10:31-10:33 capture, local build.options.json, libraries.cache
+and Arduino Maker profile selection. Documentation only; no firmware edits,
+build, flash, commit or push.
+
+## 2026-09-19 end of day: IMU rate accepted; normal trial restored
+
+JP accepts the approximately 42-43 Hz new-profile motion-update rate and requests
+no further investigation. Logging does not explain the difference in the
+same-sitting three-way test; the exact core/library cause remains unverified.
+No writer-core A/B or new timing instrumentation is planned. Revisit only if
+practical symptoms arise. The 20480-byte memory gate is unchanged.
+
+JP reports restoring the new core and logging, compiling/flashing, and seeing
+approximately 42 Hz again. Local Arduino Maker selects amoled-1-8-core-3-3-11;
+config is enabled=1, hooks=0, fixture=0, PSRAM writer=1. No raw post-restore
+capture or boot number supplied. Preserve this as JP's confirmation, not a
+new full gate measurement. JP is stopping for the day and requests commit/push.
+
+Resume from sd_diagnostics_checkpoint_2026-09-19.md. Final TLS/performance
+evidence review and explicit JP Stage 1B acceptance remain before Stage 2.
+Do not repeat completed transport/storage/resource/card tests or the accepted
+IMU investigation. No runtime behavior changes, build or flash by Codex.
