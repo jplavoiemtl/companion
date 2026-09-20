@@ -1,5 +1,176 @@
 # iPhone log retrieval - review against accepted Stage3
 
+## September20 follow-up: review of Claude at4cbe974
+
+Scope: iphone-log-retrieval branch, clean before review. Historical draft is now
+tracked and remains unchanged. This addendum supersedes earlier statements here
+that called it untracked or left architecture/power choices undecided. JP's
+recorded decisions stand, including esp_http_server, USB-power-only admission,
+immediate abort on detected power loss, hotspot-loss mode retention, five-minute
+idle reset by HTTP request or touch, and no motion-based exit. No firmware/build/
+flash changes. Findings below concern the proposed implementation, not deployed bugs.
+
+### P1: shutdown proposal does not yet meet the cleanup deadline
+
+Claude lines295-299: lowering send_wait_timeout or queuing session close is not
+by itself a500ms guarantee. Installed esp_http_server.h:201-202 uses uint16_t
+whole seconds. A positive value cannot express a sub500ms timeout. Listening
+socket closure does not interrupt an accepted client socket. IDF5.5.5
+httpd_sess_trigger_close queues work on the HTTP task; httpd_stop queues shutdown
+and waits for the task to stop. A blocked synchronous handler delays both.
+Default5s socket-call timeouts also do not implement the writer's progress-based
+STALL_MS or overall CURRENT_MS.
+
+Specify independent writer cancellation/resume, bounded handoff ownership and
+safe accepted-socket interruption. Never call blocking httpd_stop from the main
+loop's power transition/close path. Keep mode STARTING/STOPPING exclusive to media
+until resources are released; do not expose normal media while teardown still
+holds memory. Publish cancellation from main; execute SD cleanup only on writer.
+The current static finishError directly closes/reopens SD, so power handling
+cannot literally call it from updatePowerStatus. Demonstrate prompt main/UI and
+writer cleanup with a client that stops reading, including power-off and exit.
+A synchronous streaming handler also delays favicon/second-request handling;
+choose bounded yielding/asynchronous servicing or document/test delayed replies.
+
+### P1: reverse admission misses a pending motion handover
+
+The five external trigger paths listed are complete in current production source.
+But image_fetcher.cpp:591-597 marks HTTP_COMPLETE and requestInProgress=false
+while imageDisplayTimeoutActive remains true. imageFetcherIsBusy():228-230 then
+returns false even when motionTriggered will call videoStreamStart at:324-332.
+A bench USB mode entry during that interval passes all proposed media checks.
+The future Live guard prevents network activity, but the caller still executes
+returnToPreviousScreen on refusal, changing UI during download mode. A regular
+still also has an outstanding automatic return timer.
+
+Choose a defined transition: reject entry while a motion handover/display return
+is pending, or deliberately leave/cancel the media screen on the main task before
+entry. Do not change imageFetcherIsBusy globally without reviewing MQTT retry
+semantics that use it. Add a behavioral case: successful remote still, enter mode
+before handover, verify mode/screen/network result and no surprise navigation.
+
+### P2: bool prepareForRequest is safe only with lifecycle ordering fixed
+
+There are two live callers, plus the static forward declaration at:143. Return
+bool is not an ABI problem, and the normal still/Live flow need not change. But
+both callers currently call imageBegin FIRST (:648/:693). A late refusal inside
+prepareForRequest would leave a fresh IMAGE_BEGIN without its end; imageBegin
+also terminates the previous image as replaced. Simply adding if(!prepare...)return
+is therefore not a complete backstop contract.
+
+Check admission before lifecycle mutation, or explicitly finish any lifecycle
+created before a refusal. Preserve total timing including UI prepare and preserve
+motionTriggered assignment AFTER preparation, which clears it. Direct Live does
+not call prepareForRequest; a second duplicate guard inside videoStreamStart is
+not independent protection. Put one authoritative guard before all side effects.
+A source call-site check should exclude comments and cover the whole production
+tree, including requestImage dispatch; it cannot prove these runtime invariants.
+Add allowed/refused behavior checks: no pending endpoint/UI/buffer mutation, no
+unpaired begin/end, normal latest/history and motion handover still work.
+
+### P2: internal-memory estimate and benchmark provenance need correction
+
+Installed sdkconfig values5744/5760/1436 and16 sockets are correct; the inference
+that unset SPIRAM_TRY_ALLOCATE_WIFI_LWIP means all lwIP buffers are internal is not.
+lwipopts.h:1708-1713 maps the unset branch to ordinary malloc/calloc. This bundle
+sets SPIRAM_USE_MALLOC and ALWAYSINTERNAL4096; Arduino esp32-hal-psram.c:103-104
+enables external-memory malloc when its conditional applies. Inspect allocation
+size/caps; do not infer placement solely from the unset preference flag.
+
+TCP send/window values are capacity limits, not a complete reserved-memory
+account. Three fully occupied send budgets alone are17232 bytes before4096
+stack, receive/pbuf/netconn/PCB/mailbox/HTTP state, headers and handoff buffers.
+That arithmetic is not an internal-heap prediction either: allocation is dynamic.
+10-16KB may describe one workload but is not justified as a bound. max_open_sockets
+counts clients; HTTPD uses three additional infrastructure sockets. Small
+individual allocations can fragment the contiguous block; none exceeding20480
+is no assurance that20480 remains free.
+
+Claude lines355-359 mix baselines:95688/57332 are from logging-OFF console at
+10:11:13, and heap_min_boot is a historical minimum, not current idle free.
+Latest accepted logging-on evidence records writer margin3096, not a lower bound
+of3144. Keep the MQTT-reconnect gate, measuring server idle, active/slow transfer,
+maximum admitted clients and repeated reconnect/close/re-entry. Measure actual
+internal free/largest and server stack margin instead of accepting the estimate.
+
+### P2: separate task is not crash containment
+
+External-stack/task-create flags and the internal-TCB requirement are confirmed;
+I find no blanket socket prohibition justified by the inspected configuration.
+That is not blanket certification of every cache-off path. A separate HTTP task
+is still a good way to keep socket stack use and blocking out of the writer.
+But Claude:279 says that if the server task dies logging survives. The installed
+configuration enables stack-canary checking; IDF5.5.5's Xtensa overflow hook calls
+esp_system_abort. A server stack overflow can stop/reset the whole device. Claim
+scheduling/stack separation, not process-like fault isolation; test stack margin.
+
+### P2: four-layer verification needs snapshot identity and honest results
+
+JP's size-only iPhone check and laptop CRC gate remain accepted. Add transfer ID
+(or boot+monotonic request number) to the filename, end record and last-result
+snapshot: boot+size is not a unique download ID. Preserve expected size, actual
+bytes accepted by transport, CRC coverage and result together atomically. Count
+CRC exactly once despite partial sends/retries; distinguish successful send from
+browser save. HTTP_GET_END cannot be in its own current snapshot and may not be
+persisted on shutdown/SD failure, so remove the word 'always' for its availability.
+
+A second curl request for current.log is a DIFFERENT snapshot, changed at least
+by retrieval records. Compare each curl body to its own transfer's expected
+size/CRC and the corresponding physical-card PREFIX after safe close; full-file
+comparison is appropriate for immutable archives. Last-result refresh must be
+SD-free and must not overwrite the download result with favicon/index requests.
+Test exact-byte visibility in iOS Files: a rounded display is not proof of size
+equality. Export one actual Safari-saved archive to the laptop for byte comparison
+at the bench; this tests the iPhone save path without adding client crypto.
+
+### Power findings and additional missing gates
+
+allowSleep assignments/normal inactivity guard and disabled TEST_POWER checks
+match the source (apart from the harmless global initialization). USB presence
+closes the normal inactivity case; no battery keep-awake feature is needed.
+'Immediate' power loss means after the cached PMIC observation: background polling
+is200ms and I2C lock/read or synchronous work can delay it. Likewise Wi-Fi event
+callbacks/HTTP requests must post to the main owner rather than mutating a plain
+main-task flag/timer from other tasks. Model flag/timer publication explicitly.
+
+Keep five minutes as decided. HTTP/touch resets do not detect reading a static
+page without touching it. Do not promise that case cannot expire; do not add
+automatic refresh that defeats the idle policy. Define idle expiry during a
+slow archive transfer and hotspot downtime; GOT_IP alone must not silently reset
+the ceiling. Reject entry when closing, not only usbStatus.ready (closing is a
+separate field), and unwind partial server-start failures.
+
+Additional one-at-a-time gates: partial-header/slow-reading clients; sockets
+occupied by idle keep-alive clients with LRU disabled; accept failure/resource
+exhaustion with MQTT reconnect; STOPPING/re-entry and stale completion after
+hotspot loss; pending motion handover; guard refusal lifecycle; five-minute
+expiry with/without requests/touch and across hotspot recovery; actual iPhone
+saved-byte comparison and same-boot repeated filenames. Hotspot loss should
+cancel promptly, not wait to accumulate8 events; prove queue-pressure abort
+separately. Preserve the selected keep-mode-open/GOT_IP behavior.
+
+### Defaults checked and references
+
+Installed esp32s3-libs/3.3.11 reports IDF5.5.5. HTTPD defaults verified:4096-byte
+internal/8-bit stack, unpinned,7 client sockets, LRU=false, send/recv5s,
+header limit1024 and URI512. These facts support the component choice; they
+do not discharge application cancellation, admission or memory gates.
+
+Local references: sdkconfig; include/esp_http_server/include/esp_http_server.h;
+include/freertos/esp_additions/include/freertos/idf_additions.h:259-266;
+include/lwip/port/include/lwipopts.h:1708-1713, all under the installed
+Arduino15/packages/esp32/tools/esp32s3-libs/3.3.11 bundle. Arduino3.3.11
+cores/esp32/esp32-hal-psram.c:103-104 supplies the malloc integration.
+Upstream implementation reference (matching IDF version, not a rebuilt binary):
+- https://github.com/espressif/esp-idf/blob/v5.5.5/components/esp_http_server/src/httpd_main.c
+- https://github.com/espressif/esp-idf/blob/v5.5.5/components/esp_http_server/src/httpd_sess.c
+- https://github.com/espressif/esp-idf/blob/v5.5.5/components/freertos/FreeRTOS-Kernel/portable/xtensa/port.c
+
+No tests/build/flash performed: review only. Historical draft and Claude review
+are unchanged. The findings refine the settled architecture, not reopen it.
+
+Earlier review below is historical where superseded.
+
 Date: September20,2026. Reviewer: Codex. Status: design review, not implementation.
 Original Claude draft: [sd_iphone_log_download_plan.md](sd_iphone_log_download_plan.md).
 That untracked draft is unchanged. Stage3 is accepted; the original reference
