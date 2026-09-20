@@ -1,5 +1,55 @@
 # Stage 3 operation context - first build and bench handoff
 
+## September 20 10:01-10:03: Stage3 logging-on performance baseline recorded
+
+JP reports the test ran fine. Same boot89, normal logging enabled, hooks and
+fixture off, PSRAM writer. Latest id13/net25 succeeds HTTP200 with33843 bytes
+expected/received; headers929/download737/decode141/total1912ms (console1911).
+One new LOOP_GAP is correctly recorded during Latest:1035ms, observed
+image_request span929ms/id25, other106ms. OP_HEALTH rises from1 to2 gaps;
+maximum remains5235ms from the earlier deliberate MQTT outage. This is an
+observed synchronous request delay, not evidence of a new persistent stall.
+
+Live id14 ends normally by duration,179 frames/60.343s probe =2.966376 FPS
+(SD elapsed60341ms, a2ms boundary difference). First frame1265ms, max gap1053ms,
+HTTP average328ms, decode60ms, blit80ms, average image17.4KB. Both TLS windows
+succeed, with sampled largest31732. No remote media overlaps this case.
+
+Live sampled largest minimum24564 bytes is a NEW lower observation,4084 above
+the unchanged20480 gate. Internal-free boot minimum falls37616->35180.
+Status retained largest26612 uses different observation boundaries; it does
+not override the lower10ms probe reading. Writer margin remains3096, queue
+high8, zero drops/suppressed/truncated/errors/slow writes; no new reset.
+The lower memory sample is recorded honestly; no leak conclusion from one
+window. USB finishes idle/unpaused/resultok with zero transfer losses.
+
+Download566713 bytes, browser CRCOK in5.76s, independently CRC32 9B9A2A24,
+SHA256 4db5c0bc59d38d7367f69601d11a1e34d7998fece22cabd7fcb92b4115fd14af.
+Previous557815-byte snapshot is an exact prefix;433 contiguous boot89 records,
+27 paired network spans and14 paired media lifecycles. Sources:
+[console](../../docs/bench_data/sd_stage3_2026-09-20_boot89_logging_on/console.txt) and
+[current log](../../docs/bench_data/sd_stage3_2026-09-20_boot89_logging_on/89-current.log.txt).
+
+Next single case: logging-OFF comparison. Source now temporarily DIAG_ENABLED=0;
+all other flags and selected amoled-1-8-core-3-3-11 profile unchanged. Board
+still has logging ON until JP rebuilds/flashes in VS Code. Selected generated
+sketch removed before rebuild. No assistant build or flash. Reconnect browser
+DTR=true/RTS=false, test switches off, hotspot/MQTT connected. Status, Latest
+once, return dashboard, one full Live cycle without downloads/outages, status.
+Send console and visual observations; no SD download expected with logger off.
+Use frames/probe duration and consider network/image-size variability when
+comparing; target logging-on FPS loss no more than about5%. This is a logger
+compile-disabled comparison, not removal of every diagnostic static object.
+
+After that result restore DIAG_ENABLED=1 and prepare the separate small-bundle
+Live overlap case. Normal configuration must be restored before acceptance.
+Stage3 remains unaccepted; Stage4 unstarted; previous coverage limits unchanged.
+Evidence and temporary bench flag committed/pushed per JP request. No new
+functional implementation; prior71 host checks were for normal configuration,
+not rerun or claimed for this temporary flag-only change. JP compilation pending.
+
+Earlier entries below are historical.
+
 ## September 20 09:58-09:59: USB-power loss/restoration passes, boot 89
 
 JP reports normal test. POWER_USB present0 at1827688 and present1 at1839147,

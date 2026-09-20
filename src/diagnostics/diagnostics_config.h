@@ -1,7 +1,7 @@
 #pragma once
 // JP builds from VS Code. Leave fault hooks off for ordinary use and measurements.
 #ifndef DIAG_ENABLED
-#define DIAG_ENABLED 1
+#define DIAG_ENABLED 0
 #endif
 #ifndef DIAG_TEST_HOOKS
 #define DIAG_TEST_HOOKS 0
