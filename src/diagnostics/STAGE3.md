@@ -1,5 +1,48 @@
 # Stage 3 operation context - first build and bench handoff
 
+## September 20 09:58-09:59: USB-power loss/restoration passes, boot 89
+
+JP reports normal test. POWER_USB present0 at1827688 and present1 at1839147,
+11.459s apart, both initial0/sourcepmic_snapshot. Same boot89 before/after,
+uptime1821075->1861465; no restart, sleep or shutdown. Browser device-lost/read
+stream ended is the expected physical removal; reconnect DTRtrue/RTSfalse
+succeeds. No transfer was active during removal. USB transfer-loss count0
+therefore does not mean the cable was never disconnected.
+
+Ready/synced, Wi-Fi/MQTT connected afterward, queuehigh8, zero drops/errors/
+suppressed/truncated/slow writes. Writer margin3096, retained largest26612 and
+internal-free minimum37616 unchanged; final USB idle/unpaused/resultok. No new
+LOOP_GAP record. Last OP_HEALTH preceded removal, so post-removal aggregate
+health is not claimed from this snapshot. Existing approximately31-minute
+same-boot observation remains stable; this is not an exhaustive soak.
+
+Download 557815 bytes, CRC32 71C4ECA2, SHA256
+898ea417b325f6f84240f35af93a5f3ba707656addb2a8efb17a3062e43807d4. Browser CRCOK,5.55s. Prior553406-byte
+snapshot exact prefix;392 contiguous boot89 records,24 paired network spans,
+12 media lifecycles. Sources: [console](../../docs/bench_data/sd_stage3_2026-09-20_boot89_usb_power/console.txt)
+and [current log](../../docs/bench_data/sd_stage3_2026-09-20_boot89_usb_power/89-current.log.txt).
+
+Next single case: fresh Stage3 logging-on performance baseline, current build,
+no rebuild. Keep hotspot/MQTT connected, dashboard, DTRtrue/RTSfalse/test
+switches off. Status, Latest once, return dashboard, one full Live cycle with
+no downloads/outages. Then status/download current/status. Send console/log
+and visual observations. If unsolicited remote media overlaps, record it for
+assessment. Use frames/duration, Latest timings, image size/network metrics,
+CRC, zero drops/errors and largest>=20480. This starts the required paired
+performance check after Stage3 instrumentation changes. Follow-up logging-off
+comparison and restored logging-on small-bundle overlap are separate later
+cases, not instructions to rebuild now. Restore normal flags before acceptance.
+
+Reuse passed functional cases and prior unchanged storage/close/NVS gates.
+Coverage limits remain explicit: Stage3 POWER_DECISION sleep/shutdown records,
+forced response/decode failures, still in-flight cancellation and >2s frame-gap
+suppression have not each been induced on hardware. No claim of exhaustive
+branch coverage. Optional tail deferred, Stage3 unaccepted, Stage4 unstarted.
+No firmware changes/build/flash; completed evidence commit/push per JP request.
+
+Earlier entries below are historical.
+
+
 ## September 20 09:54-09:55: screen-preference save/media case passes
 
 JP reports normal test, same boot89. Console confirms G-meter selected09:54:11.527
