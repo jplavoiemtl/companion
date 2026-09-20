@@ -108,9 +108,9 @@ Project owner and bench tester: **JP**.
 **Current checkpoint (2026-09-19):** Stage 1 is accepted. Stage 1B transport,
 storage/close/NVS regression, resource and card-prefix tests pass. JP accepts
 the rare concurrent-download Live FPS tradeoff and the newer profile's 42-43 Hz
-IMU rate. Core 3.3.11 logging on is restored with test flags off. Final
-TLS/performance evidence review and JP Stage 1B acceptance remain; Stage 2
-has not started. See the [resume checklist](sd_diagnostics_checkpoint_2026-09-19.md).
+IMU rate. Core 3.3.11 logging on is restored with test flags off. TLS/memory
+review and paired Live checks pass. JP explicitly accepted Stage 1B on
+September 19, 2026 and authorized Stage 2 after committing/pushing this checkpoint. See the [resume checklist](sd_diagnostics_checkpoint_2026-09-19.md).
 The dated findings below are historical; their earlier hold status is superseded
 by the accepted Stage 1 checkpoint.
 

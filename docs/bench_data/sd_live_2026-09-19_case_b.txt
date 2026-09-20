@@ -1,0 +1,81 @@
+2026-09-19 21:23:43.427 EVENT Console cleared.
+2026-09-19 21:23:47.567 TX status [CRLF]
+2026-09-19 21:23:47.570 RX [TEST] ON | WiFi=CONNECTED | MQTT=CONNECTED | time since off=0 ms | uptime=20706 ms
+2026-09-19 21:23:47.571 RX [LOG] state=ready boot=82 session=boot-82 up_ms=20706 clock=synced setup=1 hooks=0 file_bytes=157043 generation=20 newest=19 archives=6 card_bytes=15931539456 free_bytes=15922167808 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-19 21:23:47.572 RX [LOG] measured=1 stack_min=3752 internal_min=92588 internal_largest=51188 dma_min=84924 dma_largest=51188 writes=7 slow=0 write_max_us=1729 flush_max_us=8417 sd_max_us=69663 rotations=0 pruned=0 oversized=0
+2026-09-19 21:23:47.572 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c203374 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4440 stack_final_margin=-1 writer_core=1
+2026-09-19 21:23:47.573 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-19 21:23:47.573 RX [LOG MEM] phase=before_clock up_us=1831452 free=198176 largest=147444 heap_min_boot=193052
+2026-09-19 21:23:47.573 RX [LOG MEM] phase=after_clock up_us=1832232 free=192060 largest=139252 heap_min_boot=191804
+2026-09-19 21:23:47.573 RX [LOG MEM] phase=before_writer up_us=1832284 free=192060 largest=139252 heap_min_boot=191804
+2026-09-19 21:23:47.573 RX [LOG MEM] phase=writer_entry up_us=1832502 free=192060 largest=139252 heap_min_boot=191804
+2026-09-19 21:23:47.573 RX [LOG MEM] phase=after_formatter up_us=1832566 free=192060 largest=139252 heap_min_boot=191804
+2026-09-19 21:23:47.573 RX [LOG MEM] phase=before_mount up_us=1832995 free=192060 largest=139252 heap_min_boot=191804
+2026-09-19 21:23:47.573 RX [LOG MEM] phase=after_mount up_us=1902545 free=150596 largest=106484 heap_min_boot=150052
+2026-09-19 21:23:47.573 RX [LOG MEM] phase=before_current_open up_us=1917302 free=148196 largest=106484 heap_min_boot=147568
+2026-09-19 21:23:47.573 RX [LOG MEM] phase=after_current_open up_us=1918768 free=148196 largest=106484 heap_min_boot=147568
+2026-09-19 21:23:47.573 RX [LOG MEM] phase=storage_done up_us=1936894 free=148196 largest=106484 heap_min_boot=147568
+2026-09-19 21:23:47.585 RX @@STATUS boot=82 up_ms=20721 logger=ready current_size=157043 newest=19 drops=0 card_mib=15193 free_mib=15184 files=7
+2026-09-19 21:23:47.606 RX @@USB active=0 paused=0 bytes=0 result=none queue=0/16 current_limit_ms=120000 stall_ms=5000
+2026-09-19 21:23:47.626 RX [LOG USB FAIL] valid=0 at_ms=0 elapsed_ms=0 idle_ms=0 phase=none path=none reason=none loss_ms=0
+2026-09-19 21:23:47.647 RX [LOG USB SEND] file=none bytes=0 line_bytes=0 tx_free=-1 write_bytes=-1 check=none stop=none
+2026-09-19 21:23:47.668 RX [LOG USB LINK] losses=0 max_loss_ms=0 pending=0 grace_ms=1000
+2026-09-19 21:24:04.541 RX Movement Detected! (Accel: 0.00, Gyro: 7.18)
+2026-09-19 21:24:04.542 RX TX motion MQTT: Moving (immediate)
+2026-09-19 21:24:04.689 RX Screen touched, resetting inactivity timer.
+2026-09-19 21:24:04.689 RX Latest button clicked
+2026-09-19 21:24:04.689 RX Initiating async latest image request...
+2026-09-19 21:24:04.689 RX Preparing UI for new image request...
+2026-09-19 21:24:04.689 RX Cleaning up image fetcher state...
+2026-09-19 21:24:04.689 RX Screen 2 Loaded.
+2026-09-19 21:24:04.780 RX === requestImage('latest') START ===
+2026-09-19 21:24:04.780 RX Initiating HTTPS GET: https://photojpl.synology.me:9835/esp32/latest?token=***
+2026-09-19 21:24:04.780 RX Sending HTTP GET...
+2026-09-19 21:24:04.781 RX [PROBE] window=normal run=2 ms=23190 heap_min_boot=92588 largest_min=49140 interval_ms=10 samples=2319 gap_max_us=10920 scan_max_us=320 timer=on imu_n=968 imu_min_hz=28.56 imu_avg_hz=42.43
+2026-09-19 21:24:05.532 RX [PROBE] window=image_https run=1 ms=750 heap_min_boot=44400 largest_min=31732 interval_ms=10 samples=75 gap_max_us=10062 scan_max_us=150 timer=on
+2026-09-19 21:24:05.532 RX Response received in 751 ms, Content-Length: 19665
+2026-09-19 21:24:05.532 RX Starting to receive image data...
+2026-09-19 21:24:05.755 RX Image download complete (19665 bytes, 1065 ms since button press). Starting decode...
+2026-09-19 21:24:05.880 RX JPEG decoded successfully into PSRAM.
+2026-09-19 21:24:05.880 RX LVGL image source updated. Total 1191 ms from button press (budget 20000 ms).
+2026-09-19 21:24:07.658 RX Screen 2 Unloading: Freeing buffer and resetting rotation to 90 degrees.
+2026-09-19 21:24:07.658 RX [ScreenMem] Returned to screen 1; no preference save needed
+2026-09-19 21:24:14.326 RX Screen touched, resetting inactivity timer.
+2026-09-19 21:24:14.326 RX Live button clicked -> starting live feed
+2026-09-19 21:24:14.326 RX [PROBE] window=normal run=3 ms=8443 heap_min_boot=44400 largest_min=57332 interval_ms=10 samples=844 gap_max_us=10379 scan_max_us=327 timer=on imu_n=358 imu_min_hz=8.95 imu_avg_hz=43.77
+2026-09-19 21:24:14.326 RX Screen 2 Loaded.
+2026-09-19 21:24:14.415 RX Video: endpoint parsed, port 9835, path /esp32/live
+2026-09-19 21:24:15.047 RX [PROBE] window=live_tls run=1 ms=631 heap_min_boot=44296 largest_min=31732 interval_ms=10 samples=63 gap_max_us=10505 scan_max_us=336 timer=on
+2026-09-19 21:24:15.310 RX Video: frame 432x768, panel 368x448 -> gap x=-64 y=-320, pan x=-15 y=32
+2026-09-19 21:24:34.618 RX TX motion MQTT: Moving (periodic)
+2026-09-19 21:24:34.621 RX Movement Stopped.
+2026-09-19 21:24:42.371 RX [PROBE] window=live_tls run=2 ms=619 heap_min_boot=41844 largest_min=31732 interval_ms=10 samples=62 gap_max_us=10589 scan_max_us=428 timer=on
+2026-09-19 21:25:09.245 RX [PROBE] window=live_tls run=3 ms=657 heap_min_boot=40912 largest_min=31732 interval_ms=10 samples=66 gap_max_us=10856 scan_max_us=434 timer=on
+2026-09-19 21:25:14.466 RX Video: 219 frames in 60.1s (3.6 fps) | http 265 | decode 57 | blit 80 | frame 275 ms | first_frame 1121 | max_gap 918 ms
+2026-09-19 21:25:14.466 RX Video: http = ttfb 150 + xfer 115 ms | frame 12.9 KB | 112 KB/s while transferring
+2026-09-19 21:25:14.466 RX Video: free PSRAM 7611776, free heap 59436
+2026-09-19 21:25:14.468 RX [PROBE] window=live run=1 ms=60142 heap_min_boot=40912 largest_min=28660 interval_ms=10 samples=6014 gap_max_us=11434 scan_max_us=1535 timer=on
+2026-09-19 21:25:14.468 RX Video: returning to previous screen
+2026-09-19 21:25:14.468 RX Screen 2 Unloading: Freeing buffer and resetting rotation to 90 degrees.
+2026-09-19 21:25:14.468 RX [ScreenMem] Returned to screen 1; no preference save needed
+2026-09-19 21:25:18.798 TX status [CRLF]
+2026-09-19 21:25:18.805 RX [TEST] ON | WiFi=CONNECTED | MQTT=CONNECTED | time since off=0 ms | uptime=111942 ms
+2026-09-19 21:25:18.805 RX [LOG] state=ready boot=82 session=boot-82 up_ms=111942 clock=synced setup=1 hooks=0 file_bytes=157602 generation=20 newest=19 archives=6 card_bytes=15931539456 free_bytes=15922167808 queue=0/16 high=1 drops=0 suppressed=0 truncated=0 error=none errno=0
+2026-09-19 21:25:18.805 RX [LOG] measured=1 stack_min=3752 internal_min=40912 internal_largest=28660 dma_min=33248 dma_largest=28660 writes=8 slow=0 write_max_us=4955 flush_max_us=8417 sd_max_us=69663 rotations=0 pruned=0 oversized=0
+2026-09-19 21:25:18.805 RX [LOG STACK] stack_mode=psram stack_bytes=8192 placement_valid=1 stack_start=0x3c203374 stack_external=1 stack_local_external=1 tcb_internal=1 tcb_bytes=352 writer_lifecycle=active stack_used_max=4440 stack_final_margin=-1 writer_core=1
+2026-09-19 21:25:18.807 RX [LOG MEM] retained=boot snapshot_bytes=240 values=bytes timestamps=us
+2026-09-19 21:25:18.807 RX [LOG MEM] phase=before_clock up_us=1831452 free=198176 largest=147444 heap_min_boot=193052
+2026-09-19 21:25:18.807 RX [LOG MEM] phase=after_clock up_us=1832232 free=192060 largest=139252 heap_min_boot=191804
+2026-09-19 21:25:18.807 RX [LOG MEM] phase=before_writer up_us=1832284 free=192060 largest=139252 heap_min_boot=191804
+2026-09-19 21:25:18.807 RX [LOG MEM] phase=writer_entry up_us=1832502 free=192060 largest=139252 heap_min_boot=191804
+2026-09-19 21:25:18.807 RX [LOG MEM] phase=after_formatter up_us=1832566 free=192060 largest=139252 heap_min_boot=191804
+2026-09-19 21:25:18.807 RX [LOG MEM] phase=before_mount up_us=1832995 free=192060 largest=139252 heap_min_boot=191804
+2026-09-19 21:25:18.807 RX [LOG MEM] phase=after_mount up_us=1902545 free=150596 largest=106484 heap_min_boot=150052
+2026-09-19 21:25:18.807 RX [LOG MEM] phase=before_current_open up_us=1917302 free=148196 largest=106484 heap_min_boot=147568
+2026-09-19 21:25:18.807 RX [LOG MEM] phase=after_current_open up_us=1918768 free=148196 largest=106484 heap_min_boot=147568
+2026-09-19 21:25:18.807 RX [LOG MEM] phase=storage_done up_us=1936894 free=148196 largest=106484 heap_min_boot=147568
+2026-09-19 21:25:18.815 RX @@STATUS boot=82 up_ms=111952 logger=ready current_size=157602 newest=19 drops=0 card_mib=15193 free_mib=15184 files=7
+2026-09-19 21:25:18.837 RX @@USB active=0 paused=0 bytes=0 result=none queue=0/16 current_limit_ms=120000 stall_ms=5000
+2026-09-19 21:25:18.858 RX [LOG USB FAIL] valid=0 at_ms=0 elapsed_ms=0 idle_ms=0 phase=none path=none reason=none loss_ms=0
+2026-09-19 21:25:18.878 RX [LOG USB SEND] file=none bytes=0 line_bytes=0 tx_free=-1 write_bytes=-1 check=none stop=none
+2026-09-19 21:25:18.899 RX [LOG USB LINK] losses=0 max_loss_ms=0 pending=0 grace_ms=1000

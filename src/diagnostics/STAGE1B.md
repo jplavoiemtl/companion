@@ -1,10 +1,10 @@
 # Stage 1B USB retrieval - first bench handoff
 
 Current handoff: [checkpoint](../../docs/sd_diagnostics_checkpoint_2026-09-19.md).
-JP accepted Stage 1. Stage 1B is substantially tested; acceptance remains pending.
+JP accepted Stage 1. JP explicitly accepted Stage 1B on September 19, 2026.
 September 19 queue/pruning, storage/close/NVS, resource and card-prefix cases
 pass. JP accepts 42-43 Hz IMU operation and restored 3.3.11 logging on with both
-test flags off. Final TLS/performance evidence review remains. Earlier sections
+test flags off. TLS/memory review and September 19 evening paired Live checks pass; JP has explicitly accepted Stage 1B. Earlier sections
 preserve bench history and test instructions, not the current next action.
 JP builds and flashes; the assistant has not built or flashed these changes.
 

@@ -5,7 +5,7 @@
 JP accepted Stage 1 on 2026-09-17 on core 3.1.3 with the writer on core 0.
 Stage 1B runs on the 3.3.11 trial with the writer on core 1. Queue and pruning gates now pass.
 Storage/close/NVS regression, resource stability and physical-card prefix checks pass.
-JP accepts the newer profile's 42-43 Hz IMU rate; final TLS/performance evidence review and Stage 1B acceptance remain.
+JP accepts the newer profile's 42-43 Hz IMU rate. TLS/memory review and the September 19 evening paired Live checks pass; JP explicitly accepted Stage 1B on September 19, 2026.
 JP accepted the rare large-download/Live FPS tradeoff; optional pacing was reverted.
 See the [end-of-day checkpoint](sd_diagnostics_checkpoint_2026-09-19.md) for the exact resume steps.
 Stage 2 network-event logging has not started.
@@ -574,8 +574,8 @@ Stage 1 used core 0. Stack placement, priority and transfer limits stay unchange
 Transport gates have substantial passing evidence, including queue/pruning on September 19.
 The 3.3.11/IDF 5.5.5, GFX 1.6.4 and Adafruit expander profile passed the
 bounded storage/close/NVS, resource and integrity cases. The three-way IMU
-comparison is complete; JP accepts the newer profile's 42-43 Hz rate. Final
-TLS/performance evidence review and JP Stage 1B acceptance remain.
+comparison is complete; JP accepts the newer profile's 42-43 Hz rate.
+TLS/memory review and paired Live checks pass; JP explicitly accepted Stage 1B on September 19, 2026.
 See the gate-by-gate evidence table at the end of the [bench results](sd_diagnostics_bench_results.md).
 Core 3.1.3 remains a rollback profile with known USB retrieval stalls.
 

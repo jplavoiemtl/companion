@@ -9,8 +9,8 @@ The same-sitting IMU comparison measures 42.27 Hz logging off and 42.67 Hz on
 with 3.3.11, versus 49.25 Hz with 3.1.3 logging off. Logging does not explain
 the profile-associated drop; its source remains unresolved. JP accepts the
 42-43 Hz rate with normal observed operation; no further IMU investigation is
-planned. JP restored and flashed 3.3.11 logging on with test flags off. Final new-profile
-TLS/performance gate review and JP acceptance remain. Historical preparations
+planned. JP restored and flashed 3.3.11 logging on with test flags off. TLS/memory
+review and September 19 evening paired Live checks pass; JP explicitly accepted Stage 1B on September 19, 2026. Historical preparations
 below are not current gate status.
 The September 19 startup fix sets the installed core TX wait to 1 ms; the USB
 transfer deadlines stay unchanged. Live-specific pacing remains reverted.

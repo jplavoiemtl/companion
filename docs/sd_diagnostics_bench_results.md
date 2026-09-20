@@ -7364,7 +7364,7 @@ compare writer cores only if the logging-on leg explains the slowdown.
 |---|---|
 | 1 Integrity | Archive 14 matches its card-reader copy (8059 bytes, CRC 99C24CB1); 2 MiB synthetic content independently verified. Current integrity now also passes: September 19 boot-74 USB download (130783 bytes, CRC 9E5F4441) exactly matches the physical card file prefix. Later records include clean shutdown; see the 10:02 entry. |
 | 2 Throughput | September 17 2 MiB download: 20.39 s; 3x is 61.17 s, below unchanged 120 s. Current plus three archives completed at 14:37. |
-| 3 Non-interference | Same-session Live and MQTT overlap measured. JP accepts only the roughly 8% large-download Live FPS exception; pacing reverted. Frame gaps and visual reports available; no separate cause-tagged main-loop gap measurement yet. Bounded storage/close/NVS and resource regression now pass. Final new-profile paired TLS/memory/performance evidence review remains; JP accepts the measured IMU profile difference. |
+| 3 Non-interference | Same-session Live and MQTT overlap measured. JP accepts only the roughly 8% large-download Live FPS exception; pacing reverted. Frame gaps and visual reports available; no separate cause-tagged main-loop gap measurement yet. Bounded storage/close/NVS and resource regression now pass. Post-checkpoint review accepts existing 3.3.11 TLS/memory evidence against 20480 bytes. Same-sitting logging-off/on comparison passes September 19 at 21:25 (3.4679 -> 3.6414 FPS). Small-bundle overlap after a675a76 passes at 21:29, same boot 82: 3.5220 FPS, 3.28% loss, four CRC successes, zero drops/errors and memory above the gate. Ready for explicit JP acceptance; see the current checkpoint. JP accepts the measured IMU profile difference. |
 | 4 Debug and rejection | September 17 damaged-line rejection and clean retry passed. Ordinary MQTT attempt BEGIN at 15:55:50.881 appears during the download ending 15:55:54.270. This proves visibility in that run, not lossless debug output under backpressure. |
 | 5 Abort/liveness | Explicit abort, page close, battery unplug, 5000 ms stall and recovery passed. September 18 sender-paced current reached elapsed_ms=120000, then normal retry passed; progressing archive completed in 154.83 s. Browser slow reads hit other guards, so JP approved sender pacing for the deadline case. |
 | 6 Current pause | September 19 boot 67: eight queued events triggered logger_busy at 8/16; all eight saved, zero drops, appends resumed and retry passed. |
@@ -7837,3 +7837,210 @@ Resume from sd_diagnostics_checkpoint_2026-09-19.md. Final TLS/performance
 evidence review and explicit JP Stage 1B acceptance remain before Stage 2.
 Do not repeat completed transport/storage/resource/card tests or the accepted
 IMU investigation. No runtime behavior changes, build or flash by Codex.
+
+## Post-19845b8 review: remaining performance checks; case A prepared
+
+JP supplied the agreed review outcome: existing 3.3.11 TLS/memory evidence is
+sufficient; retain the 20480-byte gate. For example, September 17 boot 47 Live
+has sampled largest minimum 26612 and TLS 31732; its small-bundle overlap has
+Live/TLS minima 31732. September 18 Latest also records HTTPS minimum 31732.
+These are existing measurements, not a new bench run.
+
+Two focused comparisons remain in one sitting: logging-off versus logging-on
+Live, then logging-on Live alone versus current-plus-newest-three retrieval
+starting about 10 seconds into Live. Use frames/duration and about 5% maximum
+loss for each comparison, considering network variation. Require CRC success,
+zero logging-on queue drops, no new stalls/resets and memory above the gate.
+Keep the roughly 8% exception confined to large downloads. Reuse all other
+passed evidence; no further IMU, writer-core or older-core Live testing.
+
+Live does not print every frame: geometry is guarded by dimension changes and
+summaries print at completion. Installed 3.3.11 HWCDC TX-lock waits use the
+configured TX timeout, supporting the focused regression check after a675a76.
+
+Prepared only case A: DIAG_ENABLED=0, hooks=0, fixture=0, PSRAM selection=1;
+profile remains amoled-1-8-core-3-3-11. Removed the selected generated sketch
+before JP's VS Code rebuild. JP will send status, run Latest once, complete
+one full Live cycle without downloads, then send status and retain the console.
+No hardware result yet and no Stage 1B acceptance. No build/flash/commit/push
+by Codex; untracked docs/sd_iphone_log_download_plan.md preserved.
+
+## 2026-09-19 21:16-21:18: Live case A logging-off baseline passes
+
+JP reports video looked fine and the test was OK. Local profile remains
+amoled-1-8-core-3-3-11; pre-edit flags were enabled=0, hooks=0, fixture=0,
+PSRAM selection=1. Capture confirms logger=off and writer_lifecycle=off,
+Wi-Fi/MQTT connected before and after, and increasing uptime 28521 -> 139962 ms.
+Logger boot=0 and zero logger memory snapshots are expected with logging off;
+use the independent Stage 0 probes for memory. No reset/media failure observed.
+
+| Measurement | Case A, logging off |
+|---|---:|
+| Live frames | 209 |
+| Live probe duration | 60267 ms |
+| Calculated FPS using probe duration | 3.4679 |
+| Video summary duration / FPS (rounded) | 60.3 s / 3.5 |
+| Mean frame / first frame / max gap | 288 / 1105 / 951 ms |
+| HTTP / decode / blit | 278 / 70 / 78 ms |
+| HTTP TTFB / transfer | 160 / 117 ms |
+| Mean JPEG / transfer rate | 12.9 KB / 109 KB/s |
+| Latest bytes / response / total from button | 19665 / 780 ms / 1207 ms |
+| HTTPS sampled largest minimum | 31732 bytes |
+| Live TLS sampled largest minima, three windows | 31732 / 31732 / 31732 bytes |
+| Full Live sampled largest minimum | 31732 bytes |
+| Since-boot internal heap minimum after Live | 45220 bytes |
+
+FPS uses the full-Live probe window as the millisecond duration proxy, rather
+than the one-decimal printed FPS. The video summary and probe end a few
+milliseconds apart; 209 / rounded 60.3 s also gives 3.466 FPS. This tiny timing
+precision difference does not affect the gate. Use the same method for B/C.
+Approximate 5% lower boundary for B: 3.2945 FPS.
+
+Memory passes the unchanged 20480-byte gate with 11252 bytes margin. Full Live
+has 6026 samples at 10 ms, maximum sample gap 11215 us and scan 880 us. HTTPS
+has 78 samples over 779 ms; three Live TLS windows have 65/69/66 samples over
+645/686/658 ms. No USB download occurred. No active-writer resource or queue
+performance claim is made from logging-off zero counters. No IMU re-test.
+
+Next case B prepared: restored only DIAG_ENABLED=1, retained hooks=0,
+fixture=0, PSRAM=1 and the same profile, and removed its generated
+companion.ino.cpp before JP's rebuild. In this same sitting JP builds/flashes
+in VS Code, connects the web console DTR=true/RTS=false with test switches off,
+waits for Wi-Fi/MQTT, sends status, runs Latest once and one full Live cycle
+without downloads, then status. Retain full console and visual observations.
+Stage 1B remains pending B/C and JP's explicit acceptance. No build, flash,
+commit or push by Codex. Untracked iPhone plan untouched.
+
+Source: [case A raw console](bench_data/sd_live_2026-09-19_case_a.txt), copied
+unchanged from attachment eb611736-78d1-4161-a56b-5534e3b464c7/Pasted text.txt,
+and JP's visual pass report.
+
+## 2026-09-19 21:23-21:25: case B passes paired logging-on comparison
+
+JP reports video was fine and the test was OK. Same sitting as case A,
+core 3.3.11 profile; normal logging enabled, hooks=0, fixture=0, PSRAM writer=1.
+Boot 82 remains ready/synced with Wi-Fi/MQTT connected before and after.
+No USB download, reset, media failure or new stall observed in the capture.
+
+| Measurement | A, logging off | B, logging on |
+|---|---:|---:|
+| Frames / full-Live probe duration | 209 / 60.267 s | 219 / 60.142 s |
+| Calculated FPS | 3.4679 | 3.6414 |
+| Mean frame / first frame / max gap ms | 288 / 1105 / 951 | 275 / 1121 / 918 |
+| HTTP / decode / blit ms | 278 / 70 / 78 | 265 / 57 / 80 |
+| TTFB / transfer ms | 160 / 117 | 150 / 115 |
+| Mean JPEG KB / transfer KB/s | 12.9 / 109 | 12.9 / 112 |
+| Latest bytes / total ms | 19665 / 1207 | 19665 / 1191 |
+| HTTPS / Live TLS largest minima bytes | 31732 / 31732 | 31732 / 31732 |
+| Full Live largest minimum bytes | 31732 | 28660 |
+| Since-boot internal heap minimum bytes | 45220 | 40912 |
+
+FPS increased 5.0025%; the approximately 5% maximum-loss criterion passes.
+Use the same probe-duration proxy as A, not the rounded video FPS. Network
+transfer and HTTP timings improved, and decode time changed; this bounded
+sequential pair does not establish that logging improves performance.
+Latest is 16 ms faster (about 1.33%) on equal-length images.
+
+Memory passes: full-Live minimum is 8180 bytes above the unchanged 20480 gate;
+HTTPS and all three TLS windows each have 31732 bytes minimum. Full Live:
+6014 samples at 10 ms, max gap 11434 us, scan 1535 us. HTTPS: 75 samples/750 ms;
+Live TLS: 63/62/66 samples over 631/619/657 ms. Writer stack margin is unchanged
+at 3752 bytes, valid PSRAM placement and internal TCB, core 1. Queue 0/16,
+high=1, drops/suppressed/truncated=0, error=none, slow=0. Writes 7 -> 8 and
+current size 157043 -> 157602. USB inactive/unpaused, no retained failure/loss.
+This is not a repeated-download resource measurement; prior passed evidence
+continues to cover that gate. JP's IMU acceptance remains unchanged.
+
+Only case C remains before presenting Stage 1B for explicit acceptance:
+keep the same logging-on build and boot 82, same sitting, Wi-Fi/MQTT connected,
+web DTR=true/RTS=false and all browser fault switches off. Refresh the file
+list before Live only if needed and let listing finish. Run one full Live;
+about 10 seconds in click Download current + newest 3 once. Let all four
+transfers and Live finish, then send status before any refresh/retry. Require
+all CRC checks OK, no new stalls/resets, zero drops and memory >=20480 bytes.
+Compare C to B's 3.6414 FPS; approximate 5% lower boundary is 3.4593 FPS.
+Review network variability if marginal. No additional Latest or rebuild needed.
+
+Saved [case B raw console](bench_data/sd_live_2026-09-19_case_b.txt) unchanged
+from attachment 10a7eee3-5dde-4a03-82eb-addd245e92d2/Pasted text.txt.
+Documentation/evidence only; no firmware edits, build, flash, commit or push.
+
+## 2026-09-19 21:28-21:29: case C passes; Stage 1B ready for owner acceptance
+
+JP reports video was fine and the test was OK. Same build and boot 82 as B,
+logging on, post-a675a76 USB timeout policy, no optional Live pacing.
+Current plus newest three starts 10.993 seconds after Live begins. All four
+browser/device CRC checks pass, entirely during Live:
+
+| File | Bytes | Browser duration | Result |
+|---|---:|---:|---|
+| current.log | 159448 | 1.60 s | CRC OK |
+| archive-00000019.log | 153 | 0.03 s | CRC OK |
+| archive-00000018.log | 5177 | 0.08 s | CRC OK |
+| archive-00000017.log | 308745 | 3.02 s | CRC OK |
+
+Total 473523 bytes; command-to-last-completion span 4.727 s. Archive 19 remains
+preserved partial-header evidence. Archive 18 here is 5177 bytes, not the old
+2 MiB synthetic fixture. No new independent saved-file byte comparison is
+claimed from this capture; the prior passed integrity/prefix evidence is reused.
+
+| Measurement | B, Live alone | C, Live plus bundle |
+|---|---:|---:|
+| Frames / full-Live probe duration | 219 / 60.142 s | 212 / 60.193 s |
+| Calculated FPS | 3.6414 | 3.5220 |
+| Mean frame / first frame / max gap ms | 275 / 1121 / 918 | 284 / 1136 / 983 |
+| HTTP / decode / blit ms | 265 / 57 / 80 | 273 / 58 / 81 |
+| TTFB / transfer ms | 150 / 115 | 153 / 120 |
+| Mean JPEG KB / transfer KB/s | 12.9 / 112 | 12.9 / 107 |
+| Live TLS largest minimum bytes | 31732 | 31732 |
+| Full Live largest minimum bytes | 28660 | 28660 |
+| Since-boot internal heap minimum bytes | 40912 | 40912 |
+| Writer stack margin bytes | 3752 | 3304 |
+
+Calculated FPS loss 3.2784%, within approximately 5%; use the same probe-window
+duration proxy as A/B. Network throughput also fell, so do not assign the
+entire small difference to USB. Max frame gap remains below one second, JP
+reports normal video, and the capture shows no new stall, failure or reset.
+
+Memory passes: 28660 is 8180 above the unchanged 20480-byte gate. All three
+Live TLS windows have minimum 31732 with 64/73/66 samples over 645/727/660 ms.
+Full Live has 6019 samples at 10 ms, max sample gap 11530 us and scan 1160 us.
+Writer margin falls after exercising retrieval to 3304 bytes (4888 used of
+8192), matching the September 19 passed resource series; no overflow observed.
+This is a path high-water observation, not evidence of a leak or unchanged
+stack usage. Prior repeated-download matching-idle evidence remains applicable.
+
+Final boot 82 ready/synced, Wi-Fi/MQTT connected, hooks=0, valid PSRAM writer
+placement/core 1; queue 0/16 high=1; drops/suppressed/truncated=0, error=none,
+slow=0. Current grows to 161185 bytes after the snapshot. USB idle/unpaused,
+result=ok, retained failure valid=0; final transfer link losses=0. Link counters
+are per transfer and do not by themselves establish every bundle member's
+link-loss history. All four members independently reported CRC OK.
+
+The two focused remaining performance checks are complete. Recommend Stage 1B
+acceptance with the existing narrow approximately 8% large-download exception,
+accepted 42-43 Hz profile rate, unresolved pre-logger VS Code monitor-close
+freeze/reset and deferred unsupported/bad-card testing. No separate cause-tagged
+loop-gap probe was added; use the existing summaries and visual observations.
+Stage 1B is NOT marked accepted: request JP's explicit acceptance before Stage 2.
+Stages 2-4 have not started. Normal flags remain enabled=1, hooks=0, fixture=0,
+PSRAM=1. No further bench case or rebuild requested.
+
+Source: [case C raw console](bench_data/sd_live_2026-09-19_case_c.txt), copied
+unchanged from attachment e8054e2f-8c72-4d89-ae4c-7361aa7476ef/Pasted text.txt,
+and JP's visual pass. Documentation/evidence only; no build/flash/commit/push.
+
+## Stage 1B accepted by JP - September 19, 2026
+
+JP explicitly stated: "I accept Stage 1B. Please commit and push then proceed
+to the next step." Stage 1B is accepted with the documented large-download-only
+FPS exception, accepted IMU rate, unresolved pre-logger monitor-close issue
+and deferred unsupported/bad-card testing. The 20480-byte memory gate and
+transfer limits remain unchanged. Cases A/B/C pass; normal logging-on flags
+remain enabled=1, hooks=0, fixture=0, PSRAM=1 on core 3.3.11 (last measured boot 82).
+
+Commit and push this acceptance/evidence checkpoint first, then implement
+Stage 2 network-event logging under the existing plan. JP builds and flashes;
+bench instructions remain one case at a time. Earlier pending-acceptance
+statements below are historical and superseded by this explicit decision.
+Leave the untracked iPhone download plan untouched.

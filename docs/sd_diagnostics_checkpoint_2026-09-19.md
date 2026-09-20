@@ -1,5 +1,77 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Stage 1B accepted by JP - September 19, 2026
+
+JP explicitly stated: "I accept Stage 1B. Please commit and push then proceed
+to the next step." Stage 1B is accepted with the documented large-download-only
+FPS exception, accepted IMU rate, unresolved pre-logger monitor-close issue
+and deferred unsupported/bad-card testing. The 20480-byte memory gate and
+transfer limits remain unchanged. Cases A/B/C pass; normal logging-on flags
+remain enabled=1, hooks=0, fixture=0, PSRAM=1 on core 3.3.11 (last measured boot 82).
+
+Commit and push this acceptance/evidence checkpoint first, then implement
+Stage 2 network-event logging under the existing plan. JP builds and flashes;
+bench instructions remain one case at a time. Earlier pending-acceptance
+statements below are historical and superseded by this explicit decision.
+Leave the untracked iPhone download plan untouched.
+
+## Pre-acceptance evidence assessment
+
+This update supersedes the historical next-session review below. JP reports
+that Claude and Codex reviewed the remaining evidence after commit 19845b8:
+existing core 3.3.11 TLS/memory evidence is sufficient against the unchanged
+20480-byte gate. Both focused performance comparisons now pass. Stage 1B
+still requires JP's explicit acceptance; Stages 2-4 have not started.
+
+Completed in one sitting, one case at a time:
+
+- A: core 3.3.11 logging off; status, Latest once, one full Live cycle without downloads, then status.
+- B: same profile with normal logging on; repeat status, Latest once, one full Live cycle without downloads, then status.
+- C: same logging-on build; full Live cycle with current plus newest three archives downloaded about 10 seconds into Live, then status.
+
+Calculate FPS from frame count divided by duration. Target no more than about
+5% loss for B versus A and C versus B. Review network timings before interpreting
+a marginal difference. Require CRC success in C, zero logging-on queue drops,
+no new stalls/resets, and measured largest internal blocks at least 20480 bytes.
+Reuse passed gates; the roughly 8% exception applies only to large downloads.
+Skip older-core Live and writer-core comparisons; IMU acceptance is unchanged.
+
+Source review confirms Live geometry prints only when dimensions change and
+summaries print at the end, not every frame. The installed HWCDC driver uses
+tx_timeout_ms for TX-lock waits, so the post-a675a76 overlap check remains useful.
+
+Case A passed at 21:16-21:18 on September 19. JP reports normal video.
+209 frames / 60.267 s full-Live probe window = approximately 3.468 FPS;
+Latest total 1207 ms. HTTPS, all three Live TLS windows and full Live each
+have sampled largest minimum 31732 bytes, above 20480. No observed reset or
+media failure. Raw capture: bench_data/sd_live_2026-09-19_case_a.txt; full
+measurement table and duration-method caveat are in the bench results.
+
+Case B passed at 21:23-21:25, boot 82: 219 frames / 60.142 s = 3.6414 FPS,
+5.00% above A (no measured logging penalty; not proof of a benefit). Latest
+1191 ms; full-Live largest minimum 28660 bytes, HTTPS/TLS 31732. Writer stack
+margin 3752, queue high=1, zero drops/errors/slow writes, no observed reset or
+media failure. JP reports normal video. Raw: bench_data/sd_live_2026-09-19_case_b.txt.
+
+Case C passed at 21:28-21:29, same boot 82: 212 frames / 60.193 s = 3.5220 FPS,
+3.28% below B, within the 5% target. Bundle starts 10.993 seconds into Live;
+current + archives 19/18/17 total 473523 bytes in 4.727 s, all four CRC OK.
+Full-Live largest minimum 28660 and TLS 31732; zero drops/errors/slow writes,
+no observed reset or new stall. Writer stack margin 3304 after retrieval matches
+the earlier passed resource series. JP reports normal video. Raw capture:
+bench_data/sd_live_2026-09-19_case_c.txt; complete results in bench results.
+
+Next action: present Stage 1B for JP's explicit acceptance. All agreed focused
+checks are complete; no further bench case or rebuild requested. Preserve the
+roughly 8% large-download-only FPS exception, accepted 42-43 Hz profile rate,
+unresolved pre-logger VS Code monitor-close freeze/reset and deferred
+unsupported/bad-card testing. The memory gate remains 20480 bytes.
+Stage 1B is not yet accepted and Stage 2 must wait for explicit acceptance.
+Current normal configuration remains DIAG_ENABLED=1, hooks=0, fixture=0,
+PSRAM=1, profile amoled-1-8-core-3-3-11; last measured board state is boot 82.
+
+No build, flash, commit or push by Codex. JP's untracked iPhone plan is untouched.
+
 ## Resume here
 
 JP has stopped for the day. Stage 1 is accepted; **Stage 1B acceptance remains
