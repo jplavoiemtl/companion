@@ -8340,3 +8340,51 @@ deferral remain. Stage3-4 unstarted. Commit/push completed results per JP reques
 JP explicitly accepted Stage2 and authorized proceeding to Stage3. Evidence
 through dff6597 is accepted with the recorded limitations. Stage3 source changes
 are prepared but have no firmware build or board results yet.
+
+## September 20 09:30-09:31: Stage 3 Latest/return passes, boot 89
+
+JP reports the test proceeded fine. Board confirms build=stage3-context,
+compiled Sep20 09:23:17. Latest media id6 links to network id11/HTTP200;
+IMAGE_END is exactly once, resultok/reasondisplayed, expected=received=34623,
+headers757ms, download383ms, decode141ms, total1385ms. Console total1384ms;
+one-ms boundary difference is expected. Processed Latest/navigation-back and
+observed dashboard/media/dashboard transitions are captured. Motion transitions
+and accepted publishes are present. OP_HEALTH max883ms, zero >1s loop gaps
+through uptime122014; this case does not exercise long-gap attribution.
+
+Earlier same-boot SD records, before the supplied console, also preserve:
+Latest id1/1387ms, history ids2/3/4 at1366/1248/1410ms, each HTTP200 with
+matching expected/received bytes (33550/31469/34707 for history). Live id5
+has paired connect net10, first-frame1188071us, then reason=screen_left,
+failure=none,30 frames/10649ms. http_code=0 at cancellation means the prefetched
+response had not supplied its status, not a failed HTTP status. Reuse these
+records for history and early Live exit; they are not a full-duration Live
+performance run. Earlier G-meter/inclinometer navigation is also recorded.
+The button5 route emits both its generated G-meter action and observation-only
+navigation record; that alone is not evidence of duplicate navigation.
+
+Latest HTTPS probe largest31732 (75 samples); retained boot minimum26612,
+already present at initial status, stays above20480. Internal-free minimum37616,
+writer margin3608 ->3096 after retrieval, valid PSRAM placement. Queuehigh7,
+zero drops/errors/suppressed/truncated/slow writes; ready/synced, USB ends
+idle/unpaused/resultok with no retained link loss. No reset during this capture.
+Boot89 itself reports a preceding task_watchdog from88, idle breadcrumbs;
+this capture does not identify its cause. Known monitor-close limitation stays
+unresolved. Approximate startup wall time is corrected by SNTP +164313ms;
+use uptime/sequence for ordering across that correction.
+
+Download 495206 bytes, CRC32 688D501B, SHA256
+dd76a8ab84445832a61a3b67bbc5c134a9441499bfd219de81c772b4af627aba.
+Browser CRC OK,5.10s. Prior262208-byte snapshot is an exact prefix; boot89
+records1-117 contiguous, all11 network spans and six media lifecycles paired;
+no format error. Sources: [console](bench_data/sd_stage3_2026-09-20_boot89_latest/console.txt)
+and [current log](bench_data/sd_stage3_2026-09-20_boot89_latest/89-current.log.txt).
+
+Next single case: same flashed Stage3 build, no rebuild. Hotspot/MQTT connected,
+web console DTR=true/RTS=false, test switches off. Status; one full Live cycle,
+let it return automatically (no early Back, outages or downloads during Live).
+Then status, download current, status. Send console/log and visual observations.
+Expect LIVE_BEGIN/FIRST_FRAME/END reason=duration, paired connection evidence,
+coherent frames/timing, normal video, CRCOK, zero drops/errors and memory>=20480.
+Stage3 remains unaccepted; optional tail deferred, Stage4 unstarted. No firmware
+changes/build/flash. Commit/push the completed evidence per JP preference.
