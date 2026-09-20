@@ -1,5 +1,47 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## 2026-09-20 08:06-08:08: Live during MQTT outage passes, boot 87
+
+JP reports video and test ran fine. Same corrected Stage2 build; boot87 is
+power_on, no reset during case. Intentional off precedes test attempt id6,
+5003ms/state-2/TLS-1 generic, freshness unknown. Live starts after that attempt.
+Paired Live connects id7/id8 succeed in693/625ms. MQTT_RETRY_POLICY deferred
+at uptime50499 and released/media_clear at110161. No MQTT attempt within
+Live; next test id9 starts110262, 101ms after release, fails in5003ms.
+The on command waits behind this already-running call, then restores real
+broker. Real id10 succeeds603ms/state0/recovery1; subscriptions/calibration
+accepted. This is expected blocking-command behavior, not a new stall.
+
+176 frames /60.326s = 2.9175 FPS. First frame1250ms, max gap939ms,
+average18.2KB/frame, HTTP334ms (TTFB153+xfer181), decode61ms, blit80ms.
+No direct regression percentage against last night's smaller-image runs:
+scene/image size and network conditions differ. Next normal connected run
+provides a same-session comparison; this is not a logging-off/on comparison.
+Live sampled largest minimum34804 (6033 samples); both TLS windows42996
+(69/63 samples). Test attempts63476 each (500 samples), real recovery49140
+(61 samples). All above20480. Queuehigh6; drops/errors/suppressed/truncated/
+slow writes0; writer margin3144 after download. USB idle/unpaused/resultok,
+no link loss. NET_HEALTH correctly shows mqtt0 during Live and mqtt1 afterward;
+inbound remains2, age advances: application counters, not keepalive evidence.
+
+Download 258232 bytes, CRC32 C5BA48A1, SHA256 2aa3eafb32f37b070cc61f4fe801a7adf3d2724aef41b9923dc35fdf3746a9ef.
+CRC OK,2.47s; prior boot86 snapshot exact prefix. Boot87 records1-59 contiguous,
+all ten spans paired; no NET_FORMAT_ERROR. Sources:
+[console](bench_data/sd_stage2_2026-09-20_boot87_live_outage/console.txt) and
+[current log](bench_data/sd_stage2_2026-09-20_boot87_live_outage/87-current.log.txt).
+
+Next single case: same build/session, hotspot on and normal MQTT connected,
+DTR=true/RTS=false, test switches off. Send status, run one full Live cycle
+with no off/on commands or downloads, then status, download current, status.
+Send console/log and visual observations. Compare frame count/duration and
+network/image metrics with this outage run; target no more than about5% loss,
+interpret marginal differences with network variability. No rebuild. Stage2
+remains unaccepted; Stages3-4 unstarted. Completed result commit/push authorized
+by JP. iPhone plan untouched; no firmware changes or new tests required.
+
+Earlier entries below are historical and superseded by this result.
+
+
 ## 2026-09-19 22:27-22:29: corrected hotspot case passes, boot 86
 
 JP reports normal operation. Both diagnostic corrections pass on hardware:
