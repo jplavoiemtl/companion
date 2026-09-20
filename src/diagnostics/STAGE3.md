@@ -1,5 +1,48 @@
 # Stage 3 operation context - first build and bench handoff
 
+## September 20 09:34-09:35: Stage 3 full Live passes, boot 89
+
+JP reports normal video/test. LIVE_BEGIN id7, one FIRST_FRAME, two successful
+LIVE_CONNECT links to net12/13 (770/681ms), one LIVE_END reason=duration,
+failure=none/http200 and observed return2->1. End181 frames/60410ms agrees
+with console181/60.4s; independent probe60412ms includes2ms teardown boundary.
+Probe-based FPS=2.9961. First1301678us, max gap1007386us, no >2s
+frame-gap records or suppression. Totals: HTTP58685215us, TTFB27758391us,
+xfer30926824us, decode10928883us, blit14506662us, bytes3292179; agree with
+rounded serial averages324/153/171/60/80ms and17.8KB. No per-frame success
+records. This is functional/timing consistency evidence, not a same-session
+logging-off/on performance comparison against the earlier Stage2 run.
+
+Full Live/TLS sampled largest minimum31732 (6041/77/68 samples), above20480.
+Retained boot minimum26612 was already present before case; writer margin3096
+stable. Queuehigh7, zero drops/errors/truncation/suppression/slow writes, USB
+idle/unpaused/resultok/no link losses. Same boot; no reset/stall reported.
+OP_HEALTH max883ms/gaps0, including after Live; long-gap path still unexercised.
+HEALTH during initial TLS is explicitly a1127ms-old snapshot of the previous
+idle state, not proof Live was inactive. Post-Live inbound advances to14.
+
+Download 503653 bytes, CRC32 0E3A4E1E, SHA256
+fb23c69e96bb83fabb987e7feb8c991fc4d2fbd3af7e6a501e6faa7bc867b5d1. Browser CRCOK,5.13s. Prior495206-byte
+snapshot exact prefix;153 contiguous boot89 records,13 paired network spans
+and7 paired media lifecycles. Sources:
+[console](../../docs/bench_data/sd_stage3_2026-09-20_boot89_live/console.txt) and
+[current log](../../docs/bench_data/sd_stage3_2026-09-20_boot89_live/89-current.log.txt).
+
+Next single case: controlled MQTT off/on to validate new Stage3 long-gap
+attribution. Same build, no rebuild, hotspot stays on, dashboard, web console
+DTR=true/RTS=false/test switches off. Status; off once; after first TEST MQTT
+attempt END send on promptly. Wait for real broker recovery, remain dashboard
+about70s for OP_HEALTH, status/download current/status. No media. Expected
+failed test attempt is about5s; commands/UI can wait during existing blocking
+call. LOOP_GAP should identify mqtt_connect and its network attempt ID with
+measured duration and separate other_ms; no invented SD root cause. Require
+recovery, CRCOK, zero drops/errors and memory>=20480. Send console/log and
+observations. Stage3 unaccepted; optional tail deferred; Stage4 unstarted.
+No source changes/build/flash; commit/push completed evidence per JP request.
+
+Earlier entries below are historical.
+
+
 ## September 20 09:30-09:31: Stage 3 Latest/return passes, boot 89
 
 JP reports the test proceeded fine. Board confirms build=stage3-context,
