@@ -8732,3 +8732,58 @@ network variability if marginal. Existing8% exception applies only to LARGE
 simultaneous downloads, not this small bundle. Stage3 acceptance remains
 pending; Stage4 unstarted; coverage limitations from prior entries remain.
 Completed evidence and normal-configuration restoration committed/pushed per JP.
+
+## September 20 10:17-10:18: small-bundle overlap passes; Stage3 ready for scoped acceptance
+
+JP reports video and test looked fine. Normal logging is restored in source
+and running hardware: boot91 ready/synced, hooks0, PSRAM writer valid on core1;
+fixture remains0 in source. No rebuild or further firmware change needed.
+Live completes174 frames/60.386s =2.881463 FPS,2.8625% below logging-on alone
+179/60.343s=2.966376 FPS. This passes the approximately5% overlap target without
+using the large-download exception. Average frame size17.4KB matches baseline;
+HTTP338 vs328ms, decode62 vs60ms, blit83 vs80ms. First1256ms/max gap925ms.
+These same-sitting runs span a rebuild and network variation, not a controlled
+causal overhead experiment. Earlier logging-off comparison showed no on loss.
+
+Bundle starts11.70s after Live button (11.716s in SD uptime), ends about20.3s
+into the cycle. Current588452 plus archives19/18/17 (153/5177/308745 bytes)
+total902527 bytes, all four browser CRCOK. Post-Live current591882 bytes also
+CRCOK. Independent checksums saved with raw evidence. Current-during is an
+exact prefix of current-after, which also preserves the prior boot89 snapshot.
+Boot91 has70 contiguous records,8 paired network spans and2 media lifecycles.
+Four overlapping USB lifecycles endok; final current GET naturally remains
+open at its own snapshot boundary, with successful completion proven by console.
+
+Latest HTTP200 expected=received33843; SD headers742/download347/decode140/
+total1333ms (console1332), faster than logging-off1458 and prior on1911ms.
+This reinforces timing variability and does not show a persistent still-image
+regression. Live end reason=duration/failure=none. Sampled largest28660,8180
+above20480 gate; TLS31732. Internal-free minimum40712. Queuehigh7 with zero
+drops/suppressed/truncated/errors/slow writes. Writer margin3096 after first
+retrieval matches prior tested boots; USB ends idle/unpaused/resultok/no losses.
+No LOOP_GAP record in boot91; mid-cycle OP_HEALTH maximum846ms/gaps0. No
+post-cycle aggregate claimed beyond captured records. No reset during capture.
+Boot91 starts with task_watchdog before this capture; cause is not established
+by this evidence and is not attributed to overlap. Known monitor-close reset
+limitation remains unresolved; startup reset is not silently reclassified.
+
+Evidence: [console](bench_data/sd_stage3_2026-09-20_boot91_overlap/console.txt),
+[post-Live log](bench_data/sd_stage3_2026-09-20_boot91_overlap/91-current-after-live.log.txt),
+and [all file checksums](bench_data/sd_stage3_2026-09-20_boot91_overlap/checksums.txt).
+All five downloaded files retained byte-for-byte alongside these files.
+
+Stage3 operation-context implementation is ready for JP's explicit scoped
+acceptance using passed Latest/history/Live/return, remote handover, MQTT gap,
+offline Latest, Live network loss/recovery, screen preference saves, USB power,
+and fresh performance/USB overlap evidence. This is not exhaustive branch
+coverage: forced response/decode failures, still in-flight cancellation,
+sleep/shutdown POWER_DECISION records and >2s frame-gap suppression were not
+separately induced on hardware. Optional tail remains deferred. Reuse accepted
+unchanged storage/close/NVS gates; unsupported-card and monitor-close limits
+remain documented. Do not start Stage4 until JP accepts this scope.
+
+Next action is JP acceptance, not another bench test or rebuild. After acceptance,
+Stage4 is ordinary car-use observation and retention measurement, not an
+assumed new firmware feature. No code change/build/flash this turn; source is
+normal logging1/hooks0/fixture0/PSRAM1. Evidence/checkpoint commit and push per
+JP's standing request. Existing host checks not rerun for documentation only.
