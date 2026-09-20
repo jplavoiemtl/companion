@@ -1,5 +1,56 @@
 # Stage 3 operation context - first build and bench handoff
 
+## September 20 09:39-09:40: MQTT loop-gap attribution passes despite remote Live
+
+JP reports board/test normal, with a remote-triggered Live overlapping the case.
+No repeat needed: the planned blocking attempt occurred after Live ended and
+its complete span/gap evidence is present. Extra media is recorded separately.
+
+Earlier MQTT_IMAGE accepted -> IMAGE_BEGIN id8/trigger=mqtt -> HTTP200 with
+expected=received33843, total1305ms. After1002ms display, LIVE_BEGIN id9 has
+trigger=motion_handover; first1106135us. Serial off occurs while Live active;
+MQTT_RETRY_POLICY deferred/media precedes the next Live TLS reconnect.
+Navigation Back ends Live at39559ms/114frames, reason=screen_left/failure=none;
+probe39561ms, minimum26612 (3956 samples). No MQTT attempt while active.
+Release/media_clear at649054, test attempt id17 begins649154. It fails in
+5003ms/state-2/TLS-1 generic, freshness unknown. LOOP_GAP at654160:
+elapsed_ms5235, observed_span=mqtt_connect, span_id17, span_ms5003,
+other_ms232, suppressed0. The remainder is not assigned a fabricated cause.
+UI_SCREEN is observed after this blocking call, consistent with its documented
+main-observation semantics rather than an exact LVGL event timestamp.
+
+On restores real broker: id18 succeeds537ms/state0/recovery1; subscriptions,
+calibration and periodic motion publishes accepted. UI orange then green.
+Two OP_HEALTH intervals retain max5235/gaps1/pending_suppressed0; no extra
+unexplained >1s gap. Inbound counts advance21->23 after recovery. Suppression
+of repeated long gaps is not exercised by this single gap.
+
+MQTT test probe largest63476 (501 samples), recovery53236 (53 samples),
+all above20480; retained26612 unchanged. Writer margin3096 stable; queuehigh8
+(previous7), zero drops/errors/suppressed/truncated/slow writes. USB ends idle,
+unpaused/resultok/no losses. Same boot89, no new reset or unexpected stall.
+Download 516494 bytes, CRC32 D4227FF5, SHA256
+4665b588645a77d9c9c976950fa4c5897764633aab36efd46c4e2e872406def5.
+CRCOK,5.13s; prior503653-byte snapshot exact prefix,215 contiguous boot89
+records,18 paired network spans and9 media lifecycles. Sources:
+[console](../../docs/bench_data/sd_stage3_2026-09-20_boot89_mqtt_gap/console.txt) and
+[current log](../../docs/bench_data/sd_stage3_2026-09-20_boot89_mqtt_gap/89-current.log.txt).
+
+Next single case: offline Latest failure/return, same build (no rebuild).
+Keep USB/browser connected DTR=true/RTS=false, test switches off, dashboard.
+Status; turn hotspot off, wait about30s and confirm Wi-Fi OFFLINE with status.
+Tap Latest once; expect quick return to dashboard without a new image. Do not
+retry. Restore hotspot, leave settings open and allow up to90s for automatic
+Wi-Fi/real MQTT recovery; if recovery fails stop and send console/status.
+Otherwise status, download current, final status; send log/console/observations.
+Expect exactly one IMAGE_END failed/wifi_offline, UI_RETURN and no HTTP span
+for that offline request, recovery, CRCOK and zero drops/errors. This exercises
+failure evidence, not an HTTP timeout. Stage3 unaccepted, optional tail deferred,
+Stage4 unstarted. No firmware changes; completed results committed/pushed per JP.
+
+Earlier entries below are historical.
+
+
 ## September 20 09:34-09:35: Stage 3 full Live passes, boot 89
 
 JP reports normal video/test. LIVE_BEGIN id7, one FIRST_FRAME, two successful
