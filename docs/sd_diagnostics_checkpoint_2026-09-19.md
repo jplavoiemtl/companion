@@ -1,5 +1,18 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## September20 revision: wireless retrieval before car testing
+
+JP changed the sequence: develop iPhone log retrieval on the companion bench
+unit, review with Claude, and bench-accept it before real car testing. Then use
+accepted firmware and a blank FAT32 card in the car unit. Stage3 remains accepted;
+Stage4 field measurements are pending. The USB-after-trip procedure below is
+historical and is not the current action. No firmware/build/flash changes.
+See [wireless plan review](sd_iphone_log_download_review.md). Claude's original
+untracked draft remains untouched. Next: settle scope and obtain Claude review,
+then run the actual-iPhone network proof one case at a time.
+
+Earlier entries below are historical.
+
 ## September 20: JP accepted Stage3; Stage4 field observation started
 
 JP explicitly accepted Stage3 and requested the next step. Acceptance covers
