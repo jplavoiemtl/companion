@@ -8683,3 +8683,52 @@ Stage3 remains unaccepted; Stage4 unstarted; previous coverage limits unchanged.
 Evidence and temporary bench flag committed/pushed per JP request. No new
 functional implementation; prior71 host checks were for normal configuration,
 not rerun or claimed for this temporary flag-only change. JP compilation pending.
+
+## September 20 10:11-10:12: logging-off comparison complete; normal source restored
+
+JP reports normal test. Status confirms logger=off, writer_lifecycle=off,
+measured=0, no SD writes. Boot0/empty session are disabled identity fields,
+not a real persistent boot number. Uptime rises28142->101264ms without a
+captured restart. Zero logger memory fields are unmeasured, not gate failures.
+
+Logging-off Live:161 frames/60.395s =2.665784 FPS. Logging-on baseline:
+179/60.343s =2.966376 FPS,11.276% higher (signed on-loss=-11.276%). The paired
+Live no-more-than-about5% logging-on-loss criterion is met observationally;
+this does NOT establish a logging speed benefit or isolate overhead. Network
+and decode variation are material: off/on HTTP366/328ms, TTFB162/153ms,
+transfer204/175ms, decode73/60ms, blit77/80ms, frame size17.6/17.4KB. On was
+an established boot; off was freshly flashed. No artificial correction applied.
+Off first frame1184ms, maximum gap999ms; full cycle finishes normally.
+
+Latest succeeds with33843 bytes, total1458ms versus1911ms on (on31.07% longer).
+Headers794 versus929ms; body completion1314 versus1763ms since button press.
+The difference is mostly request/download time, with similar post-download
+processing144 versus148ms. One request per arm cannot attribute the difference
+to logging; record variability rather than claim equivalent still latency.
+
+Off sampled largest: HTTPS/TLS31732, full Live28660 (8180 above20480 gate).
+Internal-free boot minimum44200. On Live largest24564 also passed. No visible
+failure/reset in capture; Wi-Fi/MQTT connected at end. No SD CRC or writer
+stability claim for the off arm, where the writer did not run. Raw evidence:
+[console](bench_data/sd_stage3_2026-09-20_logging_off/console.txt), SHA256
+f956ea73355c1c6d6bfc99d24d5a1a560dce4cb39bd3f5623215ef1a1672291a.
+
+Source restored to DIAG_ENABLED=1; hooks0, fixture0, PSRAM writer1 and
+stage3-context tag unchanged. Selected profile remains amoled-1-8-core-3-3-11.
+Generated build/build_amoled-1-8-core-3-3-11/sketch/companion.ino.cpp removed
+before JP rebuild. Board remains logging OFF until JP builds/flashes in VS Code.
+No assistant build/flash; no functional code changes or repeated host tests.
+
+Next single case: restored logging-on Live plus small USB bundle. JP builds/
+flashes, connects web console DTR=true/RTS=false/test switches off, waits for
+Wi-Fi/MQTT and logger ready, refreshes file list before Live. Status, Latest
+once, return dashboard, start one full Live cycle. About10s into Live click
+Download current + newest 3 once. Let downloads and full Live finish; status,
+then download current once more after Live to capture its end, and status.
+Send console, downloaded files and visual observations. Require CRC success,
+zero drops/errors/new stalls/resets and sampled largest>=20480. Compare exact
+FPS to the2.966376 on-alone baseline; target no more than about5% loss, assess
+network variability if marginal. Existing8% exception applies only to LARGE
+simultaneous downloads, not this small bundle. Stage3 acceptance remains
+pending; Stage4 unstarted; coverage limitations from prior entries remain.
+Completed evidence and normal-configuration restoration committed/pushed per JP.
