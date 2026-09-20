@@ -1,5 +1,121 @@
 # iPhone log retrieval - review against accepted Stage3
 
+## September20 follow-up: case1 evidence review at ed85ff6
+
+Requested result checkpoint0360c90; actual clean checkout ed85ff6 adds only the
+reported iOS26.6.2 metadata. Review accepts case1's stated reachability/basic
+save pass as reported by JP. The repository contains the narrative and selected
+log snippets, not linked raw request-header captures, socket traces or Files
+screenshots. Independent verification is therefore limited; do not label the
+inferences below as packet-level proof. No firmware/build/flash changes.
+
+### Seven findings: supported result versus inference
+
+1. Supported: Safari on the hotspot-host iPhone reached the laptop client and
+   loaded the listing. Rename 'client-to-client' to 'hotspot-host phone to Wi-Fi
+   client'. This is the desired direction; reachability between two tethered
+   clients, or to the ESP32 HTTP server itself, was not tested.
+2. Supported: one favicon GET and no second one in the cited page loads. Not
+   established: exactly once per session. Caching/browser decisions vary. A
+   cheap204 route with no SD/transfer reservation is right, but an ordinary
+   cheap404 would not inherently consume the session either. Routing must
+   acquire the reader reservation only for operations that need it.
+3. Reported same-byte files with differing MIME types gave inline versus save
+   behavior. This supports binary attachment responses for firmware. The
+   evidence does not show a controlled Content-Disposition test, so distinguish
+   the attachment header design decision from what was tested. It does not
+   prove text/plain plus attachment cannot download. Preserve filename, MIME
+   and response headers in future response-contract evidence.
+4. Two distinct phone ports in TIME_WAIT prove two recently closed connections,
+   not two concurrent established sockets, their purpose, or two per download
+   generally. 'Speculative/preconnect' remains a hypothesis. Keep budget above
+   one client as a prudent starting configuration and test live connection
+   occupancy on firmware. max_open_sockets counts clients, separate from the
+   three internal HTTPD sockets. Thus2 permits two clients; it is not disproven
+   by the two-port observation. Start within the existing2-3 proposal, measure
+   spare capacity/idle-client starvation and memory, and do not reserve one
+   retrieval session per TCP accept. One reader session across USB/HTTP remains.
+5. No HEAD is supported only for the quoted observed request lines, assuming
+   completeness. No Range is NOT established by GET200: Range is a request
+   header. Python3.13.9's normal access log records request line/status, not
+   headers; SimpleHTTPRequestHandler's file response does not implement Range.
+   A GET with Range can therefore still produce200. Replace 'disproves' and
+   'client does not require resumability' with 'observed downloads completed
+   without implementing resume; version1 keeps full-body200 behavior'. Capture
+   actual Range/If-Range headers in firmware bench evidence; keep HEAD policy
+   explicit and cheap. No need to rerun the laptop case just for this.
+6. Reported2MiB save supports feasibility. The cited '2.1MB' phone display plus
+   exact local fetch does not independently prove2097152 bytes on the phone.
+   If exact Files Info was checked, retain that as JP's observation; otherwise
+   label the size rounded pending exact exported-file comparison. Local fetch
+   validates the local path, not the saved iPhone copy.262144 bytes is256KiB
+   (not262KiB), and524288 is512KiB (not524KiB).
+7. '713KB of2.1MB' supports visible incomplete progress for this interruption.
+   It does not establish that every truncated download is detected, nor what
+   final Files object is saved. The screenshot text alone does not prove the
+   filename-size check, which still needs an exact-byte view. Retain the
+   deliberate truncated-firmware-response and Safari-export bench gates.
+
+The preview/download distinction is valid: inability to preview is not download
+failure. Preserve JP's reported preview diagnosis, but do not use absent Range
+proof to explain it. Exact saved size/content is stronger evidence than the
+preview error wording or server200 (which can precede body completion).
+
+### Timing deferral accepted, with a concrete later gate
+
+Do not spend another case repairing laptop throughput measurement. Keep120s
+current overall limit and5s no-progress abort unchanged pending firmware data.
+Average throughput informs the overall bound; longest no-progress interval,
+queue occupancy and cancellation latency govern stall safety. Neither comes
+from nominal laptop speed. The ESP32 is the actual server, but it is not yet
+proven to be the sole performance bottleneck. PC association failures do not
+implicate nonexistent firmware; they remain relevant network/rig observations,
+not proof that the hotspot played no role. The companion staying associated
+shows that a total outage did not affect all clients, not the PC failure cause.
+
+Specify now, execute only when its turn comes: first small immutable firmware
+archive transfer records exact bytes, request/start/end monotonic times, first
+body/progress time, maximum no-progress gap, result/CRC, queue high/drops,
+internal free/largest and stack margin, while JP confirms actual Safari save.
+Then a SEPARATE representative2MiB immutable archive transfer measures steady
+transfer behavior and exported Safari-file integrity. Follow with current.log
+snapshot under ordinary logging: paused duration, queue-pressure early abort,
+resume and zero drops matter as much as elapsed time. Do not conclude from a
+fast archive that a current snapshot can safely hold appends paused120s.
+Record device send completion separately from phone save completion; never
+advertise socket-accepted bytes as a verified phone save.
+
+### Spec adjustments and workflow
+
+Binary attachment headers, SD-free favicon handling and spare socket capacity
+are appropriate requirements; the causal claims above need narrower wording.
+No architecture, power, five-minute idle, single-reader or integrity-scope change.
+Favicon can use a socket but cannot acquire the reader reservation, replace last
+transfer result or touch SD. It is still an HTTP request under JP's agreed idle
+reset rule. Bounded servicing of second requests while streaming remains a design
+requirement; max_open_sockets alone does not make handlers concurrent.
+
+Do not instruct JP to keep Settings/Personal Hotspot foreground throughout a
+Safari test on the same phone. Foreground it to establish/re-establish association,
+then switch to Safari and record behavior. 'Hotspot stops advertising on lock'
+is a rig observation, not a universal established rule. Firewall setup must
+follow the actual adapter profile with a narrow rule; the earlier Private-only
+instruction and later blanket Public guidance should not both remain current.
+Claude review's outstanding iOS question is now answered by ed85ff6.
+
+Agree with JP's proposed sequence: Claude writes a short implementation spec;
+Codex reviews; JP approves; Codex implements bounded increments; Claude reviews
+each increment and issues are addressed before JP builds/flashes. State models,
+ownership/cancellation deadlines, exact response contract, active versus idle
+socket budgeting, snapshot/result identity and one next bench gate per increment
+must be explicit. Shared reader extraction first with USB regression remains a
+useful first increment. This review is not implementation approval.
+
+Reference checked: Python3.13.9 SimpleHTTPRequestHandler/send_head and
+BaseHTTPRequestHandler/log_request:
+https://github.com/python/cpython/blob/v3.13.9/Lib/http/server.py
+
+
 ## September20 follow-up: review of Claude at4cbe974
 
 Scope: iphone-log-retrieval branch, clean before review. Historical draft is now
