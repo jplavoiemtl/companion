@@ -1,5 +1,45 @@
 # Stage 2 network evidence - first bench handoff
 
+## 2026-09-19 22:27-22:29: corrected hotspot case passes, boot 86
+
+JP reports normal operation. Both diagnostic corrections pass on hardware:
+raw_rssi=-128/raw_valid=0 retains rssi=-31/rssi_source=last_valid. Initial
+beacon_timeout reason200 has raw_valid=1. Alternating reasons201 and36 are
+reported about every7.245 seconds per reason, with four suppressed events
+between pairs. NET_HEALTH wifi_suppressed=16 confirms cumulative suppression;
+logger queue suppression/drops remain zero. Association resets pending count;
+reason36 is sta_leaving. Recovered valid health RSSI is -18.
+
+MQTT_LOST state=-3 precedes recovery; TLS48 freshness unknown is not a proven
+new TLS failure. Reconnection id6 succeeds in486ms, state0/recovery1, all three
+subscriptions/calibration accepted. Latest id7 headers714ms/HTTP200, total1135ms,
+19665bytes; motion publish accepted. Sampled recovery minimum55284 (49 samples),
+HTTPS28660 (71 samples), both above20480. Writer margin3640 before download,
+3144 after; queuehigh7, zero drops/errors/truncation/slow writes. USB ends idle,
+unpaused/resultok with no link losses. No reset during captured test. Boot86
+itself reports a watchdog before capture with prior boot85 idle breadcrumbs;
+this capture does not establish its cause. The earlier monitor-close limitation
+remains unresolved and is not newly diagnosed here.
+
+Download 241825 bytes, CRC32 9CC35ADA, SHA256 2f408372b9feafd5e48af8822702236aaa407b1629b0703294e4c0b337a97c8d.
+Prior boot84 snapshot is an exact byte prefix; 62 contiguous boot86 records,
+seven paired spans, no format errors. CRC OK;2.36s. Sources:
+[console](../../docs/bench_data/sd_stage2_2026-09-19_boot86_hotspot/console.txt) and
+[current log](../../docs/bench_data/sd_stage2_2026-09-19_boot86_hotspot/86-current.log.txt).
+
+Next single case, same build: keep hotspot on, dashboard, browser DTR=true/
+RTS=false and test switches off. Status; send off once. After first TEST MQTT
+attempt END, promptly start one full Live cycle (before next15-second retry).
+Keep MQTT off throughout Live; no downloads during it. After normal Live finish,
+send on once, wait for real MQTT recovery, then status/download current/status.
+Expect media retry deferral, paired Live connect records, no MQTT attempts while
+Live is active, release after media ends, normal video and recovery, CRC OK,
+zero drops/errors and memory>=20480. Capture full console, log and visual report.
+No rebuild. Stage2 remains unaccepted; Stage3-4 unstarted. No firmware changes.
+
+Earlier entries below are historical and superseded by this result.
+
+
 ## Commit handoff authorized by JP
 
 JP requested committing and pushing this completed implementation/evidence batch
