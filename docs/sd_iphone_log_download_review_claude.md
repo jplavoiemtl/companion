@@ -175,6 +175,10 @@ the diagnostics are useful:
   accounted for exactly like the existing `ignored_live` / `ignored_echo` cases.
 - `buttonBack_event_handler()` (`image_fetcher.cpp:688`) - refuse before `imageBegin()` and
   `prepareForRequest()`, recording `IMAGE_REFUSED trigger=history_back reason=download_mode`.
+  **Ordering is load-bearing:** both still callers run `imageBegin()` *first*
+  (`image_fetcher.cpp:648` and `:693`), and `imageBegin()` also terminates the previous
+  image as replaced. Admission must therefore be checked **before any lifecycle mutation**,
+  not inside the preparation that follows it.
 - `videoStreamStart()` (`video_stream.cpp:734`) - add the clause next to the existing
   Wi-Fi-offline refusal, which already returns false and records
   `LIVE_REQUEST result=refused reason=...`. This single point covers both the Live button
@@ -184,22 +188,52 @@ the diagnostics are useful:
 `prepareForRequest()` and at the top of `videoStreamStart()`, refuse and record with a
 `path=late` marker if the mode is somehow active. `prepareForRequest()` is `static void`
 with two real callers today, so this means changing it to return `bool` and having both
-callers honour it. That is a small, mechanical change and it is what makes the later LVGL
-screen safe by construction rather than by review.
+callers honour it.
+
+**Corrected after Codex's review:** `if (!prepareForRequest()) return;` is *not* a complete
+backstop contract. Because `imageBegin()` already ran, a late refusal leaves an unpaired
+`IMAGE_BEGIN` and has already marked the previous operation replaced. A backstop that fires
+must therefore either finish the lifecycle it finds open, or - better - never be the thing
+that decides admission. Treat the chokepoint check as a **diagnostic assertion** that
+records `path=late` and closes what it finds, while the authoritative guard stays ahead of
+all side effects. `videoStreamStart()` is also not a *second*, independent guard for the
+Live button, since the direct Live path never touches `prepareForRequest()` - it is that
+path's only guard. Preserve `motionTriggered` assignment after preparation (preparation
+clears it) and preserve the preparation-inclusive timing that `imageBegin()` measures.
 
 **4. The reverse direction, in one place.** Mode entry is refused unless all of:
 `vbusPresent`, logger ready (the existing `usbStatus().ready` definition),
 `WiFi.status() == WL_CONNECTED`, `!imageFetcherIsBusy()`, `!videoStreamActive()`, and
 `!diagnosticsUsbBusy()`. Each refusal records its own reason so a failed entry explains
-itself on the console and in the log. This closes the race Codex identified in point 5:
-refusing media while the mode is open is only half of it.
+itself on the console and in the log.
+
+**That list is insufficient, and Codex found the hole.** `imageFetcherIsBusy()`
+(`image_fetcher.cpp:227-230`) tests `pendingEndpoint`, `requestInProgress` and the three
+in-flight `httpState` values. When a motion-triggered still finishes displaying
+(`:591-597`), `httpState` becomes `HTTP_COMPLETE` and `requestInProgress` becomes false,
+while `imageDisplayTimeoutActive` stays true and `motionTriggered` is still pending. For
+the whole `MOTION_STILL_TIMEOUT` window the fetcher reports **not busy**, so mode entry
+passes every check above - and then the pending handover at `:320-332` calls
+`videoStreamStart("motion_handover")`, which the new guard refuses, and the refusal path
+runs `returnToPreviousScreen()`, changing the UI underneath a download session. An ordinary
+still has the same shape with its automatic return timer.
+
+Entry must therefore also require **no pending display-timeout or handover**: test
+`imageDisplayTimeoutActive` / `motionTriggered` as part of admission, or deliberately
+cancel the pending transition on the main task before entering. Do not widen
+`imageFetcherIsBusy()` itself without reviewing the MQTT retry-deferral callers at
+`companion.ino:2497-2506`, which use it for a different purpose.
 
 **5. One host check.** Add `tools/tests/media_admission.test.cjs` in the style of the
 existing source-contract checks: enumerate every call site of `prepareForRequest()` and
 `videoStreamStart()` across `companion.ino`, `image_fetcher.cpp` and `video_stream.cpp`,
-and assert each is either guarded or is itself a guard. That converts "did we remember all
-five paths?" from a code-reading exercise into a check that fails when a sixth path
-appears. It is also the test that protects this work when the LVGL screen is added.
+and assert each is either guarded or is itself a guard, scanning the whole production tree
+and excluding comments. That converts "did we remember all five paths?" from a code-reading
+exercise into a check that fails when a sixth path appears, and it protects this work when
+the LVGL screen is added. **It proves nothing about runtime invariants**, so pair it with
+behavioural cases: refused entry leaves no pending endpoint, no UI or buffer mutation and
+no unpaired begin/end; allowed entry still leaves normal Latest, history-back and motion
+handover working afterwards.
 
 **Records to add**: `RETRIEVAL_MODE action=enter|exit trigger=... reason=...` for the mode
 itself; everything else reuses `IMAGE_REFUSED`, `LIVE_REQUEST` and the image-notification
@@ -272,13 +306,19 @@ check.
 
 ### Why Option A wins anyway
 
-1. **A stack overflow in the writer takes down logging itself.** Option B adds an
-   unmeasured caller - lwIP - to the task that owns the SD card, on a measured margin of
-   **3144-3640 bytes**. The stack can be raised cheaply because it is PSRAM, but the
-   failure mode is the evidence system dying in the one situation it exists to record. A
-   separate server task is isolated: if it dies, logging survives. This project has spent
-   three stages protecting the writer; spending that margin on an HTTP server is the wrong
-   trade.
+1. **Stack budgeting, not fault isolation.** Option B adds an unmeasured caller - lwIP -
+   to the task that owns the SD card, whose latest accepted logging-on margin is
+   **3096 bytes** (boot 91 overlap console; 3608 earlier in the same session). A separate
+   task gets a stack that can be sized and measured on its own, without disturbing a margin
+   three accepted stages were spent protecting.
+   **Correction after Codex's review:** an earlier version of this section claimed that if
+   the server task died, logging would survive. That is wrong. The installed bundle sets
+   `CONFIG_COMPILER_STACK_CHECK=y` / `STACK_CHECK_NORM` with
+   `CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y`, so a stack overflow aborts and reboots the
+   whole device. Task separation buys scheduling independence and an independently
+   measurable stack budget - not process-like containment. The decision stands on that
+   narrower claim, and the server task's own stack margin has to be measured like any
+   other.
 2. **The component already provides what Option B would hand-roll**, and the installed
    defaults are close to what this design wants: `send_wait_timeout` and
    `recv_wait_timeout` are 5 seconds, matching the existing `STALL_MS`; `lru_purge_enable`
@@ -292,22 +332,58 @@ check.
    Option B's "no cross-task handoff" advantage only holds if the writer also owns the
    socket - which is exactly what (1) rules out.
 
-Settings to pin at implementation: `max_open_sockets` 2-3, `lru_purge_enable` false
-(default), and a `send_wait_timeout` short enough that a blocked send cannot outlast the
-500 ms close budget in `diagnosticsClose()` - the 5 second default is **too long** for
-shutdown, so either lower it or make shutdown close the listening socket and trigger
-session close rather than waiting on the handler.
+Settings to pin at implementation: `max_open_sockets` 2-3 - noting the header's own comment
+that **three further sockets are reserved for the server's internal working**, so this is
+not the whole socket budget - and `lru_purge_enable` false (the default), so a new
+connection cannot evict the socket carrying an active transfer.
 
-### Internal memory this costs, to be measured not assumed
+**The shutdown advice in an earlier version of this section was wrong, and Codex is right
+to reject it.** `send_wait_timeout` is `uint16_t` **in seconds**
+(`esp_http_server.h:200-201`), so no positive value can express a sub-500 ms bound; there
+is no setting that makes the handler fit the close budget. Closing the listening socket
+does not interrupt an already-accepted connection, `httpd_sess_trigger_close()` queues work
+onto the HTTP task, and `httpd_stop()` waits for that task - so a handler blocked in
+`send()` delays all three. The 5 second socket timeouts are also not the writer's
+progress-based `STALL_MS` or its overall `CURRENT_MS`; they are a different mechanism.
 
-`CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP` is **not** set, so Wi-Fi and lwIP buffers come from
-internal RAM. Per the installed config: `LWIP_TCP_SND_BUF_DEFAULT` 5744,
-`LWIP_TCP_WND_DEFAULT` 5760, `LWIP_TCP_MSS` 1436, `LWIP_MAX_SOCKETS` 16. With three
-sockets, a 4096-byte task stack and per-session scratch of 1024 + 512, the order of
-magnitude is roughly 10-16 KB internal while a transfer is active, with no single
-allocation near the 20480-byte largest-block gate. That is an estimate from configuration,
-not a measurement, and it does not settle the binding case: **an MQTT TLS reconnect needing
-a contiguous ~16 KB while the server holds its allocations.** That remains the memory gate.
+What follows for the design:
+
+- **Writer cancellation and append recovery must not depend on the HTTP handler.** Main
+  publishes cancellation; the writer executes SD cleanup on its own turn and resumes
+  appends whether or not the handler has noticed. `finishError()` is `static` inside
+  `diagnostics_usb.cpp` and closes and reopens SD directly, so `updatePowerStatus()` cannot
+  literally call it - power handling raises a flag, the writer acts on it.
+- **Never call `httpd_stop()` from the main loop's power-transition or close path.**
+- **The mode needs STARTING and STOPPING states**, both exclusive to media, so teardown
+  cannot hand media back while the server still holds memory.
+- A synchronous streaming handler also delays favicon and second-request handling. Either
+  yield inside the handler on a bounded schedule, or accept and test the delayed reply.
+
+### Internal memory this costs - withdrawn as an estimate, kept as a gate
+
+An earlier version of this section estimated 10-16 KB internal from the configured TCP
+sizes and concluded no allocation would approach the 20480-byte gate. **Codex is right that
+the inference does not hold, and it is withdrawn.** Three specific errors:
+
+- "`CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP` unset, therefore lwIP buffers are internal" is
+  false. The unset branch in `lwipopts.h` maps `mem_clib_malloc`/`calloc` to plain
+  `malloc`/`calloc`, and Arduino's `esp32-hal-psram.c` calls
+  `heap_caps_malloc_extmem_enable(CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL)` with that threshold
+  at **4096**, so allocations above it can land in PSRAM. Placement has to be inspected,
+  not inferred from the preference flag.
+- `LWIP_TCP_SND_BUF_DEFAULT` 5744 and `LWIP_TCP_WND_DEFAULT` 5760 are **capacity limits,
+  not a reserved-memory account**, and they omit receive paths, pbufs, netconn, PCBs,
+  mailboxes, HTTP session state, headers and the handoff buffer. Three fully occupied send
+  budgets alone are 17232 bytes before any of that.
+- "No single allocation near 20480" is not the same as "20480 stays free". Many small
+  allocations fragment the contiguous block, which is precisely what the gate measures.
+
+The configured values remain worth recording - `SND_BUF` 5744, `WND` 5760, `MSS` 1436,
+`LWIP_MAX_SOCKETS` 16, server stack 4096 with `task_caps` internal, `max_req_hdr_len` 1024,
+`max_uri_len` 512 - but as inputs to a measurement, not a prediction. The binding case is
+unchanged: **an MQTT TLS reconnect needing a contiguous ~16 KB while the server holds its
+allocations**, measured across server idle, active and slow transfers, the maximum admitted
+clients, and repeated reconnect/close/re-entry.
 
 One placement note: `LWIP_TCPIP_TASK_AFFINITY_CPU0` pins the TCP/IP task to core 0 while
 the writer runs on core 1. Leaving the server task unpinned (`tskNO_AFFINITY`, the default)
@@ -354,9 +430,12 @@ These are current, verified source behavior, not proposals:
 
 ## Memory: the binding case is MQTT reconnect during download mode, not the download
 
-Measured internal largest-block minima on the accepted build: normal **57332**,
-`image_https` **31732**, `live_tls` **31732**, full `live` **28660**, against the retained
-**20480** gate. Idle internal free is ~95688 (probe `heap_min_boot`).
+Measured internal largest-block minima, against the retained **20480** gate: `image_https`
+**31732**, `live_tls` **31732**, full `live` **28660**. **Provenance correction after
+Codex's review:** the normal-window figures 57332 and 95688 come from the **logging-off**
+console of 2026-09-20 10:11, not the accepted logging-on build, and `heap_min_boot` is a
+historical minimum for the boot rather than current idle free. They are not a baseline for
+this feature; take fresh logging-on numbers in the same sitting as the server measurements.
 
 Download mode refuses media, so the Live and image windows are not the worst case for this
 feature. The worst case is a **TLS reconnect while the HTTP server holds its allocations**:
@@ -384,23 +463,34 @@ verifies before saving.
 JP asked for a recommendation rather than options. This is it - four layers, none of which
 requires JavaScript, client-side crypto, or anything that can fail differently on iOS:
 
-1. **The expected size goes in the served filename.**
-   `Content-Disposition: attachment; filename="87-current-262208.log"` for the current file
-   (boot number, so repeat downloads do not collide in Files) and the existing
-   `archive-00000012.log` name with its size appended for archives. The size is known from
-   `fstat` on the snapshot before headers are sent, so this costs nothing. **The Files app
-   shows a file's size, so a truncated save is visible on the phone itself**, with no tools
-   and no computer - the one check JP can actually perform in the car.
+1. **The expected size and a transfer ID go in the served filename.**
+   `Content-Disposition: attachment; filename="87-0004-current-262208.log"` - boot, a
+   per-boot monotonic request number, the file, the expected bytes. **Codex is right that
+   boot plus size is not a unique download ID**: two snapshots of `current.log` taken
+   minutes apart can share both. The size is known from `fstat` on the snapshot before
+   headers are sent, so this costs nothing. **The Files app shows a file's size, so a
+   truncated save is visible on the phone itself**, with no tools and no computer - the one
+   check JP can actually perform in the car.
 2. **The device computes CRC32 while streaming** - `updateCrc()` is already in the reader
-   path - and records `bytes` and `crc32` in an `HTTP_GET_END` record beside the existing
-   `USB_GET_END`. The device's own log therefore always states what it believes it sent.
-3. **The index page shows the last transfer's result** after a refresh: name, bytes,
-   crc32, result. That turns "did it work?" into something JP can answer from Safari
-   without a second device.
+   path - and records the transfer ID, expected size, bytes the transport accepted, CRC and
+   result together, atomically, in an `HTTP_GET_END` record beside the existing
+   `USB_GET_END`. Count the CRC exactly once despite partial sends or retries, and keep
+   "send completed" distinct from "browser saved". **Do not claim this record is always
+   available**: it cannot appear in its own snapshot of `current.log`, and a shutdown or SD
+   failure may prevent it being persisted at all.
+3. **The index page shows the last transfer's result** after a refresh: transfer ID, name,
+   expected bytes, bytes sent, crc32, result. That turns "did it work?" into something JP
+   can answer from Safari without a second device. The refresh must be **SD-free**, and a
+   favicon or index request must never overwrite the stored download result.
 4. **The bench gate does the real byte-for-byte proof with a laptop**, not the phone:
-   `curl` the same file over the same hotspot, compare size and CRC32 against the device's
-   reported values and against the card contents. Once that passes, the iPhone path only
-   has to demonstrate that it saves a file of the same size.
+   `curl` over the same hotspot, comparing each body against **its own** transfer's expected
+   size and CRC. For immutable archives, also compare the whole file against the card. For
+   `current.log`, a second request is a **different snapshot** - changed at minimum by the
+   retrieval records themselves - so compare it against the matching **prefix** of the card
+   file after a safe close, never against an earlier download.
+5. **Export one actual Safari-saved file** from the phone and compare it byte-for-byte at
+   the bench. Laptop `curl` exercises the server; it does not exercise Safari's save path,
+   and that is the path JP will rely on.
 
 Do not put a streaming CRC in a response header - it is not known when headers are sent.
 Do not claim "verified" in the page text: for the iPhone, version 1 verification is
@@ -487,6 +577,23 @@ Codex's list is good. These are not on it and each catches something real:
 8. **Truncated-download detection**: force an abort after headers and confirm what Safari
    saves and whether the size in the filename makes it detectable.
 
+Added after the Codex round of September 20:
+
+9. **Pending motion handover**: take a successful remote still, enter download mode during
+   the `MOTION_STILL_TIMEOUT` window, and verify the mode result, the screen, the network
+   result and that no surprise navigation occurs.
+10. **Client that stops reading**: confirm prompt main/UI and writer cleanup while a handler
+    is blocked in `send()`, including a power-off and an explicit exit during that block.
+11. **Occupied keep-alive sockets**: fill the admitted client budget and confirm refusal
+    behaviour with `lru_purge_enable` false, plus favicon and second-request servicing
+    during an active transfer.
+12. **Teardown and re-entry**: repeated mode enter/exit with STARTING/STOPPING observed,
+    confirming media is not handed back while the server still holds memory.
+13. **Five-minute expiry across a hotspot loss**, confirming the backstop still fires and
+    the mode leaves cleanly.
+14. **Server task stack margin** measured like the writer's, since an overflow reboots the
+    device rather than being contained.
+
 ## Suggested order, one case at a time
 
 1. iPhone-to-laptop reachability proof, no firmware. Record the iOS version.
@@ -504,6 +611,30 @@ Codex's list is good. These are not on it and each catches something real:
 11. Server-off regression: same-sitting Latest/Live/IMU, no new stalls or resets.
 12. LVGL entry screen, then the car: CAR build, accepted profile, blank FAT32, retrieval
     with the engine running.
+
+## Codex follow-up, September 20: six corrections accepted
+
+Codex reviewed this document at `4cbe974` and raised six findings
+([their review](sd_iphone_log_download_review.md), `6e08c1f`). I verified each against the
+installed SDK and the current source rather than accepting them as reported. **All six
+hold, and all six are corrections to my proposals rather than to JP's decisions.** They are
+applied in place above; in summary:
+
+| # | Finding | Verified against | Effect |
+|---|---------|------------------|--------|
+| 1 | Shutdown is not bounded by `send_wait_timeout` | `esp_http_server.h:200-201` - `uint16_t`, seconds | My shutdown advice was impossible; replaced with writer-independent cancellation, no `httpd_stop()` on the close path, STARTING/STOPPING states |
+| 2 | Reverse guard misses a pending motion handover | `image_fetcher.cpp:227-230`, `:591-597`, `:320-332` | Entry must also test pending display/handover state; real hole in my proposal |
+| 3 | `bool prepareForRequest()` is not a complete contract | `image_fetcher.cpp:648`, `:693` - `imageBegin()` runs first | Admission moves ahead of all lifecycle mutation; the chokepoint becomes a diagnostic assertion |
+| 4 | The memory estimate is unsupported | `lwipopts.h` unset branch maps to `malloc`; `esp32-hal-psram.c` enables extmem above 4096 | Estimate withdrawn; capacities are not a reserved-memory account; baselines 57332/95688 were from the logging-off session |
+| 5 | A separate task is not crash isolation | `CONFIG_COMPILER_STACK_CHECK=y`, `CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y` | Claim narrowed to scheduling and stack budgeting; the architecture decision stands on that |
+| 6 | Verification needs per-transfer identity | - | Transfer ID added; "always available" removed; `curl` of `current.log` compared to a card prefix; a real Safari-saved file added to the gates |
+
+One of my own numbers was also stale: the writer's latest accepted logging-on stack margin
+is **3096 bytes** (boot 91 overlap), not the 3144-3640 range I quoted from Stage 2.
+
+Nothing here changes the architecture choice, JP's power decision, the five-minute backstop
+or the four-layer verification approach. Finding 1 is the one that most changes
+implementation work, and findings 2 and 3 are the ones that would have shipped as bugs.
 
 ## Decisions recorded on September 20
 
