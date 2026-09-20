@@ -596,7 +596,10 @@ Added after the Codex round of September 20:
 
 ## Suggested order, one case at a time
 
+Cases and results are recorded in [the bench document](sd_iphone_log_download_bench.md).
+
 1. iPhone-to-laptop reachability proof, no firmware. Record the iOS version.
+   **Prepared as Case 1**; see the bench document.
 2. Shared reader/session extraction with USB regression gates, before any HTTP code.
 3. Mode entry and exit by USB command: guards, power rules, status reporting, repeated
    entry/exit, idle memory. No HTTP yet.

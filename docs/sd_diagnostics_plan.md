@@ -8,7 +8,7 @@ Storage/close/NVS regression, resource stability and physical-card prefix checks
 JP accepts the newer profile's 42-43 Hz IMU rate. TLS/memory review and the September 19 evening paired Live checks pass; JP explicitly accepted Stage 1B on September 19, 2026.
 JP accepted the rare large-download/Live FPS tradeoff; optional pacing was reverted.
 See the [end-of-day checkpoint](sd_diagnostics_checkpoint_2026-09-19.md) for the exact resume steps.
-Stage 2 is built/flashed by JP: boot-84 startup records, health and download checks pass. JP confirms the prior watchdog followed monitor closure. MQTT off/on and functional hotspot recovery plus Latest pass. RSSI validity and alternating-disconnect suppression fixes pass the boot86 hotspot repeat. Live during controlled MQTT outage passes on boot87. Normal Live comparison also passes: outage FPS is 1.36% below normal. JP accepted Stage 2 on September 20. Stage 3 is built/flashed: boot89 Latest/return passes, with earlier same-boot history and Live cancellation evidence. Full Live also passes (181 frames/60.412s). Stage3 MQTT loop-gap attribution also passes, with remote still-to-Live handover and retry deferral evidence. Offline Latest failure/return also passes (99ms, one terminal record). Live network-loss exit also passes (connection_closed; clean recovery). Screen-preference save/media interaction also passes, with two serial-confirmed NVS saves. Brief USB-power transition passes on the same boot. Stage3 logging-on baseline recorded:179/60.343s=2.966376 FPS, sampled largest24564 above20480. Logging-off comparison complete:161/60.395s=2.665784 FPS, no observed logging-on FPS loss; variable network/decode timings preclude causal speed claims. Normal logging restored and flashed. Small-bundle Live overlap passes:174/60.386s=2.881463 FPS,2.86% loss versus on-alone, five CRC successes, zero drops and largest28660 above20480. JP explicitly accepted Stage3 on September20 with documented coverage limits and optional tail deferred. Stage4 sequence revised by JP: bench-develop and accept iPhone wireless log retrieval before car field testing with a blank FAT32 card. Field evidence pending; retention unchanged. See [wireless review](sd_iphone_log_download_review.md) and [Claude's review](sd_iphone_log_download_review_claude.md); that feature now lives on the `iphone-log-retrieval` branch. See [Stage4 first field case](../src/diagnostics/STAGE4.md). See the [first Stage 2 case](../src/diagnostics/STAGE2.md).
+Stage 2 is built/flashed by JP: boot-84 startup records, health and download checks pass. JP confirms the prior watchdog followed monitor closure. MQTT off/on and functional hotspot recovery plus Latest pass. RSSI validity and alternating-disconnect suppression fixes pass the boot86 hotspot repeat. Live during controlled MQTT outage passes on boot87. Normal Live comparison also passes: outage FPS is 1.36% below normal. JP accepted Stage 2 on September 20. Stage 3 is built/flashed: boot89 Latest/return passes, with earlier same-boot history and Live cancellation evidence. Full Live also passes (181 frames/60.412s). Stage3 MQTT loop-gap attribution also passes, with remote still-to-Live handover and retry deferral evidence. Offline Latest failure/return also passes (99ms, one terminal record). Live network-loss exit also passes (connection_closed; clean recovery). Screen-preference save/media interaction also passes, with two serial-confirmed NVS saves. Brief USB-power transition passes on the same boot. Stage3 logging-on baseline recorded:179/60.343s=2.966376 FPS, sampled largest24564 above20480. Logging-off comparison complete:161/60.395s=2.665784 FPS, no observed logging-on FPS loss; variable network/decode timings preclude causal speed claims. Normal logging restored and flashed. Small-bundle Live overlap passes:174/60.386s=2.881463 FPS,2.86% loss versus on-alone, five CRC successes, zero drops and largest28660 above20480. JP explicitly accepted Stage3 on September20 with documented coverage limits and optional tail deferred. Stage4 sequence revised by JP: bench-develop and accept iPhone wireless log retrieval before car field testing with a blank FAT32 card. Field evidence pending; retention unchanged. Wireless retrieval design review is closed with six corrections accepted; see [Stage 4A](#stage-4a--wireless-retrieval-prerequisite-in-development) for the settled scope, decisions and documents. That feature lives on the `iphone-log-retrieval` branch and stays out of this plan until it is bench-accepted. See [Stage4 first field case](../src/diagnostics/STAGE4.md). See the [first Stage 2 case](../src/diagnostics/STAGE2.md).
 
 - [Accepted Stage 1 checkpoint](sd_diagnostics_stage1_checkpoint.md)
 - [Bench results and raw evidence](sd_diagnostics_bench_results.md)
@@ -651,11 +651,52 @@ Exercise accepted and ignored requests, normal completion, errors, cancellation 
 Then add optional tail; stress bounded reads and output while logging and verify commands and touch are not starved.
 Repeat paired performance checks after changes.
 
+### Stage 4A — wireless retrieval (prerequisite, in development)
+
+JP revised the sequence on September 20, 2026: iPhone log retrieval is developed and
+bench-accepted **before** car field testing. Work lives on the `iphone-log-retrieval`
+branch and is deliberately kept out of this plan while it is in flight; this section is the
+index. Once bench-accepted it is condensed into this plan like any other accepted stage,
+and the review documents become historical.
+
+Settled scope and decisions (design review closed September 20, both reviewers):
+
+- iPhone 13 Pro, existing Personal Hotspot only. No AP fallback, no mDNS, no cloud relay.
+- A dedicated download mode that refuses local and remote Latest and Live in both
+  directions, while logging and normal connection recovery continue.
+- **Retrieval only while USB power is present**, car running. This is what keeps the
+  60 second inactivity shutdown from firing, and it makes the bench reproduce the car's
+  power state. Exit immediately with a clean abort on USB power loss.
+- Entry by USB command on the bench; a dedicated LVGL screen before the car step, calling
+  the same entry function. `ui/` stays untouched.
+- Mode kept open across a hotspot drop; **five-minute idle backstop** reset by any HTTP
+  request or panel touch. No motion-based exit - proposed and withdrawn.
+- Transport is `esp_http_server`, decided against the installed 3.3.11 SDK. SD reads stay
+  writer-owned; the server task never opens a file descriptor. One retrieval session across
+  USB and HTTP.
+- Verification: expected size and a per-boot transfer ID in the served filename,
+  device-computed CRC32 in the end record, an SD-free last-result view, laptop `curl` as the
+  byte-for-byte bench gate, and one real Safari-saved file compared at the bench.
+
+Documents:
+
+- [Claude design review](sd_iphone_log_download_review_claude.md) - blockers, proposals,
+  the SDK check behind the transport decision, and the accepted corrections.
+- [Codex design review](sd_iphone_log_download_review.md) - the counter-review and the six
+  findings accepted on September 20.
+- [Bench cases and results](sd_iphone_log_download_bench.md) - one case at a time. Case 1,
+  the no-firmware iPhone reachability proof, is prepared and pending.
+- [Historical draft](sd_iphone_log_download_plan.md) - the original proposal, kept verbatim.
+
 ### Stage 4 — car use and retention tuning
+
+Starts after Stage 4A is bench-accepted, with accepted firmware and a blank FAT32 card in
+the car unit.
 
 Measure powered hours, bytes per hour, trip and day, plus incident frequency; tune file size and count from growth.
 After an incident, download current and recent archives over USB, or power down and copy `/logs/` with a card reader.
 Inspect Montreal time and boot markers. Weekly rotation remains deferred pending demonstrated need.
+The USB-after-trip procedure above is superseded once wireless retrieval is accepted.
 
 ## Appendix — evidence and retention arithmetic
 
