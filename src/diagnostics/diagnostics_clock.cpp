@@ -40,7 +40,7 @@ uint32_t hashBytes(const void* ptr, size_t size) {
 }
 bool validCrumb(const Crumb& c) {
   return c.magic == MAGIC && c.version == VERSION &&
-         c.phase <= static_cast<uint32_t>(Phase::TestWatchdog) &&
+         c.phase <= static_cast<uint32_t>(Phase::LiveTls) &&
          c.checksum == hashBytes(&c, offsetof(Crumb, checksum));
 }
 void retainClock(bool valid) { // rtcMux held
@@ -80,7 +80,8 @@ void synchronized(timeval* tv) {
 
 const char* phaseName(uint32_t phase) {
   static const char* const names[] = {"setup","idle","sd_mount","sd_write","sd_flush",
-    "sd_rotate","sd_prune","sd_close","sleep","shutdown","test_panic","test_watchdog"};
+    "sd_rotate","sd_prune","sd_close","sleep","shutdown","test_panic","test_watchdog",
+    "wifi_setup","mqtt_setup","mqtt_connect","image_https","live_tls"};
   return phase < sizeof(names)/sizeof(names[0]) ? names[phase] : "invalid";
 }
 const char* resetName(int reason) {
@@ -97,6 +98,10 @@ const char* resetName(int reason) {
     case ESP_RST_SDIO: return "sdio";
     default: return "other";
   }
+}
+Crumb mainBreadcrumb() {
+  portENTER_CRITICAL(&rtcMux); Crumb copy = mainCrumb; portEXIT_CRITICAL(&rtcMux);
+  return copy;
 }
 void breadcrumb(bool writer, Phase phase, uint64_t operation) {
   portENTER_CRITICAL(&rtcMux);

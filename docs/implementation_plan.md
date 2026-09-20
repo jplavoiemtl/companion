@@ -110,7 +110,7 @@ storage/close/NVS regression, resource and card-prefix tests pass. JP accepts
 the rare concurrent-download Live FPS tradeoff and the newer profile's 42-43 Hz
 IMU rate. Core 3.3.11 logging on is restored with test flags off. TLS/memory
 review and paired Live checks pass. JP explicitly accepted Stage 1B on
-September 19, 2026 and authorized Stage 2 after committing/pushing this checkpoint. See the [resume checklist](sd_diagnostics_checkpoint_2026-09-19.md).
+September 19, 2026; checkpoint `f899e3c` is committed and pushed. Stage 2 is built/flashed by JP; boot-84 record/health/download checks pass, with the prior watchdog confirmed by JP as following monitor closure. Further [bench cases](../src/diagnostics/STAGE2.md) remain. See the [resume checklist](sd_diagnostics_checkpoint_2026-09-19.md).
 The dated findings below are historical; their earlier hold status is superseded
 by the accepted Stage 1 checkpoint.
 

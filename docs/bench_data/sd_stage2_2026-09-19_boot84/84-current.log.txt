@@ -1,0 +1,1022 @@
+local=unknown time=unknown seq=1 boot=71 up_ms=2923 level=INFO event=FILE_OPEN format=1 generation=20 reason=corrupt_header session=boot-71
+local=unknown time=unknown seq=2 boot=71 up_ms=244 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 09:26:51" session=boot-71 persistent=1 reset=power_on reset_code=1 wake_code=0 cpu_mhz=240 context=boot_after_salvage snapshot_valid=0 operation=idle screen=0
+local=unknown time=unknown seq=3 boot=71 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=4 boot=71 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=5 boot=71 up_ms=2935 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T09:37:15.009-04:00 time=synced seq=6 boot=71 up_ms=7422 level=INFO event=CLOCK_SYNC source=sntp prior_known=0 correction_ms=0
+local=2026-09-19T09:37:15.547-04:00 time=synced seq=7 boot=71 up_ms=7961 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T09:37:18.796-04:00 time=synced seq=8 boot=71 up_ms=11209 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T09:37:57.805-04:00 time=synced seq=9 boot=71 up_ms=50219 level=INFO event=USB_GET_BEGIN name=archive-00000018.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:37:57.871-04:00 time=synced seq=10 boot=71 up_ms=50284 level=INFO event=USB_GET_END name=archive-00000018.log bytes=5177 duration_ms=99 result=ok
+local=2026-09-19T09:38:00.733-04:00 time=synced seq=11 boot=71 up_ms=53146 level=INFO event=USB_GET_BEGIN name=archive-00000019.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:38:00.743-04:00 time=synced seq=12 boot=71 up_ms=53157 level=INFO event=USB_GET_END name=archive-00000019.log bytes=153 duration_ms=40 result=ok
+local=2026-09-19T09:38:03.623-04:00 time=synced seq=13 boot=71 up_ms=56036 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:38:03.662-04:00 time=synced seq=14 boot=71 up_ms=56075 level=INFO event=USB_GET_END name=current.log bytes=2131 duration_ms=55 result=ok
+local=2026-09-19T09:38:10.545-04:00 time=synced seq=15 boot=71 up_ms=62958 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-32 snapshot_age_ms=517 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4128 internal_free=105392 internal_min=92476 internal_largest=57332 psram_free=8339860 dma_min=84812 dma_largest=51188 sync_age_ms=55536 queue_high=1 drops=0 suppressed=0 truncated=0 writes=14 slow=0 write_max_us=2745 flush_max_us=9382 sd_max_us=160081 stack_min=3304 free_bytes=15922298880 size=2288 generation=20 archives=6 pruned=0
+local=2026-09-19T09:39:10.573-04:00 time=synced seq=16 boot=71 up_ms=122986 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-32 snapshot_age_ms=290 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4121 internal_free=105392 internal_min=92476 internal_largest=57332 psram_free=8339860 dma_min=84812 dma_largest=51188 sync_age_ms=115564 queue_high=1 drops=0 suppressed=0 truncated=0 writes=15 slow=0 write_max_us=4183 flush_max_us=9382 sd_max_us=160081 stack_min=3304 free_bytes=15922298880 size=2848 generation=20 archives=6 pruned=0
+local=2026-09-19T09:40:10.610-04:00 time=synced seq=17 boot=71 up_ms=183022 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-36 snapshot_age_ms=76 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4122 internal_free=105436 internal_min=92476 internal_largest=57332 psram_free=8339860 dma_min=84812 dma_largest=51188 sync_age_ms=175600 queue_high=1 drops=0 suppressed=0 truncated=0 writes=16 slow=0 write_max_us=4187 flush_max_us=9382 sd_max_us=160081 stack_min=3304 free_bytes=15922298880 size=3410 generation=20 archives=6 pruned=0
+local=2026-09-19T09:41:10.644-04:00 time=synced seq=18 boot=71 up_ms=243056 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-34 snapshot_age_ms=878 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4118 internal_free=105376 internal_min=92476 internal_largest=57332 psram_free=8339860 dma_min=84812 dma_largest=51188 sync_age_ms=235634 queue_high=1 drops=0 suppressed=0 truncated=0 writes=17 slow=0 write_max_us=4187 flush_max_us=9382 sd_max_us=160081 stack_min=3304 free_bytes=15922298880 size=3971 generation=20 archives=6 pruned=0
+local=2026-09-19T09:41:32.080-04:00 time=synced seq=19 boot=71 up_ms=264493 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:41:32.147-04:00 time=synced seq=20 boot=71 up_ms=264560 level=INFO event=USB_GET_END name=current.log bytes=4694 duration_ms=95 result=ok
+local=2026-09-19T09:42:08.588-04:00 time=synced seq=21 boot=71 up_ms=301001 level=INFO event=SESSION_END reason=shutdown pending=0
+local=unknown time=unknown seq=1 boot=72 up_ms=244 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 09:26:51" session=boot-72 persistent=1 reset=power_on reset_code=1 wake_code=0 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=unknown time=unknown seq=2 boot=72 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=3 boot=72 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=4 boot=72 up_ms=2836 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T09:42:24.479-04:00 time=synced seq=5 boot=72 up_ms=7699 level=INFO event=CLOCK_SYNC source=sntp prior_known=0 correction_ms=0
+local=2026-09-19T09:42:24.640-04:00 time=synced seq=6 boot=72 up_ms=7860 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T09:42:27.742-04:00 time=synced seq=7 boot=72 up_ms=10961 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T09:42:43.965-04:00 time=synced seq=8 boot=72 up_ms=27184 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:42:44.040-04:00 time=synced seq=9 boot=72 up_ms=27259 level=INFO event=USB_GET_END name=current.log bytes=6293 duration_ms=90 result=ok
+local=2026-09-19T09:43:19.639-04:00 time=synced seq=10 boot=72 up_ms=62858 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-34 snapshot_age_ms=653 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4122 internal_free=105332 internal_min=95036 internal_largest=57332 psram_free=8339860 dma_min=87372 dma_largest=51188 sync_age_ms=55159 queue_high=1 drops=0 suppressed=0 truncated=0 writes=9 slow=0 write_max_us=2267 flush_max_us=8366 sd_max_us=160214 stack_min=3304 free_bytes=15922298880 size=6449 generation=20 archives=6 pruned=0
+local=2026-09-19T09:44:19.675-04:00 time=synced seq=11 boot=72 up_ms=122894 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-33 snapshot_age_ms=464 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4118 internal_free=105332 internal_min=95036 internal_largest=57332 psram_free=8339860 dma_min=87372 dma_largest=51188 sync_age_ms=115196 queue_high=1 drops=0 suppressed=0 truncated=0 writes=10 slow=0 write_max_us=2956 flush_max_us=8366 sd_max_us=160214 stack_min=3304 free_bytes=15922298880 size=7008 generation=20 archives=6 pruned=0
+local=2026-09-19T09:45:19.701-04:00 time=synced seq=12 boot=72 up_ms=182920 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-37 snapshot_age_ms=263 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105364 internal_min=95036 internal_largest=57332 psram_free=8339860 dma_min=87372 dma_largest=51188 sync_age_ms=175222 queue_high=1 drops=0 suppressed=0 truncated=0 writes=11 slow=0 write_max_us=2956 flush_max_us=8366 sd_max_us=160214 stack_min=3304 free_bytes=15922298880 size=7570 generation=20 archives=6 pruned=0
+local=2026-09-19T09:45:58.992-04:00 time=synced seq=13 boot=72 up_ms=222211 level=INFO event=SESSION_END reason=shutdown pending=0
+local=unknown time=unknown seq=1 boot=73 up_ms=244 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 09:26:51" session=boot-73 persistent=1 reset=power_on reset_code=1 wake_code=0 cpu_mhz=240 context=append snapshot_valid=1 operation=idle screen=1
+local=unknown time=unknown seq=2 boot=73 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=3 boot=73 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=4 boot=73 up_ms=2026 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=unknown time=unknown seq=5 boot=73 up_ms=9558 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T09:46:22.686-04:00 time=synced seq=6 boot=73 up_ms=17532 level=INFO event=CLOCK_SYNC source=sntp prior_known=0 correction_ms=0
+local=2026-09-19T09:46:23.223-04:00 time=synced seq=7 boot=73 up_ms=18069 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T09:47:07.206-04:00 time=synced seq=8 boot=73 up_ms=62052 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-33 snapshot_age_ms=271 screen=1 operation=idle moving=1 usb_power=0 battery=1 battery_mv=3994 internal_free=105332 internal_min=94112 internal_largest=57332 psram_free=8339860 dma_min=86448 dma_largest=51188 sync_age_ms=44520 queue_high=1 drops=0 suppressed=0 truncated=0 writes=7 slow=0 write_max_us=2301 flush_max_us=8140 sd_max_us=165237 stack_min=3912 free_bytes=15922298880 size=9394 generation=20 archives=6 pruned=0
+local=2026-09-19T09:47:21.717-04:00 time=synced seq=9 boot=73 up_ms=76563 level=INFO event=SESSION_END reason=deep_sleep pending=0
+local=2026-09-19T09:47:33.432-04:00 time=approx seq=1 boot=74 up_ms=244 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 09:26:51" session=boot-74 persistent=1 reset=deep_sleep reset_code=8 wake_code=2 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=2026-09-19T09:47:33.432-04:00 time=approx seq=2 boot=74 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=1 prior_boot=73 phase=sleep operation=0 prior_up_ms=76563 crumb_seq=3
+local=2026-09-19T09:47:33.432-04:00 time=approx seq=3 boot=74 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=1 prior_boot=73 phase=sd_close operation=0 prior_up_ms=76587 crumb_seq=47
+local=2026-09-19T09:47:35.138-04:00 time=approx seq=4 boot=74 up_ms=1950 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T09:47:35.145-04:00 time=approx seq=5 boot=74 up_ms=1957 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T09:47:42.902-04:00 time=approx seq=6 boot=74 up_ms=9714 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T09:47:52.583-04:00 time=synced seq=7 boot=74 up_ms=19493 level=INFO event=CLOCK_SYNC source=sntp prior_known=1 correction_ms=-99
+local=2026-09-19T09:48:11.167-04:00 time=synced seq=8 boot=74 up_ms=38076 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:48:11.290-04:00 time=synced seq=9 boot=74 up_ms=38199 level=INFO event=USB_GET_END name=current.log bytes=11491 duration_ms=154 result=ok
+local=2026-09-19T09:48:35.074-04:00 time=synced seq=10 boot=74 up_ms=61983 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-42 snapshot_age_ms=81 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4208 internal_free=105412 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=42490 queue_high=1 drops=0 suppressed=0 truncated=0 writes=9 slow=0 write_max_us=2870 flush_max_us=8086 sd_max_us=67586 stack_min=3304 free_bytes=15922298880 size=11649 generation=20 archives=6 pruned=0
+local=2026-09-19T09:49:35.105-04:00 time=synced seq=11 boot=74 up_ms=122014 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-41 snapshot_age_ms=926 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4125 internal_free=105412 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=102521 queue_high=1 drops=0 suppressed=0 truncated=0 writes=10 slow=0 write_max_us=2870 flush_max_us=8086 sd_max_us=67586 stack_min=3304 free_bytes=15922298880 size=12207 generation=20 archives=6 pruned=0
+local=2026-09-19T09:50:35.137-04:00 time=synced seq=12 boot=74 up_ms=182046 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-39 snapshot_age_ms=773 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4114 internal_free=105452 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=162553 queue_high=1 drops=0 suppressed=0 truncated=0 writes=11 slow=0 write_max_us=2870 flush_max_us=8086 sd_max_us=67586 stack_min=3304 free_bytes=15922298880 size=12769 generation=20 archives=6 pruned=0
+local=2026-09-19T09:51:18.389-04:00 time=synced seq=13 boot=74 up_ms=225299 level=WARN event=TEST_NVS_SD source=test nvs_writes=1 sd_records=1
+local=2026-09-19T09:51:18.365-04:00 time=synced seq=14 boot=74 up_ms=225274 level=INFO event=TEST_NVS_START duration_ms=30000 interval_ms=100 max_writes=300
+local=2026-09-19T09:51:18.437-04:00 time=synced seq=15 boot=74 up_ms=225347 level=WARN event=TEST_NVS_SD source=test nvs_writes=1 sd_records=2
+local=2026-09-19T09:51:18.476-04:00 time=synced seq=16 boot=74 up_ms=225385 level=WARN event=TEST_NVS_SD source=test nvs_writes=1 sd_records=3
+local=2026-09-19T09:51:18.514-04:00 time=synced seq=17 boot=74 up_ms=225424 level=WARN event=TEST_NVS_SD source=test nvs_writes=2 sd_records=4
+local=2026-09-19T09:51:18.554-04:00 time=synced seq=18 boot=74 up_ms=225463 level=WARN event=TEST_NVS_SD source=test nvs_writes=2 sd_records=5
+local=2026-09-19T09:51:18.592-04:00 time=synced seq=19 boot=74 up_ms=225502 level=WARN event=TEST_NVS_SD source=test nvs_writes=3 sd_records=6
+local=2026-09-19T09:51:18.638-04:00 time=synced seq=20 boot=74 up_ms=225547 level=WARN event=TEST_NVS_SD source=test nvs_writes=3 sd_records=7
+local=2026-09-19T09:51:18.675-04:00 time=synced seq=21 boot=74 up_ms=225585 level=WARN event=TEST_NVS_SD source=test nvs_writes=3 sd_records=8
+local=2026-09-19T09:51:18.716-04:00 time=synced seq=22 boot=74 up_ms=225626 level=WARN event=TEST_NVS_SD source=test nvs_writes=4 sd_records=9
+local=2026-09-19T09:51:18.755-04:00 time=synced seq=23 boot=74 up_ms=225665 level=WARN event=TEST_NVS_SD source=test nvs_writes=4 sd_records=10
+local=2026-09-19T09:51:18.797-04:00 time=synced seq=24 boot=74 up_ms=225706 level=WARN event=TEST_NVS_SD source=test nvs_writes=4 sd_records=11
+local=2026-09-19T09:51:18.840-04:00 time=synced seq=25 boot=74 up_ms=225749 level=WARN event=TEST_NVS_SD source=test nvs_writes=5 sd_records=12
+local=2026-09-19T09:51:18.879-04:00 time=synced seq=26 boot=74 up_ms=225789 level=WARN event=TEST_NVS_SD source=test nvs_writes=5 sd_records=13
+local=2026-09-19T09:51:18.918-04:00 time=synced seq=27 boot=74 up_ms=225827 level=WARN event=TEST_NVS_SD source=test nvs_writes=6 sd_records=14
+local=2026-09-19T09:51:18.961-04:00 time=synced seq=28 boot=74 up_ms=225871 level=WARN event=TEST_NVS_SD source=test nvs_writes=6 sd_records=15
+local=2026-09-19T09:51:19.000-04:00 time=synced seq=29 boot=74 up_ms=225910 level=WARN event=TEST_NVS_SD source=test nvs_writes=6 sd_records=16
+local=2026-09-19T09:51:19.043-04:00 time=synced seq=30 boot=74 up_ms=225953 level=WARN event=TEST_NVS_SD source=test nvs_writes=7 sd_records=17
+local=2026-09-19T09:51:19.086-04:00 time=synced seq=31 boot=74 up_ms=225995 level=WARN event=TEST_NVS_SD source=test nvs_writes=7 sd_records=18
+local=2026-09-19T09:51:19.124-04:00 time=synced seq=32 boot=74 up_ms=226034 level=WARN event=TEST_NVS_SD source=test nvs_writes=7 sd_records=19
+local=2026-09-19T09:51:19.161-04:00 time=synced seq=33 boot=74 up_ms=226071 level=WARN event=TEST_NVS_SD source=test nvs_writes=8 sd_records=20
+local=2026-09-19T09:51:19.203-04:00 time=synced seq=34 boot=74 up_ms=226113 level=WARN event=TEST_NVS_SD source=test nvs_writes=8 sd_records=21
+local=2026-09-19T09:51:19.243-04:00 time=synced seq=35 boot=74 up_ms=226153 level=WARN event=TEST_NVS_SD source=test nvs_writes=9 sd_records=22
+local=2026-09-19T09:51:19.287-04:00 time=synced seq=36 boot=74 up_ms=226196 level=WARN event=TEST_NVS_SD source=test nvs_writes=9 sd_records=23
+local=2026-09-19T09:51:19.325-04:00 time=synced seq=37 boot=74 up_ms=226235 level=WARN event=TEST_NVS_SD source=test nvs_writes=9 sd_records=24
+local=2026-09-19T09:51:19.365-04:00 time=synced seq=38 boot=74 up_ms=226274 level=WARN event=TEST_NVS_SD source=test nvs_writes=10 sd_records=25
+local=2026-09-19T09:51:19.407-04:00 time=synced seq=39 boot=74 up_ms=226317 level=WARN event=TEST_NVS_SD source=test nvs_writes=10 sd_records=26
+local=2026-09-19T09:51:19.447-04:00 time=synced seq=40 boot=74 up_ms=226356 level=WARN event=TEST_NVS_SD source=test nvs_writes=10 sd_records=27
+local=2026-09-19T09:51:19.485-04:00 time=synced seq=41 boot=74 up_ms=226394 level=WARN event=TEST_NVS_SD source=test nvs_writes=11 sd_records=28
+local=2026-09-19T09:51:19.526-04:00 time=synced seq=42 boot=74 up_ms=226435 level=WARN event=TEST_NVS_SD source=test nvs_writes=11 sd_records=29
+local=2026-09-19T09:51:19.564-04:00 time=synced seq=43 boot=74 up_ms=226474 level=WARN event=TEST_NVS_SD source=test nvs_writes=11 sd_records=30
+local=2026-09-19T09:51:19.604-04:00 time=synced seq=44 boot=74 up_ms=226514 level=WARN event=TEST_NVS_SD source=test nvs_writes=12 sd_records=31
+local=2026-09-19T09:51:19.646-04:00 time=synced seq=45 boot=74 up_ms=226555 level=WARN event=TEST_NVS_SD source=test nvs_writes=12 sd_records=32
+local=2026-09-19T09:51:19.684-04:00 time=synced seq=46 boot=74 up_ms=226594 level=WARN event=TEST_NVS_SD source=test nvs_writes=13 sd_records=33
+local=2026-09-19T09:51:19.728-04:00 time=synced seq=47 boot=74 up_ms=226638 level=WARN event=TEST_NVS_SD source=test nvs_writes=13 sd_records=34
+local=2026-09-19T09:51:19.770-04:00 time=synced seq=48 boot=74 up_ms=226680 level=WARN event=TEST_NVS_SD source=test nvs_writes=13 sd_records=35
+local=2026-09-19T09:51:19.812-04:00 time=synced seq=49 boot=74 up_ms=226722 level=WARN event=TEST_NVS_SD source=test nvs_writes=14 sd_records=36
+local=2026-09-19T09:51:19.850-04:00 time=synced seq=50 boot=74 up_ms=226759 level=WARN event=TEST_NVS_SD source=test nvs_writes=14 sd_records=37
+local=2026-09-19T09:51:19.892-04:00 time=synced seq=51 boot=74 up_ms=226802 level=WARN event=TEST_NVS_SD source=test nvs_writes=15 sd_records=38
+local=2026-09-19T09:51:19.932-04:00 time=synced seq=52 boot=74 up_ms=226842 level=WARN event=TEST_NVS_SD source=test nvs_writes=15 sd_records=39
+local=2026-09-19T09:51:19.976-04:00 time=synced seq=53 boot=74 up_ms=226885 level=WARN event=TEST_NVS_SD source=test nvs_writes=15 sd_records=40
+local=2026-09-19T09:51:20.015-04:00 time=synced seq=54 boot=74 up_ms=226925 level=WARN event=TEST_NVS_SD source=test nvs_writes=16 sd_records=41
+local=2026-09-19T09:51:20.053-04:00 time=synced seq=55 boot=74 up_ms=226963 level=WARN event=TEST_NVS_SD source=test nvs_writes=16 sd_records=42
+local=2026-09-19T09:51:20.098-04:00 time=synced seq=56 boot=74 up_ms=227007 level=WARN event=TEST_NVS_SD source=test nvs_writes=16 sd_records=43
+local=2026-09-19T09:51:20.137-04:00 time=synced seq=57 boot=74 up_ms=227047 level=WARN event=TEST_NVS_SD source=test nvs_writes=17 sd_records=44
+local=2026-09-19T09:51:20.179-04:00 time=synced seq=58 boot=74 up_ms=227088 level=WARN event=TEST_NVS_SD source=test nvs_writes=17 sd_records=45
+local=2026-09-19T09:51:20.217-04:00 time=synced seq=59 boot=74 up_ms=227127 level=WARN event=TEST_NVS_SD source=test nvs_writes=18 sd_records=46
+local=2026-09-19T09:51:20.254-04:00 time=synced seq=60 boot=74 up_ms=227164 level=WARN event=TEST_NVS_SD source=test nvs_writes=18 sd_records=47
+local=2026-09-19T09:51:20.297-04:00 time=synced seq=61 boot=74 up_ms=227207 level=WARN event=TEST_NVS_SD source=test nvs_writes=18 sd_records=48
+local=2026-09-19T09:51:20.332-04:00 time=synced seq=62 boot=74 up_ms=227242 level=WARN event=TEST_NVS_SD source=test nvs_writes=19 sd_records=49
+local=2026-09-19T09:51:20.374-04:00 time=synced seq=63 boot=74 up_ms=227284 level=WARN event=TEST_NVS_SD source=test nvs_writes=19 sd_records=50
+local=2026-09-19T09:51:20.415-04:00 time=synced seq=64 boot=74 up_ms=227324 level=WARN event=TEST_NVS_SD source=test nvs_writes=19 sd_records=51
+local=2026-09-19T09:51:20.455-04:00 time=synced seq=65 boot=74 up_ms=227364 level=WARN event=TEST_NVS_SD source=test nvs_writes=20 sd_records=52
+local=2026-09-19T09:51:20.494-04:00 time=synced seq=66 boot=74 up_ms=227404 level=WARN event=TEST_NVS_SD source=test nvs_writes=20 sd_records=53
+local=2026-09-19T09:51:20.533-04:00 time=synced seq=67 boot=74 up_ms=227443 level=WARN event=TEST_NVS_SD source=test nvs_writes=21 sd_records=54
+local=2026-09-19T09:51:20.569-04:00 time=synced seq=68 boot=74 up_ms=227479 level=WARN event=TEST_NVS_SD source=test nvs_writes=21 sd_records=55
+local=2026-09-19T09:51:20.613-04:00 time=synced seq=69 boot=74 up_ms=227522 level=WARN event=TEST_NVS_SD source=test nvs_writes=21 sd_records=56
+local=2026-09-19T09:51:20.653-04:00 time=synced seq=70 boot=74 up_ms=227562 level=WARN event=TEST_NVS_SD source=test nvs_writes=22 sd_records=57
+local=2026-09-19T09:51:20.695-04:00 time=synced seq=71 boot=74 up_ms=227604 level=WARN event=TEST_NVS_SD source=test nvs_writes=22 sd_records=58
+local=2026-09-19T09:51:20.736-04:00 time=synced seq=72 boot=74 up_ms=227645 level=WARN event=TEST_NVS_SD source=test nvs_writes=22 sd_records=59
+local=2026-09-19T09:51:20.776-04:00 time=synced seq=73 boot=74 up_ms=227685 level=WARN event=TEST_NVS_SD source=test nvs_writes=23 sd_records=60
+local=2026-09-19T09:51:20.821-04:00 time=synced seq=74 boot=74 up_ms=227731 level=WARN event=TEST_NVS_SD source=test nvs_writes=23 sd_records=61
+local=2026-09-19T09:51:20.861-04:00 time=synced seq=75 boot=74 up_ms=227771 level=WARN event=TEST_NVS_SD source=test nvs_writes=24 sd_records=62
+local=2026-09-19T09:51:20.901-04:00 time=synced seq=76 boot=74 up_ms=227811 level=WARN event=TEST_NVS_SD source=test nvs_writes=24 sd_records=63
+local=2026-09-19T09:51:20.943-04:00 time=synced seq=77 boot=74 up_ms=227852 level=WARN event=TEST_NVS_SD source=test nvs_writes=24 sd_records=64
+local=2026-09-19T09:51:20.980-04:00 time=synced seq=78 boot=74 up_ms=227890 level=WARN event=TEST_NVS_SD source=test nvs_writes=25 sd_records=65
+local=2026-09-19T09:51:21.021-04:00 time=synced seq=79 boot=74 up_ms=227931 level=WARN event=TEST_NVS_SD source=test nvs_writes=25 sd_records=66
+local=2026-09-19T09:51:21.065-04:00 time=synced seq=80 boot=74 up_ms=227974 level=WARN event=TEST_NVS_SD source=test nvs_writes=25 sd_records=67
+local=2026-09-19T09:51:21.107-04:00 time=synced seq=81 boot=74 up_ms=228016 level=WARN event=TEST_NVS_SD source=test nvs_writes=26 sd_records=68
+local=2026-09-19T09:51:21.149-04:00 time=synced seq=82 boot=74 up_ms=228059 level=WARN event=TEST_NVS_SD source=test nvs_writes=26 sd_records=69
+local=2026-09-19T09:51:21.189-04:00 time=synced seq=83 boot=74 up_ms=228099 level=WARN event=TEST_NVS_SD source=test nvs_writes=27 sd_records=70
+local=2026-09-19T09:51:21.227-04:00 time=synced seq=84 boot=74 up_ms=228137 level=WARN event=TEST_NVS_SD source=test nvs_writes=27 sd_records=71
+local=2026-09-19T09:51:21.263-04:00 time=synced seq=85 boot=74 up_ms=228172 level=WARN event=TEST_NVS_SD source=test nvs_writes=27 sd_records=72
+local=2026-09-19T09:51:21.304-04:00 time=synced seq=86 boot=74 up_ms=228214 level=WARN event=TEST_NVS_SD source=test nvs_writes=28 sd_records=73
+local=2026-09-19T09:51:21.346-04:00 time=synced seq=87 boot=74 up_ms=228255 level=WARN event=TEST_NVS_SD source=test nvs_writes=28 sd_records=74
+local=2026-09-19T09:51:21.384-04:00 time=synced seq=88 boot=74 up_ms=228294 level=WARN event=TEST_NVS_SD source=test nvs_writes=28 sd_records=75
+local=2026-09-19T09:51:21.428-04:00 time=synced seq=89 boot=74 up_ms=228338 level=WARN event=TEST_NVS_SD source=test nvs_writes=29 sd_records=76
+local=2026-09-19T09:51:21.469-04:00 time=synced seq=90 boot=74 up_ms=228378 level=WARN event=TEST_NVS_SD source=test nvs_writes=29 sd_records=77
+local=2026-09-19T09:51:21.512-04:00 time=synced seq=91 boot=74 up_ms=228422 level=WARN event=TEST_NVS_SD source=test nvs_writes=30 sd_records=78
+local=2026-09-19T09:51:21.556-04:00 time=synced seq=92 boot=74 up_ms=228465 level=WARN event=TEST_NVS_SD source=test nvs_writes=30 sd_records=79
+local=2026-09-19T09:51:21.598-04:00 time=synced seq=93 boot=74 up_ms=228508 level=WARN event=TEST_NVS_SD source=test nvs_writes=30 sd_records=80
+local=2026-09-19T09:51:21.640-04:00 time=synced seq=94 boot=74 up_ms=228549 level=WARN event=TEST_NVS_SD source=test nvs_writes=31 sd_records=81
+local=2026-09-19T09:51:21.683-04:00 time=synced seq=95 boot=74 up_ms=228593 level=WARN event=TEST_NVS_SD source=test nvs_writes=31 sd_records=82
+local=2026-09-19T09:51:21.721-04:00 time=synced seq=96 boot=74 up_ms=228631 level=WARN event=TEST_NVS_SD source=test nvs_writes=32 sd_records=83
+local=2026-09-19T09:51:21.761-04:00 time=synced seq=97 boot=74 up_ms=228671 level=WARN event=TEST_NVS_SD source=test nvs_writes=32 sd_records=84
+local=2026-09-19T09:51:21.800-04:00 time=synced seq=98 boot=74 up_ms=228710 level=WARN event=TEST_NVS_SD source=test nvs_writes=32 sd_records=85
+local=2026-09-19T09:51:21.840-04:00 time=synced seq=99 boot=74 up_ms=228750 level=WARN event=TEST_NVS_SD source=test nvs_writes=33 sd_records=86
+local=2026-09-19T09:51:21.881-04:00 time=synced seq=100 boot=74 up_ms=228791 level=WARN event=TEST_NVS_SD source=test nvs_writes=33 sd_records=87
+local=2026-09-19T09:51:21.926-04:00 time=synced seq=101 boot=74 up_ms=228836 level=WARN event=TEST_NVS_SD source=test nvs_writes=34 sd_records=88
+local=2026-09-19T09:51:21.967-04:00 time=synced seq=102 boot=74 up_ms=228876 level=WARN event=TEST_NVS_SD source=test nvs_writes=34 sd_records=89
+local=2026-09-19T09:51:22.007-04:00 time=synced seq=103 boot=74 up_ms=228916 level=WARN event=TEST_NVS_SD source=test nvs_writes=34 sd_records=90
+local=2026-09-19T09:51:22.044-04:00 time=synced seq=104 boot=74 up_ms=228954 level=WARN event=TEST_NVS_SD source=test nvs_writes=35 sd_records=91
+local=2026-09-19T09:51:22.089-04:00 time=synced seq=105 boot=74 up_ms=228999 level=WARN event=TEST_NVS_SD source=test nvs_writes=35 sd_records=92
+local=2026-09-19T09:51:22.129-04:00 time=synced seq=106 boot=74 up_ms=229039 level=WARN event=TEST_NVS_SD source=test nvs_writes=35 sd_records=93
+local=2026-09-19T09:51:22.168-04:00 time=synced seq=107 boot=74 up_ms=229078 level=WARN event=TEST_NVS_SD source=test nvs_writes=36 sd_records=94
+local=2026-09-19T09:51:22.210-04:00 time=synced seq=108 boot=74 up_ms=229120 level=WARN event=TEST_NVS_SD source=test nvs_writes=36 sd_records=95
+local=2026-09-19T09:51:22.249-04:00 time=synced seq=109 boot=74 up_ms=229159 level=WARN event=TEST_NVS_SD source=test nvs_writes=37 sd_records=96
+local=2026-09-19T09:51:22.286-04:00 time=synced seq=110 boot=74 up_ms=229196 level=WARN event=TEST_NVS_SD source=test nvs_writes=37 sd_records=97
+local=2026-09-19T09:51:22.330-04:00 time=synced seq=111 boot=74 up_ms=229239 level=WARN event=TEST_NVS_SD source=test nvs_writes=37 sd_records=98
+local=2026-09-19T09:51:22.373-04:00 time=synced seq=112 boot=74 up_ms=229282 level=WARN event=TEST_NVS_SD source=test nvs_writes=38 sd_records=99
+local=2026-09-19T09:51:22.413-04:00 time=synced seq=113 boot=74 up_ms=229322 level=WARN event=TEST_NVS_SD source=test nvs_writes=38 sd_records=100
+local=2026-09-19T09:51:22.450-04:00 time=synced seq=114 boot=74 up_ms=229360 level=WARN event=TEST_NVS_SD source=test nvs_writes=38 sd_records=101
+local=2026-09-19T09:51:22.491-04:00 time=synced seq=115 boot=74 up_ms=229401 level=WARN event=TEST_NVS_SD source=test nvs_writes=39 sd_records=102
+local=2026-09-19T09:51:22.534-04:00 time=synced seq=116 boot=74 up_ms=229444 level=WARN event=TEST_NVS_SD source=test nvs_writes=39 sd_records=103
+local=2026-09-19T09:51:22.573-04:00 time=synced seq=117 boot=74 up_ms=229482 level=WARN event=TEST_NVS_SD source=test nvs_writes=40 sd_records=104
+local=2026-09-19T09:51:22.613-04:00 time=synced seq=118 boot=74 up_ms=229523 level=WARN event=TEST_NVS_SD source=test nvs_writes=40 sd_records=105
+local=2026-09-19T09:51:22.656-04:00 time=synced seq=119 boot=74 up_ms=229566 level=WARN event=TEST_NVS_SD source=test nvs_writes=40 sd_records=106
+local=2026-09-19T09:51:22.696-04:00 time=synced seq=120 boot=74 up_ms=229605 level=WARN event=TEST_NVS_SD source=test nvs_writes=41 sd_records=107
+local=2026-09-19T09:51:22.740-04:00 time=synced seq=121 boot=74 up_ms=229649 level=WARN event=TEST_NVS_SD source=test nvs_writes=41 sd_records=108
+local=2026-09-19T09:51:22.780-04:00 time=synced seq=122 boot=74 up_ms=229690 level=WARN event=TEST_NVS_SD source=test nvs_writes=41 sd_records=109
+local=2026-09-19T09:51:22.821-04:00 time=synced seq=123 boot=74 up_ms=229731 level=WARN event=TEST_NVS_SD source=test nvs_writes=42 sd_records=110
+local=2026-09-19T09:51:22.864-04:00 time=synced seq=124 boot=74 up_ms=229773 level=WARN event=TEST_NVS_SD source=test nvs_writes=42 sd_records=111
+local=2026-09-19T09:51:22.904-04:00 time=synced seq=125 boot=74 up_ms=229814 level=WARN event=TEST_NVS_SD source=test nvs_writes=43 sd_records=112
+local=2026-09-19T09:51:22.947-04:00 time=synced seq=126 boot=74 up_ms=229856 level=WARN event=TEST_NVS_SD source=test nvs_writes=43 sd_records=113
+local=2026-09-19T09:51:22.989-04:00 time=synced seq=127 boot=74 up_ms=229898 level=WARN event=TEST_NVS_SD source=test nvs_writes=43 sd_records=114
+local=2026-09-19T09:51:23.030-04:00 time=synced seq=128 boot=74 up_ms=229940 level=WARN event=TEST_NVS_SD source=test nvs_writes=44 sd_records=115
+local=2026-09-19T09:51:23.071-04:00 time=synced seq=129 boot=74 up_ms=229981 level=WARN event=TEST_NVS_SD source=test nvs_writes=44 sd_records=116
+local=2026-09-19T09:51:23.113-04:00 time=synced seq=130 boot=74 up_ms=230023 level=WARN event=TEST_NVS_SD source=test nvs_writes=45 sd_records=117
+local=2026-09-19T09:51:23.157-04:00 time=synced seq=131 boot=74 up_ms=230066 level=WARN event=TEST_NVS_SD source=test nvs_writes=45 sd_records=118
+local=2026-09-19T09:51:23.196-04:00 time=synced seq=132 boot=74 up_ms=230106 level=WARN event=TEST_NVS_SD source=test nvs_writes=45 sd_records=119
+local=2026-09-19T09:51:23.238-04:00 time=synced seq=133 boot=74 up_ms=230148 level=WARN event=TEST_NVS_SD source=test nvs_writes=46 sd_records=120
+local=2026-09-19T09:51:23.280-04:00 time=synced seq=134 boot=74 up_ms=230189 level=WARN event=TEST_NVS_SD source=test nvs_writes=46 sd_records=121
+local=2026-09-19T09:51:23.319-04:00 time=synced seq=135 boot=74 up_ms=230228 level=WARN event=TEST_NVS_SD source=test nvs_writes=46 sd_records=122
+local=2026-09-19T09:51:23.358-04:00 time=synced seq=136 boot=74 up_ms=230268 level=WARN event=TEST_NVS_SD source=test nvs_writes=47 sd_records=123
+local=2026-09-19T09:51:23.399-04:00 time=synced seq=137 boot=74 up_ms=230308 level=WARN event=TEST_NVS_SD source=test nvs_writes=47 sd_records=124
+local=2026-09-19T09:51:23.439-04:00 time=synced seq=138 boot=74 up_ms=230348 level=WARN event=TEST_NVS_SD source=test nvs_writes=47 sd_records=125
+local=2026-09-19T09:51:23.477-04:00 time=synced seq=139 boot=74 up_ms=230386 level=WARN event=TEST_NVS_SD source=test nvs_writes=48 sd_records=126
+local=2026-09-19T09:51:23.519-04:00 time=synced seq=140 boot=74 up_ms=230429 level=WARN event=TEST_NVS_SD source=test nvs_writes=48 sd_records=127
+local=2026-09-19T09:51:23.563-04:00 time=synced seq=141 boot=74 up_ms=230473 level=WARN event=TEST_NVS_SD source=test nvs_writes=49 sd_records=128
+local=2026-09-19T09:51:23.600-04:00 time=synced seq=142 boot=74 up_ms=230510 level=WARN event=TEST_NVS_SD source=test nvs_writes=49 sd_records=129
+local=2026-09-19T09:51:23.639-04:00 time=synced seq=143 boot=74 up_ms=230549 level=WARN event=TEST_NVS_SD source=test nvs_writes=49 sd_records=130
+local=2026-09-19T09:51:23.679-04:00 time=synced seq=144 boot=74 up_ms=230589 level=WARN event=TEST_NVS_SD source=test nvs_writes=50 sd_records=131
+local=2026-09-19T09:51:23.721-04:00 time=synced seq=145 boot=74 up_ms=230631 level=WARN event=TEST_NVS_SD source=test nvs_writes=50 sd_records=132
+local=2026-09-19T09:51:23.759-04:00 time=synced seq=146 boot=74 up_ms=230669 level=WARN event=TEST_NVS_SD source=test nvs_writes=50 sd_records=133
+local=2026-09-19T09:51:23.809-04:00 time=synced seq=147 boot=74 up_ms=230718 level=WARN event=TEST_NVS_SD source=test nvs_writes=51 sd_records=134
+local=2026-09-19T09:51:23.849-04:00 time=synced seq=148 boot=74 up_ms=230758 level=WARN event=TEST_NVS_SD source=test nvs_writes=51 sd_records=135
+local=2026-09-19T09:51:23.888-04:00 time=synced seq=149 boot=74 up_ms=230798 level=WARN event=TEST_NVS_SD source=test nvs_writes=52 sd_records=136
+local=2026-09-19T09:51:23.929-04:00 time=synced seq=150 boot=74 up_ms=230838 level=WARN event=TEST_NVS_SD source=test nvs_writes=52 sd_records=137
+local=2026-09-19T09:51:23.969-04:00 time=synced seq=151 boot=74 up_ms=230878 level=WARN event=TEST_NVS_SD source=test nvs_writes=52 sd_records=138
+local=2026-09-19T09:51:24.004-04:00 time=synced seq=152 boot=74 up_ms=230913 level=WARN event=TEST_NVS_SD source=test nvs_writes=53 sd_records=139
+local=2026-09-19T09:51:24.043-04:00 time=synced seq=153 boot=74 up_ms=230953 level=WARN event=TEST_NVS_SD source=test nvs_writes=53 sd_records=140
+local=2026-09-19T09:51:24.087-04:00 time=synced seq=154 boot=74 up_ms=230997 level=WARN event=TEST_NVS_SD source=test nvs_writes=53 sd_records=141
+local=2026-09-19T09:51:24.123-04:00 time=synced seq=155 boot=74 up_ms=231033 level=WARN event=TEST_NVS_SD source=test nvs_writes=54 sd_records=142
+local=2026-09-19T09:51:24.166-04:00 time=synced seq=156 boot=74 up_ms=231076 level=WARN event=TEST_NVS_SD source=test nvs_writes=54 sd_records=143
+local=2026-09-19T09:51:24.204-04:00 time=synced seq=157 boot=74 up_ms=231114 level=WARN event=TEST_NVS_SD source=test nvs_writes=55 sd_records=144
+local=2026-09-19T09:51:24.240-04:00 time=synced seq=158 boot=74 up_ms=231150 level=WARN event=TEST_NVS_SD source=test nvs_writes=55 sd_records=145
+local=2026-09-19T09:51:24.280-04:00 time=synced seq=159 boot=74 up_ms=231190 level=WARN event=TEST_NVS_SD source=test nvs_writes=55 sd_records=146
+local=2026-09-19T09:51:24.318-04:00 time=synced seq=160 boot=74 up_ms=231228 level=WARN event=TEST_NVS_SD source=test nvs_writes=56 sd_records=147
+local=2026-09-19T09:51:24.359-04:00 time=synced seq=161 boot=74 up_ms=231268 level=WARN event=TEST_NVS_SD source=test nvs_writes=56 sd_records=148
+local=2026-09-19T09:51:24.401-04:00 time=synced seq=162 boot=74 up_ms=231311 level=WARN event=TEST_NVS_SD source=test nvs_writes=56 sd_records=149
+local=2026-09-19T09:51:24.440-04:00 time=synced seq=163 boot=74 up_ms=231350 level=WARN event=TEST_NVS_SD source=test nvs_writes=57 sd_records=150
+local=2026-09-19T09:51:24.477-04:00 time=synced seq=164 boot=74 up_ms=231386 level=WARN event=TEST_NVS_SD source=test nvs_writes=57 sd_records=151
+local=2026-09-19T09:51:24.520-04:00 time=synced seq=165 boot=74 up_ms=231429 level=WARN event=TEST_NVS_SD source=test nvs_writes=57 sd_records=152
+local=2026-09-19T09:51:24.558-04:00 time=synced seq=166 boot=74 up_ms=231468 level=WARN event=TEST_NVS_SD source=test nvs_writes=58 sd_records=153
+local=2026-09-19T09:51:24.601-04:00 time=synced seq=167 boot=74 up_ms=231511 level=WARN event=TEST_NVS_SD source=test nvs_writes=58 sd_records=154
+local=2026-09-19T09:51:24.640-04:00 time=synced seq=168 boot=74 up_ms=231550 level=WARN event=TEST_NVS_SD source=test nvs_writes=59 sd_records=155
+local=2026-09-19T09:51:24.681-04:00 time=synced seq=169 boot=74 up_ms=231591 level=WARN event=TEST_NVS_SD source=test nvs_writes=59 sd_records=156
+local=2026-09-19T09:51:24.721-04:00 time=synced seq=170 boot=74 up_ms=231631 level=WARN event=TEST_NVS_SD source=test nvs_writes=59 sd_records=157
+local=2026-09-19T09:51:24.764-04:00 time=synced seq=171 boot=74 up_ms=231674 level=WARN event=TEST_NVS_SD source=test nvs_writes=60 sd_records=158
+local=2026-09-19T09:51:24.803-04:00 time=synced seq=172 boot=74 up_ms=231712 level=WARN event=TEST_NVS_SD source=test nvs_writes=60 sd_records=159
+local=2026-09-19T09:51:24.843-04:00 time=synced seq=173 boot=74 up_ms=231752 level=WARN event=TEST_NVS_SD source=test nvs_writes=60 sd_records=160
+local=2026-09-19T09:51:24.881-04:00 time=synced seq=174 boot=74 up_ms=231791 level=WARN event=TEST_NVS_SD source=test nvs_writes=61 sd_records=161
+local=2026-09-19T09:51:24.925-04:00 time=synced seq=175 boot=74 up_ms=231835 level=WARN event=TEST_NVS_SD source=test nvs_writes=61 sd_records=162
+local=2026-09-19T09:51:24.969-04:00 time=synced seq=176 boot=74 up_ms=231878 level=WARN event=TEST_NVS_SD source=test nvs_writes=62 sd_records=163
+local=2026-09-19T09:51:25.008-04:00 time=synced seq=177 boot=74 up_ms=231918 level=WARN event=TEST_NVS_SD source=test nvs_writes=62 sd_records=164
+local=2026-09-19T09:51:25.049-04:00 time=synced seq=178 boot=74 up_ms=231959 level=WARN event=TEST_NVS_SD source=test nvs_writes=62 sd_records=165
+local=2026-09-19T09:51:25.088-04:00 time=synced seq=179 boot=74 up_ms=231998 level=WARN event=TEST_NVS_SD source=test nvs_writes=63 sd_records=166
+local=2026-09-19T09:51:25.132-04:00 time=synced seq=180 boot=74 up_ms=232041 level=WARN event=TEST_NVS_SD source=test nvs_writes=63 sd_records=167
+local=2026-09-19T09:51:25.172-04:00 time=synced seq=181 boot=74 up_ms=232082 level=WARN event=TEST_NVS_SD source=test nvs_writes=64 sd_records=168
+local=2026-09-19T09:51:25.214-04:00 time=synced seq=182 boot=74 up_ms=232123 level=WARN event=TEST_NVS_SD source=test nvs_writes=64 sd_records=169
+local=2026-09-19T09:51:25.256-04:00 time=synced seq=183 boot=74 up_ms=232166 level=WARN event=TEST_NVS_SD source=test nvs_writes=64 sd_records=170
+local=2026-09-19T09:51:25.292-04:00 time=synced seq=184 boot=74 up_ms=232201 level=WARN event=TEST_NVS_SD source=test nvs_writes=65 sd_records=171
+local=2026-09-19T09:51:25.330-04:00 time=synced seq=185 boot=74 up_ms=232240 level=WARN event=TEST_NVS_SD source=test nvs_writes=65 sd_records=172
+local=2026-09-19T09:51:25.368-04:00 time=synced seq=186 boot=74 up_ms=232277 level=WARN event=TEST_NVS_SD source=test nvs_writes=65 sd_records=173
+local=2026-09-19T09:51:25.408-04:00 time=synced seq=187 boot=74 up_ms=232318 level=WARN event=TEST_NVS_SD source=test nvs_writes=66 sd_records=174
+local=2026-09-19T09:51:25.446-04:00 time=synced seq=188 boot=74 up_ms=232356 level=WARN event=TEST_NVS_SD source=test nvs_writes=66 sd_records=175
+local=2026-09-19T09:51:25.487-04:00 time=synced seq=189 boot=74 up_ms=232397 level=WARN event=TEST_NVS_SD source=test nvs_writes=67 sd_records=176
+local=2026-09-19T09:51:25.531-04:00 time=synced seq=190 boot=74 up_ms=232441 level=WARN event=TEST_NVS_SD source=test nvs_writes=67 sd_records=177
+local=2026-09-19T09:51:25.573-04:00 time=synced seq=191 boot=74 up_ms=232483 level=WARN event=TEST_NVS_SD source=test nvs_writes=67 sd_records=178
+local=2026-09-19T09:51:25.617-04:00 time=synced seq=192 boot=74 up_ms=232526 level=WARN event=TEST_NVS_SD source=test nvs_writes=68 sd_records=179
+local=2026-09-19T09:51:25.654-04:00 time=synced seq=193 boot=74 up_ms=232564 level=WARN event=TEST_NVS_SD source=test nvs_writes=68 sd_records=180
+local=2026-09-19T09:51:25.695-04:00 time=synced seq=194 boot=74 up_ms=232605 level=WARN event=TEST_NVS_SD source=test nvs_writes=69 sd_records=181
+local=2026-09-19T09:51:25.739-04:00 time=synced seq=195 boot=74 up_ms=232649 level=WARN event=TEST_NVS_SD source=test nvs_writes=69 sd_records=182
+local=2026-09-19T09:51:25.782-04:00 time=synced seq=196 boot=74 up_ms=232692 level=WARN event=TEST_NVS_SD source=test nvs_writes=69 sd_records=183
+local=2026-09-19T09:51:25.822-04:00 time=synced seq=197 boot=74 up_ms=232732 level=WARN event=TEST_NVS_SD source=test nvs_writes=70 sd_records=184
+local=2026-09-19T09:51:25.865-04:00 time=synced seq=198 boot=74 up_ms=232774 level=WARN event=TEST_NVS_SD source=test nvs_writes=70 sd_records=185
+local=2026-09-19T09:51:25.910-04:00 time=synced seq=199 boot=74 up_ms=232820 level=WARN event=TEST_NVS_SD source=test nvs_writes=71 sd_records=186
+local=2026-09-19T09:51:25.951-04:00 time=synced seq=200 boot=74 up_ms=232861 level=WARN event=TEST_NVS_SD source=test nvs_writes=71 sd_records=187
+local=2026-09-19T09:51:25.991-04:00 time=synced seq=201 boot=74 up_ms=232901 level=WARN event=TEST_NVS_SD source=test nvs_writes=71 sd_records=188
+local=2026-09-19T09:51:26.033-04:00 time=synced seq=202 boot=74 up_ms=232942 level=WARN event=TEST_NVS_SD source=test nvs_writes=72 sd_records=189
+local=2026-09-19T09:51:26.073-04:00 time=synced seq=203 boot=74 up_ms=232983 level=WARN event=TEST_NVS_SD source=test nvs_writes=72 sd_records=190
+local=2026-09-19T09:51:26.113-04:00 time=synced seq=204 boot=74 up_ms=233023 level=WARN event=TEST_NVS_SD source=test nvs_writes=72 sd_records=191
+local=2026-09-19T09:51:26.156-04:00 time=synced seq=205 boot=74 up_ms=233066 level=WARN event=TEST_NVS_SD source=test nvs_writes=73 sd_records=192
+local=2026-09-19T09:51:26.200-04:00 time=synced seq=206 boot=74 up_ms=233109 level=WARN event=TEST_NVS_SD source=test nvs_writes=73 sd_records=193
+local=2026-09-19T09:51:26.237-04:00 time=synced seq=207 boot=74 up_ms=233147 level=WARN event=TEST_NVS_SD source=test nvs_writes=74 sd_records=194
+local=2026-09-19T09:51:26.275-04:00 time=synced seq=208 boot=74 up_ms=233185 level=WARN event=TEST_NVS_SD source=test nvs_writes=74 sd_records=195
+local=2026-09-19T09:51:26.316-04:00 time=synced seq=209 boot=74 up_ms=233225 level=WARN event=TEST_NVS_SD source=test nvs_writes=74 sd_records=196
+local=2026-09-19T09:51:26.358-04:00 time=synced seq=210 boot=74 up_ms=233267 level=WARN event=TEST_NVS_SD source=test nvs_writes=75 sd_records=197
+local=2026-09-19T09:51:26.396-04:00 time=synced seq=211 boot=74 up_ms=233306 level=WARN event=TEST_NVS_SD source=test nvs_writes=75 sd_records=198
+local=2026-09-19T09:51:26.437-04:00 time=synced seq=212 boot=74 up_ms=233346 level=WARN event=TEST_NVS_SD source=test nvs_writes=75 sd_records=199
+local=2026-09-19T09:51:26.477-04:00 time=synced seq=213 boot=74 up_ms=233387 level=WARN event=TEST_NVS_SD source=test nvs_writes=76 sd_records=200
+local=2026-09-19T09:51:26.516-04:00 time=synced seq=214 boot=74 up_ms=233426 level=WARN event=TEST_NVS_SD source=test nvs_writes=76 sd_records=201
+local=2026-09-19T09:51:26.556-04:00 time=synced seq=215 boot=74 up_ms=233466 level=WARN event=TEST_NVS_SD source=test nvs_writes=77 sd_records=202
+local=2026-09-19T09:51:26.593-04:00 time=synced seq=216 boot=74 up_ms=233503 level=WARN event=TEST_NVS_SD source=test nvs_writes=77 sd_records=203
+local=2026-09-19T09:51:26.638-04:00 time=synced seq=217 boot=74 up_ms=233547 level=WARN event=TEST_NVS_SD source=test nvs_writes=77 sd_records=204
+local=2026-09-19T09:51:26.675-04:00 time=synced seq=218 boot=74 up_ms=233585 level=WARN event=TEST_NVS_SD source=test nvs_writes=78 sd_records=205
+local=2026-09-19T09:51:26.716-04:00 time=synced seq=219 boot=74 up_ms=233625 level=WARN event=TEST_NVS_SD source=test nvs_writes=78 sd_records=206
+local=2026-09-19T09:51:26.757-04:00 time=synced seq=220 boot=74 up_ms=233666 level=WARN event=TEST_NVS_SD source=test nvs_writes=78 sd_records=207
+local=2026-09-19T09:51:26.797-04:00 time=synced seq=221 boot=74 up_ms=233707 level=WARN event=TEST_NVS_SD source=test nvs_writes=79 sd_records=208
+local=2026-09-19T09:51:26.840-04:00 time=synced seq=222 boot=74 up_ms=233750 level=WARN event=TEST_NVS_SD source=test nvs_writes=79 sd_records=209
+local=2026-09-19T09:51:26.926-04:00 time=synced seq=223 boot=74 up_ms=233836 level=WARN event=TEST_NVS_SD source=test nvs_writes=79 sd_records=210
+local=2026-09-19T09:51:26.966-04:00 time=synced seq=224 boot=74 up_ms=233876 level=WARN event=TEST_NVS_SD source=test nvs_writes=80 sd_records=211
+local=2026-09-19T09:51:27.009-04:00 time=synced seq=225 boot=74 up_ms=233919 level=WARN event=TEST_NVS_SD source=test nvs_writes=80 sd_records=212
+local=2026-09-19T09:51:27.053-04:00 time=synced seq=226 boot=74 up_ms=233962 level=WARN event=TEST_NVS_SD source=test nvs_writes=81 sd_records=213
+local=2026-09-19T09:51:27.092-04:00 time=synced seq=227 boot=74 up_ms=234001 level=WARN event=TEST_NVS_SD source=test nvs_writes=81 sd_records=214
+local=2026-09-19T09:51:27.129-04:00 time=synced seq=228 boot=74 up_ms=234039 level=WARN event=TEST_NVS_SD source=test nvs_writes=81 sd_records=215
+local=2026-09-19T09:51:27.168-04:00 time=synced seq=229 boot=74 up_ms=234078 level=WARN event=TEST_NVS_SD source=test nvs_writes=82 sd_records=216
+local=2026-09-19T09:51:27.211-04:00 time=synced seq=230 boot=74 up_ms=234120 level=WARN event=TEST_NVS_SD source=test nvs_writes=82 sd_records=217
+local=2026-09-19T09:51:27.249-04:00 time=synced seq=231 boot=74 up_ms=234158 level=WARN event=TEST_NVS_SD source=test nvs_writes=82 sd_records=218
+local=2026-09-19T09:51:27.289-04:00 time=synced seq=232 boot=74 up_ms=234198 level=WARN event=TEST_NVS_SD source=test nvs_writes=83 sd_records=219
+local=2026-09-19T09:51:27.329-04:00 time=synced seq=233 boot=74 up_ms=234239 level=WARN event=TEST_NVS_SD source=test nvs_writes=83 sd_records=220
+local=2026-09-19T09:51:27.366-04:00 time=synced seq=234 boot=74 up_ms=234275 level=WARN event=TEST_NVS_SD source=test nvs_writes=84 sd_records=221
+local=2026-09-19T09:51:27.405-04:00 time=synced seq=235 boot=74 up_ms=234314 level=WARN event=TEST_NVS_SD source=test nvs_writes=84 sd_records=222
+local=2026-09-19T09:51:27.443-04:00 time=synced seq=236 boot=74 up_ms=234352 level=WARN event=TEST_NVS_SD source=test nvs_writes=84 sd_records=223
+local=2026-09-19T09:51:27.483-04:00 time=synced seq=237 boot=74 up_ms=234393 level=WARN event=TEST_NVS_SD source=test nvs_writes=85 sd_records=224
+local=2026-09-19T09:51:27.525-04:00 time=synced seq=238 boot=74 up_ms=234434 level=WARN event=TEST_NVS_SD source=test nvs_writes=85 sd_records=225
+local=2026-09-19T09:51:27.564-04:00 time=synced seq=239 boot=74 up_ms=234473 level=WARN event=TEST_NVS_SD source=test nvs_writes=85 sd_records=226
+local=2026-09-19T09:51:27.601-04:00 time=synced seq=240 boot=74 up_ms=234511 level=WARN event=TEST_NVS_SD source=test nvs_writes=86 sd_records=227
+local=2026-09-19T09:51:27.646-04:00 time=synced seq=241 boot=74 up_ms=234555 level=WARN event=TEST_NVS_SD source=test nvs_writes=86 sd_records=228
+local=2026-09-19T09:51:27.685-04:00 time=synced seq=242 boot=74 up_ms=234595 level=WARN event=TEST_NVS_SD source=test nvs_writes=86 sd_records=229
+local=2026-09-19T09:51:27.724-04:00 time=synced seq=243 boot=74 up_ms=234634 level=WARN event=TEST_NVS_SD source=test nvs_writes=87 sd_records=230
+local=2026-09-19T09:51:27.764-04:00 time=synced seq=244 boot=74 up_ms=234674 level=WARN event=TEST_NVS_SD source=test nvs_writes=87 sd_records=231
+local=2026-09-19T09:51:27.810-04:00 time=synced seq=245 boot=74 up_ms=234720 level=WARN event=TEST_NVS_SD source=test nvs_writes=88 sd_records=232
+local=2026-09-19T09:51:27.848-04:00 time=synced seq=246 boot=74 up_ms=234758 level=WARN event=TEST_NVS_SD source=test nvs_writes=88 sd_records=233
+local=2026-09-19T09:51:27.889-04:00 time=synced seq=247 boot=74 up_ms=234798 level=WARN event=TEST_NVS_SD source=test nvs_writes=88 sd_records=234
+local=2026-09-19T09:51:27.930-04:00 time=synced seq=248 boot=74 up_ms=234839 level=WARN event=TEST_NVS_SD source=test nvs_writes=89 sd_records=235
+local=2026-09-19T09:51:27.973-04:00 time=synced seq=249 boot=74 up_ms=234882 level=WARN event=TEST_NVS_SD source=test nvs_writes=89 sd_records=236
+local=2026-09-19T09:51:28.011-04:00 time=synced seq=250 boot=74 up_ms=234921 level=WARN event=TEST_NVS_SD source=test nvs_writes=90 sd_records=237
+local=2026-09-19T09:51:28.055-04:00 time=synced seq=251 boot=74 up_ms=234965 level=WARN event=TEST_NVS_SD source=test nvs_writes=90 sd_records=238
+local=2026-09-19T09:51:28.096-04:00 time=synced seq=252 boot=74 up_ms=235006 level=WARN event=TEST_NVS_SD source=test nvs_writes=90 sd_records=239
+local=2026-09-19T09:51:28.134-04:00 time=synced seq=253 boot=74 up_ms=235044 level=WARN event=TEST_NVS_SD source=test nvs_writes=91 sd_records=240
+local=2026-09-19T09:51:28.173-04:00 time=synced seq=254 boot=74 up_ms=235082 level=WARN event=TEST_NVS_SD source=test nvs_writes=91 sd_records=241
+local=2026-09-19T09:51:28.213-04:00 time=synced seq=255 boot=74 up_ms=235122 level=WARN event=TEST_NVS_SD source=test nvs_writes=91 sd_records=242
+local=2026-09-19T09:51:28.255-04:00 time=synced seq=256 boot=74 up_ms=235164 level=WARN event=TEST_NVS_SD source=test nvs_writes=92 sd_records=243
+local=2026-09-19T09:51:28.298-04:00 time=synced seq=257 boot=74 up_ms=235207 level=WARN event=TEST_NVS_SD source=test nvs_writes=92 sd_records=244
+local=2026-09-19T09:51:28.337-04:00 time=synced seq=258 boot=74 up_ms=235246 level=WARN event=TEST_NVS_SD source=test nvs_writes=93 sd_records=245
+local=2026-09-19T09:51:28.378-04:00 time=synced seq=259 boot=74 up_ms=235288 level=WARN event=TEST_NVS_SD source=test nvs_writes=93 sd_records=246
+local=2026-09-19T09:51:28.418-04:00 time=synced seq=260 boot=74 up_ms=235328 level=WARN event=TEST_NVS_SD source=test nvs_writes=93 sd_records=247
+local=2026-09-19T09:51:28.459-04:00 time=synced seq=261 boot=74 up_ms=235368 level=WARN event=TEST_NVS_SD source=test nvs_writes=94 sd_records=248
+local=2026-09-19T09:51:28.499-04:00 time=synced seq=262 boot=74 up_ms=235409 level=WARN event=TEST_NVS_SD source=test nvs_writes=94 sd_records=249
+local=2026-09-19T09:51:28.538-04:00 time=synced seq=263 boot=74 up_ms=235448 level=WARN event=TEST_NVS_SD source=test nvs_writes=94 sd_records=250
+local=2026-09-19T09:51:28.577-04:00 time=synced seq=264 boot=74 up_ms=235487 level=WARN event=TEST_NVS_SD source=test nvs_writes=95 sd_records=251
+local=2026-09-19T09:51:28.617-04:00 time=synced seq=265 boot=74 up_ms=235526 level=WARN event=TEST_NVS_SD source=test nvs_writes=95 sd_records=252
+local=2026-09-19T09:51:28.659-04:00 time=synced seq=266 boot=74 up_ms=235568 level=WARN event=TEST_NVS_SD source=test nvs_writes=96 sd_records=253
+local=2026-09-19T09:51:28.698-04:00 time=synced seq=267 boot=74 up_ms=235608 level=WARN event=TEST_NVS_SD source=test nvs_writes=96 sd_records=254
+local=2026-09-19T09:51:28.737-04:00 time=synced seq=268 boot=74 up_ms=235647 level=WARN event=TEST_NVS_SD source=test nvs_writes=96 sd_records=255
+local=2026-09-19T09:51:28.777-04:00 time=synced seq=269 boot=74 up_ms=235687 level=WARN event=TEST_NVS_SD source=test nvs_writes=97 sd_records=256
+local=2026-09-19T09:51:28.819-04:00 time=synced seq=270 boot=74 up_ms=235728 level=WARN event=TEST_NVS_SD source=test nvs_writes=97 sd_records=257
+local=2026-09-19T09:51:28.858-04:00 time=synced seq=271 boot=74 up_ms=235768 level=WARN event=TEST_NVS_SD source=test nvs_writes=97 sd_records=258
+local=2026-09-19T09:51:28.897-04:00 time=synced seq=272 boot=74 up_ms=235807 level=WARN event=TEST_NVS_SD source=test nvs_writes=98 sd_records=259
+local=2026-09-19T09:51:28.941-04:00 time=synced seq=273 boot=74 up_ms=235851 level=WARN event=TEST_NVS_SD source=test nvs_writes=98 sd_records=260
+local=2026-09-19T09:51:28.981-04:00 time=synced seq=274 boot=74 up_ms=235890 level=WARN event=TEST_NVS_SD source=test nvs_writes=99 sd_records=261
+local=2026-09-19T09:51:29.018-04:00 time=synced seq=275 boot=74 up_ms=235928 level=WARN event=TEST_NVS_SD source=test nvs_writes=99 sd_records=262
+local=2026-09-19T09:51:29.061-04:00 time=synced seq=276 boot=74 up_ms=235970 level=WARN event=TEST_NVS_SD source=test nvs_writes=99 sd_records=263
+local=2026-09-19T09:51:29.100-04:00 time=synced seq=277 boot=74 up_ms=236010 level=WARN event=TEST_NVS_SD source=test nvs_writes=100 sd_records=264
+local=2026-09-19T09:51:29.141-04:00 time=synced seq=278 boot=74 up_ms=236050 level=WARN event=TEST_NVS_SD source=test nvs_writes=100 sd_records=265
+local=2026-09-19T09:51:29.181-04:00 time=synced seq=279 boot=74 up_ms=236090 level=WARN event=TEST_NVS_SD source=test nvs_writes=100 sd_records=266
+local=2026-09-19T09:51:29.216-04:00 time=synced seq=280 boot=74 up_ms=236126 level=WARN event=TEST_NVS_SD source=test nvs_writes=101 sd_records=267
+local=2026-09-19T09:51:29.259-04:00 time=synced seq=281 boot=74 up_ms=236168 level=WARN event=TEST_NVS_SD source=test nvs_writes=101 sd_records=268
+local=2026-09-19T09:51:29.299-04:00 time=synced seq=282 boot=74 up_ms=236209 level=WARN event=TEST_NVS_SD source=test nvs_writes=102 sd_records=269
+local=2026-09-19T09:51:29.338-04:00 time=synced seq=283 boot=74 up_ms=236248 level=WARN event=TEST_NVS_SD source=test nvs_writes=102 sd_records=270
+local=2026-09-19T09:51:29.378-04:00 time=synced seq=284 boot=74 up_ms=236287 level=WARN event=TEST_NVS_SD source=test nvs_writes=102 sd_records=271
+local=2026-09-19T09:51:29.416-04:00 time=synced seq=285 boot=74 up_ms=236326 level=WARN event=TEST_NVS_SD source=test nvs_writes=103 sd_records=272
+local=2026-09-19T09:51:29.457-04:00 time=synced seq=286 boot=74 up_ms=236366 level=WARN event=TEST_NVS_SD source=test nvs_writes=103 sd_records=273
+local=2026-09-19T09:51:29.493-04:00 time=synced seq=287 boot=74 up_ms=236402 level=WARN event=TEST_NVS_SD source=test nvs_writes=103 sd_records=274
+local=2026-09-19T09:51:29.535-04:00 time=synced seq=288 boot=74 up_ms=236444 level=WARN event=TEST_NVS_SD source=test nvs_writes=104 sd_records=275
+local=2026-09-19T09:51:29.575-04:00 time=synced seq=289 boot=74 up_ms=236484 level=WARN event=TEST_NVS_SD source=test nvs_writes=104 sd_records=276
+local=2026-09-19T09:51:29.615-04:00 time=synced seq=290 boot=74 up_ms=236524 level=WARN event=TEST_NVS_SD source=test nvs_writes=104 sd_records=277
+local=2026-09-19T09:51:29.654-04:00 time=synced seq=291 boot=74 up_ms=236563 level=WARN event=TEST_NVS_SD source=test nvs_writes=105 sd_records=278
+local=2026-09-19T09:51:29.691-04:00 time=synced seq=292 boot=74 up_ms=236600 level=WARN event=TEST_NVS_SD source=test nvs_writes=105 sd_records=279
+local=2026-09-19T09:51:29.731-04:00 time=synced seq=293 boot=74 up_ms=236640 level=WARN event=TEST_NVS_SD source=test nvs_writes=105 sd_records=280
+local=2026-09-19T09:51:29.772-04:00 time=synced seq=294 boot=74 up_ms=236682 level=WARN event=TEST_NVS_SD source=test nvs_writes=106 sd_records=281
+local=2026-09-19T09:51:29.812-04:00 time=synced seq=295 boot=74 up_ms=236722 level=WARN event=TEST_NVS_SD source=test nvs_writes=106 sd_records=282
+local=2026-09-19T09:51:29.852-04:00 time=synced seq=296 boot=74 up_ms=236762 level=WARN event=TEST_NVS_SD source=test nvs_writes=107 sd_records=283
+local=2026-09-19T09:51:29.897-04:00 time=synced seq=297 boot=74 up_ms=236807 level=WARN event=TEST_NVS_SD source=test nvs_writes=107 sd_records=284
+local=2026-09-19T09:51:29.936-04:00 time=synced seq=298 boot=74 up_ms=236846 level=WARN event=TEST_NVS_SD source=test nvs_writes=107 sd_records=285
+local=2026-09-19T09:51:29.983-04:00 time=synced seq=299 boot=74 up_ms=236892 level=WARN event=TEST_NVS_SD source=test nvs_writes=108 sd_records=286
+local=2026-09-19T09:51:30.026-04:00 time=synced seq=300 boot=74 up_ms=236936 level=WARN event=TEST_NVS_SD source=test nvs_writes=108 sd_records=287
+local=2026-09-19T09:51:30.066-04:00 time=synced seq=301 boot=74 up_ms=236975 level=WARN event=TEST_NVS_SD source=test nvs_writes=109 sd_records=288
+local=2026-09-19T09:51:30.108-04:00 time=synced seq=302 boot=74 up_ms=237018 level=WARN event=TEST_NVS_SD source=test nvs_writes=109 sd_records=289
+local=2026-09-19T09:51:30.147-04:00 time=synced seq=303 boot=74 up_ms=237057 level=WARN event=TEST_NVS_SD source=test nvs_writes=109 sd_records=290
+local=2026-09-19T09:51:30.191-04:00 time=synced seq=304 boot=74 up_ms=237100 level=WARN event=TEST_NVS_SD source=test nvs_writes=110 sd_records=291
+local=2026-09-19T09:51:30.230-04:00 time=synced seq=305 boot=74 up_ms=237140 level=WARN event=TEST_NVS_SD source=test nvs_writes=110 sd_records=292
+local=2026-09-19T09:51:30.268-04:00 time=synced seq=306 boot=74 up_ms=237178 level=WARN event=TEST_NVS_SD source=test nvs_writes=111 sd_records=293
+local=2026-09-19T09:51:30.310-04:00 time=synced seq=307 boot=74 up_ms=237220 level=WARN event=TEST_NVS_SD source=test nvs_writes=111 sd_records=294
+local=2026-09-19T09:51:30.350-04:00 time=synced seq=308 boot=74 up_ms=237260 level=WARN event=TEST_NVS_SD source=test nvs_writes=111 sd_records=295
+local=2026-09-19T09:51:30.394-04:00 time=synced seq=309 boot=74 up_ms=237304 level=WARN event=TEST_NVS_SD source=test nvs_writes=112 sd_records=296
+local=2026-09-19T09:51:30.434-04:00 time=synced seq=310 boot=74 up_ms=237344 level=WARN event=TEST_NVS_SD source=test nvs_writes=112 sd_records=297
+local=2026-09-19T09:51:30.479-04:00 time=synced seq=311 boot=74 up_ms=237389 level=WARN event=TEST_NVS_SD source=test nvs_writes=112 sd_records=298
+local=2026-09-19T09:51:30.518-04:00 time=synced seq=312 boot=74 up_ms=237428 level=WARN event=TEST_NVS_SD source=test nvs_writes=113 sd_records=299
+local=2026-09-19T09:51:30.555-04:00 time=synced seq=313 boot=74 up_ms=237465 level=WARN event=TEST_NVS_SD source=test nvs_writes=113 sd_records=300
+local=2026-09-19T09:51:30.598-04:00 time=synced seq=314 boot=74 up_ms=237508 level=WARN event=TEST_NVS_SD source=test nvs_writes=114 sd_records=301
+local=2026-09-19T09:51:30.639-04:00 time=synced seq=315 boot=74 up_ms=237548 level=WARN event=TEST_NVS_SD source=test nvs_writes=114 sd_records=302
+local=2026-09-19T09:51:30.677-04:00 time=synced seq=316 boot=74 up_ms=237587 level=WARN event=TEST_NVS_SD source=test nvs_writes=114 sd_records=303
+local=2026-09-19T09:51:30.720-04:00 time=synced seq=317 boot=74 up_ms=237630 level=WARN event=TEST_NVS_SD source=test nvs_writes=115 sd_records=304
+local=2026-09-19T09:51:30.761-04:00 time=synced seq=318 boot=74 up_ms=237671 level=WARN event=TEST_NVS_SD source=test nvs_writes=115 sd_records=305
+local=2026-09-19T09:51:30.801-04:00 time=synced seq=319 boot=74 up_ms=237710 level=WARN event=TEST_NVS_SD source=test nvs_writes=116 sd_records=306
+local=2026-09-19T09:51:30.838-04:00 time=synced seq=320 boot=74 up_ms=237748 level=WARN event=TEST_NVS_SD source=test nvs_writes=116 sd_records=307
+local=2026-09-19T09:51:30.881-04:00 time=synced seq=321 boot=74 up_ms=237790 level=WARN event=TEST_NVS_SD source=test nvs_writes=116 sd_records=308
+local=2026-09-19T09:51:30.922-04:00 time=synced seq=322 boot=74 up_ms=237832 level=WARN event=TEST_NVS_SD source=test nvs_writes=117 sd_records=309
+local=2026-09-19T09:51:30.963-04:00 time=synced seq=323 boot=74 up_ms=237873 level=WARN event=TEST_NVS_SD source=test nvs_writes=117 sd_records=310
+local=2026-09-19T09:51:31.004-04:00 time=synced seq=324 boot=74 up_ms=237913 level=WARN event=TEST_NVS_SD source=test nvs_writes=117 sd_records=311
+local=2026-09-19T09:51:31.044-04:00 time=synced seq=325 boot=74 up_ms=237954 level=WARN event=TEST_NVS_SD source=test nvs_writes=118 sd_records=312
+local=2026-09-19T09:51:31.084-04:00 time=synced seq=326 boot=74 up_ms=237994 level=WARN event=TEST_NVS_SD source=test nvs_writes=118 sd_records=313
+local=2026-09-19T09:51:31.124-04:00 time=synced seq=327 boot=74 up_ms=238034 level=WARN event=TEST_NVS_SD source=test nvs_writes=118 sd_records=314
+local=2026-09-19T09:51:31.167-04:00 time=synced seq=328 boot=74 up_ms=238077 level=WARN event=TEST_NVS_SD source=test nvs_writes=119 sd_records=315
+local=2026-09-19T09:51:31.207-04:00 time=synced seq=329 boot=74 up_ms=238116 level=WARN event=TEST_NVS_SD source=test nvs_writes=119 sd_records=316
+local=2026-09-19T09:51:31.245-04:00 time=synced seq=330 boot=74 up_ms=238155 level=WARN event=TEST_NVS_SD source=test nvs_writes=120 sd_records=317
+local=2026-09-19T09:51:31.289-04:00 time=synced seq=331 boot=74 up_ms=238198 level=WARN event=TEST_NVS_SD source=test nvs_writes=120 sd_records=318
+local=2026-09-19T09:51:31.326-04:00 time=synced seq=332 boot=74 up_ms=238236 level=WARN event=TEST_NVS_SD source=test nvs_writes=120 sd_records=319
+local=2026-09-19T09:51:31.365-04:00 time=synced seq=333 boot=74 up_ms=238275 level=WARN event=TEST_NVS_SD source=test nvs_writes=121 sd_records=320
+local=2026-09-19T09:51:31.409-04:00 time=synced seq=334 boot=74 up_ms=238318 level=WARN event=TEST_NVS_SD source=test nvs_writes=121 sd_records=321
+local=2026-09-19T09:51:31.446-04:00 time=synced seq=335 boot=74 up_ms=238356 level=WARN event=TEST_NVS_SD source=test nvs_writes=121 sd_records=322
+local=2026-09-19T09:51:31.487-04:00 time=synced seq=336 boot=74 up_ms=238396 level=WARN event=TEST_NVS_SD source=test nvs_writes=122 sd_records=323
+local=2026-09-19T09:51:31.525-04:00 time=synced seq=337 boot=74 up_ms=238435 level=WARN event=TEST_NVS_SD source=test nvs_writes=122 sd_records=324
+local=2026-09-19T09:51:31.564-04:00 time=synced seq=338 boot=74 up_ms=238473 level=WARN event=TEST_NVS_SD source=test nvs_writes=123 sd_records=325
+local=2026-09-19T09:51:31.605-04:00 time=synced seq=339 boot=74 up_ms=238514 level=WARN event=TEST_NVS_SD source=test nvs_writes=123 sd_records=326
+local=2026-09-19T09:51:31.641-04:00 time=synced seq=340 boot=74 up_ms=238551 level=WARN event=TEST_NVS_SD source=test nvs_writes=123 sd_records=327
+local=2026-09-19T09:51:31.680-04:00 time=synced seq=341 boot=74 up_ms=238590 level=WARN event=TEST_NVS_SD source=test nvs_writes=124 sd_records=328
+local=2026-09-19T09:51:31.724-04:00 time=synced seq=342 boot=74 up_ms=238633 level=WARN event=TEST_NVS_SD source=test nvs_writes=124 sd_records=329
+local=2026-09-19T09:51:31.762-04:00 time=synced seq=343 boot=74 up_ms=238671 level=WARN event=TEST_NVS_SD source=test nvs_writes=124 sd_records=330
+local=2026-09-19T09:51:31.805-04:00 time=synced seq=344 boot=74 up_ms=238715 level=WARN event=TEST_NVS_SD source=test nvs_writes=125 sd_records=331
+local=2026-09-19T09:51:31.844-04:00 time=synced seq=345 boot=74 up_ms=238754 level=WARN event=TEST_NVS_SD source=test nvs_writes=125 sd_records=332
+local=2026-09-19T09:51:31.881-04:00 time=synced seq=346 boot=74 up_ms=238790 level=WARN event=TEST_NVS_SD source=test nvs_writes=125 sd_records=333
+local=2026-09-19T09:51:31.921-04:00 time=synced seq=347 boot=74 up_ms=238830 level=WARN event=TEST_NVS_SD source=test nvs_writes=126 sd_records=334
+local=2026-09-19T09:51:31.963-04:00 time=synced seq=348 boot=74 up_ms=238873 level=WARN event=TEST_NVS_SD source=test nvs_writes=126 sd_records=335
+local=2026-09-19T09:51:32.004-04:00 time=synced seq=349 boot=74 up_ms=238913 level=WARN event=TEST_NVS_SD source=test nvs_writes=127 sd_records=336
+local=2026-09-19T09:51:32.044-04:00 time=synced seq=350 boot=74 up_ms=238954 level=WARN event=TEST_NVS_SD source=test nvs_writes=127 sd_records=337
+local=2026-09-19T09:51:32.084-04:00 time=synced seq=351 boot=74 up_ms=238993 level=WARN event=TEST_NVS_SD source=test nvs_writes=127 sd_records=338
+local=2026-09-19T09:51:32.126-04:00 time=synced seq=352 boot=74 up_ms=239035 level=WARN event=TEST_NVS_SD source=test nvs_writes=128 sd_records=339
+local=2026-09-19T09:51:32.167-04:00 time=synced seq=353 boot=74 up_ms=239077 level=WARN event=TEST_NVS_SD source=test nvs_writes=128 sd_records=340
+local=2026-09-19T09:51:32.209-04:00 time=synced seq=354 boot=74 up_ms=239118 level=WARN event=TEST_NVS_SD source=test nvs_writes=129 sd_records=341
+local=2026-09-19T09:51:32.247-04:00 time=synced seq=355 boot=74 up_ms=239157 level=WARN event=TEST_NVS_SD source=test nvs_writes=129 sd_records=342
+local=2026-09-19T09:51:32.287-04:00 time=synced seq=356 boot=74 up_ms=239196 level=WARN event=TEST_NVS_SD source=test nvs_writes=129 sd_records=343
+local=2026-09-19T09:51:32.326-04:00 time=synced seq=357 boot=74 up_ms=239236 level=WARN event=TEST_NVS_SD source=test nvs_writes=130 sd_records=344
+local=2026-09-19T09:51:32.369-04:00 time=synced seq=358 boot=74 up_ms=239278 level=WARN event=TEST_NVS_SD source=test nvs_writes=130 sd_records=345
+local=2026-09-19T09:51:32.408-04:00 time=synced seq=359 boot=74 up_ms=239318 level=WARN event=TEST_NVS_SD source=test nvs_writes=131 sd_records=346
+local=2026-09-19T09:51:32.448-04:00 time=synced seq=360 boot=74 up_ms=239358 level=WARN event=TEST_NVS_SD source=test nvs_writes=131 sd_records=347
+local=2026-09-19T09:51:32.488-04:00 time=synced seq=361 boot=74 up_ms=239398 level=WARN event=TEST_NVS_SD source=test nvs_writes=131 sd_records=348
+local=2026-09-19T09:51:32.527-04:00 time=synced seq=362 boot=74 up_ms=239436 level=WARN event=TEST_NVS_SD source=test nvs_writes=132 sd_records=349
+local=2026-09-19T09:51:32.568-04:00 time=synced seq=363 boot=74 up_ms=239477 level=WARN event=TEST_NVS_SD source=test nvs_writes=132 sd_records=350
+local=2026-09-19T09:51:32.607-04:00 time=synced seq=364 boot=74 up_ms=239517 level=WARN event=TEST_NVS_SD source=test nvs_writes=132 sd_records=351
+local=2026-09-19T09:51:32.649-04:00 time=synced seq=365 boot=74 up_ms=239559 level=WARN event=TEST_NVS_SD source=test nvs_writes=133 sd_records=352
+local=2026-09-19T09:51:32.694-04:00 time=synced seq=366 boot=74 up_ms=239604 level=WARN event=TEST_NVS_SD source=test nvs_writes=133 sd_records=353
+local=2026-09-19T09:51:32.734-04:00 time=synced seq=367 boot=74 up_ms=239643 level=WARN event=TEST_NVS_SD source=test nvs_writes=134 sd_records=354
+local=2026-09-19T09:51:32.773-04:00 time=synced seq=368 boot=74 up_ms=239683 level=WARN event=TEST_NVS_SD source=test nvs_writes=134 sd_records=355
+local=2026-09-19T09:51:32.819-04:00 time=synced seq=369 boot=74 up_ms=239728 level=WARN event=TEST_NVS_SD source=test nvs_writes=134 sd_records=356
+local=2026-09-19T09:51:32.859-04:00 time=synced seq=370 boot=74 up_ms=239768 level=WARN event=TEST_NVS_SD source=test nvs_writes=135 sd_records=357
+local=2026-09-19T09:51:32.899-04:00 time=synced seq=371 boot=74 up_ms=239809 level=WARN event=TEST_NVS_SD source=test nvs_writes=135 sd_records=358
+local=2026-09-19T09:51:32.941-04:00 time=synced seq=372 boot=74 up_ms=239850 level=WARN event=TEST_NVS_SD source=test nvs_writes=136 sd_records=359
+local=2026-09-19T09:51:32.981-04:00 time=synced seq=373 boot=74 up_ms=239891 level=WARN event=TEST_NVS_SD source=test nvs_writes=136 sd_records=360
+local=2026-09-19T09:51:33.022-04:00 time=synced seq=374 boot=74 up_ms=239931 level=WARN event=TEST_NVS_SD source=test nvs_writes=136 sd_records=361
+local=2026-09-19T09:51:33.065-04:00 time=synced seq=375 boot=74 up_ms=239975 level=WARN event=TEST_NVS_SD source=test nvs_writes=137 sd_records=362
+local=2026-09-19T09:51:33.107-04:00 time=synced seq=376 boot=74 up_ms=240016 level=WARN event=TEST_NVS_SD source=test nvs_writes=137 sd_records=363
+local=2026-09-19T09:51:33.144-04:00 time=synced seq=377 boot=74 up_ms=240054 level=WARN event=TEST_NVS_SD source=test nvs_writes=138 sd_records=364
+local=2026-09-19T09:51:33.187-04:00 time=synced seq=378 boot=74 up_ms=240096 level=WARN event=TEST_NVS_SD source=test nvs_writes=138 sd_records=365
+local=2026-09-19T09:51:33.225-04:00 time=synced seq=379 boot=74 up_ms=240135 level=WARN event=TEST_NVS_SD source=test nvs_writes=138 sd_records=366
+local=2026-09-19T09:51:33.266-04:00 time=synced seq=380 boot=74 up_ms=240176 level=WARN event=TEST_NVS_SD source=test nvs_writes=139 sd_records=367
+local=2026-09-19T09:51:33.308-04:00 time=synced seq=381 boot=74 up_ms=240218 level=WARN event=TEST_NVS_SD source=test nvs_writes=139 sd_records=368
+local=2026-09-19T09:51:33.347-04:00 time=synced seq=382 boot=74 up_ms=240257 level=WARN event=TEST_NVS_SD source=test nvs_writes=139 sd_records=369
+local=2026-09-19T09:51:33.392-04:00 time=synced seq=383 boot=74 up_ms=240302 level=WARN event=TEST_NVS_SD source=test nvs_writes=140 sd_records=370
+local=2026-09-19T09:51:33.435-04:00 time=synced seq=384 boot=74 up_ms=240344 level=WARN event=TEST_NVS_SD source=test nvs_writes=140 sd_records=371
+local=2026-09-19T09:51:33.473-04:00 time=synced seq=385 boot=74 up_ms=240383 level=WARN event=TEST_NVS_SD source=test nvs_writes=141 sd_records=372
+local=2026-09-19T09:51:33.514-04:00 time=synced seq=386 boot=74 up_ms=240423 level=WARN event=TEST_NVS_SD source=test nvs_writes=141 sd_records=373
+local=2026-09-19T09:51:33.555-04:00 time=synced seq=387 boot=74 up_ms=240464 level=WARN event=TEST_NVS_SD source=test nvs_writes=141 sd_records=374
+local=2026-09-19T09:51:33.598-04:00 time=synced seq=388 boot=74 up_ms=240508 level=WARN event=TEST_NVS_SD source=test nvs_writes=142 sd_records=375
+local=2026-09-19T09:51:33.640-04:00 time=synced seq=389 boot=74 up_ms=240549 level=WARN event=TEST_NVS_SD source=test nvs_writes=142 sd_records=376
+local=2026-09-19T09:51:33.686-04:00 time=synced seq=390 boot=74 up_ms=240595 level=WARN event=TEST_NVS_SD source=test nvs_writes=143 sd_records=377
+local=2026-09-19T09:51:33.723-04:00 time=synced seq=391 boot=74 up_ms=240632 level=WARN event=TEST_NVS_SD source=test nvs_writes=143 sd_records=378
+local=2026-09-19T09:51:33.763-04:00 time=synced seq=392 boot=74 up_ms=240673 level=WARN event=TEST_NVS_SD source=test nvs_writes=143 sd_records=379
+local=2026-09-19T09:51:33.802-04:00 time=synced seq=393 boot=74 up_ms=240711 level=WARN event=TEST_NVS_SD source=test nvs_writes=144 sd_records=380
+local=2026-09-19T09:51:33.844-04:00 time=synced seq=394 boot=74 up_ms=240754 level=WARN event=TEST_NVS_SD source=test nvs_writes=144 sd_records=381
+local=2026-09-19T09:51:33.884-04:00 time=synced seq=395 boot=74 up_ms=240794 level=WARN event=TEST_NVS_SD source=test nvs_writes=145 sd_records=382
+local=2026-09-19T09:51:33.925-04:00 time=synced seq=396 boot=74 up_ms=240834 level=WARN event=TEST_NVS_SD source=test nvs_writes=145 sd_records=383
+local=2026-09-19T09:51:33.967-04:00 time=synced seq=397 boot=74 up_ms=240876 level=WARN event=TEST_NVS_SD source=test nvs_writes=145 sd_records=384
+local=2026-09-19T09:51:34.007-04:00 time=synced seq=398 boot=74 up_ms=240917 level=WARN event=TEST_NVS_SD source=test nvs_writes=146 sd_records=385
+local=2026-09-19T09:51:34.048-04:00 time=synced seq=399 boot=74 up_ms=240958 level=WARN event=TEST_NVS_SD source=test nvs_writes=146 sd_records=386
+local=2026-09-19T09:51:34.089-04:00 time=synced seq=400 boot=74 up_ms=240998 level=WARN event=TEST_NVS_SD source=test nvs_writes=146 sd_records=387
+local=2026-09-19T09:51:34.131-04:00 time=synced seq=401 boot=74 up_ms=241041 level=WARN event=TEST_NVS_SD source=test nvs_writes=147 sd_records=388
+local=2026-09-19T09:51:34.170-04:00 time=synced seq=402 boot=74 up_ms=241080 level=WARN event=TEST_NVS_SD source=test nvs_writes=147 sd_records=389
+local=2026-09-19T09:51:34.210-04:00 time=synced seq=403 boot=74 up_ms=241120 level=WARN event=TEST_NVS_SD source=test nvs_writes=148 sd_records=390
+local=2026-09-19T09:51:34.253-04:00 time=synced seq=404 boot=74 up_ms=241162 level=WARN event=TEST_NVS_SD source=test nvs_writes=148 sd_records=391
+local=2026-09-19T09:51:34.294-04:00 time=synced seq=405 boot=74 up_ms=241203 level=WARN event=TEST_NVS_SD source=test nvs_writes=148 sd_records=392
+local=2026-09-19T09:51:34.334-04:00 time=synced seq=406 boot=74 up_ms=241244 level=WARN event=TEST_NVS_SD source=test nvs_writes=149 sd_records=393
+local=2026-09-19T09:51:34.379-04:00 time=synced seq=407 boot=74 up_ms=241289 level=WARN event=TEST_NVS_SD source=test nvs_writes=149 sd_records=394
+local=2026-09-19T09:51:34.417-04:00 time=synced seq=408 boot=74 up_ms=241326 level=WARN event=TEST_NVS_SD source=test nvs_writes=150 sd_records=395
+local=2026-09-19T09:51:34.457-04:00 time=synced seq=409 boot=74 up_ms=241366 level=WARN event=TEST_NVS_SD source=test nvs_writes=150 sd_records=396
+local=2026-09-19T09:51:34.499-04:00 time=synced seq=410 boot=74 up_ms=241408 level=WARN event=TEST_NVS_SD source=test nvs_writes=150 sd_records=397
+local=2026-09-19T09:51:34.539-04:00 time=synced seq=411 boot=74 up_ms=241448 level=WARN event=TEST_NVS_SD source=test nvs_writes=151 sd_records=398
+local=2026-09-19T09:51:34.579-04:00 time=synced seq=412 boot=74 up_ms=241489 level=WARN event=TEST_NVS_SD source=test nvs_writes=151 sd_records=399
+local=2026-09-19T09:51:34.618-04:00 time=synced seq=413 boot=74 up_ms=241528 level=WARN event=TEST_NVS_SD source=test nvs_writes=151 sd_records=400
+local=2026-09-19T09:51:34.656-04:00 time=synced seq=414 boot=74 up_ms=241566 level=WARN event=TEST_NVS_SD source=test nvs_writes=152 sd_records=401
+local=2026-09-19T09:51:34.697-04:00 time=synced seq=415 boot=74 up_ms=241606 level=WARN event=TEST_NVS_SD source=test nvs_writes=152 sd_records=402
+local=2026-09-19T09:51:34.731-04:00 time=synced seq=416 boot=74 up_ms=241641 level=WARN event=TEST_NVS_SD source=test nvs_writes=152 sd_records=403
+local=2026-09-19T09:51:34.772-04:00 time=synced seq=417 boot=74 up_ms=241682 level=WARN event=TEST_NVS_SD source=test nvs_writes=153 sd_records=404
+local=2026-09-19T09:51:34.817-04:00 time=synced seq=418 boot=74 up_ms=241726 level=WARN event=TEST_NVS_SD source=test nvs_writes=153 sd_records=405
+local=2026-09-19T09:51:34.854-04:00 time=synced seq=419 boot=74 up_ms=241764 level=WARN event=TEST_NVS_SD source=test nvs_writes=153 sd_records=406
+local=2026-09-19T09:51:34.893-04:00 time=synced seq=420 boot=74 up_ms=241802 level=WARN event=TEST_NVS_SD source=test nvs_writes=154 sd_records=407
+local=2026-09-19T09:51:34.931-04:00 time=synced seq=421 boot=74 up_ms=241841 level=WARN event=TEST_NVS_SD source=test nvs_writes=154 sd_records=408
+local=2026-09-19T09:51:34.969-04:00 time=synced seq=422 boot=74 up_ms=241879 level=WARN event=TEST_NVS_SD source=test nvs_writes=155 sd_records=409
+local=2026-09-19T09:51:35.008-04:00 time=synced seq=423 boot=74 up_ms=241918 level=WARN event=TEST_NVS_SD source=test nvs_writes=155 sd_records=410
+local=2026-09-19T09:51:35.052-04:00 time=synced seq=424 boot=74 up_ms=241962 level=WARN event=TEST_NVS_SD source=test nvs_writes=155 sd_records=411
+local=2026-09-19T09:51:35.092-04:00 time=synced seq=425 boot=74 up_ms=242002 level=WARN event=TEST_NVS_SD source=test nvs_writes=156 sd_records=412
+local=2026-09-19T09:51:35.130-04:00 time=synced seq=426 boot=74 up_ms=242040 level=WARN event=TEST_NVS_SD source=test nvs_writes=156 sd_records=413
+local=2026-09-19T09:51:35.169-04:00 time=synced seq=427 boot=74 up_ms=242079 level=WARN event=TEST_NVS_SD source=test nvs_writes=156 sd_records=414
+local=2026-09-19T09:51:35.187-04:00 time=synced seq=428 boot=74 up_ms=242096 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-42 snapshot_age_ms=559 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4113 internal_free=105220 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=222603 queue_high=1 drops=0 suppressed=0 truncated=0 writes=427 slow=0 write_max_us=5496 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922233344 size=74279 generation=20 archives=6 pruned=0
+local=2026-09-19T09:51:35.223-04:00 time=synced seq=429 boot=74 up_ms=242133 level=WARN event=TEST_NVS_SD source=test nvs_writes=157 sd_records=415
+local=2026-09-19T09:51:35.262-04:00 time=synced seq=430 boot=74 up_ms=242171 level=WARN event=TEST_NVS_SD source=test nvs_writes=157 sd_records=416
+local=2026-09-19T09:51:35.300-04:00 time=synced seq=431 boot=74 up_ms=242210 level=WARN event=TEST_NVS_SD source=test nvs_writes=158 sd_records=417
+local=2026-09-19T09:51:35.341-04:00 time=synced seq=432 boot=74 up_ms=242250 level=WARN event=TEST_NVS_SD source=test nvs_writes=158 sd_records=418
+local=2026-09-19T09:51:35.378-04:00 time=synced seq=433 boot=74 up_ms=242288 level=WARN event=TEST_NVS_SD source=test nvs_writes=158 sd_records=419
+local=2026-09-19T09:51:35.421-04:00 time=synced seq=434 boot=74 up_ms=242330 level=WARN event=TEST_NVS_SD source=test nvs_writes=159 sd_records=420
+local=2026-09-19T09:51:35.457-04:00 time=synced seq=435 boot=74 up_ms=242367 level=WARN event=TEST_NVS_SD source=test nvs_writes=159 sd_records=421
+local=2026-09-19T09:51:35.503-04:00 time=synced seq=436 boot=74 up_ms=242413 level=WARN event=TEST_NVS_SD source=test nvs_writes=159 sd_records=422
+local=2026-09-19T09:51:35.542-04:00 time=synced seq=437 boot=74 up_ms=242452 level=WARN event=TEST_NVS_SD source=test nvs_writes=160 sd_records=423
+local=2026-09-19T09:51:35.581-04:00 time=synced seq=438 boot=74 up_ms=242491 level=WARN event=TEST_NVS_SD source=test nvs_writes=160 sd_records=424
+local=2026-09-19T09:51:35.619-04:00 time=synced seq=439 boot=74 up_ms=242529 level=WARN event=TEST_NVS_SD source=test nvs_writes=161 sd_records=425
+local=2026-09-19T09:51:35.662-04:00 time=synced seq=440 boot=74 up_ms=242572 level=WARN event=TEST_NVS_SD source=test nvs_writes=161 sd_records=426
+local=2026-09-19T09:51:35.702-04:00 time=synced seq=441 boot=74 up_ms=242612 level=WARN event=TEST_NVS_SD source=test nvs_writes=161 sd_records=427
+local=2026-09-19T09:51:35.741-04:00 time=synced seq=442 boot=74 up_ms=242651 level=WARN event=TEST_NVS_SD source=test nvs_writes=162 sd_records=428
+local=2026-09-19T09:51:35.776-04:00 time=synced seq=443 boot=74 up_ms=242686 level=WARN event=TEST_NVS_SD source=test nvs_writes=162 sd_records=429
+local=2026-09-19T09:51:35.815-04:00 time=synced seq=444 boot=74 up_ms=242725 level=WARN event=TEST_NVS_SD source=test nvs_writes=162 sd_records=430
+local=2026-09-19T09:51:35.857-04:00 time=synced seq=445 boot=74 up_ms=242767 level=WARN event=TEST_NVS_SD source=test nvs_writes=163 sd_records=431
+local=2026-09-19T09:51:35.900-04:00 time=synced seq=446 boot=74 up_ms=242809 level=WARN event=TEST_NVS_SD source=test nvs_writes=163 sd_records=432
+local=2026-09-19T09:51:35.937-04:00 time=synced seq=447 boot=74 up_ms=242846 level=WARN event=TEST_NVS_SD source=test nvs_writes=164 sd_records=433
+local=2026-09-19T09:51:35.973-04:00 time=synced seq=448 boot=74 up_ms=242883 level=WARN event=TEST_NVS_SD source=test nvs_writes=164 sd_records=434
+local=2026-09-19T09:51:36.017-04:00 time=synced seq=449 boot=74 up_ms=242926 level=WARN event=TEST_NVS_SD source=test nvs_writes=164 sd_records=435
+local=2026-09-19T09:51:36.059-04:00 time=synced seq=450 boot=74 up_ms=242968 level=WARN event=TEST_NVS_SD source=test nvs_writes=165 sd_records=436
+local=2026-09-19T09:51:36.100-04:00 time=synced seq=451 boot=74 up_ms=243009 level=WARN event=TEST_NVS_SD source=test nvs_writes=165 sd_records=437
+local=2026-09-19T09:51:36.140-04:00 time=synced seq=452 boot=74 up_ms=243050 level=WARN event=TEST_NVS_SD source=test nvs_writes=166 sd_records=438
+local=2026-09-19T09:51:36.180-04:00 time=synced seq=453 boot=74 up_ms=243090 level=WARN event=TEST_NVS_SD source=test nvs_writes=166 sd_records=439
+local=2026-09-19T09:51:36.218-04:00 time=synced seq=454 boot=74 up_ms=243128 level=WARN event=TEST_NVS_SD source=test nvs_writes=166 sd_records=440
+local=2026-09-19T09:51:36.260-04:00 time=synced seq=455 boot=74 up_ms=243169 level=WARN event=TEST_NVS_SD source=test nvs_writes=167 sd_records=441
+local=2026-09-19T09:51:36.301-04:00 time=synced seq=456 boot=74 up_ms=243210 level=WARN event=TEST_NVS_SD source=test nvs_writes=167 sd_records=442
+local=2026-09-19T09:51:36.341-04:00 time=synced seq=457 boot=74 up_ms=243250 level=WARN event=TEST_NVS_SD source=test nvs_writes=167 sd_records=443
+local=2026-09-19T09:51:36.377-04:00 time=synced seq=458 boot=74 up_ms=243287 level=WARN event=TEST_NVS_SD source=test nvs_writes=168 sd_records=444
+local=2026-09-19T09:51:36.421-04:00 time=synced seq=459 boot=74 up_ms=243330 level=WARN event=TEST_NVS_SD source=test nvs_writes=168 sd_records=445
+local=2026-09-19T09:51:36.463-04:00 time=synced seq=460 boot=74 up_ms=243372 level=WARN event=TEST_NVS_SD source=test nvs_writes=169 sd_records=446
+local=2026-09-19T09:51:36.502-04:00 time=synced seq=461 boot=74 up_ms=243412 level=WARN event=TEST_NVS_SD source=test nvs_writes=169 sd_records=447
+local=2026-09-19T09:51:36.542-04:00 time=synced seq=462 boot=74 up_ms=243451 level=WARN event=TEST_NVS_SD source=test nvs_writes=169 sd_records=448
+local=2026-09-19T09:51:36.583-04:00 time=synced seq=463 boot=74 up_ms=243492 level=WARN event=TEST_NVS_SD source=test nvs_writes=170 sd_records=449
+local=2026-09-19T09:51:36.624-04:00 time=synced seq=464 boot=74 up_ms=243533 level=WARN event=TEST_NVS_SD source=test nvs_writes=170 sd_records=450
+local=2026-09-19T09:51:36.667-04:00 time=synced seq=465 boot=74 up_ms=243577 level=WARN event=TEST_NVS_SD source=test nvs_writes=170 sd_records=451
+local=2026-09-19T09:51:36.711-04:00 time=synced seq=466 boot=74 up_ms=243620 level=WARN event=TEST_NVS_SD source=test nvs_writes=171 sd_records=452
+local=2026-09-19T09:51:36.750-04:00 time=synced seq=467 boot=74 up_ms=243660 level=WARN event=TEST_NVS_SD source=test nvs_writes=171 sd_records=453
+local=2026-09-19T09:51:36.790-04:00 time=synced seq=468 boot=74 up_ms=243700 level=WARN event=TEST_NVS_SD source=test nvs_writes=172 sd_records=454
+local=2026-09-19T09:51:36.831-04:00 time=synced seq=469 boot=74 up_ms=243740 level=WARN event=TEST_NVS_SD source=test nvs_writes=172 sd_records=455
+local=2026-09-19T09:51:36.873-04:00 time=synced seq=470 boot=74 up_ms=243782 level=WARN event=TEST_NVS_SD source=test nvs_writes=172 sd_records=456
+local=2026-09-19T09:51:36.912-04:00 time=synced seq=471 boot=74 up_ms=243822 level=WARN event=TEST_NVS_SD source=test nvs_writes=173 sd_records=457
+local=2026-09-19T09:51:36.954-04:00 time=synced seq=472 boot=74 up_ms=243864 level=WARN event=TEST_NVS_SD source=test nvs_writes=173 sd_records=458
+local=2026-09-19T09:51:36.999-04:00 time=synced seq=473 boot=74 up_ms=243909 level=WARN event=TEST_NVS_SD source=test nvs_writes=174 sd_records=459
+local=2026-09-19T09:51:37.041-04:00 time=synced seq=474 boot=74 up_ms=243950 level=WARN event=TEST_NVS_SD source=test nvs_writes=174 sd_records=460
+local=2026-09-19T09:51:37.082-04:00 time=synced seq=475 boot=74 up_ms=243992 level=WARN event=TEST_NVS_SD source=test nvs_writes=174 sd_records=461
+local=2026-09-19T09:51:37.122-04:00 time=synced seq=476 boot=74 up_ms=244032 level=WARN event=TEST_NVS_SD source=test nvs_writes=175 sd_records=462
+local=2026-09-19T09:51:37.168-04:00 time=synced seq=477 boot=74 up_ms=244078 level=WARN event=TEST_NVS_SD source=test nvs_writes=175 sd_records=463
+local=2026-09-19T09:51:37.208-04:00 time=synced seq=478 boot=74 up_ms=244118 level=WARN event=TEST_NVS_SD source=test nvs_writes=175 sd_records=464
+local=2026-09-19T09:51:37.249-04:00 time=synced seq=479 boot=74 up_ms=244158 level=WARN event=TEST_NVS_SD source=test nvs_writes=176 sd_records=465
+local=2026-09-19T09:51:37.290-04:00 time=synced seq=480 boot=74 up_ms=244200 level=WARN event=TEST_NVS_SD source=test nvs_writes=176 sd_records=466
+local=2026-09-19T09:51:37.333-04:00 time=synced seq=481 boot=74 up_ms=244242 level=WARN event=TEST_NVS_SD source=test nvs_writes=177 sd_records=467
+local=2026-09-19T09:51:37.370-04:00 time=synced seq=482 boot=74 up_ms=244280 level=WARN event=TEST_NVS_SD source=test nvs_writes=177 sd_records=468
+local=2026-09-19T09:51:37.412-04:00 time=synced seq=483 boot=74 up_ms=244322 level=WARN event=TEST_NVS_SD source=test nvs_writes=177 sd_records=469
+local=2026-09-19T09:51:37.457-04:00 time=synced seq=484 boot=74 up_ms=244367 level=WARN event=TEST_NVS_SD source=test nvs_writes=178 sd_records=470
+local=2026-09-19T09:51:37.495-04:00 time=synced seq=485 boot=74 up_ms=244405 level=WARN event=TEST_NVS_SD source=test nvs_writes=178 sd_records=471
+local=2026-09-19T09:51:37.544-04:00 time=synced seq=486 boot=74 up_ms=244454 level=WARN event=TEST_NVS_SD source=test nvs_writes=178 sd_records=472
+local=2026-09-19T09:51:37.637-04:00 time=synced seq=487 boot=74 up_ms=244546 level=WARN event=TEST_NVS_SD source=test nvs_writes=179 sd_records=473
+local=2026-09-19T09:51:37.679-04:00 time=synced seq=488 boot=74 up_ms=244589 level=WARN event=TEST_NVS_SD source=test nvs_writes=179 sd_records=474
+local=2026-09-19T09:51:37.721-04:00 time=synced seq=489 boot=74 up_ms=244630 level=WARN event=TEST_NVS_SD source=test nvs_writes=179 sd_records=475
+local=2026-09-19T09:51:37.760-04:00 time=synced seq=490 boot=74 up_ms=244670 level=WARN event=TEST_NVS_SD source=test nvs_writes=180 sd_records=476
+local=2026-09-19T09:51:37.799-04:00 time=synced seq=491 boot=74 up_ms=244708 level=WARN event=TEST_NVS_SD source=test nvs_writes=180 sd_records=477
+local=2026-09-19T09:51:37.834-04:00 time=synced seq=492 boot=74 up_ms=244744 level=WARN event=TEST_NVS_SD source=test nvs_writes=181 sd_records=478
+local=2026-09-19T09:51:37.879-04:00 time=synced seq=493 boot=74 up_ms=244789 level=WARN event=TEST_NVS_SD source=test nvs_writes=181 sd_records=479
+local=2026-09-19T09:51:37.923-04:00 time=synced seq=494 boot=74 up_ms=244832 level=WARN event=TEST_NVS_SD source=test nvs_writes=181 sd_records=480
+local=2026-09-19T09:51:37.964-04:00 time=synced seq=495 boot=74 up_ms=244874 level=WARN event=TEST_NVS_SD source=test nvs_writes=182 sd_records=481
+local=2026-09-19T09:51:38.007-04:00 time=synced seq=496 boot=74 up_ms=244916 level=WARN event=TEST_NVS_SD source=test nvs_writes=182 sd_records=482
+local=2026-09-19T09:51:38.042-04:00 time=synced seq=497 boot=74 up_ms=244952 level=WARN event=TEST_NVS_SD source=test nvs_writes=182 sd_records=483
+local=2026-09-19T09:51:38.085-04:00 time=synced seq=498 boot=74 up_ms=244994 level=WARN event=TEST_NVS_SD source=test nvs_writes=183 sd_records=484
+local=2026-09-19T09:51:38.128-04:00 time=synced seq=499 boot=74 up_ms=245038 level=WARN event=TEST_NVS_SD source=test nvs_writes=183 sd_records=485
+local=2026-09-19T09:51:38.168-04:00 time=synced seq=500 boot=74 up_ms=245078 level=WARN event=TEST_NVS_SD source=test nvs_writes=184 sd_records=486
+local=2026-09-19T09:51:38.209-04:00 time=synced seq=501 boot=74 up_ms=245118 level=WARN event=TEST_NVS_SD source=test nvs_writes=184 sd_records=487
+local=2026-09-19T09:51:38.247-04:00 time=synced seq=502 boot=74 up_ms=245157 level=WARN event=TEST_NVS_SD source=test nvs_writes=184 sd_records=488
+local=2026-09-19T09:51:38.287-04:00 time=synced seq=503 boot=74 up_ms=245197 level=WARN event=TEST_NVS_SD source=test nvs_writes=185 sd_records=489
+local=2026-09-19T09:51:38.330-04:00 time=synced seq=504 boot=74 up_ms=245239 level=WARN event=TEST_NVS_SD source=test nvs_writes=185 sd_records=490
+local=2026-09-19T09:51:38.371-04:00 time=synced seq=505 boot=74 up_ms=245281 level=WARN event=TEST_NVS_SD source=test nvs_writes=186 sd_records=491
+local=2026-09-19T09:51:38.414-04:00 time=synced seq=506 boot=74 up_ms=245324 level=WARN event=TEST_NVS_SD source=test nvs_writes=186 sd_records=492
+local=2026-09-19T09:51:38.451-04:00 time=synced seq=507 boot=74 up_ms=245361 level=WARN event=TEST_NVS_SD source=test nvs_writes=186 sd_records=493
+local=2026-09-19T09:51:38.493-04:00 time=synced seq=508 boot=74 up_ms=245402 level=WARN event=TEST_NVS_SD source=test nvs_writes=187 sd_records=494
+local=2026-09-19T09:51:38.532-04:00 time=synced seq=509 boot=74 up_ms=245442 level=WARN event=TEST_NVS_SD source=test nvs_writes=187 sd_records=495
+local=2026-09-19T09:51:38.572-04:00 time=synced seq=510 boot=74 up_ms=245482 level=WARN event=TEST_NVS_SD source=test nvs_writes=187 sd_records=496
+local=2026-09-19T09:51:38.610-04:00 time=synced seq=511 boot=74 up_ms=245519 level=WARN event=TEST_NVS_SD source=test nvs_writes=188 sd_records=497
+local=2026-09-19T09:51:38.655-04:00 time=synced seq=512 boot=74 up_ms=245565 level=WARN event=TEST_NVS_SD source=test nvs_writes=188 sd_records=498
+local=2026-09-19T09:51:38.694-04:00 time=synced seq=513 boot=74 up_ms=245604 level=WARN event=TEST_NVS_SD source=test nvs_writes=189 sd_records=499
+local=2026-09-19T09:51:38.737-04:00 time=synced seq=514 boot=74 up_ms=245646 level=WARN event=TEST_NVS_SD source=test nvs_writes=189 sd_records=500
+local=2026-09-19T09:51:38.778-04:00 time=synced seq=515 boot=74 up_ms=245687 level=WARN event=TEST_NVS_SD source=test nvs_writes=189 sd_records=501
+local=2026-09-19T09:51:38.815-04:00 time=synced seq=516 boot=74 up_ms=245725 level=WARN event=TEST_NVS_SD source=test nvs_writes=190 sd_records=502
+local=2026-09-19T09:51:38.853-04:00 time=synced seq=517 boot=74 up_ms=245763 level=WARN event=TEST_NVS_SD source=test nvs_writes=190 sd_records=503
+local=2026-09-19T09:51:38.896-04:00 time=synced seq=518 boot=74 up_ms=245806 level=WARN event=TEST_NVS_SD source=test nvs_writes=190 sd_records=504
+local=2026-09-19T09:51:38.937-04:00 time=synced seq=519 boot=74 up_ms=245846 level=WARN event=TEST_NVS_SD source=test nvs_writes=191 sd_records=505
+local=2026-09-19T09:51:38.975-04:00 time=synced seq=520 boot=74 up_ms=245885 level=WARN event=TEST_NVS_SD source=test nvs_writes=191 sd_records=506
+local=2026-09-19T09:51:39.017-04:00 time=synced seq=521 boot=74 up_ms=245926 level=WARN event=TEST_NVS_SD source=test nvs_writes=191 sd_records=507
+local=2026-09-19T09:51:39.057-04:00 time=synced seq=522 boot=74 up_ms=245967 level=WARN event=TEST_NVS_SD source=test nvs_writes=192 sd_records=508
+local=2026-09-19T09:51:39.097-04:00 time=synced seq=523 boot=74 up_ms=246006 level=WARN event=TEST_NVS_SD source=test nvs_writes=192 sd_records=509
+local=2026-09-19T09:51:39.139-04:00 time=synced seq=524 boot=74 up_ms=246049 level=WARN event=TEST_NVS_SD source=test nvs_writes=193 sd_records=510
+local=2026-09-19T09:51:39.179-04:00 time=synced seq=525 boot=74 up_ms=246088 level=WARN event=TEST_NVS_SD source=test nvs_writes=193 sd_records=511
+local=2026-09-19T09:51:39.224-04:00 time=synced seq=526 boot=74 up_ms=246133 level=WARN event=TEST_NVS_SD source=test nvs_writes=193 sd_records=512
+local=2026-09-19T09:51:39.263-04:00 time=synced seq=527 boot=74 up_ms=246173 level=WARN event=TEST_NVS_SD source=test nvs_writes=194 sd_records=513
+local=2026-09-19T09:51:39.303-04:00 time=synced seq=528 boot=74 up_ms=246213 level=WARN event=TEST_NVS_SD source=test nvs_writes=194 sd_records=514
+local=2026-09-19T09:51:39.344-04:00 time=synced seq=529 boot=74 up_ms=246254 level=WARN event=TEST_NVS_SD source=test nvs_writes=194 sd_records=515
+local=2026-09-19T09:51:39.385-04:00 time=synced seq=530 boot=74 up_ms=246294 level=WARN event=TEST_NVS_SD source=test nvs_writes=195 sd_records=516
+local=2026-09-19T09:51:39.427-04:00 time=synced seq=531 boot=74 up_ms=246336 level=WARN event=TEST_NVS_SD source=test nvs_writes=195 sd_records=517
+local=2026-09-19T09:51:39.467-04:00 time=synced seq=532 boot=74 up_ms=246376 level=WARN event=TEST_NVS_SD source=test nvs_writes=196 sd_records=518
+local=2026-09-19T09:51:39.506-04:00 time=synced seq=533 boot=74 up_ms=246415 level=WARN event=TEST_NVS_SD source=test nvs_writes=196 sd_records=519
+local=2026-09-19T09:51:39.547-04:00 time=synced seq=534 boot=74 up_ms=246456 level=WARN event=TEST_NVS_SD source=test nvs_writes=196 sd_records=520
+local=2026-09-19T09:51:39.585-04:00 time=synced seq=535 boot=74 up_ms=246495 level=WARN event=TEST_NVS_SD source=test nvs_writes=197 sd_records=521
+local=2026-09-19T09:51:39.627-04:00 time=synced seq=536 boot=74 up_ms=246536 level=WARN event=TEST_NVS_SD source=test nvs_writes=197 sd_records=522
+local=2026-09-19T09:51:39.665-04:00 time=synced seq=537 boot=74 up_ms=246575 level=WARN event=TEST_NVS_SD source=test nvs_writes=197 sd_records=523
+local=2026-09-19T09:51:39.709-04:00 time=synced seq=538 boot=74 up_ms=246618 level=WARN event=TEST_NVS_SD source=test nvs_writes=198 sd_records=524
+local=2026-09-19T09:51:39.748-04:00 time=synced seq=539 boot=74 up_ms=246658 level=WARN event=TEST_NVS_SD source=test nvs_writes=198 sd_records=525
+local=2026-09-19T09:51:39.788-04:00 time=synced seq=540 boot=74 up_ms=246698 level=WARN event=TEST_NVS_SD source=test nvs_writes=199 sd_records=526
+local=2026-09-19T09:51:39.828-04:00 time=synced seq=541 boot=74 up_ms=246738 level=WARN event=TEST_NVS_SD source=test nvs_writes=199 sd_records=527
+local=2026-09-19T09:51:39.866-04:00 time=synced seq=542 boot=74 up_ms=246776 level=WARN event=TEST_NVS_SD source=test nvs_writes=199 sd_records=528
+local=2026-09-19T09:51:39.905-04:00 time=synced seq=543 boot=74 up_ms=246815 level=WARN event=TEST_NVS_SD source=test nvs_writes=200 sd_records=529
+local=2026-09-19T09:51:39.944-04:00 time=synced seq=544 boot=74 up_ms=246854 level=WARN event=TEST_NVS_SD source=test nvs_writes=200 sd_records=530
+local=2026-09-19T09:51:39.987-04:00 time=synced seq=545 boot=74 up_ms=246896 level=WARN event=TEST_NVS_SD source=test nvs_writes=200 sd_records=531
+local=2026-09-19T09:51:40.030-04:00 time=synced seq=546 boot=74 up_ms=246940 level=WARN event=TEST_NVS_SD source=test nvs_writes=201 sd_records=532
+local=2026-09-19T09:51:40.071-04:00 time=synced seq=547 boot=74 up_ms=246981 level=WARN event=TEST_NVS_SD source=test nvs_writes=201 sd_records=533
+local=2026-09-19T09:51:40.112-04:00 time=synced seq=548 boot=74 up_ms=247021 level=WARN event=TEST_NVS_SD source=test nvs_writes=202 sd_records=534
+local=2026-09-19T09:51:40.151-04:00 time=synced seq=549 boot=74 up_ms=247061 level=WARN event=TEST_NVS_SD source=test nvs_writes=202 sd_records=535
+local=2026-09-19T09:51:40.196-04:00 time=synced seq=550 boot=74 up_ms=247105 level=WARN event=TEST_NVS_SD source=test nvs_writes=202 sd_records=536
+local=2026-09-19T09:51:40.236-04:00 time=synced seq=551 boot=74 up_ms=247145 level=WARN event=TEST_NVS_SD source=test nvs_writes=203 sd_records=537
+local=2026-09-19T09:51:40.275-04:00 time=synced seq=552 boot=74 up_ms=247185 level=WARN event=TEST_NVS_SD source=test nvs_writes=203 sd_records=538
+local=2026-09-19T09:51:40.315-04:00 time=synced seq=553 boot=74 up_ms=247225 level=WARN event=TEST_NVS_SD source=test nvs_writes=204 sd_records=539
+local=2026-09-19T09:51:40.357-04:00 time=synced seq=554 boot=74 up_ms=247266 level=WARN event=TEST_NVS_SD source=test nvs_writes=204 sd_records=540
+local=2026-09-19T09:51:40.398-04:00 time=synced seq=555 boot=74 up_ms=247308 level=WARN event=TEST_NVS_SD source=test nvs_writes=204 sd_records=541
+local=2026-09-19T09:51:40.441-04:00 time=synced seq=556 boot=74 up_ms=247351 level=WARN event=TEST_NVS_SD source=test nvs_writes=205 sd_records=542
+local=2026-09-19T09:51:40.482-04:00 time=synced seq=557 boot=74 up_ms=247392 level=WARN event=TEST_NVS_SD source=test nvs_writes=205 sd_records=543
+local=2026-09-19T09:51:40.519-04:00 time=synced seq=558 boot=74 up_ms=247429 level=WARN event=TEST_NVS_SD source=test nvs_writes=205 sd_records=544
+local=2026-09-19T09:51:40.564-04:00 time=synced seq=559 boot=74 up_ms=247473 level=WARN event=TEST_NVS_SD source=test nvs_writes=206 sd_records=545
+local=2026-09-19T09:51:40.606-04:00 time=synced seq=560 boot=74 up_ms=247515 level=WARN event=TEST_NVS_SD source=test nvs_writes=206 sd_records=546
+local=2026-09-19T09:51:40.647-04:00 time=synced seq=561 boot=74 up_ms=247556 level=WARN event=TEST_NVS_SD source=test nvs_writes=207 sd_records=547
+local=2026-09-19T09:51:40.684-04:00 time=synced seq=562 boot=74 up_ms=247593 level=WARN event=TEST_NVS_SD source=test nvs_writes=207 sd_records=548
+local=2026-09-19T09:51:40.725-04:00 time=synced seq=563 boot=74 up_ms=247635 level=WARN event=TEST_NVS_SD source=test nvs_writes=207 sd_records=549
+local=2026-09-19T09:51:40.766-04:00 time=synced seq=564 boot=74 up_ms=247675 level=WARN event=TEST_NVS_SD source=test nvs_writes=208 sd_records=550
+local=2026-09-19T09:51:40.805-04:00 time=synced seq=565 boot=74 up_ms=247715 level=WARN event=TEST_NVS_SD source=test nvs_writes=208 sd_records=551
+local=2026-09-19T09:51:40.845-04:00 time=synced seq=566 boot=74 up_ms=247754 level=WARN event=TEST_NVS_SD source=test nvs_writes=208 sd_records=552
+local=2026-09-19T09:51:40.885-04:00 time=synced seq=567 boot=74 up_ms=247795 level=WARN event=TEST_NVS_SD source=test nvs_writes=209 sd_records=553
+local=2026-09-19T09:51:40.922-04:00 time=synced seq=568 boot=74 up_ms=247832 level=WARN event=TEST_NVS_SD source=test nvs_writes=209 sd_records=554
+local=2026-09-19T09:51:40.964-04:00 time=synced seq=569 boot=74 up_ms=247874 level=WARN event=TEST_NVS_SD source=test nvs_writes=210 sd_records=555
+local=2026-09-19T09:51:41.009-04:00 time=synced seq=570 boot=74 up_ms=247918 level=WARN event=TEST_NVS_SD source=test nvs_writes=210 sd_records=556
+local=2026-09-19T09:51:41.051-04:00 time=synced seq=571 boot=74 up_ms=247960 level=WARN event=TEST_NVS_SD source=test nvs_writes=210 sd_records=557
+local=2026-09-19T09:51:41.092-04:00 time=synced seq=572 boot=74 up_ms=248001 level=WARN event=TEST_NVS_SD source=test nvs_writes=211 sd_records=558
+local=2026-09-19T09:51:41.131-04:00 time=synced seq=573 boot=74 up_ms=248041 level=WARN event=TEST_NVS_SD source=test nvs_writes=211 sd_records=559
+local=2026-09-19T09:51:41.172-04:00 time=synced seq=574 boot=74 up_ms=248082 level=WARN event=TEST_NVS_SD source=test nvs_writes=212 sd_records=560
+local=2026-09-19T09:51:41.213-04:00 time=synced seq=575 boot=74 up_ms=248122 level=WARN event=TEST_NVS_SD source=test nvs_writes=212 sd_records=561
+local=2026-09-19T09:51:41.255-04:00 time=synced seq=576 boot=74 up_ms=248165 level=WARN event=TEST_NVS_SD source=test nvs_writes=212 sd_records=562
+local=2026-09-19T09:51:41.294-04:00 time=synced seq=577 boot=74 up_ms=248203 level=WARN event=TEST_NVS_SD source=test nvs_writes=213 sd_records=563
+local=2026-09-19T09:51:41.337-04:00 time=synced seq=578 boot=74 up_ms=248246 level=WARN event=TEST_NVS_SD source=test nvs_writes=213 sd_records=564
+local=2026-09-19T09:51:41.376-04:00 time=synced seq=579 boot=74 up_ms=248286 level=WARN event=TEST_NVS_SD source=test nvs_writes=213 sd_records=565
+local=2026-09-19T09:51:41.415-04:00 time=synced seq=580 boot=74 up_ms=248325 level=WARN event=TEST_NVS_SD source=test nvs_writes=214 sd_records=566
+local=2026-09-19T09:51:41.459-04:00 time=synced seq=581 boot=74 up_ms=248368 level=WARN event=TEST_NVS_SD source=test nvs_writes=214 sd_records=567
+local=2026-09-19T09:51:41.497-04:00 time=synced seq=582 boot=74 up_ms=248406 level=WARN event=TEST_NVS_SD source=test nvs_writes=214 sd_records=568
+local=2026-09-19T09:51:41.538-04:00 time=synced seq=583 boot=74 up_ms=248448 level=WARN event=TEST_NVS_SD source=test nvs_writes=215 sd_records=569
+local=2026-09-19T09:51:41.580-04:00 time=synced seq=584 boot=74 up_ms=248490 level=WARN event=TEST_NVS_SD source=test nvs_writes=215 sd_records=570
+local=2026-09-19T09:51:41.625-04:00 time=synced seq=585 boot=74 up_ms=248534 level=WARN event=TEST_NVS_SD source=test nvs_writes=216 sd_records=571
+local=2026-09-19T09:51:41.664-04:00 time=synced seq=586 boot=74 up_ms=248574 level=WARN event=TEST_NVS_SD source=test nvs_writes=216 sd_records=572
+local=2026-09-19T09:51:41.704-04:00 time=synced seq=587 boot=74 up_ms=248614 level=WARN event=TEST_NVS_SD source=test nvs_writes=216 sd_records=573
+local=2026-09-19T09:51:41.752-04:00 time=synced seq=588 boot=74 up_ms=248662 level=WARN event=TEST_NVS_SD source=test nvs_writes=217 sd_records=574
+local=2026-09-19T09:51:41.791-04:00 time=synced seq=589 boot=74 up_ms=248701 level=WARN event=TEST_NVS_SD source=test nvs_writes=217 sd_records=575
+local=2026-09-19T09:51:41.835-04:00 time=synced seq=590 boot=74 up_ms=248745 level=WARN event=TEST_NVS_SD source=test nvs_writes=218 sd_records=576
+local=2026-09-19T09:51:41.879-04:00 time=synced seq=591 boot=74 up_ms=248788 level=WARN event=TEST_NVS_SD source=test nvs_writes=218 sd_records=577
+local=2026-09-19T09:51:41.916-04:00 time=synced seq=592 boot=74 up_ms=248825 level=WARN event=TEST_NVS_SD source=test nvs_writes=218 sd_records=578
+local=2026-09-19T09:51:41.955-04:00 time=synced seq=593 boot=74 up_ms=248864 level=WARN event=TEST_NVS_SD source=test nvs_writes=219 sd_records=579
+local=2026-09-19T09:51:41.993-04:00 time=synced seq=594 boot=74 up_ms=248903 level=WARN event=TEST_NVS_SD source=test nvs_writes=219 sd_records=580
+local=2026-09-19T09:51:42.036-04:00 time=synced seq=595 boot=74 up_ms=248946 level=WARN event=TEST_NVS_SD source=test nvs_writes=219 sd_records=581
+local=2026-09-19T09:51:42.075-04:00 time=synced seq=596 boot=74 up_ms=248985 level=WARN event=TEST_NVS_SD source=test nvs_writes=220 sd_records=582
+local=2026-09-19T09:51:42.113-04:00 time=synced seq=597 boot=74 up_ms=249023 level=WARN event=TEST_NVS_SD source=test nvs_writes=220 sd_records=583
+local=2026-09-19T09:51:42.153-04:00 time=synced seq=598 boot=74 up_ms=249063 level=WARN event=TEST_NVS_SD source=test nvs_writes=221 sd_records=584
+local=2026-09-19T09:51:42.194-04:00 time=synced seq=599 boot=74 up_ms=249104 level=WARN event=TEST_NVS_SD source=test nvs_writes=221 sd_records=585
+local=2026-09-19T09:51:42.235-04:00 time=synced seq=600 boot=74 up_ms=249144 level=WARN event=TEST_NVS_SD source=test nvs_writes=221 sd_records=586
+local=2026-09-19T09:51:42.274-04:00 time=synced seq=601 boot=74 up_ms=249184 level=WARN event=TEST_NVS_SD source=test nvs_writes=222 sd_records=587
+local=2026-09-19T09:51:42.316-04:00 time=synced seq=602 boot=74 up_ms=249225 level=WARN event=TEST_NVS_SD source=test nvs_writes=222 sd_records=588
+local=2026-09-19T09:51:42.355-04:00 time=synced seq=603 boot=74 up_ms=249264 level=WARN event=TEST_NVS_SD source=test nvs_writes=222 sd_records=589
+local=2026-09-19T09:51:42.394-04:00 time=synced seq=604 boot=74 up_ms=249303 level=WARN event=TEST_NVS_SD source=test nvs_writes=223 sd_records=590
+local=2026-09-19T09:51:42.437-04:00 time=synced seq=605 boot=74 up_ms=249347 level=WARN event=TEST_NVS_SD source=test nvs_writes=223 sd_records=591
+local=2026-09-19T09:51:42.477-04:00 time=synced seq=606 boot=74 up_ms=249386 level=WARN event=TEST_NVS_SD source=test nvs_writes=223 sd_records=592
+local=2026-09-19T09:51:42.518-04:00 time=synced seq=607 boot=74 up_ms=249428 level=WARN event=TEST_NVS_SD source=test nvs_writes=224 sd_records=593
+local=2026-09-19T09:51:42.558-04:00 time=synced seq=608 boot=74 up_ms=249468 level=WARN event=TEST_NVS_SD source=test nvs_writes=224 sd_records=594
+local=2026-09-19T09:51:42.602-04:00 time=synced seq=609 boot=74 up_ms=249512 level=WARN event=TEST_NVS_SD source=test nvs_writes=225 sd_records=595
+local=2026-09-19T09:51:42.643-04:00 time=synced seq=610 boot=74 up_ms=249552 level=WARN event=TEST_NVS_SD source=test nvs_writes=225 sd_records=596
+local=2026-09-19T09:51:42.686-04:00 time=synced seq=611 boot=74 up_ms=249595 level=WARN event=TEST_NVS_SD source=test nvs_writes=225 sd_records=597
+local=2026-09-19T09:51:42.721-04:00 time=synced seq=612 boot=74 up_ms=249631 level=WARN event=TEST_NVS_SD source=test nvs_writes=226 sd_records=598
+local=2026-09-19T09:51:42.763-04:00 time=synced seq=613 boot=74 up_ms=249673 level=WARN event=TEST_NVS_SD source=test nvs_writes=226 sd_records=599
+local=2026-09-19T09:51:42.801-04:00 time=synced seq=614 boot=74 up_ms=249710 level=WARN event=TEST_NVS_SD source=test nvs_writes=226 sd_records=600
+local=2026-09-19T09:51:42.841-04:00 time=synced seq=615 boot=74 up_ms=249751 level=WARN event=TEST_NVS_SD source=test nvs_writes=227 sd_records=601
+local=2026-09-19T09:51:42.883-04:00 time=synced seq=616 boot=74 up_ms=249792 level=WARN event=TEST_NVS_SD source=test nvs_writes=227 sd_records=602
+local=2026-09-19T09:51:42.922-04:00 time=synced seq=617 boot=74 up_ms=249831 level=WARN event=TEST_NVS_SD source=test nvs_writes=228 sd_records=603
+local=2026-09-19T09:51:42.966-04:00 time=synced seq=618 boot=74 up_ms=249876 level=WARN event=TEST_NVS_SD source=test nvs_writes=228 sd_records=604
+local=2026-09-19T09:51:43.009-04:00 time=synced seq=619 boot=74 up_ms=249919 level=WARN event=TEST_NVS_SD source=test nvs_writes=228 sd_records=605
+local=2026-09-19T09:51:43.053-04:00 time=synced seq=620 boot=74 up_ms=249963 level=WARN event=TEST_NVS_SD source=test nvs_writes=229 sd_records=606
+local=2026-09-19T09:51:43.093-04:00 time=synced seq=621 boot=74 up_ms=250002 level=WARN event=TEST_NVS_SD source=test nvs_writes=229 sd_records=607
+local=2026-09-19T09:51:43.133-04:00 time=synced seq=622 boot=74 up_ms=250042 level=WARN event=TEST_NVS_SD source=test nvs_writes=229 sd_records=608
+local=2026-09-19T09:51:43.173-04:00 time=synced seq=623 boot=74 up_ms=250082 level=WARN event=TEST_NVS_SD source=test nvs_writes=230 sd_records=609
+local=2026-09-19T09:51:43.215-04:00 time=synced seq=624 boot=74 up_ms=250125 level=WARN event=TEST_NVS_SD source=test nvs_writes=230 sd_records=610
+local=2026-09-19T09:51:43.253-04:00 time=synced seq=625 boot=74 up_ms=250163 level=WARN event=TEST_NVS_SD source=test nvs_writes=231 sd_records=611
+local=2026-09-19T09:51:43.297-04:00 time=synced seq=626 boot=74 up_ms=250206 level=WARN event=TEST_NVS_SD source=test nvs_writes=231 sd_records=612
+local=2026-09-19T09:51:43.336-04:00 time=synced seq=627 boot=74 up_ms=250246 level=WARN event=TEST_NVS_SD source=test nvs_writes=231 sd_records=613
+local=2026-09-19T09:51:43.376-04:00 time=synced seq=628 boot=74 up_ms=250285 level=WARN event=TEST_NVS_SD source=test nvs_writes=232 sd_records=614
+local=2026-09-19T09:51:43.417-04:00 time=synced seq=629 boot=74 up_ms=250326 level=WARN event=TEST_NVS_SD source=test nvs_writes=232 sd_records=615
+local=2026-09-19T09:51:43.457-04:00 time=synced seq=630 boot=74 up_ms=250367 level=WARN event=TEST_NVS_SD source=test nvs_writes=233 sd_records=616
+local=2026-09-19T09:51:43.497-04:00 time=synced seq=631 boot=74 up_ms=250406 level=WARN event=TEST_NVS_SD source=test nvs_writes=233 sd_records=617
+local=2026-09-19T09:51:43.536-04:00 time=synced seq=632 boot=74 up_ms=250445 level=WARN event=TEST_NVS_SD source=test nvs_writes=233 sd_records=618
+local=2026-09-19T09:51:43.574-04:00 time=synced seq=633 boot=74 up_ms=250483 level=WARN event=TEST_NVS_SD source=test nvs_writes=234 sd_records=619
+local=2026-09-19T09:51:43.615-04:00 time=synced seq=634 boot=74 up_ms=250524 level=WARN event=TEST_NVS_SD source=test nvs_writes=234 sd_records=620
+local=2026-09-19T09:51:43.652-04:00 time=synced seq=635 boot=74 up_ms=250562 level=WARN event=TEST_NVS_SD source=test nvs_writes=234 sd_records=621
+local=2026-09-19T09:51:43.697-04:00 time=synced seq=636 boot=74 up_ms=250607 level=WARN event=TEST_NVS_SD source=test nvs_writes=235 sd_records=622
+local=2026-09-19T09:51:43.737-04:00 time=synced seq=637 boot=74 up_ms=250646 level=WARN event=TEST_NVS_SD source=test nvs_writes=235 sd_records=623
+local=2026-09-19T09:51:43.777-04:00 time=synced seq=638 boot=74 up_ms=250686 level=WARN event=TEST_NVS_SD source=test nvs_writes=236 sd_records=624
+local=2026-09-19T09:51:43.819-04:00 time=synced seq=639 boot=74 up_ms=250729 level=WARN event=TEST_NVS_SD source=test nvs_writes=236 sd_records=625
+local=2026-09-19T09:51:43.863-04:00 time=synced seq=640 boot=74 up_ms=250772 level=WARN event=TEST_NVS_SD source=test nvs_writes=236 sd_records=626
+local=2026-09-19T09:51:43.902-04:00 time=synced seq=641 boot=74 up_ms=250812 level=WARN event=TEST_NVS_SD source=test nvs_writes=237 sd_records=627
+local=2026-09-19T09:51:43.936-04:00 time=synced seq=642 boot=74 up_ms=250846 level=WARN event=TEST_NVS_SD source=test nvs_writes=237 sd_records=628
+local=2026-09-19T09:51:43.979-04:00 time=synced seq=643 boot=74 up_ms=250888 level=WARN event=TEST_NVS_SD source=test nvs_writes=237 sd_records=629
+local=2026-09-19T09:51:44.017-04:00 time=synced seq=644 boot=74 up_ms=250926 level=WARN event=TEST_NVS_SD source=test nvs_writes=238 sd_records=630
+local=2026-09-19T09:51:44.055-04:00 time=synced seq=645 boot=74 up_ms=250964 level=WARN event=TEST_NVS_SD source=test nvs_writes=238 sd_records=631
+local=2026-09-19T09:51:44.091-04:00 time=synced seq=646 boot=74 up_ms=251001 level=WARN event=TEST_NVS_SD source=test nvs_writes=239 sd_records=632
+local=2026-09-19T09:51:44.131-04:00 time=synced seq=647 boot=74 up_ms=251041 level=WARN event=TEST_NVS_SD source=test nvs_writes=239 sd_records=633
+local=2026-09-19T09:51:44.170-04:00 time=synced seq=648 boot=74 up_ms=251080 level=WARN event=TEST_NVS_SD source=test nvs_writes=239 sd_records=634
+local=2026-09-19T09:51:44.211-04:00 time=synced seq=649 boot=74 up_ms=251121 level=WARN event=TEST_NVS_SD source=test nvs_writes=240 sd_records=635
+local=2026-09-19T09:51:44.251-04:00 time=synced seq=650 boot=74 up_ms=251161 level=WARN event=TEST_NVS_SD source=test nvs_writes=240 sd_records=636
+local=2026-09-19T09:51:44.291-04:00 time=synced seq=651 boot=74 up_ms=251201 level=WARN event=TEST_NVS_SD source=test nvs_writes=240 sd_records=637
+local=2026-09-19T09:51:44.331-04:00 time=synced seq=652 boot=74 up_ms=251241 level=WARN event=TEST_NVS_SD source=test nvs_writes=241 sd_records=638
+local=2026-09-19T09:51:44.370-04:00 time=synced seq=653 boot=74 up_ms=251280 level=WARN event=TEST_NVS_SD source=test nvs_writes=241 sd_records=639
+local=2026-09-19T09:51:44.411-04:00 time=synced seq=654 boot=74 up_ms=251321 level=WARN event=TEST_NVS_SD source=test nvs_writes=242 sd_records=640
+local=2026-09-19T09:51:44.452-04:00 time=synced seq=655 boot=74 up_ms=251361 level=WARN event=TEST_NVS_SD source=test nvs_writes=242 sd_records=641
+local=2026-09-19T09:51:44.491-04:00 time=synced seq=656 boot=74 up_ms=251401 level=WARN event=TEST_NVS_SD source=test nvs_writes=242 sd_records=642
+local=2026-09-19T09:51:44.528-04:00 time=synced seq=657 boot=74 up_ms=251438 level=WARN event=TEST_NVS_SD source=test nvs_writes=243 sd_records=643
+local=2026-09-19T09:51:44.570-04:00 time=synced seq=658 boot=74 up_ms=251480 level=WARN event=TEST_NVS_SD source=test nvs_writes=243 sd_records=644
+local=2026-09-19T09:51:44.609-04:00 time=synced seq=659 boot=74 up_ms=251519 level=WARN event=TEST_NVS_SD source=test nvs_writes=243 sd_records=645
+local=2026-09-19T09:51:44.647-04:00 time=synced seq=660 boot=74 up_ms=251557 level=WARN event=TEST_NVS_SD source=test nvs_writes=244 sd_records=646
+local=2026-09-19T09:51:44.690-04:00 time=synced seq=661 boot=74 up_ms=251600 level=WARN event=TEST_NVS_SD source=test nvs_writes=244 sd_records=647
+local=2026-09-19T09:51:44.730-04:00 time=synced seq=662 boot=74 up_ms=251639 level=WARN event=TEST_NVS_SD source=test nvs_writes=245 sd_records=648
+local=2026-09-19T09:51:44.771-04:00 time=synced seq=663 boot=74 up_ms=251681 level=WARN event=TEST_NVS_SD source=test nvs_writes=245 sd_records=649
+local=2026-09-19T09:51:44.811-04:00 time=synced seq=664 boot=74 up_ms=251721 level=WARN event=TEST_NVS_SD source=test nvs_writes=245 sd_records=650
+local=2026-09-19T09:51:44.855-04:00 time=synced seq=665 boot=74 up_ms=251764 level=WARN event=TEST_NVS_SD source=test nvs_writes=246 sd_records=651
+local=2026-09-19T09:51:44.894-04:00 time=synced seq=666 boot=74 up_ms=251804 level=WARN event=TEST_NVS_SD source=test nvs_writes=246 sd_records=652
+local=2026-09-19T09:51:44.934-04:00 time=synced seq=667 boot=74 up_ms=251844 level=WARN event=TEST_NVS_SD source=test nvs_writes=246 sd_records=653
+local=2026-09-19T09:51:44.977-04:00 time=synced seq=668 boot=74 up_ms=251886 level=WARN event=TEST_NVS_SD source=test nvs_writes=247 sd_records=654
+local=2026-09-19T09:51:45.017-04:00 time=synced seq=669 boot=74 up_ms=251927 level=WARN event=TEST_NVS_SD source=test nvs_writes=247 sd_records=655
+local=2026-09-19T09:51:45.057-04:00 time=synced seq=670 boot=74 up_ms=251966 level=WARN event=TEST_NVS_SD source=test nvs_writes=248 sd_records=656
+local=2026-09-19T09:51:45.097-04:00 time=synced seq=671 boot=74 up_ms=252007 level=WARN event=TEST_NVS_SD source=test nvs_writes=248 sd_records=657
+local=2026-09-19T09:51:45.137-04:00 time=synced seq=672 boot=74 up_ms=252047 level=WARN event=TEST_NVS_SD source=test nvs_writes=248 sd_records=658
+local=2026-09-19T09:51:45.182-04:00 time=synced seq=673 boot=74 up_ms=252091 level=WARN event=TEST_NVS_SD source=test nvs_writes=249 sd_records=659
+local=2026-09-19T09:51:45.220-04:00 time=synced seq=674 boot=74 up_ms=252130 level=WARN event=TEST_NVS_SD source=test nvs_writes=249 sd_records=660
+local=2026-09-19T09:51:45.260-04:00 time=synced seq=675 boot=74 up_ms=252169 level=WARN event=TEST_NVS_SD source=test nvs_writes=249 sd_records=661
+local=2026-09-19T09:51:45.298-04:00 time=synced seq=676 boot=74 up_ms=252208 level=WARN event=TEST_NVS_SD source=test nvs_writes=250 sd_records=662
+local=2026-09-19T09:51:45.336-04:00 time=synced seq=677 boot=74 up_ms=252246 level=WARN event=TEST_NVS_SD source=test nvs_writes=250 sd_records=663
+local=2026-09-19T09:51:45.377-04:00 time=synced seq=678 boot=74 up_ms=252287 level=WARN event=TEST_NVS_SD source=test nvs_writes=251 sd_records=664
+local=2026-09-19T09:51:45.421-04:00 time=synced seq=679 boot=74 up_ms=252331 level=WARN event=TEST_NVS_SD source=test nvs_writes=251 sd_records=665
+local=2026-09-19T09:51:45.461-04:00 time=synced seq=680 boot=74 up_ms=252370 level=WARN event=TEST_NVS_SD source=test nvs_writes=251 sd_records=666
+local=2026-09-19T09:51:45.504-04:00 time=synced seq=681 boot=74 up_ms=252413 level=WARN event=TEST_NVS_SD source=test nvs_writes=252 sd_records=667
+local=2026-09-19T09:51:45.546-04:00 time=synced seq=682 boot=74 up_ms=252456 level=WARN event=TEST_NVS_SD source=test nvs_writes=252 sd_records=668
+local=2026-09-19T09:51:45.588-04:00 time=synced seq=683 boot=74 up_ms=252497 level=WARN event=TEST_NVS_SD source=test nvs_writes=252 sd_records=669
+local=2026-09-19T09:51:45.626-04:00 time=synced seq=684 boot=74 up_ms=252536 level=WARN event=TEST_NVS_SD source=test nvs_writes=253 sd_records=670
+local=2026-09-19T09:51:45.671-04:00 time=synced seq=685 boot=74 up_ms=252581 level=WARN event=TEST_NVS_SD source=test nvs_writes=253 sd_records=671
+local=2026-09-19T09:51:45.712-04:00 time=synced seq=686 boot=74 up_ms=252622 level=WARN event=TEST_NVS_SD source=test nvs_writes=254 sd_records=672
+local=2026-09-19T09:51:45.752-04:00 time=synced seq=687 boot=74 up_ms=252661 level=WARN event=TEST_NVS_SD source=test nvs_writes=254 sd_records=673
+local=2026-09-19T09:51:45.791-04:00 time=synced seq=688 boot=74 up_ms=252701 level=WARN event=TEST_NVS_SD source=test nvs_writes=254 sd_records=674
+local=2026-09-19T09:51:45.835-04:00 time=synced seq=689 boot=74 up_ms=252744 level=WARN event=TEST_NVS_SD source=test nvs_writes=255 sd_records=675
+local=2026-09-19T09:51:45.873-04:00 time=synced seq=690 boot=74 up_ms=252782 level=WARN event=TEST_NVS_SD source=test nvs_writes=255 sd_records=676
+local=2026-09-19T09:51:45.910-04:00 time=synced seq=691 boot=74 up_ms=252820 level=WARN event=TEST_NVS_SD source=test nvs_writes=256 sd_records=677
+local=2026-09-19T09:51:45.955-04:00 time=synced seq=692 boot=74 up_ms=252865 level=WARN event=TEST_NVS_SD source=test nvs_writes=256 sd_records=678
+local=2026-09-19T09:51:45.996-04:00 time=synced seq=693 boot=74 up_ms=252906 level=WARN event=TEST_NVS_SD source=test nvs_writes=256 sd_records=679
+local=2026-09-19T09:51:46.036-04:00 time=synced seq=694 boot=74 up_ms=252945 level=WARN event=TEST_NVS_SD source=test nvs_writes=257 sd_records=680
+local=2026-09-19T09:51:46.079-04:00 time=synced seq=695 boot=74 up_ms=252989 level=WARN event=TEST_NVS_SD source=test nvs_writes=257 sd_records=681
+local=2026-09-19T09:51:46.115-04:00 time=synced seq=696 boot=74 up_ms=253025 level=WARN event=TEST_NVS_SD source=test nvs_writes=258 sd_records=682
+local=2026-09-19T09:51:46.152-04:00 time=synced seq=697 boot=74 up_ms=253062 level=WARN event=TEST_NVS_SD source=test nvs_writes=258 sd_records=683
+local=2026-09-19T09:51:46.193-04:00 time=synced seq=698 boot=74 up_ms=253103 level=WARN event=TEST_NVS_SD source=test nvs_writes=258 sd_records=684
+local=2026-09-19T09:51:46.238-04:00 time=synced seq=699 boot=74 up_ms=253148 level=WARN event=TEST_NVS_SD source=test nvs_writes=259 sd_records=685
+local=2026-09-19T09:51:46.276-04:00 time=synced seq=700 boot=74 up_ms=253186 level=WARN event=TEST_NVS_SD source=test nvs_writes=259 sd_records=686
+local=2026-09-19T09:51:46.319-04:00 time=synced seq=701 boot=74 up_ms=253228 level=WARN event=TEST_NVS_SD source=test nvs_writes=259 sd_records=687
+local=2026-09-19T09:51:46.361-04:00 time=synced seq=702 boot=74 up_ms=253271 level=WARN event=TEST_NVS_SD source=test nvs_writes=260 sd_records=688
+local=2026-09-19T09:51:46.408-04:00 time=synced seq=703 boot=74 up_ms=253318 level=WARN event=TEST_NVS_SD source=test nvs_writes=260 sd_records=689
+local=2026-09-19T09:51:46.446-04:00 time=synced seq=704 boot=74 up_ms=253356 level=WARN event=TEST_NVS_SD source=test nvs_writes=261 sd_records=690
+local=2026-09-19T09:51:46.489-04:00 time=synced seq=705 boot=74 up_ms=253398 level=WARN event=TEST_NVS_SD source=test nvs_writes=261 sd_records=691
+local=2026-09-19T09:51:46.530-04:00 time=synced seq=706 boot=74 up_ms=253439 level=WARN event=TEST_NVS_SD source=test nvs_writes=261 sd_records=692
+local=2026-09-19T09:51:46.567-04:00 time=synced seq=707 boot=74 up_ms=253477 level=WARN event=TEST_NVS_SD source=test nvs_writes=262 sd_records=693
+local=2026-09-19T09:51:46.608-04:00 time=synced seq=708 boot=74 up_ms=253518 level=WARN event=TEST_NVS_SD source=test nvs_writes=262 sd_records=694
+local=2026-09-19T09:51:46.648-04:00 time=synced seq=709 boot=74 up_ms=253558 level=WARN event=TEST_NVS_SD source=test nvs_writes=263 sd_records=695
+local=2026-09-19T09:51:46.689-04:00 time=synced seq=710 boot=74 up_ms=253598 level=WARN event=TEST_NVS_SD source=test nvs_writes=263 sd_records=696
+local=2026-09-19T09:51:46.731-04:00 time=synced seq=711 boot=74 up_ms=253641 level=WARN event=TEST_NVS_SD source=test nvs_writes=263 sd_records=697
+local=2026-09-19T09:51:46.771-04:00 time=synced seq=712 boot=74 up_ms=253681 level=WARN event=TEST_NVS_SD source=test nvs_writes=264 sd_records=698
+local=2026-09-19T09:51:46.808-04:00 time=synced seq=713 boot=74 up_ms=253718 level=WARN event=TEST_NVS_SD source=test nvs_writes=264 sd_records=699
+local=2026-09-19T09:51:46.851-04:00 time=synced seq=714 boot=74 up_ms=253761 level=WARN event=TEST_NVS_SD source=test nvs_writes=264 sd_records=700
+local=2026-09-19T09:51:46.894-04:00 time=synced seq=715 boot=74 up_ms=253803 level=WARN event=TEST_NVS_SD source=test nvs_writes=265 sd_records=701
+local=2026-09-19T09:51:46.936-04:00 time=synced seq=716 boot=74 up_ms=253846 level=WARN event=TEST_NVS_SD source=test nvs_writes=265 sd_records=702
+local=2026-09-19T09:51:46.978-04:00 time=synced seq=717 boot=74 up_ms=253888 level=WARN event=TEST_NVS_SD source=test nvs_writes=266 sd_records=703
+local=2026-09-19T09:51:47.020-04:00 time=synced seq=718 boot=74 up_ms=253929 level=WARN event=TEST_NVS_SD source=test nvs_writes=266 sd_records=704
+local=2026-09-19T09:51:47.062-04:00 time=synced seq=719 boot=74 up_ms=253972 level=WARN event=TEST_NVS_SD source=test nvs_writes=266 sd_records=705
+local=2026-09-19T09:51:47.104-04:00 time=synced seq=720 boot=74 up_ms=254014 level=WARN event=TEST_NVS_SD source=test nvs_writes=267 sd_records=706
+local=2026-09-19T09:51:47.144-04:00 time=synced seq=721 boot=74 up_ms=254053 level=WARN event=TEST_NVS_SD source=test nvs_writes=267 sd_records=707
+local=2026-09-19T09:51:47.181-04:00 time=synced seq=722 boot=74 up_ms=254091 level=WARN event=TEST_NVS_SD source=test nvs_writes=267 sd_records=708
+local=2026-09-19T09:51:47.221-04:00 time=synced seq=723 boot=74 up_ms=254131 level=WARN event=TEST_NVS_SD source=test nvs_writes=268 sd_records=709
+local=2026-09-19T09:51:47.263-04:00 time=synced seq=724 boot=74 up_ms=254173 level=WARN event=TEST_NVS_SD source=test nvs_writes=268 sd_records=710
+local=2026-09-19T09:51:47.301-04:00 time=synced seq=725 boot=74 up_ms=254211 level=WARN event=TEST_NVS_SD source=test nvs_writes=269 sd_records=711
+local=2026-09-19T09:51:47.345-04:00 time=synced seq=726 boot=74 up_ms=254255 level=WARN event=TEST_NVS_SD source=test nvs_writes=269 sd_records=712
+local=2026-09-19T09:51:47.385-04:00 time=synced seq=727 boot=74 up_ms=254294 level=WARN event=TEST_NVS_SD source=test nvs_writes=269 sd_records=713
+local=2026-09-19T09:51:47.420-04:00 time=synced seq=728 boot=74 up_ms=254330 level=WARN event=TEST_NVS_SD source=test nvs_writes=270 sd_records=714
+local=2026-09-19T09:51:47.459-04:00 time=synced seq=729 boot=74 up_ms=254369 level=WARN event=TEST_NVS_SD source=test nvs_writes=270 sd_records=715
+local=2026-09-19T09:51:47.503-04:00 time=synced seq=730 boot=74 up_ms=254413 level=WARN event=TEST_NVS_SD source=test nvs_writes=270 sd_records=716
+local=2026-09-19T09:51:47.543-04:00 time=synced seq=731 boot=74 up_ms=254453 level=WARN event=TEST_NVS_SD source=test nvs_writes=271 sd_records=717
+local=2026-09-19T09:51:47.583-04:00 time=synced seq=732 boot=74 up_ms=254492 level=WARN event=TEST_NVS_SD source=test nvs_writes=271 sd_records=718
+local=2026-09-19T09:51:47.622-04:00 time=synced seq=733 boot=74 up_ms=254531 level=WARN event=TEST_NVS_SD source=test nvs_writes=272 sd_records=719
+local=2026-09-19T09:51:47.665-04:00 time=synced seq=734 boot=74 up_ms=254574 level=WARN event=TEST_NVS_SD source=test nvs_writes=272 sd_records=720
+local=2026-09-19T09:51:47.702-04:00 time=synced seq=735 boot=74 up_ms=254611 level=WARN event=TEST_NVS_SD source=test nvs_writes=272 sd_records=721
+local=2026-09-19T09:51:47.741-04:00 time=synced seq=736 boot=74 up_ms=254651 level=WARN event=TEST_NVS_SD source=test nvs_writes=273 sd_records=722
+local=2026-09-19T09:51:47.784-04:00 time=synced seq=737 boot=74 up_ms=254693 level=WARN event=TEST_NVS_SD source=test nvs_writes=273 sd_records=723
+local=2026-09-19T09:51:47.826-04:00 time=synced seq=738 boot=74 up_ms=254736 level=WARN event=TEST_NVS_SD source=test nvs_writes=273 sd_records=724
+local=2026-09-19T09:51:47.865-04:00 time=synced seq=739 boot=74 up_ms=254775 level=WARN event=TEST_NVS_SD source=test nvs_writes=274 sd_records=725
+local=2026-09-19T09:51:47.907-04:00 time=synced seq=740 boot=74 up_ms=254816 level=WARN event=TEST_NVS_SD source=test nvs_writes=274 sd_records=726
+local=2026-09-19T09:51:47.943-04:00 time=synced seq=741 boot=74 up_ms=254853 level=WARN event=TEST_NVS_SD source=test nvs_writes=275 sd_records=727
+local=2026-09-19T09:51:47.984-04:00 time=synced seq=742 boot=74 up_ms=254894 level=WARN event=TEST_NVS_SD source=test nvs_writes=275 sd_records=728
+local=2026-09-19T09:51:48.025-04:00 time=synced seq=743 boot=74 up_ms=254934 level=WARN event=TEST_NVS_SD source=test nvs_writes=275 sd_records=729
+local=2026-09-19T09:51:48.067-04:00 time=synced seq=744 boot=74 up_ms=254977 level=WARN event=TEST_NVS_SD source=test nvs_writes=276 sd_records=730
+local=2026-09-19T09:51:48.108-04:00 time=synced seq=745 boot=74 up_ms=255018 level=WARN event=TEST_NVS_SD source=test nvs_writes=276 sd_records=731
+local=2026-09-19T09:51:48.152-04:00 time=synced seq=746 boot=74 up_ms=255062 level=WARN event=TEST_NVS_SD source=test nvs_writes=276 sd_records=732
+local=2026-09-19T09:51:48.245-04:00 time=synced seq=747 boot=74 up_ms=255154 level=WARN event=TEST_NVS_SD source=test nvs_writes=277 sd_records=733
+local=2026-09-19T09:51:48.283-04:00 time=synced seq=748 boot=74 up_ms=255193 level=WARN event=TEST_NVS_SD source=test nvs_writes=277 sd_records=734
+local=2026-09-19T09:51:48.322-04:00 time=synced seq=749 boot=74 up_ms=255231 level=WARN event=TEST_NVS_SD source=test nvs_writes=277 sd_records=735
+local=2026-09-19T09:51:48.364-04:00 time=synced seq=750 boot=74 up_ms=255273 level=WARN event=TEST_NVS_SD source=test nvs_writes=278 sd_records=736
+local=2026-09-19T09:51:48.403-04:00 time=synced seq=751 boot=74 up_ms=255312 level=WARN event=TEST_NVS_END source=test nvs_writes=278 nvs_errors=0 sd_records=736 key_removed=1 first_nvs_ms=225275 last_nvs_ms=255229 first_sd_ms=225308 last_sd_ms=255280
+local=2026-09-19T09:51:55.460-04:00 time=synced seq=752 boot=74 up_ms=262369 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:51:56.693-04:00 time=synced seq=753 boot=74 up_ms=263603 level=INFO event=USB_GET_END name=current.log bytes=122914 duration_ms=1265 result=ok
+local=2026-09-19T09:52:35.223-04:00 time=synced seq=754 boot=74 up_ms=302133 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-44 snapshot_age_ms=334 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4112 internal_free=105456 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=282640 queue_high=1 drops=0 suppressed=0 truncated=0 writes=753 slow=0 write_max_us=52978 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922200576 size=123077 generation=20 archives=6 pruned=0
+local=2026-09-19T09:53:35.241-04:00 time=synced seq=755 boot=74 up_ms=362150 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-41 snapshot_age_ms=92 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4111 internal_free=105488 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=342657 queue_high=1 drops=0 suppressed=0 truncated=0 writes=754 slow=0 write_max_us=52978 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922200576 size=123644 generation=20 archives=6 pruned=0
+local=2026-09-19T09:54:35.264-04:00 time=synced seq=756 boot=74 up_ms=422173 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-45 snapshot_age_ms=894 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4113 internal_free=105488 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=402680 queue_high=1 drops=0 suppressed=0 truncated=0 writes=755 slow=0 write_max_us=52978 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922200576 size=124210 generation=20 archives=6 pruned=0
+local=2026-09-19T09:55:35.296-04:00 time=synced seq=757 boot=74 up_ms=482206 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-39 snapshot_age_ms=671 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4113 internal_free=105488 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=462713 queue_high=1 drops=0 suppressed=0 truncated=0 writes=756 slow=0 write_max_us=52978 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922200576 size=124777 generation=20 archives=6 pruned=0
+local=2026-09-19T09:56:16.185-04:00 time=synced seq=758 boot=74 up_ms=523095 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:56:17.409-04:00 time=synced seq=759 boot=74 up_ms=524318 level=INFO event=USB_GET_END name=current.log bytes=125506 duration_ms=1247 result=ok
+local=2026-09-19T09:56:32.829-04:00 time=synced seq=760 boot=74 up_ms=539738 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:56:32.848-04:00 time=synced seq=761 boot=74 up_ms=539758 level=INFO event=USB_GET_END name=current.log bytes=576 duration_ms=38 result=aborted
+local=2026-09-19T09:56:35.317-04:00 time=synced seq=762 boot=74 up_ms=542226 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-41 snapshot_age_ms=445 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4112 internal_free=105488 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=522733 queue_high=1 drops=0 suppressed=0 truncated=0 writes=761 slow=0 write_max_us=52978 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922200576 size=125994 generation=20 archives=6 pruned=0
+local=2026-09-19T09:56:41.917-04:00 time=synced seq=763 boot=74 up_ms=548826 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:56:43.194-04:00 time=synced seq=764 boot=74 up_ms=550104 level=INFO event=USB_GET_END name=current.log bytes=126723 duration_ms=1299 result=ok
+local=2026-09-19T09:57:04.808-04:00 time=synced seq=765 boot=74 up_ms=571718 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:57:04.833-04:00 time=synced seq=766 boot=74 up_ms=571742 level=INFO event=USB_GET_END name=current.log bytes=288 duration_ms=50 result=aborted
+local=2026-09-19T09:57:10.975-04:00 time=synced seq=767 boot=74 up_ms=577884 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:57:12.165-04:00 time=synced seq=768 boot=74 up_ms=579074 level=INFO event=USB_GET_END name=current.log bytes=127373 duration_ms=1219 result=ok
+local=2026-09-19T09:57:17.875-04:00 time=synced seq=769 boot=74 up_ms=584784 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:57:17.898-04:00 time=synced seq=770 boot=74 up_ms=584807 level=INFO event=USB_GET_END name=current.log bytes=864 duration_ms=41 result=aborted
+local=2026-09-19T09:57:21.222-04:00 time=synced seq=771 boot=74 up_ms=588132 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:57:22.496-04:00 time=synced seq=772 boot=74 up_ms=589405 level=INFO event=USB_GET_END name=current.log bytes=128023 duration_ms=1306 result=ok
+local=2026-09-19T09:57:27.082-04:00 time=synced seq=773 boot=74 up_ms=593992 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:57:27.110-04:00 time=synced seq=774 boot=74 up_ms=594019 level=INFO event=USB_GET_END name=current.log bytes=1152 duration_ms=45 result=aborted
+local=2026-09-19T09:57:29.795-04:00 time=synced seq=775 boot=74 up_ms=596705 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:57:31.024-04:00 time=synced seq=776 boot=74 up_ms=597933 level=INFO event=USB_GET_END name=current.log bytes=128674 duration_ms=1245 result=ok
+local=2026-09-19T09:57:35.343-04:00 time=synced seq=777 boot=74 up_ms=602253 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-42 snapshot_age_ms=201 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4113 internal_free=105488 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=582760 queue_high=1 drops=0 suppressed=0 truncated=0 writes=776 slow=0 write_max_us=52978 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922200576 size=128837 generation=20 archives=6 pruned=0
+local=2026-09-19T09:57:35.727-04:00 time=synced seq=778 boot=74 up_ms=602637 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:57:35.747-04:00 time=synced seq=779 boot=74 up_ms=602657 level=INFO event=USB_GET_END name=current.log bytes=576 duration_ms=45 result=aborted
+local=2026-09-19T09:57:37.357-04:00 time=synced seq=780 boot=74 up_ms=604267 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:57:38.658-04:00 time=synced seq=781 boot=74 up_ms=605567 level=INFO event=USB_GET_END name=current.log bytes=129891 duration_ms=1325 result=ok
+local=2026-09-19T09:58:35.373-04:00 time=synced seq=782 boot=74 up_ms=662282 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-41 snapshot_age_ms=987 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4113 internal_free=105488 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=642789 queue_high=1 drops=0 suppressed=0 truncated=0 writes=781 slow=0 write_max_us=52978 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922200576 size=130054 generation=20 archives=6 pruned=0
+local=2026-09-19T09:58:55.506-04:00 time=synced seq=783 boot=74 up_ms=682416 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T09:58:56.778-04:00 time=synced seq=784 boot=74 up_ms=683688 level=INFO event=USB_GET_END name=current.log bytes=130783 duration_ms=1308 result=ok
+local=2026-09-19T09:59:35.394-04:00 time=synced seq=785 boot=74 up_ms=722303 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-39 snapshot_age_ms=787 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4110 internal_free=105488 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=702810 queue_high=1 drops=0 suppressed=0 truncated=0 writes=784 slow=0 write_max_us=52978 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922200576 size=130946 generation=20 archives=6 pruned=0
+local=2026-09-19T10:00:35.423-04:00 time=synced seq=786 boot=74 up_ms=782333 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-43 snapshot_age_ms=600 screen=1 operation=idle moving=1 usb_power=1 battery=1 battery_mv=4112 internal_free=105284 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=762840 queue_high=1 drops=0 suppressed=0 truncated=0 writes=785 slow=0 write_max_us=52978 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922167808 size=131513 generation=20 archives=6 pruned=0
+local=2026-09-19T10:01:35.461-04:00 time=synced seq=787 boot=74 up_ms=842370 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-39 snapshot_age_ms=380 screen=1 operation=idle moving=1 usb_power=0 battery=1 battery_mv=4001 internal_free=105284 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=822877 queue_high=1 drops=0 suppressed=0 truncated=0 writes=786 slow=0 write_max_us=52978 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922167808 size=132080 generation=20 archives=6 pruned=0
+local=2026-09-19T10:02:35.495-04:00 time=synced seq=788 boot=74 up_ms=902404 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-46 snapshot_age_ms=194 screen=1 operation=idle moving=0 usb_power=0 battery=1 battery_mv=3986 internal_free=105168 internal_min=92500 internal_largest=57332 psram_free=8339860 dma_min=84836 dma_largest=53236 sync_age_ms=882911 queue_high=1 drops=0 suppressed=0 truncated=0 writes=787 slow=0 write_max_us=52978 flush_max_us=11960 sd_max_us=67586 stack_min=3304 free_bytes=15922167808 size=132647 generation=20 archives=6 pruned=0
+local=2026-09-19T10:02:39.947-04:00 time=synced seq=789 boot=74 up_ms=906857 level=INFO event=SESSION_END reason=shutdown pending=0
+local=unknown time=unknown seq=1 boot=75 up_ms=245 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 09:26:51" session=boot-75 persistent=1 reset=power_on reset_code=1 wake_code=0 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=unknown time=unknown seq=2 boot=75 up_ms=245 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=3 boot=75 up_ms=245 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=4 boot=75 up_ms=2852 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=unknown time=unknown seq=5 boot=75 up_ms=14814 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T10:08:04.410-04:00 time=synced seq=6 boot=75 up_ms=19718 level=INFO event=CLOCK_SYNC source=sntp prior_known=0 correction_ms=0
+local=2026-09-19T10:16:40.834-04:00 time=approx seq=1 boot=76 up_ms=245 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 10:15:41" session=boot-76 persistent=1 reset=other reset_code=11 wake_code=0 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=2026-09-19T10:16:40.834-04:00 time=approx seq=2 boot=76 up_ms=245 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=2026-09-19T10:16:40.834-04:00 time=approx seq=3 boot=76 up_ms=245 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=1 prior_boot=75 phase=idle operation=0 prior_up_ms=19908 crumb_seq=31
+local=2026-09-19T10:16:43.111-04:00 time=approx seq=4 boot=76 up_ms=2523 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T10:16:43.118-04:00 time=approx seq=5 boot=76 up_ms=2529 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T10:16:51.062-04:00 time=synced seq=6 boot=76 up_ms=7035 level=INFO event=CLOCK_SYNC source=sntp prior_known=1 correction_ms=3439
+local=2026-09-19T10:16:54.316-04:00 time=synced seq=7 boot=76 up_ms=10288 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T10:17:03.860-04:00 time=approx seq=1 boot=77 up_ms=245 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 10:15:41" session=boot-77 persistent=1 reset=task_watchdog reset_code=6 wake_code=0 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=2026-09-19T10:17:03.860-04:00 time=approx seq=2 boot=77 up_ms=245 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=1 prior_boot=76 phase=idle operation=0 prior_up_ms=10288 crumb_seq=2
+local=2026-09-19T10:17:03.860-04:00 time=approx seq=3 boot=77 up_ms=245 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=1 prior_boot=76 phase=idle operation=0 prior_up_ms=10305 crumb_seq=64
+local=2026-09-19T10:17:05.549-04:00 time=approx seq=4 boot=77 up_ms=1934 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T10:17:05.554-04:00 time=approx seq=5 boot=77 up_ms=1940 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T10:17:13.192-04:00 time=approx seq=6 boot=77 up_ms=9577 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T10:17:21.112-04:00 time=synced seq=7 boot=77 up_ms=17491 level=INFO event=CLOCK_SYNC source=sntp prior_known=1 correction_ms=5
+local=2026-09-19T10:18:05.581-04:00 time=synced seq=8 boot=77 up_ms=61960 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-30 snapshot_age_ms=183 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4122 internal_free=105408 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=44469 queue_high=1 drops=0 suppressed=0 truncated=0 writes=7 slow=0 write_max_us=2684 flush_max_us=5272 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=136823 generation=20 archives=6 pruned=0
+local=2026-09-19T10:19:05.608-04:00 time=synced seq=9 boot=77 up_ms=121987 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-30 snapshot_age_ms=1009 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4117 internal_free=105408 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=104495 queue_high=1 drops=0 suppressed=0 truncated=0 writes=8 slow=0 write_max_us=2684 flush_max_us=5272 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=137382 generation=20 archives=6 pruned=0
+local=2026-09-19T10:20:05.623-04:00 time=synced seq=10 boot=77 up_ms=182002 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-30 snapshot_age_ms=785 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4118 internal_free=105444 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=164511 queue_high=1 drops=0 suppressed=0 truncated=0 writes=9 slow=0 write_max_us=2684 flush_max_us=5272 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=137944 generation=20 archives=6 pruned=0
+local=2026-09-19T10:21:05.657-04:00 time=synced seq=11 boot=77 up_ms=242035 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-31 snapshot_age_ms=538 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4115 internal_free=105444 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=224544 queue_high=1 drops=0 suppressed=0 truncated=0 writes=10 slow=0 write_max_us=2832 flush_max_us=5272 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=138506 generation=20 archives=6 pruned=0
+local=2026-09-19T10:22:05.681-04:00 time=synced seq=12 boot=77 up_ms=302060 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-31 snapshot_age_ms=317 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4114 internal_free=105476 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=284569 queue_high=1 drops=0 suppressed=0 truncated=0 writes=11 slow=0 write_max_us=4093 flush_max_us=5272 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=139069 generation=20 archives=6 pruned=0
+local=2026-09-19T10:23:05.719-04:00 time=synced seq=13 boot=77 up_ms=362098 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-32 snapshot_age_ms=106 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4115 internal_free=105476 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=344607 queue_high=1 drops=0 suppressed=0 truncated=0 writes=12 slow=0 write_max_us=4093 flush_max_us=6064 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=139632 generation=20 archives=6 pruned=0
+local=2026-09-19T10:24:05.744-04:00 time=synced seq=14 boot=77 up_ms=422123 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-31 snapshot_age_ms=890 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4113 internal_free=105476 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=404632 queue_high=1 drops=0 suppressed=0 truncated=0 writes=13 slow=0 write_max_us=4093 flush_max_us=6502 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=140195 generation=20 archives=6 pruned=0
+local=2026-09-19T10:25:05.758-04:00 time=synced seq=15 boot=77 up_ms=482137 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-31 snapshot_age_ms=685 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4116 internal_free=105476 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=464646 queue_high=1 drops=0 suppressed=0 truncated=0 writes=14 slow=0 write_max_us=4093 flush_max_us=6718 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=140758 generation=20 archives=6 pruned=0
+local=2026-09-19T10:26:05.790-04:00 time=synced seq=16 boot=77 up_ms=542169 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-32 snapshot_age_ms=506 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4117 internal_free=105476 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=524678 queue_high=1 drops=0 suppressed=0 truncated=0 writes=15 slow=0 write_max_us=5768 flush_max_us=6718 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=141321 generation=20 archives=6 pruned=0
+local=2026-09-19T10:27:05.825-04:00 time=synced seq=17 boot=77 up_ms=602204 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-30 snapshot_age_ms=314 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4113 internal_free=105476 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=584713 queue_high=1 drops=0 suppressed=0 truncated=0 writes=16 slow=0 write_max_us=5768 flush_max_us=6718 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=141884 generation=20 archives=6 pruned=0
+local=2026-09-19T10:28:05.858-04:00 time=synced seq=18 boot=77 up_ms=662237 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-31 snapshot_age_ms=74 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4114 internal_free=105476 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=644746 queue_high=1 drops=0 suppressed=0 truncated=0 writes=17 slow=0 write_max_us=5768 flush_max_us=6718 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=142447 generation=20 archives=6 pruned=0
+local=2026-09-19T10:29:05.888-04:00 time=synced seq=19 boot=77 up_ms=722267 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-32 snapshot_age_ms=831 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4115 internal_free=105476 internal_min=95144 internal_largest=57332 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=704776 queue_high=1 drops=0 suppressed=0 truncated=0 writes=18 slow=0 write_max_us=5768 flush_max_us=6718 sd_max_us=68531 stack_min=3752 free_bytes=15922167808 size=143009 generation=20 archives=6 pruned=0
+local=unknown time=unknown seq=1 boot=78 up_ms=245 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 10:15:41" session=boot-78 persistent=1 reset=other reset_code=11 wake_code=0 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=unknown time=unknown seq=2 boot=78 up_ms=245 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=3 boot=78 up_ms=245 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=4 boot=78 up_ms=2472 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T10:42:25.557-04:00 time=synced seq=5 boot=78 up_ms=7280 level=INFO event=CLOCK_SYNC source=sntp prior_known=0 correction_ms=0
+local=2026-09-19T10:42:25.778-04:00 time=synced seq=6 boot=78 up_ms=7501 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T10:42:28.527-04:00 time=synced seq=7 boot=78 up_ms=10249 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T10:42:38.634-04:00 time=approx seq=1 boot=79 up_ms=244 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 10:15:41" session=boot-79 persistent=1 reset=task_watchdog reset_code=6 wake_code=0 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=2026-09-19T10:42:38.634-04:00 time=approx seq=2 boot=79 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=1 prior_boot=78 phase=idle operation=0 prior_up_ms=10249 crumb_seq=2
+local=2026-09-19T10:42:38.634-04:00 time=approx seq=3 boot=79 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=1 prior_boot=78 phase=idle operation=0 prior_up_ms=11330 crumb_seq=33
+local=2026-09-19T10:42:40.320-04:00 time=approx seq=4 boot=79 up_ms=1931 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T10:42:40.327-04:00 time=approx seq=5 boot=79 up_ms=1937 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T10:42:44.972-04:00 time=synced seq=6 boot=79 up_ms=6570 level=INFO event=CLOCK_SYNC source=sntp prior_known=1 correction_ms=12
+local=2026-09-19T10:42:47.942-04:00 time=synced seq=7 boot=79 up_ms=9540 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T10:43:40.356-04:00 time=synced seq=8 boot=79 up_ms=61953 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-29 snapshot_age_ms=208 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4131 internal_free=105400 internal_min=92600 internal_largest=57332 psram_free=8339860 dma_min=84936 dma_largest=51188 sync_age_ms=55383 queue_high=1 drops=0 suppressed=0 truncated=0 writes=7 slow=0 write_max_us=2951 flush_max_us=5656 sd_max_us=69667 stack_min=3752 free_bytes=15922167808 size=145966 generation=20 archives=6 pruned=0
+local=2026-09-19T10:44:40.389-04:00 time=synced seq=9 boot=79 up_ms=121986 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-29 snapshot_age_ms=57 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4127 internal_free=105400 internal_min=92600 internal_largest=57332 psram_free=8339860 dma_min=84936 dma_largest=51188 sync_age_ms=115416 queue_high=1 drops=0 suppressed=0 truncated=0 writes=8 slow=0 write_max_us=3330 flush_max_us=5656 sd_max_us=69667 stack_min=3752 free_bytes=15922167808 size=146525 generation=20 archives=6 pruned=0
+local=2026-09-19T10:45:40.423-04:00 time=synced seq=10 boot=79 up_ms=182021 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-30 snapshot_age_ms=531 screen=1 operation=idle moving=1 usb_power=1 battery=1 battery_mv=4125 internal_free=104756 internal_min=44036 internal_largest=57332 psram_free=7611776 dma_min=36372 dma_largest=31732 sync_age_ms=175450 queue_high=1 drops=0 suppressed=0 truncated=0 writes=9 slow=0 write_max_us=3330 flush_max_us=5656 sd_max_us=69667 stack_min=3752 free_bytes=15922167808 size=147085 generation=20 archives=6 pruned=0
+local=2026-09-19T10:46:35.304-04:00 time=synced seq=11 boot=79 up_ms=236902 level=INFO event=SESSION_END reason=shutdown pending=0
+local=unknown time=unknown seq=1 boot=80 up_ms=244 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 10:15:41" session=boot-80 persistent=1 reset=power_on reset_code=1 wake_code=0 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=unknown time=unknown seq=2 boot=80 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=3 boot=80 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=unknown time=unknown seq=4 boot=80 up_ms=2918 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T21:05:07.530-04:00 time=synced seq=5 boot=80 up_ms=8066 level=INFO event=CLOCK_SYNC source=sntp prior_known=0 correction_ms=0
+local=2026-09-19T21:05:08.410-04:00 time=synced seq=6 boot=80 up_ms=8947 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T21:05:11.213-04:00 time=synced seq=7 boot=80 up_ms=11749 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T21:06:02.410-04:00 time=synced seq=8 boot=80 up_ms=62946 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=973 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4114 internal_free=105544 internal_min=95144 internal_largest=61428 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=54880 queue_high=1 drops=0 suppressed=0 truncated=0 writes=7 slow=0 write_max_us=2752 flush_max_us=9897 sd_max_us=161211 stack_min=3912 free_bytes=15922167808 size=148929 generation=20 archives=6 pruned=0
+local=2026-09-19T21:07:02.429-04:00 time=synced seq=9 boot=80 up_ms=122965 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-50 snapshot_age_ms=755 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4112 internal_free=105548 internal_min=95144 internal_largest=61428 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=114899 queue_high=1 drops=0 suppressed=0 truncated=0 writes=8 slow=0 write_max_us=2752 flush_max_us=9897 sd_max_us=161211 stack_min=3912 free_bytes=15922167808 size=149489 generation=20 archives=6 pruned=0
+local=2026-09-19T21:08:02.451-04:00 time=synced seq=10 boot=80 up_ms=182987 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-48 snapshot_age_ms=545 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4113 internal_free=105584 internal_min=95144 internal_largest=61428 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=174921 queue_high=1 drops=0 suppressed=0 truncated=0 writes=9 slow=0 write_max_us=4254 flush_max_us=9897 sd_max_us=161211 stack_min=3912 free_bytes=15922167808 size=150051 generation=20 archives=6 pruned=0
+local=2026-09-19T21:09:02.479-04:00 time=synced seq=11 boot=80 up_ms=243016 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-54 snapshot_age_ms=328 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4113 internal_free=105584 internal_min=95144 internal_largest=61428 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=234949 queue_high=1 drops=0 suppressed=0 truncated=0 writes=10 slow=0 write_max_us=4254 flush_max_us=9897 sd_max_us=161211 stack_min=3912 free_bytes=15922167808 size=150614 generation=20 archives=6 pruned=0
+local=2026-09-19T21:10:02.502-04:00 time=synced seq=12 boot=80 up_ms=303038 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=127 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4113 internal_free=105584 internal_min=95144 internal_largest=61428 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=294972 queue_high=1 drops=0 suppressed=0 truncated=0 writes=11 slow=0 write_max_us=4254 flush_max_us=9897 sd_max_us=161211 stack_min=3912 free_bytes=15922167808 size=151178 generation=20 archives=6 pruned=0
+local=2026-09-19T21:11:02.517-04:00 time=synced seq=13 boot=80 up_ms=363053 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-55 snapshot_age_ms=902 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4112 internal_free=105616 internal_min=95144 internal_largest=61428 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=354987 queue_high=1 drops=0 suppressed=0 truncated=0 writes=12 slow=0 write_max_us=4254 flush_max_us=9897 sd_max_us=161211 stack_min=3912 free_bytes=15922167808 size=151742 generation=20 archives=6 pruned=0
+local=2026-09-19T21:12:02.532-04:00 time=synced seq=14 boot=80 up_ms=423068 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=721 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4114 internal_free=105616 internal_min=95144 internal_largest=61428 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=415002 queue_high=1 drops=0 suppressed=0 truncated=0 writes=13 slow=0 write_max_us=4254 flush_max_us=9897 sd_max_us=161211 stack_min=3912 free_bytes=15922167808 size=152306 generation=20 archives=6 pruned=0
+local=2026-09-19T21:13:02.559-04:00 time=synced seq=15 boot=80 up_ms=483095 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-54 snapshot_age_ms=507 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4115 internal_free=105512 internal_min=95144 internal_largest=61428 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=475028 queue_high=1 drops=0 suppressed=0 truncated=0 writes=14 slow=0 write_max_us=4254 flush_max_us=9897 sd_max_us=161211 stack_min=3912 free_bytes=15922167808 size=152870 generation=20 archives=6 pruned=0
+local=2026-09-19T21:14:02.579-04:00 time=synced seq=16 boot=80 up_ms=543115 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-55 snapshot_age_ms=348 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4115 internal_free=105512 internal_min=95144 internal_largest=61428 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=535049 queue_high=1 drops=0 suppressed=0 truncated=0 writes=15 slow=0 write_max_us=4254 flush_max_us=9897 sd_max_us=161211 stack_min=3912 free_bytes=15922167808 size=153434 generation=20 archives=6 pruned=0
+local=2026-09-19T21:15:02.600-04:00 time=synced seq=17 boot=80 up_ms=603137 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=144 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4113 internal_free=105512 internal_min=95144 internal_largest=61428 psram_free=8339860 dma_min=87480 dma_largest=53236 sync_age_ms=595070 queue_high=1 drops=0 suppressed=0 truncated=0 writes=16 slow=0 write_max_us=4254 flush_max_us=9897 sd_max_us=161211 stack_min=3912 free_bytes=15922167808 size=153998 generation=20 archives=6 pruned=0
+local=2026-09-19T21:22:38.225-04:00 time=approx seq=1 boot=81 up_ms=244 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 21:21:31" session=boot-81 persistent=1 reset=other reset_code=11 wake_code=0 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=2026-09-19T21:22:38.225-04:00 time=approx seq=2 boot=81 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=0 prior_boot=0 phase=unknown operation=0 prior_up_ms=0 crumb_seq=0
+local=2026-09-19T21:22:38.225-04:00 time=approx seq=3 boot=81 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=1 prior_boot=80 phase=idle operation=0 prior_up_ms=603147 crumb_seq=93
+local=2026-09-19T21:22:40.457-04:00 time=approx seq=4 boot=81 up_ms=2476 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T21:22:40.463-04:00 time=approx seq=5 boot=81 up_ms=2481 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T21:23:03.722-04:00 time=synced seq=6 boot=81 up_ms=6901 level=INFO event=CLOCK_SYNC source=sntp prior_known=1 correction_ms=18838
+local=2026-09-19T21:23:07.068-04:00 time=synced seq=7 boot=81 up_ms=10247 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T21:23:27.060-04:00 time=approx seq=1 boot=82 up_ms=244 level=INFO event=BOOT format=1 build=stage1b-usb compiled="Sep 19 2026 21:21:31" session=boot-82 persistent=1 reset=other reset_code=11 wake_code=0 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=2026-09-19T21:23:27.060-04:00 time=approx seq=2 boot=82 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=1 prior_boot=81 phase=idle operation=0 prior_up_ms=10247 crumb_seq=2
+local=2026-09-19T21:23:27.060-04:00 time=approx seq=3 boot=82 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=1 prior_boot=81 phase=idle operation=0 prior_up_ms=10282 crumb_seq=126
+local=2026-09-19T21:23:28.748-04:00 time=approx seq=4 boot=82 up_ms=1932 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T21:23:28.753-04:00 time=approx seq=5 boot=82 up_ms=1937 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T21:23:36.460-04:00 time=approx seq=6 boot=82 up_ms=9644 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T21:23:45.293-04:00 time=synced seq=7 boot=82 up_ms=18479 level=INFO event=CLOCK_SYNC source=sntp prior_known=1 correction_ms=-2
+local=2026-09-19T21:24:28.772-04:00 time=synced seq=8 boot=82 up_ms=61958 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=1029 screen=2 operation=live moving=1 usb_power=1 battery=1 battery_mv=4125 internal_free=57868 internal_min=44296 internal_largest=31732 psram_free=7611776 dma_min=36632 dma_largest=31732 sync_age_ms=43478 queue_high=1 drops=0 suppressed=0 truncated=0 writes=7 slow=0 write_max_us=1729 flush_max_us=8417 sd_max_us=69663 stack_min=3752 free_bytes=15922167808 size=157043 generation=20 archives=6 pruned=0
+local=2026-09-19T21:25:28.803-04:00 time=synced seq=9 boot=82 up_ms=121989 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-54 snapshot_age_ms=92 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4121 internal_free=104732 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=103509 queue_high=1 drops=0 suppressed=0 truncated=0 writes=8 slow=0 write_max_us=4955 flush_max_us=8417 sd_max_us=69663 stack_min=3752 free_bytes=15922167808 size=157602 generation=20 archives=6 pruned=0
+local=2026-09-19T21:26:28.827-04:00 time=synced seq=10 boot=82 up_ms=182012 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-49 snapshot_age_ms=871 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4120 internal_free=105028 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=163533 queue_high=1 drops=0 suppressed=0 truncated=0 writes=9 slow=0 write_max_us=4955 flush_max_us=8417 sd_max_us=69663 stack_min=3752 free_bytes=15922167808 size=158162 generation=20 archives=6 pruned=0
+local=2026-09-19T21:27:28.862-04:00 time=synced seq=11 boot=82 up_ms=242048 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-50 snapshot_age_ms=673 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4120 internal_free=105288 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=223569 queue_high=1 drops=0 suppressed=0 truncated=0 writes=10 slow=0 write_max_us=4955 flush_max_us=8417 sd_max_us=69663 stack_min=3752 free_bytes=15922167808 size=158724 generation=20 archives=6 pruned=0
+local=2026-09-19T21:28:16.996-04:00 time=synced seq=12 boot=82 up_ms=290182 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T21:28:18.561-04:00 time=synced seq=13 boot=82 up_ms=291747 level=INFO event=USB_GET_END name=current.log bytes=159448 duration_ms=1593 result=ok
+local=2026-09-19T21:28:18.584-04:00 time=synced seq=14 boot=82 up_ms=291770 level=INFO event=USB_GET_BEGIN name=archive-00000019.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T21:28:18.590-04:00 time=synced seq=15 boot=82 up_ms=291776 level=INFO event=USB_GET_END name=archive-00000019.log bytes=153 duration_ms=23 result=ok
+local=2026-09-19T21:28:18.632-04:00 time=synced seq=16 boot=82 up_ms=291818 level=INFO event=USB_GET_BEGIN name=archive-00000018.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T21:28:18.672-04:00 time=synced seq=17 boot=82 up_ms=291857 level=INFO event=USB_GET_END name=archive-00000018.log bytes=5177 duration_ms=73 result=ok
+local=2026-09-19T21:28:18.717-04:00 time=synced seq=18 boot=82 up_ms=291903 level=INFO event=USB_GET_BEGIN name=archive-00000017.log bytes=0 duration_ms=0 result=started
+local=2026-09-19T21:28:21.690-04:00 time=synced seq=19 boot=82 up_ms=294876 level=INFO event=USB_GET_END name=archive-00000017.log bytes=308745 duration_ms=3010 result=ok
+local=2026-09-19T21:28:28.884-04:00 time=synced seq=20 boot=82 up_ms=302070 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-49 snapshot_age_ms=37 screen=2 operation=live moving=1 usb_power=1 battery=1 battery_mv=4120 internal_free=59768 internal_min=40912 internal_largest=31732 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=283590 queue_high=1 drops=0 suppressed=0 truncated=0 writes=19 slow=0 write_max_us=4955 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922167808 size=160624 generation=20 archives=6 pruned=0
+local=2026-09-19T21:29:28.910-04:00 time=synced seq=21 boot=82 up_ms=362096 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-50 snapshot_age_ms=629 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105028 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=343616 queue_high=1 drops=0 suppressed=0 truncated=0 writes=20 slow=0 write_max_us=4955 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922167808 size=161185 generation=20 archives=6 pruned=0
+local=2026-09-19T21:30:28.943-04:00 time=synced seq=22 boot=82 up_ms=422129 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-54 snapshot_age_ms=391 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105028 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=403650 queue_high=1 drops=0 suppressed=0 truncated=0 writes=21 slow=0 write_max_us=4955 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922167808 size=161748 generation=20 archives=6 pruned=0
+local=2026-09-19T21:31:28.968-04:00 time=synced seq=23 boot=82 up_ms=482154 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-51 snapshot_age_ms=168 screen=3 operation=idle moving=1 usb_power=1 battery=1 battery_mv=4121 internal_free=105288 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=463675 queue_high=1 drops=0 suppressed=0 truncated=0 writes=22 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922167808 size=162311 generation=20 archives=6 pruned=0
+local=2026-09-19T21:32:28.986-04:00 time=synced seq=24 boot=82 up_ms=542172 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-53 snapshot_age_ms=7 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4118 internal_free=105288 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=523693 queue_high=1 drops=0 suppressed=0 truncated=0 writes=23 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922167808 size=162874 generation=20 archives=6 pruned=0
+local=2026-09-19T21:33:29.012-04:00 time=synced seq=25 boot=82 up_ms=602198 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-49 snapshot_age_ms=939 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4120 internal_free=105288 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=583719 queue_high=1 drops=0 suppressed=0 truncated=0 writes=24 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922167808 size=163435 generation=20 archives=6 pruned=0
+local=2026-09-19T21:34:29.036-04:00 time=synced seq=26 boot=82 up_ms=662222 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=849 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4117 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=643743 queue_high=1 drops=0 suppressed=0 truncated=0 writes=25 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=163998 generation=20 archives=6 pruned=0
+local=2026-09-19T21:35:29.065-04:00 time=synced seq=27 boot=82 up_ms=722251 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-50 snapshot_age_ms=784 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4117 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=703772 queue_high=1 drops=0 suppressed=0 truncated=0 writes=26 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=164561 generation=20 archives=6 pruned=0
+local=2026-09-19T21:36:29.096-04:00 time=synced seq=28 boot=82 up_ms=782282 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=704 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4121 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=763803 queue_high=1 drops=0 suppressed=0 truncated=0 writes=27 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=165124 generation=20 archives=6 pruned=0
+local=2026-09-19T21:37:29.125-04:00 time=synced seq=29 boot=82 up_ms=842311 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=589 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4118 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=823832 queue_high=1 drops=0 suppressed=0 truncated=0 writes=28 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=165687 generation=20 archives=6 pruned=0
+local=2026-09-19T21:38:29.155-04:00 time=synced seq=30 boot=82 up_ms=902341 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-51 snapshot_age_ms=541 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4118 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=883862 queue_high=1 drops=0 suppressed=0 truncated=0 writes=29 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=166250 generation=20 archives=6 pruned=0
+local=2026-09-19T21:39:29.187-04:00 time=synced seq=31 boot=82 up_ms=962373 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-49 snapshot_age_ms=452 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4118 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=943894 queue_high=1 drops=0 suppressed=0 truncated=0 writes=30 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=166813 generation=20 archives=6 pruned=0
+local=2026-09-19T21:40:29.200-04:00 time=synced seq=32 boot=82 up_ms=1022386 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-50 snapshot_age_ms=332 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4120 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1003906 queue_high=1 drops=0 suppressed=0 truncated=0 writes=31 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=167376 generation=20 archives=6 pruned=0
+local=2026-09-19T21:41:29.213-04:00 time=synced seq=33 boot=82 up_ms=1082399 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-53 snapshot_age_ms=235 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1063920 queue_high=1 drops=0 suppressed=0 truncated=0 writes=32 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=167941 generation=20 archives=6 pruned=0
+local=2026-09-19T21:42:29.243-04:00 time=synced seq=34 boot=82 up_ms=1142429 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-50 snapshot_age_ms=168 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4120 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1123950 queue_high=1 drops=0 suppressed=0 truncated=0 writes=33 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=168506 generation=20 archives=6 pruned=0
+local=2026-09-19T21:43:29.268-04:00 time=synced seq=35 boot=82 up_ms=1202454 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=100 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1183975 queue_high=1 drops=0 suppressed=0 truncated=0 writes=34 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=169071 generation=20 archives=6 pruned=0
+local=2026-09-19T21:44:29.299-04:00 time=synced seq=36 boot=82 up_ms=1262485 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=56 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1244005 queue_high=1 drops=0 suppressed=0 truncated=0 writes=35 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=169636 generation=20 archives=6 pruned=0
+local=2026-09-19T21:45:29.329-04:00 time=synced seq=37 boot=82 up_ms=1322515 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-51 snapshot_age_ms=945 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4117 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1304036 queue_high=1 drops=0 suppressed=0 truncated=0 writes=36 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=170200 generation=20 archives=6 pruned=0
+local=2026-09-19T21:46:29.341-04:00 time=synced seq=38 boot=82 up_ms=1382527 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=855 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4120 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1364048 queue_high=1 drops=0 suppressed=0 truncated=0 writes=37 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=170765 generation=20 archives=6 pruned=0
+local=2026-09-19T21:47:29.361-04:00 time=synced seq=39 boot=82 up_ms=1442547 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-51 snapshot_age_ms=774 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1424068 queue_high=1 drops=0 suppressed=0 truncated=0 writes=38 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=171330 generation=20 archives=6 pruned=0
+local=2026-09-19T21:48:29.389-04:00 time=synced seq=40 boot=82 up_ms=1502575 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=689 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1484096 queue_high=1 drops=0 suppressed=0 truncated=0 writes=39 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=171895 generation=20 archives=6 pruned=0
+local=2026-09-19T21:49:29.403-04:00 time=synced seq=41 boot=82 up_ms=1562589 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=590 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4117 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1544109 queue_high=1 drops=0 suppressed=0 truncated=0 writes=40 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=172460 generation=20 archives=6 pruned=0
+local=2026-09-19T21:50:29.419-04:00 time=synced seq=42 boot=82 up_ms=1622605 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=475 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4117 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1604126 queue_high=1 drops=0 suppressed=0 truncated=0 writes=41 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=173025 generation=20 archives=6 pruned=0
+local=2026-09-19T21:51:29.445-04:00 time=synced seq=43 boot=82 up_ms=1682631 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-52 snapshot_age_ms=406 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4118 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1664152 queue_high=1 drops=0 suppressed=0 truncated=0 writes=42 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=173590 generation=20 archives=6 pruned=0
+local=2026-09-19T21:52:29.457-04:00 time=synced seq=44 boot=82 up_ms=1742643 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-53 snapshot_age_ms=321 screen=4 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1724164 queue_high=1 drops=0 suppressed=0 truncated=0 writes=43 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=174155 generation=20 archives=6 pruned=0
+local=2026-09-19T21:53:29.474-04:00 time=synced seq=45 boot=82 up_ms=1802659 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-59 snapshot_age_ms=157 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4116 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1784180 queue_high=1 drops=0 suppressed=0 truncated=0 writes=44 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=174720 generation=20 archives=6 pruned=0
+local=2026-09-19T21:54:29.494-04:00 time=synced seq=46 boot=82 up_ms=1862680 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-53 snapshot_age_ms=962 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1844201 queue_high=1 drops=0 suppressed=0 truncated=0 writes=45 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=175285 generation=20 archives=6 pruned=0
+local=2026-09-19T21:55:29.509-04:00 time=synced seq=47 boot=82 up_ms=1922695 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-51 snapshot_age_ms=713 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4118 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1904216 queue_high=1 drops=0 suppressed=0 truncated=0 writes=46 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=175850 generation=20 archives=6 pruned=0
+local=2026-09-19T21:56:29.545-04:00 time=synced seq=48 boot=82 up_ms=1982731 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-54 snapshot_age_ms=492 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=1964252 queue_high=1 drops=0 suppressed=0 truncated=0 writes=47 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=176415 generation=20 archives=6 pruned=0
+local=2026-09-19T21:57:29.574-04:00 time=synced seq=49 boot=82 up_ms=2042760 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-55 snapshot_age_ms=325 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4120 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=2024280 queue_high=1 drops=0 suppressed=0 truncated=0 writes=48 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=176980 generation=20 archives=6 pruned=0
+local=2026-09-19T21:58:29.592-04:00 time=synced seq=50 boot=82 up_ms=2102778 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-51 snapshot_age_ms=117 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4117 internal_free=105320 internal_min=40912 internal_largest=57332 psram_free=7611776 dma_min=33248 dma_largest=28660 sync_age_ms=2084299 queue_high=1 drops=0 suppressed=0 truncated=0 writes=49 slow=0 write_max_us=5232 flush_max_us=8417 sd_max_us=69663 stack_min=3304 free_bytes=15922135040 size=177545 generation=20 archives=6 pruned=0
+local=2026-09-19T21:59:30.020-04:00 time=approx seq=1 boot=83 up_ms=244 level=INFO event=BOOT format=1 build=stage2-network compiled="Sep 19 2026 21:55:31" session=boot-83 persistent=1 reset=other reset_code=11 wake_code=0 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=2026-09-19T21:59:30.020-04:00 time=approx seq=2 boot=83 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=1 prior_boot=82 phase=idle operation=0 prior_up_ms=9644 crumb_seq=4
+local=2026-09-19T21:59:30.020-04:00 time=approx seq=3 boot=83 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=1 prior_boot=82 phase=idle operation=0 prior_up_ms=2102788 crumb_seq=407
+local=2026-09-19T21:59:32.312-04:00 time=approx seq=4 boot=83 up_ms=2536 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T21:59:32.211-04:00 time=approx seq=5 boot=83 up_ms=2435 level=INFO event=NET_BEGIN id=1 kind=wifi_setup 
+local=2026-09-19T21:59:32.270-04:00 time=approx seq=6 boot=83 up_ms=2494 level=INFO event=WIFI_RETRY source=setup attempt=1 usb_power=1
+local=2026-09-19T21:59:32.270-04:00 time=approx seq=7 boot=83 up_ms=2494 level=INFO event=NET_BEGIN id=2 kind=wifi_scan profile=primary
+local=2026-09-19T21:59:32.317-04:00 time=approx seq=8 boot=83 up_ms=2541 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T21:59:35.118-04:00 time=approx seq=9 boot=83 up_ms=5342 level=INFO event=WIFI_SCAN_DONE source=driver status=0 count=9 scan_id=128
+local=2026-09-19T21:59:35.138-04:00 time=approx seq=10 boot=83 up_ms=5362 level=INFO event=NET_END id=2 kind=wifi_scan result=ok elapsed_ms=2868 code=9 tls_queried=0 tls_code=0 tls_fresh=unknown tls_text=""
+local=2026-09-19T21:59:35.138-04:00 time=approx seq=11 boot=83 up_ms=5362 level=INFO event=WIFI_BEGIN profile=primary source=setup
+local=2026-09-19T21:59:35.141-04:00 time=approx seq=12 boot=83 up_ms=5365 level=INFO event=NET_BEGIN id=3 kind=wifi_wait connection=1
+local=2026-09-19T21:59:35.217-04:00 time=approx seq=13 boot=83 up_ms=5441 level=INFO event=WIFI_ASSOC source=driver profile=primary connection=1 channel=6 suppressed_disconnects=0
+local=2026-09-19T21:59:36.577-04:00 time=approx seq=14 boot=83 up_ms=6801 level=INFO event=WIFI_GOT_IP source=driver profile=primary connection=1 ip=172.20.10.2 changed=1
+local=2026-09-19T21:59:36.685-04:00 time=approx seq=15 boot=83 up_ms=6909 level=INFO event=NET_END id=3 kind=wifi_wait result=ok elapsed_ms=1545 code=3 tls_queried=0 tls_code=0 tls_fresh=unknown tls_text=""
+local=2026-09-19T21:59:36.686-04:00 time=approx seq=16 boot=83 up_ms=6910 level=INFO event=MQTT_CONFIG connection=1 target=real port=9735 tls=1
+local=2026-09-19T21:59:36.686-04:00 time=approx seq=17 boot=83 up_ms=6910 level=INFO event=NET_END id=1 kind=wifi_setup result=ok elapsed_ms=4475 code=3 tls_queried=0 tls_code=0 tls_fresh=unknown tls_text=""
+local=2026-09-19T21:59:45.528-04:00 time=synced seq=18 boot=83 up_ms=7081 level=INFO event=CLOCK_SYNC source=sntp prior_known=1 correction_ms=8671
+local=2026-09-19T21:59:47.500-04:00 time=synced seq=19 boot=83 up_ms=9053 level=INFO event=NET_BEGIN id=4 kind=mqtt_setup 
+local=2026-09-19T21:59:47.601-04:00 time=synced seq=20 boot=83 up_ms=9154 level=INFO event=MQTT_CONNECT_BEGIN id=5 kind=mqtt_connect target=real connection=1 wifi_connection=1 port=9735 tls=1
+local=2026-09-19T21:59:48.130-04:00 time=synced seq=21 boot=83 up_ms=9684 level=INFO event=MQTT_CONNECT_END id=5 kind=mqtt_connect result=ok elapsed_ms=530 state=0 tls_queried=0 tls_code=0 tls_fresh=unknown tls_text=""
+local=2026-09-19T21:59:48.131-04:00 time=synced seq=22 boot=83 up_ms=9684 level=INFO event=MQTT_CONNECTED recovery=0 target=real connection=1 port=9735 state=0
+local=2026-09-19T21:59:48.132-04:00 time=synced seq=23 boot=83 up_ms=9686 level=INFO event=MQTT_SUBSCRIBE category=image qos=1 accepted=1 ack=unobserved
+local=2026-09-19T21:59:48.134-04:00 time=synced seq=24 boot=83 up_ms=9687 level=INFO event=MQTT_SUBSCRIBE category=power qos=1 accepted=1 ack=unobserved
+local=2026-09-19T21:59:48.135-04:00 time=synced seq=25 boot=83 up_ms=9689 level=INFO event=MQTT_SUBSCRIBE category=energy qos=1 accepted=1 ack=unobserved
+local=2026-09-19T21:59:48.137-04:00 time=synced seq=26 boot=83 up_ms=9691 level=INFO event=MQTT_PUBLISH category=calibration trigger=report accepted=1 ack=unobserved
+local=2026-09-19T21:59:48.138-04:00 time=synced seq=27 boot=83 up_ms=9692 level=INFO event=NET_END id=4 kind=mqtt_setup result=ok elapsed_ms=638 code=0 tls_queried=0 tls_code=0 tls_fresh=unknown tls_text=""
+local=2026-09-19T21:59:48.644-04:00 time=synced seq=28 boot=83 up_ms=10197 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T21:59:48.661-04:00 time=synced seq=29 boot=83 up_ms=10214 level=INFO event=MQTT_WIFI_PROFILE wifi_connection=1 mqtt_connection=1 mismatch=0
+local=2026-09-19T22:00:41.005-04:00 time=synced seq=30 boot=83 up_ms=62558 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-55 snapshot_age_ms=153 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4119 internal_free=105228 internal_min=92336 internal_largest=57332 psram_free=8339860 dma_min=84672 dma_largest=49140 sync_age_ms=55476 queue_high=7 drops=0 suppressed=0 truncated=0 writes=29 slow=0 write_max_us=3020 flush_max_us=9413 sd_max_us=69521 stack_min=3752 free_bytes=15922135040 size=182966 generation=20 archives=6 pruned=0
+local=2026-09-19T22:00:41.009-04:00 time=synced seq=31 boot=83 up_ms=62563 level=INFO event=NET_HEALTH snapshot_valid=1 snapshot_age_ms=153 connection=1 rssi=-55 rssi_valid=1 wifi_suppressed=0 mqtt_inbound=2 power_count=1 energy_count=1 inbound_age_ms=33905 image_suppressed=0
+local=2026-09-19T22:01:41.030-04:00 time=synced seq=32 boot=83 up_ms=122584 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-55 snapshot_age_ms=953 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4120 internal_free=105228 internal_min=92336 internal_largest=57332 psram_free=8339860 dma_min=84672 dma_largest=49140 sync_age_ms=115503 queue_high=7 drops=0 suppressed=0 truncated=0 writes=31 slow=0 write_max_us=3020 flush_max_us=9413 sd_max_us=69521 stack_min=3752 free_bytes=15922135040 size=183804 generation=20 archives=6 pruned=0
+local=2026-09-19T22:01:41.036-04:00 time=synced seq=33 boot=83 up_ms=122589 level=INFO event=NET_HEALTH snapshot_valid=1 snapshot_age_ms=953 connection=1 rssi=-55 rssi_valid=1 wifi_suppressed=0 mqtt_inbound=4 power_count=2 energy_count=2 inbound_age_ms=34090 image_suppressed=0
+local=2026-09-19T22:02:05.923-04:00 time=approx seq=1 boot=84 up_ms=244 level=INFO event=BOOT format=1 build=stage2-network compiled="Sep 19 2026 21:55:31" session=boot-84 persistent=1 reset=task_watchdog reset_code=6 wake_code=0 cpu_mhz=240 context=append snapshot_valid=0 operation=idle screen=0
+local=2026-09-19T22:02:05.923-04:00 time=approx seq=2 boot=84 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=main valid=1 prior_boot=83 phase=idle operation=0 prior_up_ms=10197 crumb_seq=16
+local=2026-09-19T22:02:05.923-04:00 time=approx seq=3 boot=84 up_ms=244 level=INFO event=PREVIOUS_BREADCRUMB slot=writer valid=1 prior_boot=83 phase=idle operation=0 prior_up_ms=122597 crumb_seq=520
+local=2026-09-19T22:02:07.607-04:00 time=approx seq=4 boot=84 up_ms=1928 level=INFO event=LOGGER_START mount=ok mode=sdmmc_1bit mhz=20 format_on_failure=false
+local=2026-09-19T22:02:07.510-04:00 time=approx seq=5 boot=84 up_ms=1831 level=INFO event=NET_BEGIN id=1 kind=wifi_setup 
+local=2026-09-19T22:02:07.568-04:00 time=approx seq=6 boot=84 up_ms=1890 level=INFO event=WIFI_RETRY source=setup attempt=1 usb_power=1
+local=2026-09-19T22:02:07.568-04:00 time=approx seq=7 boot=84 up_ms=1890 level=INFO event=NET_BEGIN id=2 kind=wifi_scan profile=primary
+local=2026-09-19T22:02:07.614-04:00 time=approx seq=8 boot=84 up_ms=1935 level=INFO event=CLOCK_OFFSET from=unknown to=-0400 source=clock
+local=2026-09-19T22:02:10.418-04:00 time=approx seq=9 boot=84 up_ms=4739 level=INFO event=WIFI_SCAN_DONE source=driver status=0 count=9 scan_id=128
+local=2026-09-19T22:02:10.453-04:00 time=approx seq=10 boot=84 up_ms=4774 level=INFO event=NET_END id=2 kind=wifi_scan result=ok elapsed_ms=2884 code=9 tls_queried=0 tls_code=0 tls_fresh=unknown tls_text=""
+local=2026-09-19T22:02:10.453-04:00 time=approx seq=11 boot=84 up_ms=4774 level=INFO event=WIFI_BEGIN profile=primary source=setup
+local=2026-09-19T22:02:10.455-04:00 time=approx seq=12 boot=84 up_ms=4777 level=INFO event=NET_BEGIN id=3 kind=wifi_wait connection=1
+local=2026-09-19T22:02:10.585-04:00 time=approx seq=13 boot=84 up_ms=4906 level=INFO event=WIFI_ASSOC source=driver profile=primary connection=1 channel=6 suppressed_disconnects=0
+local=2026-09-19T22:02:11.624-04:00 time=approx seq=14 boot=84 up_ms=5946 level=INFO event=WIFI_GOT_IP source=driver profile=primary connection=1 ip=172.20.10.2 changed=1
+local=2026-09-19T22:02:11.996-04:00 time=approx seq=15 boot=84 up_ms=6317 level=INFO event=NET_END id=3 kind=wifi_wait result=ok elapsed_ms=1541 code=3 tls_queried=0 tls_code=0 tls_fresh=unknown tls_text=""
+local=2026-09-19T22:02:11.997-04:00 time=approx seq=16 boot=84 up_ms=6319 level=INFO event=MQTT_CONFIG connection=1 target=real port=9735 tls=1
+local=2026-09-19T22:02:11.998-04:00 time=approx seq=17 boot=84 up_ms=6319 level=INFO event=NET_END id=1 kind=wifi_setup result=ok elapsed_ms=4488 code=3 tls_queried=0 tls_code=0 tls_fresh=unknown tls_text=""
+local=2026-09-19T22:02:12.808-04:00 time=synced seq=18 boot=84 up_ms=6688 level=INFO event=CLOCK_SYNC source=sntp prior_known=1 correction_ms=440
+local=2026-09-19T22:02:14.579-04:00 time=synced seq=19 boot=84 up_ms=8460 level=INFO event=NET_BEGIN id=4 kind=mqtt_setup 
+local=2026-09-19T22:02:14.679-04:00 time=synced seq=20 boot=84 up_ms=8560 level=INFO event=MQTT_CONNECT_BEGIN id=5 kind=mqtt_connect target=real connection=1 wifi_connection=1 port=9735 tls=1
+local=2026-09-19T22:02:15.219-04:00 time=synced seq=21 boot=84 up_ms=9100 level=INFO event=MQTT_CONNECT_END id=5 kind=mqtt_connect result=ok elapsed_ms=540 state=0 tls_queried=0 tls_code=0 tls_fresh=unknown tls_text=""
+local=2026-09-19T22:02:15.219-04:00 time=synced seq=22 boot=84 up_ms=9100 level=INFO event=MQTT_CONNECTED recovery=0 target=real connection=1 port=9735 state=0
+local=2026-09-19T22:02:15.221-04:00 time=synced seq=23 boot=84 up_ms=9101 level=INFO event=MQTT_SUBSCRIBE category=image qos=1 accepted=1 ack=unobserved
+local=2026-09-19T22:02:15.222-04:00 time=synced seq=24 boot=84 up_ms=9103 level=INFO event=MQTT_SUBSCRIBE category=power qos=1 accepted=1 ack=unobserved
+local=2026-09-19T22:02:15.225-04:00 time=synced seq=25 boot=84 up_ms=9105 level=INFO event=MQTT_SUBSCRIBE category=energy qos=1 accepted=1 ack=unobserved
+local=2026-09-19T22:02:15.227-04:00 time=synced seq=26 boot=84 up_ms=9107 level=INFO event=MQTT_PUBLISH category=calibration trigger=report accepted=1 ack=unobserved
+local=2026-09-19T22:02:15.227-04:00 time=synced seq=27 boot=84 up_ms=9108 level=INFO event=NET_END id=4 kind=mqtt_setup result=ok elapsed_ms=648 code=0 tls_queried=0 tls_code=0 tls_fresh=unknown tls_text=""
+local=2026-09-19T22:02:15.731-04:00 time=synced seq=28 boot=84 up_ms=9612 level=INFO event=SETUP_COMPLETE result=ready
+local=2026-09-19T22:02:15.748-04:00 time=synced seq=29 boot=84 up_ms=9628 level=INFO event=MQTT_WIFI_PROFILE wifi_connection=1 mqtt_connection=1 mismatch=0
+local=2026-09-19T22:02:29.201-04:00 time=synced seq=30 boot=84 up_ms=23082 level=INFO event=BENCH_REQUEST command=status target=real
+local=2026-09-19T22:03:08.076-04:00 time=synced seq=31 boot=84 up_ms=61956 level=INFO event=HEALTH snapshot_valid=1 wifi=1 mqtt=1 rssi=-61 snapshot_age_ms=151 screen=1 operation=idle moving=0 usb_power=1 battery=1 battery_mv=4130 internal_free=105308 internal_min=92316 internal_largest=55284 psram_free=8339860 dma_min=84652 dma_largest=51188 sync_age_ms=55268 queue_high=7 drops=0 suppressed=0 truncated=0 writes=30 slow=0 write_max_us=2950 flush_max_us=8815 sd_max_us=69320 stack_min=3640 free_bytes=15922135040 size=189639 generation=20 archives=6 pruned=0
+local=2026-09-19T22:03:08.078-04:00 time=synced seq=32 boot=84 up_ms=61959 level=INFO event=NET_HEALTH snapshot_valid=1 snapshot_age_ms=151 connection=1 rssi=-61 rssi_valid=1 wifi_suppressed=0 mqtt_inbound=2 power_count=1 energy_count=1 inbound_age_ms=1143 image_suppressed=0
+local=2026-09-19T22:03:58.059-04:00 time=synced seq=33 boot=84 up_ms=111940 level=INFO event=USB_GET_BEGIN name=current.log bytes=0 duration_ms=0 result=started

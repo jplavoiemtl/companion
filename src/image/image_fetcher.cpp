@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics_network.h"
 #include "image_fetcher.h"
 #include "../diagnostics/diagnostics_probes.h"
 
@@ -346,6 +347,7 @@ static bool requestImage(const char* endpoint_type) {
     httpsClient.setCACert(remote_server_ca_cert);
     bool beginResult = httpClient.begin(httpsClient, url);
     if (!beginResult) {
+      diagnet::event("NET_SETUP_ERROR", "kind=image_request tls=1 result=begin_failed");
       USBSerial.println("FATAL: httpClient.begin() failed for HTTPS!");
       httpState = HTTP_ERROR;
       return false;
@@ -357,6 +359,7 @@ static bool requestImage(const char* endpoint_type) {
                       String(endpoint_type) + "?token=***");
     bool beginResult = httpClient.begin(url);
     if (!beginResult) {
+      diagnet::event("NET_SETUP_ERROR", "kind=image_request tls=0 result=begin_failed");
       USBSerial.println("FATAL: httpClient.begin() failed for HTTP!");
       httpState = HTTP_ERROR;
       return false;
@@ -373,8 +376,10 @@ static bool requestImage(const char* endpoint_type) {
   httpRequestStartTime = millis();  // Set BEFORE blocking call for timeout tracking
   USBSerial.println("Sending HTTP GET...");
   // GET includes DNS, TCP, TLS and response headers, covering the HTTPS connect.
+  diagnet::Span request("image_request", diag::Phase::ImageHttps, isSecureConnection ? "tls=1 phase=dns_tcp_tls_headers" : "tls=0 phase=http_headers");
   if (isSecureConnection) diagnosticsProbeBegin(ProbeWindow::ImageHttps);
   int httpCode = httpClient.GET();
+  request.end(httpCode == HTTP_CODE_OK, httpCode, isSecureConnection ? &httpsClient : nullptr);
   // Connect + TLS handshake + server think time, all of it blocking. This is the phase
   // that used to swallow the whole loading budget on the iPhone hotspot, so log it.
   unsigned long connectMs = millis() - httpRequestStartTime;
@@ -563,6 +568,7 @@ bool requestLatestImage(bool fromNotification) {
   // prepareForRequest() -> cleanup and frees buffers the video module is still
   // rendering from. That reset the board on the home panel.
   if (videoStreamActive()) {
+    if (fromNotification) diagnet::imageNotification("ignored_live");
     USBSerial.println("Video burst active, ignoring image request");
     return false;
   }
@@ -574,12 +580,14 @@ bool requestLatestImage(bool fromNotification) {
     USBSerial.printf(
         "Ignoring 'latest' notification %lu ms after last image load (echo window %lu ms)\n",
         millis() - lastImageLoadedTime, NOTIFICATION_ECHO_WINDOW_MS);
+    diagnet::imageNotification("ignored_echo");
     return false;
   }
 
   lv_obj_t* current_screen = lv_scr_act();
   if (current_screen != cfg.screen1 && current_screen != cfg.screen2 &&
       current_screen != cfg.screen3 && current_screen != cfg.inclinometerScreen) {
+    if (fromNotification) diagnet::imageNotification("ignored_screen");
     USBSerial.println("On unsupported screen, ignoring image request");
     return false;
   }
@@ -588,6 +596,7 @@ bool requestLatestImage(bool fromNotification) {
   prepareForRequest();
   // Must follow prepareForRequest(), which clears the flag.
   motionTriggered = fromNotification;
+  if (fromNotification) diagnet::imageNotification("accepted");
   pendingEndpoint = "latest";
   return true;
 }

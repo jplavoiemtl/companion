@@ -8044,3 +8044,183 @@ Stage 2 network-event logging under the existing plan. JP builds and flashes;
 bench instructions remain one case at a time. Earlier pending-acceptance
 statements below are historical and superseded by this explicit decision.
 Leave the untracked iPhone download plan untouched.
+
+## Stage 2 preparation after explicit Stage 1B acceptance
+
+Accepted Stage 1B checkpoint `f899e3c` was committed and pushed at JP's request.
+Stage 2 observation hooks are now local: Wi-Fi driver/profile/retry evidence,
+all MQTT attempts and first observed loss, error snapshots before application
+cleanup, setup/TLS spans and breadcrumbs, bench controls, message aggregates,
+notification decisions and publish/subscribe acceptance. Existing network
+policy and Stage 1B transport limits are unchanged. See STAGE2.md for scope,
+API-observation limits and the first normal-startup case.
+
+61 host checks pass (14 new source-contract checks, 47 existing browser/USB
+checks). No firmware compiled/flashed and no Stage 2 hardware result. Flags
+remain enabled=1, hooks=0, fixture=0, PSRAM=1; tag=stage2-network. Removed the
+selected generated sketch before JP's rebuild. Stage 2 changes are uncommitted.
+
+## 2026-09-19 22:02-22:04: Stage 2 startup records verified; prior watchdog needs context
+
+JP supplied the console and identified Chrome Downloads. Read
+C:/Users/photo/Downloads/84-current.log: 190637 bytes, CRC32 5C52544D,
+SHA256 be39465b7e3981031a682f8651fccfc1584bb0d671d4bccaf3bd0cbfbf785836.
+Matches the browser-reported byte count and CRC OK outcome; the browser did
+not expose a numeric reference CRC, so the computed hash identifies the saved
+file rather than a second device/card byte comparison. Original preserved.
+
+Sources: [console](bench_data/sd_stage2_2026-09-19_boot84/console.txt) and
+[saved current log](bench_data/sd_stage2_2026-09-19_boot84/84-current.log.txt).
+
+Boot 84 contains build=stage2-network, compiled Sep 19 2026 21:55:31. The local
+ELF timestamp is 21:59:02 and Arduino Maker selects core-3-3-11. This establishes
+JP's built/flashed Stage 2 runtime, not a build/flash by Codex. Flags remain
+enabled=1, hooks=0, fixture=0, PSRAM=1. Stage 2 stays uncommitted/unaccepted.
+
+All 33 boot-84 records parse, sequence 1-33 is contiguous, all five setup/scan/
+association/MQTT spans pair correctly, and no NET_FORMAT_ERROR appears:
+
+- Driver scan: status=0, nine networks; main scan duration 2884 ms.
+- Primary association connection=1/channel=6 and GOT_IP changed=1 are captured
+  separately from main-task association wait (1541 ms).
+- Real MQTT connection=1, Wi-Fi connection=1, port=9735, TLS enabled: attempt
+  id=5 succeeds in 540 ms, state=0. All three subscriptions and calibration
+  publish report accepted=1, ack=unobserved. No mismatch. Setup completes.
+- HEALTH and NET_HEALTH at uptime about 61.96 s: snapshot_age_ms=151,
+  inbound=2 (power=1, energy=1), inbound age 1143 ms, RSSI -61 valid, suppression=0.
+  Older boot 83 also shows counters advancing 2 -> 4 across its two health records.
+- Final downloaded record is USB_GET_BEGIN, as expected for a current snapshot.
+  Its own USB_GET_END is expected in later appends, not this downloaded snapshot.
+
+Runtime: ready/synced and Wi-Fi/MQTT connected at both statuses; uptime advances
+23082 -> 120931 ms. Queue high=7, drops/suppressed/truncated=0, error=none,
+slow=0. The one queued status event drains to zero in the following USB snapshot.
+Current grows from 189506 to 190933; writes 29 -> 34. Download 1.81 s, 105604
+payload B/s; final USB inactive/unpaused/result=ok, no retained failure/link loss.
+Writer stack margin 3640 -> 3144 after retrieval, valid PSRAM placement/core 1.
+Internal boot minimum 92316 and retained largest minimum 51188; this idle case
+stays above 20480 but is not a new TLS/Live performance-gate measurement.
+Normal 60010 ms probe has 6001 samples, IMU average 42.78 Hz (no new IMU inquiry).
+
+Important separate finding: boot 84 reports reset=task_watchdog (code 6) and
+previous boot 83 breadcrumbs main=idle at 10197 ms, writer=idle at 122597 ms.
+Boot 83 had completed Stage 2 setup and two healthy zero-drop health intervals.
+The restart preceded this console capture, around 22:02:06. Idle breadcrumbs
+do not identify a blocked call or prove a cause. No reset occurs within the
+supplied boot-84 capture. Asked JP whether closing the VS Code monitor/switching
+to Chrome triggered the restart, or whether it happened spontaneously. Do not
+attribute it to the pre-existing monitor-close issue without that context.
+
+The record-format/startup/health/download checks pass. Overall first-case
+reset assessment awaits JP's answer before the deliberate MQTT outage case.
+No firmware change, rebuild, flash, commit or push during this analysis.
+
+### JP clarification: watchdog followed VS Code monitor closure
+
+JP confirms: "Yes I closed VS code monitor. this is normal". The preceding
+boot-83 -> 84 restart therefore occurred during the known monitor-close
+transition, which predates SD logging. Record the owner-observed association;
+it does not isolate the root cause or establish a fix. The boot-84 supplied
+startup/health/download case passes; no spontaneous restart was reported.
+
+Next single case: same normal Stage 2 build, hotspot on, dashboard, web console
+DTR=true/RTS=false, test switches off. Send off once, wait for two completed
+TEST MQTT attempt END lines, then on once. Wait for real broker connection,
+send status, download current.log once, final status. Do not add media or a
+hotspot outage to this case. Failed test attempts are expected; capture actual
+duration/state/TLS observations and recovery, zero drops/errors and CRC success.
+Commands can wait behind a blocking attempt. No rebuild, commit or push.
+
+## 2026-09-19 22:10-22:11: Stage 2 controlled MQTT off/on passes, boot 84
+
+JP reports the test ran fine. Same Stage 2 build/boot 84, Wi-Fi connected
+throughout, no media. Saved Chrome download 84-current (1).log has 200198 bytes,
+CRC32 14419DAE, SHA256 caa93f137d05e34c3579538839409383f10d3004b98590df1a25a05c56057def.
+The previous 190637-byte 84-current.log is its exact byte prefix. New file is
+UTF-8/newline terminated; boot-84 sequence 1-69 is contiguous and parses,
+all eight spans pair, and no NET_FORMAT_ERROR is present. Browser CRC OK,
+1.95 s, decoded 102729 B/s, wire 144313 B/s. This is saved-snapshot continuity,
+not a new card-reader comparison.
+
+Sources: [console](bench_data/sd_stage2_2026-09-19_boot84_off_on/console.txt)
+and [saved current log](bench_data/sd_stage2_2026-09-19_boot84_off_on/84-current.log.txt).
+
+| SD attempt ID | Target | Result/state | Recorded duration | TLS observation |
+|---|---|---|---:|---|
+| 6 | test, TLS port 9735 | failed / -2 | 5003 ms | queried=1, code=-1, Generic error, freshness unknown |
+| 7 | test, TLS port 9735 | failed / -2 | 5003 ms | queried=1, code=-1, Generic error, freshness unknown |
+| 8 | real, TLS port 9735 | ok / 0 | 606 ms | queried=0 |
+
+Serial bench numbers 1/2/3 are separate from the per-boot diagnostic IDs.
+Serial elapsed values are 5005/5004/607 ms and independent probe windows
+5002/5002/605 ms; these instrument boundaries differ slightly, not inconsistent
+attempts. Test attempt 7 starts 15102 ms after attempt 6's END timestamp,
+consistent with the unchanged 15-second post-attempt retry delay plus cleanup.
+The generic -1 secure-client error does not establish a TLS-handshake cause.
+
+BENCH_REQUEST and BENCH_APPLIED identify off/on correctly; requested disconnect
+records preserve state_before=0 and -2. On restores the real configuration;
+MQTT_CONNECTED has recovery=1; all three subscriptions and calibration publish
+report accepted=1/ack=unobserved. No fabricated MQTT_LOST for the intentional
+off action. Driver Wi-Fi loss and spontaneous MQTT loss remain to be exercised.
+An outage NET_HEALTH has inbound=14 (power=7, energy=7), age=62325 ms; inbound
+age describes application callbacks, not a broker keepalive failure.
+
+Both test MQTT probe largest minima are 63476 bytes (500/501 samples); real
+recovery minimum 55284 (61 samples). All use the retained 10 ms probe and exceed
+20480. Final internal boot minimum 92048, retained largest 51188, writer margin
+3144 unchanged, valid PSRAM placement/core 1. Ready/synced, queue high=7,
+zero drops/suppressed/truncated/errors/slow writes. Status queue 1 drains to 0;
+current appends resume, final size 201336, USB idle/unpaused/result=ok, no retained
+failure or link loss. Same boot throughout; no new reset observed or reported.
+
+Next single case: hotspot loss/recovery followed by Latest once, same build.
+Keep USB power and browser connected, dashboard, DTR=true/RTS=false, test
+switches off. Send status; turn hotspot off for 30 seconds, send status once,
+then restore hotspot and leave its settings page open for discovery. Wait for
+Wi-Fi and real MQTT recovery, up to about 90 seconds. Do not issue serial off/on
+or manually reset. If not recovered, stop and capture status/console. On recovery,
+run Latest once, then status, download current once and final status. Expect
+Wi-Fi driver disconnect/reassociation/GOT_IP, observed MQTT loss/recovery,
+paired HTTPS evidence, CRC success, zero drops/errors and memory >=20480.
+This single case adds actual Wi-Fi loss and post-recovery HTTPS; Live remains
+for a later separate case. No rebuild or firmware change requested.
+Stage 2 remains uncommitted and unaccepted. No build, flash, commit or push.
+
+## 2026-09-19 22:14-22:16: Stage 2 hotspot recovery works; diagnostic corrections pending repeat
+
+JP reports the test ran fine. Boot 84 throughout, automatic Wi-Fi/MQTT recovery
+followed by Latest. Sources: [console](bench_data/sd_stage2_2026-09-19_boot84_hotspot/console.txt)
+and [current log](bench_data/sd_stage2_2026-09-19_boot84_hotspot/84-current.log.txt).
+Saved download: 215429 bytes, CRC32 F2B32C72, SHA256
+57f4196db9798441c34f3e57312121f4704ca7eacfb00deeaada0acb93048275.
+It preserves the previous 200198-byte snapshot exactly. Boot-84 records 1-131
+are contiguous and parse; all 11 spans pair. CRC OK, download 2.05 seconds.
+
+Initial WIFI_DISCONNECT reason=2/auth_expired at uptime 770864, RSSI -39.
+MQTT_LOST follows with state=-3, TLS code 48 UNKNOWN ERROR CODE (0030),
+freshness unknown: this does not prove a new TLS failure. Offline attempt id9
+fails in 2 ms, state=-2, generic TLS -1. Its 1 ms probe has zero samples and
+cannot establish a TLS memory gate. Alternating reasons 201/no_ap_found and
+36 (then labeled other) recur about every 2.415 seconds, all suppressed=0;
+raw -128 is incorrectly accepted and propagates into NET_HEALTH.
+
+Association resumes at 807216, primary connection1/channel6; GOT_IP 808586,
+changed=0. No LOST_IP event was observed. Real MQTT id10 succeeds in 776 ms,
+state=0/recovery=1, subscriptions/calibration accepted. HTTPS id11 takes
+857 ms to headers, HTTP200; Latest total 1289 ms, 19665 bytes, normal display.
+Recovery probe: 77 samples, largest minimum 51188. HTTPS: 85 samples, largest
+minimum 31732. Both exceed unchanged 20480 gate. Final ready/synced, queuehigh7,
+zero drops/errors/slow writes/truncation, writer margin3144, USB idle/unpaused,
+result=ok; final current size215727/writes132. No new reset observed/reported.
+
+Functional outage/recovery/Latest passes. Diagnostic fidelity needs correction:
+reject the observed int8 lower bound -128 (not a claimed universal SDK sentinel),
+retain and label historical valid RSSI, expose raw validity; suppress repeated
+reason/profile combinations even when interleaved. Local fix uses four fixed
+slots with five-second windows, resets on association, and reports suppressed_any
+plus cumulative health suppression. Reason36 now labeled sta_leaving per installed
+SDK enum. No retry, timeout, transport or writer-policy changes. Sixteen network
+host checks pass, including translated policy replay; not a firmware compile.
+Next: JP rebuild/flash and repeat only this hotspot/recovery/Latest case.
+Stage 2 remains uncommitted/unaccepted. No build/flash/commit/push by Codex.

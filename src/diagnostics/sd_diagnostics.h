@@ -14,6 +14,11 @@ struct DiagnosticsHealth {
   bool live = false;
   bool image = false;
   bool moving = false;
+  bool rssiValid = false, mqttInboundKnown = false;
+  int16_t lastRssi = 0;
+  uint8_t wifiConnection = 0;
+  uint32_t wifiSuppressed = 0, mqttImageSuppressed = 0;
+  uint64_t mqttInbound = 0, mqttPower = 0, mqttEnergy = 0, mqttInboundAt = 0;
 };
 void diagnosticsInitEarly(); // setup, internal stack: NVS, RTC, queue, clock
 void diagnosticsStart();     // setup only, same core as USBSerial.begin(); does not wait for SD

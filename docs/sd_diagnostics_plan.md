@@ -8,7 +8,7 @@ Storage/close/NVS regression, resource stability and physical-card prefix checks
 JP accepts the newer profile's 42-43 Hz IMU rate. TLS/memory review and the September 19 evening paired Live checks pass; JP explicitly accepted Stage 1B on September 19, 2026.
 JP accepted the rare large-download/Live FPS tradeoff; optional pacing was reverted.
 See the [end-of-day checkpoint](sd_diagnostics_checkpoint_2026-09-19.md) for the exact resume steps.
-Stage 2 network-event logging has not started.
+Stage 2 is built/flashed by JP: boot-84 startup records, health and download checks pass. JP confirms the prior watchdog followed monitor closure. MQTT off/on and functional hotspot recovery plus Latest pass. RSSI validity and alternating-disconnect suppression fixes await JP rebuild and repeat of the hotspot case. See the [first Stage 2 case](../src/diagnostics/STAGE2.md).
 
 - [Accepted Stage 1 checkpoint](sd_diagnostics_stage1_checkpoint.md)
 - [Bench results and raw evidence](sd_diagnostics_bench_results.md)

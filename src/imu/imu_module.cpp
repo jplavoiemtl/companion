@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics_network.h"
 #include "imu_module.h"
 #include "../diagnostics/diagnostics_probes.h"
 #if defined(__has_include) && __has_include("secrets_private.h")
@@ -495,7 +496,8 @@ void updateMotionState() {
           g_isCurrentlyMoving = true;
 
           if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
-            mqttClient.publish(MOTION_TOPIC, "1");
+            const bool accepted = mqttClient.publish(MOTION_TOPIC, "1");
+            diagnet::publish("motion", "immediate", accepted);
             lastMotionTXTime = millis();
             USBSerial.println("TX motion MQTT: Moving (immediate)");
           }

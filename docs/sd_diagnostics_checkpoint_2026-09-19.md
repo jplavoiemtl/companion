@@ -1,5 +1,70 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Commit handoff authorized by JP
+
+JP requested committing and pushing this completed implementation/evidence batch
+to make diffs easier to follow. Stage 2 is not accepted: the RSSI/suppression
+correction still needs JP's rebuild/flash and hotspot repeat. Earlier references
+to remaining uncommitted describe the state before this handoff. No firmware
+build or flash was performed by Codex.
+
+
+## Latest Stage 2 result: hotspot recovery works; diagnostic fix repeat next
+
+JP reports the 22:14-22:16 hotspot case ran fine on boot 84. Wi-Fi and real
+MQTT recovered automatically; MQTT loss state=-3, reconnect 776 ms, Latest
+1289 ms total. Download 215429 bytes, CRC32 F2B32C72, exact prior snapshot
+prefix; 131 contiguous boot-84 records and 11 paired spans. Zero queue drops,
+errors or slow writes; writer margin 3144. Sampled recovery/HTTPS largest
+minima 51188/31732 exceed 20480. No new reset. Raw evidence is saved under
+bench_data/sd_stage2_2026-09-19_boot84_hotspot/.
+
+Two diagnostic defects were exposed: failed scans' RSSI -128 was marked valid,
+and alternating disconnect reasons bypassed consecutive-repeat suppression.
+Local corrections reject RSSI <=-128 or >=0, retain explicitly labeled last
+valid RSSI, and use four bounded reason/profile suppression slots (five seconds).
+Raw RSSI validity and cross-reason suppression counts are explicit; reason 36
+is labeled sta_leaving. Retry behavior is unchanged. Sixteen network host checks
+pass, including policy replay; this is not C++ compilation or board validation.
+
+Next single case: JP rebuilds/flashes amoled-1-8-core-3-3-11 in VS Code, then
+repeats hotspot off 30 seconds / automatic recovery / Latest once. Selected
+generated sketch removed before handoff. Keep USB/browser connected, dashboard,
+DTR=true/RTS=false and test switches off. Status before outage and while offline;
+restore hotspot with settings open, allow up to 90 seconds to recover without
+serial off/on or reset. If recovery fails, stop and send console/status. Otherwise
+Latest once, status, download current.log, final status. Send console and download.
+Verify corrected RSSI/suppression records, CRC, zero drops/errors and memory gate.
+No Live in this case. Current measured board still has the pre-correction build.
+
+Normal flags: enabled=1, hooks=0, fixture=0, PSRAM=1. Stage 2 remains local,
+uncommitted and unaccepted; Stages 3-4 unstarted. Stage 1B checkpoint f899e3c
+is pushed. Known monitor-close limitation remains; iPhone plan untouched.
+
+## Stage 2 preparation history
+
+Stage 1B acceptance/evidence is committed and pushed as `f899e3c` on
+`sd-diagnostics`. Stage 2 network-event logging is implemented locally and
+uncommitted; no firmware compile/flash or Stage 2 acceptance is claimed.
+See [implementation and first case](../src/diagnostics/STAGE2.md).
+
+Normal source configuration: core 3.3.11 profile, enabled=1, hooks=0, fixture=0,
+PSRAM=1, build tag `stage2-network`. Selected generated companion.ino.cpp
+removed for JP's VS Code rebuild. Last measured board state is still Stage 1B
+boot 82 until JP flashes. Next case only: normal startup/status, dashboard for
+about 70 seconds, download current.log once, final status and inspect new records.
+
+Validation: 14 source-contract regressions and 47 existing host USB checks
+pass; these are not a C++ build or hardware validation. No reconnect-policy,
+writer placement, transport-limit or Stage 0 probe changes. Stages 3-4 remain
+unstarted. Untracked iPhone plan remains untouched. No Stage 2 commit/push.
+
+JP also observed a possible return toward 48 Hz IMU operation as night images
+became smaller. Retained captures show 12.9 KB average Live frames and normal
+IMU windows of 42.43/42.79 Hz; no new 48 Hz capture was supplied. Smaller images
+plausibly affect Live throughput, but no IMU causal conclusion or renewed
+investigation follows from that observation.
+
 ## Stage 1B accepted by JP - September 19, 2026
 
 JP explicitly stated: "I accept Stage 1B. Please commit and push then proceed

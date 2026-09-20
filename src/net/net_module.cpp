@@ -1,6 +1,7 @@
 #include "net_module.h"
 #include "../diagnostics/diagnostics_probes.h"
 #include "../diagnostics/sd_diagnostics.h"
+#include "../diagnostics/diagnostics_network.h"
 #if defined(__has_include) && __has_include("secrets_private.h")
 #include "secrets_private.h"
 #else
@@ -45,6 +46,28 @@ int configuredConnection = 0;
 char benchCommand[24] = {};
 size_t benchCommandLength = 0;
 bool benchCommandOverflow = false;
+bool observedConnected = false;
+bool mediaDeferred = false;
+int observedAssociation = -1;
+
+bool isSecurePort(uint16_t port);
+
+bool observeMqtt() {
+  const bool connected = cfg.mqttClient && cfg.mqttClient->connected();
+  if (observedConnected && !connected) {
+    // PubSubClient may set LOST/TIMEOUT in loop()/connected(); capture before cleanup.
+    diagnet::mqttLoss(cfg.mqttClient->state(), benchPhase == BenchPhase::Outage ? "test" : "real",
+                      configuredConnection, activePort, isSecurePort(activePort) ? cfg.secureClient : nullptr);
+  }
+  observedConnected = connected;
+  return connected;
+}
+void intentionalDisconnect(const char* reason) {
+  observeMqtt(); // Preserve a real loss already visible before this requested cleanup.
+  diagnet::event("MQTT_DISCONNECT", "reason=%s state_before=%d", reason, cfg.mqttClient->state());
+  cfg.mqttClient->disconnect();
+  observedConnected = false;
+}
 
 void printBenchStatus() {
   const char* phase = benchPhase == BenchPhase::Outage ? "OFF" :
@@ -52,15 +75,17 @@ void printBenchStatus() {
   const unsigned long elapsed = benchPhase == BenchPhase::Idle ? 0 : millis() - benchStarted;
   USBSerial.printf("[TEST] %s | WiFi=%s | MQTT=%s | time since off=%lu ms | uptime=%lu ms\n",
                    phase, WiFi.status() == WL_CONNECTED ? "CONNECTED" : "OFFLINE",
-                   cfg.mqttClient && cfg.mqttClient->connected() ? "CONNECTED" : "DISCONNECTED",
+                   observeMqtt() ? "CONNECTED" : "DISCONNECTED",
                    elapsed, millis());
 }
 
 void restoreBenchMqtt(const char* reason) {
   if (benchPhase != BenchPhase::Outage) return;
   benchPhase = BenchPhase::Restoring;
-  cfg.mqttClient->disconnect();
+  intentionalDisconnect("bench_restore");
   netConfigureMqttClient(configuredConnection);
+  diagnet::event("BENCH_APPLIED", "command=on target=real reason=%s",
+                 !strcmp(reason, "serial on") ? "serial_on" : "unexpected_test_connection");
   // Make the real broker eligible immediately; the normal image-busy guard remains.
   lastMqttAttempt = millis() - MQTT_RECONNECT_INTERVAL;
   USBSerial.printf("[TEST] ON: restoring real broker (%s), %lu ms after off.\n",
@@ -77,6 +102,8 @@ void handleBenchCommand(char* command) {
   if (!length) return;
 
   if (diagnosticsCommand(command)) return;
+  if (!strcmp(command, "off") || !strcmp(command, "on") || !strcmp(command, "status"))
+    diagnet::event("BENCH_REQUEST", "command=%s target=%s", command, benchPhase == BenchPhase::Outage ? "test" : "real");
   if (strcmp(command, "status") == 0) {
     printBenchStatus();
     diagnosticsPrintStatus();
@@ -84,28 +111,33 @@ void handleBenchCommand(char* command) {
     if (benchPhase == BenchPhase::Outage) {
       restoreBenchMqtt("serial on");
     } else {
+      diagnet::event("BENCH_APPLIED", "command=on result=already_real");
       USBSerial.println("[TEST] ON: real broker already selected.");
       printBenchStatus();
     }
   } else if (strcmp(command, "off") == 0) {
     if (benchPhase == BenchPhase::Outage) {
+      diagnet::event("BENCH_APPLIED", "command=off result=already_test");
       USBSerial.println("[TEST] Already OFF; send on to restore the real broker.");
       return;
     }
     if (benchPhase == BenchPhase::Restoring) {
+      diagnet::event("BENCH_APPLIED", "command=off result=refused reason=restoring");
       USBSerial.println("[TEST] Restoring; wait for the real broker to reconnect before another off.");
       return;
     }
     if (!configuredConnection || !cfg.mqttClient || WiFi.status() != WL_CONNECTED ||
-        !cfg.mqttClient->connected()) {
+        !observeMqtt()) {
+      diagnet::event("BENCH_APPLIED", "command=off result=refused reason=not_connected");
       USBSerial.println("[TEST] Not started: wait for WiFi and the real MQTT broker to connect.");
       return;
     }
-    cfg.mqttClient->disconnect();
+    intentionalDisconnect("bench_off");
     benchPhase = BenchPhase::Outage;
     benchStarted = millis();
     benchAttempt = 0;
     cfg.mqttClient->setServer(BENCH_ADDRESS, activePort);
+    diagnet::event("BENCH_APPLIED", "command=off target=test port=%u", activePort);
     // Leave time to see orange status and prepare a button press before the first attempt.
     lastMqttAttempt = millis() - MQTT_RECONNECT_INTERVAL + BENCH_FIRST_ATTEMPT_MS;
     USBSerial.printf("[TEST] OFF: MQTT -> 192.0.2.1:%u until you send on; WiFi/HTTPS unchanged.\n",
@@ -165,19 +197,22 @@ void netConfigureMqttClient(int connection) {
   if (benchPhase == BenchPhase::Outage) {
     cfg.mqttClient->setServer(BENCH_ADDRESS, activePort);
   }
+  diagnet::event("MQTT_CONFIG", "connection=%d target=%s port=%u tls=%u",
+                 configuredConnection, benchPhase == BenchPhase::Outage ? "test" : "real",
+                 activePort, isSecurePort(activePort));
 }
 
 void netCheckMqtt(bool bypassRateLimit) {
   if (!cfg.mqttClient) return;
   if (giveUp) return;
 
-  if (!cfg.mqttClient->connected()) {
+  if (!observeMqtt()) {
     unsigned long currentTime = millis();
     if (!bypassRateLimit && currentTime - lastMqttAttempt < MQTT_RECONNECT_INTERVAL) {
       return;
     }
 
-    cfg.mqttClient->disconnect();  // clean stale state
+    cfg.mqttClient->disconnect();  // clean stale state (loss captured above)
     delay(100);
 
     // Bound TCP and TLS separately; connection attempts are still synchronous.
@@ -200,9 +235,17 @@ void netCheckMqtt(bool bypassRateLimit) {
                        ++benchAttempt, testAttempt ? "TEST endpoint" : "REAL broker", attemptStarted);
     }
     // Never send production credentials or the production client ID to the test address.
+    char context[144];
+    snprintf(context, sizeof(context), "target=%s connection=%d wifi_connection=%d port=%u tls=%u",
+             testAttempt ? "test" : "real", configuredConnection,
+             diagnet::associatedConnection(), activePort, isSecurePort(activePort));
+    diagnet::Span attempt("mqtt_connect", diag::Phase::MqttConnect, context);
     diagnosticsProbeBegin(ProbeWindow::MqttConnect);
     bool ok = testAttempt ? cfg.mqttClient->connect("companion-bench-test")
                           : cfg.mqttClient->connect(CLIENT_ID, USERNAME, KEY);
+    // Snapshot state and TLS error before probes, subscriptions or cleanup can reuse them.
+    attempt.end(ok, cfg.mqttClient->state(), isSecurePort(activePort) ? cfg.secureClient : nullptr);
+    observedConnected = ok;
     diagnosticsProbeEnd(ProbeWindow::MqttConnect);
     if (logAttempt) {
       USBSerial.printf("[TEST] MQTT attempt %u END -> %s | %s | elapsed=%lu ms | state=%d\n",
@@ -225,17 +268,23 @@ void netCheckMqtt(bool bypassRateLimit) {
     }
 
     if (ok) {
+      diagnet::event("MQTT_CONNECTED", "recovery=%u target=real connection=%d port=%u state=%d",
+                     everConnected || benchPhase == BenchPhase::Restoring,
+                     configuredConnection, activePort, cfg.mqttClient->state());
       everConnected = true;
       failureCount = 0;
       // Subscriptions
       if (cfg.topics.image) {
-        cfg.mqttClient->subscribe(cfg.topics.image, 1);
+        const bool accepted = cfg.mqttClient->subscribe(cfg.topics.image, 1);
+        diagnet::event("MQTT_SUBSCRIBE", "category=image qos=1 accepted=%u ack=unobserved", accepted);
       }
       if (cfg.topics.power) {
-        cfg.mqttClient->subscribe(cfg.topics.power, 1);
+        const bool accepted = cfg.mqttClient->subscribe(cfg.topics.power, 1);
+        diagnet::event("MQTT_SUBSCRIBE", "category=power qos=1 accepted=%u ack=unobserved", accepted);
       }
       if (cfg.topics.energy) {
-        cfg.mqttClient->subscribe(cfg.topics.energy, 1);
+        const bool accepted = cfg.mqttClient->subscribe(cfg.topics.energy, 1);
+        diagnet::event("MQTT_SUBSCRIBE", "category=energy qos=1 accepted=%u ack=unobserved", accepted);
       }
       calibReportStatus();
       if (benchPhase == BenchPhase::Restoring) {
@@ -246,6 +295,7 @@ void netCheckMqtt(bool bypassRateLimit) {
       failureCount++;
       if (!everConnected && failureCount >= MAX_INITIAL_FAILURES) {
         giveUp = true;
+        diagnet::event("MQTT_BUDGET", "result=exhausted failures=%u retry=until_reboot", failureCount);
         USBSerial.println("MQTT unreachable after initial attempts; giving up until next reboot.");
       }
     }
@@ -253,9 +303,31 @@ void netCheckMqtt(bool bypassRateLimit) {
 }
 
 bool netIsMqttConnected() {
-  return cfg.mqttClient && cfg.mqttClient->connected();
+  return observeMqtt();
 }
 
+
+void netObserveRetryPolicy(bool mediaBusy) {
+#if DIAG_ENABLED
+  const bool connected = observeMqtt();
+  const int association = diagnet::associatedConnection();
+  if (association != observedAssociation) {
+    if (association && configuredConnection)
+      diagnet::event("MQTT_WIFI_PROFILE", "wifi_connection=%d mqtt_connection=%d mismatch=%u",
+                     association, configuredConnection, association != configuredConnection);
+    observedAssociation = association;
+  }
+  const bool deferred = cfg.mqttClient && !connected && !giveUp &&
+                        WiFi.status() == WL_CONNECTED && mediaBusy;
+  if (deferred != mediaDeferred) {
+    diagnet::event("MQTT_RETRY_POLICY", "result=%s reason=%s state=%d",
+                   deferred ? "deferred" : "released",
+                   deferred ? "media" : connected ? "connected" : WiFi.status() != WL_CONNECTED ? "wifi_offline" : "media_clear",
+                   cfg.mqttClient ? cfg.mqttClient->state() : -1);
+    mediaDeferred = deferred;
+  }
+#endif
+}
 
 uint16_t netGetActivePort() {
   return activePort;

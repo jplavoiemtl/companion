@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics_network.h"
 #include "video_stream.h"
 #include "../diagnostics/diagnostics_probes.h"
 
@@ -337,8 +338,10 @@ static bool ensureConnected() {
   vidClient->setConnectionTimeout(5000);   // TCP connect, ms; independent of prior still requests
   vidClient->setHandshakeTimeout(5);        // seconds, per the setter's units
 
+  diagnet::Span connect("live_connect", diag::Phase::LiveTls, "tls=1 phase=dns_tcp_tls");
   diagnosticsProbeBegin(ProbeWindow::LiveTls);
   const bool connected = vidClient->connect(epHost, epPort);
+  connect.end(connected, connected ? 1 : 0, vidClient);
   diagnosticsProbeEnd(ProbeWindow::LiveTls);
   if (!connected) {
     // Report enough to tell a RAM problem from a TLS or server problem. Largest

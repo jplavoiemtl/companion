@@ -33,6 +33,7 @@
 #include "src/video/video_stream.h"
 #include "src/diagnostics/diagnostics_probes.h"
 #include "src/diagnostics/sd_diagnostics.h"
+#include "src/diagnostics/diagnostics_network.h"
 
 
 // QMI8658 Register Addresses
@@ -609,6 +610,7 @@ void updateEnergyDisplay(String energyStr) {
 
 //***************************************************************************************************
 void callbackMqtt(char* topic, byte* payload, unsigned int length) {
+    diagnet::inbound(!strcmp(topic, HILO_POWER) ? "power" : !strcmp(topic, HILO_ENERGY) ? "energy" : "other");
     String topicString = topic;
     
     // Safely extract payload
@@ -625,6 +627,8 @@ void callbackMqtt(char* topic, byte* payload, unsigned int length) {
             // the unit that pressed the button gets a notification for the image it already
             // has. The fetcher drops it if an image landed a moment ago.
             requestLatestImage(true);
+        } else {
+            diagnet::imageNotification("ignored_payload");
         }
     }
     // Power handling
@@ -667,6 +671,7 @@ void runBackgroundTick() {
     health.live = videoStreamActive();
     health.image = imageFetcherIsBusy() && !health.live;
     health.moving = g_isCurrentlyMoving;
+    diagnet::health(health);
     diagnosticsUpdateHealth(health);
   }
   updateImuData();
@@ -699,6 +704,8 @@ void runBackgroundTick() {
 //***************************************************************************************************
 bool connectToWiFi(int connection) {      // connection is either 1 for wifi1 or 2 for wifi2
   bool connected = false;
+  char context[48]; snprintf(context, sizeof(context), "connection=%d", connection);
+  diagnet::Span association("wifi_wait", diag::Phase::WifiSetup, context);
 
   USBSerial.println("Connecting to WiFi");
 
@@ -736,6 +743,7 @@ bool connectToWiFi(int connection) {      // connection is either 1 for wifi1 or
       }
   }
 
+  association.end(connected, int(WiFi.status()));
   if (connected) {
     USBSerial.println("");
     USBSerial.println("WiFi connected.");
@@ -769,6 +777,8 @@ bool connectToWiFi(int connection) {      // connection is either 1 for wifi1 or
  * @return true if the SSID was found, false otherwise or if the scan times out.
  */
 bool scanForSSID(const char* ssid) {
+  char context[48]; snprintf(context, sizeof(context), "profile=%s", diagnet::profile(ssid));
+  diagnet::Span scan("wifi_scan", diag::Phase::WifiSetup, context);
   USBSerial.print("Starting non-blocking scan for SSID: ");
   USBSerial.println(ssid);
 
@@ -788,6 +798,7 @@ bool scanForSSID(const char* ssid) {
     // Check if the scan has timed out
     if (millis() - startTime > SCAN_TIMEOUT) {
       USBSerial.println("\nWiFi scan timed out!");
+      scan.end(false, -1); // timed out while scan still reported running
       WiFi.scanDelete(); // Clean up the scan results
       return false;
     }
@@ -809,6 +820,7 @@ bool scanForSSID(const char* ssid) {
     }
   }
 
+  scan.end(ssidFound, numNetworks);
   // Clean up the memory used by the scan results
   WiFi.scanDelete();
 
@@ -834,6 +846,7 @@ void trySecondSSID(int lastAttemptedConnection) {
         WiFi.disconnect(true); // Ensure clean state before new attempt
         delay(10);    // was ok at 1000
 
+        diagnet::event("WIFI_BEGIN", "profile=secondary source=explicit_retry");
         WiFi.begin(secondarySsid, secondaryPassword);
         if (connectToWiFi(secondaryNetworkNum)) {
             USBSerial.print("Successfully connected to Wi-Fi network: ");
@@ -869,6 +882,7 @@ void trySecondSSID(int lastAttemptedConnection) {
  * @return true if WiFi connection was successful, false otherwise
  */
 bool attemptWiFiConnection() {
+    diagnet::Span wifiSetup("wifi_setup", diag::Phase::WifiSetup);
     const int MAX_RETRIES = 5;  // Maximum number of retry attempts
     int retryCount = 0;
     bool connected = false;
@@ -881,6 +895,7 @@ bool attemptWiFiConnection() {
     
     while (!connected && retryCount < MAX_RETRIES) {  // MODIFIED: Added retry limit check
         retryCount++;
+        diagnet::event("WIFI_RETRY", "source=setup attempt=%d usb_power=%u", retryCount, vbusPresent);
         
         // Update UI with retry count if this is a retry
         if (retryCount > 1) {
@@ -901,6 +916,7 @@ bool attemptWiFiConnection() {
         USBSerial.println(primarySsid);
         
         if (scanForSSID(primarySsid)) {
+            diagnet::event("WIFI_BEGIN", "profile=primary source=setup");
             WiFi.begin(primarySsid, primaryPassword);
             if (connectToWiFi(primaryNetworkNum)) {
                 USBSerial.println("Connection successful!");
@@ -938,6 +954,7 @@ bool attemptWiFiConnection() {
             for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
             
             delay(2000); // Show message briefly
+            wifiSetup.end(false, int(WiFi.status()));
             goToShutdown(); // This function does not return
             
             // Code should never reach here, but just in case:
@@ -955,6 +972,7 @@ bool attemptWiFiConnection() {
             lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
             for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
 
+            wifiSetup.end(false, int(WiFi.status()));
             return false;
         }
         
@@ -984,6 +1002,7 @@ bool attemptWiFiConnection() {
         delay(100);
     }
     
+    wifiSetup.end(connected, int(WiFi.status()));
     return connected;
 }
 
@@ -1816,10 +1835,12 @@ void goToShutdown() {
 void myCalibMqttSender(const char* topic, const char* payload) {
   // Only send if we have an active connection
   if (mqttClient.connected()) {
-    mqttClient.publish(topic, payload);
+    const bool accepted = mqttClient.publish(topic, payload);
+    diagnet::publish("calibration", "report", accepted);
     USBSerial.print("[MQTT] Calibration sent: ");
     USBSerial.println(payload);
   } else {
+    diagnet::event("MQTT_PUBLISH", "category=calibration result=skipped reason=not_connected");
     USBSerial.println("[MQTT] Skipped calibration send (Not connected).");
   }
 }
@@ -2153,10 +2174,12 @@ void initWiFi() {
  * Attempts initial connection with retry logic
  */
 void initMQTT() {
+    diagnet::Span mqttSetup("mqtt_setup", diag::Phase::MqttSetup);
     USBSerial.println("--- Initializing MQTT ---");
     
     if (WiFi.status() != WL_CONNECTED) {
         USBSerial.println("WARNING: Cannot initialize MQTT - WiFi not connected");
+        mqttSetup.end(false, mqttClient.state());
         return;  // Exit early - no point trying MQTT without WiFi
     }
     
@@ -2167,6 +2190,7 @@ void initMQTT() {
         
         if (netIsMqttConnected()) {
             USBSerial.println("Initial MQTT connection successful!");
+            mqttSetup.end(true, mqttClient.state());
             return;  // Exit function immediately on success
         }
         
@@ -2183,6 +2207,7 @@ void initMQTT() {
         }
     }
     
+    mqttSetup.end(false, mqttClient.state());
     USBSerial.println("Initial MQTT connection failed - will retry in loop");
 }
 
@@ -2341,6 +2366,7 @@ void setup() {
   updateInitialUI();  // Update UI with initial sensor data
 
   configureWiFiPriority();  // Configure WiFi priority (must be done before initWiFi)
+  diagnet::init(primarySsid, primaryNetworkNum, secondarySsid, secondaryNetworkNum);
 
   // Let display and hardware allocations settle before the SD writer is allocated.
   // Early event capture is already active; mounting still does not wait for Wi-Fi.
@@ -2354,6 +2380,7 @@ void setup() {
   if (g_wifiUpAtBoot) {
     initMQTT(); // Initialize MQTT (will retry in loop if needed)
   } else {
+    diagnet::event("MQTT_SETUP_SKIP", "reason=wifi_offline");
     USBSerial.println("Skipping MQTT init - no WiFi at boot. Forcing G-meter screen.");
     // Override whatever screen_memory restored: Dashboard is empty without MQTT,
     // so land on the G-meter which works offline.
@@ -2410,10 +2437,12 @@ void loop() {
       if (tryPrimaryNext) {
         USBSerial.print("Retrying WiFi (primary): ");
         USBSerial.println(primarySsid);
+        diagnet::event("WIFI_BEGIN", "profile=primary source=late_retry");
         WiFi.begin(primarySsid, primaryPassword);
       } else {
         USBSerial.print("Retrying WiFi (secondary): ");
         USBSerial.println(secondarySsid);
+        diagnet::event("WIFI_BEGIN", "profile=secondary source=late_retry");
         WiFi.begin(secondarySsid, secondaryPassword);
       }
       tryPrimaryNext = !tryPrimaryNext;
@@ -2437,6 +2466,7 @@ void loop() {
   // --- Task 2: Handle MQTT communications if connected ---
   if (WiFi.status() == WL_CONNECTED) {
     mqttClient.loop();  // Always call loop() to maintain connection
+    netObserveRetryPolicy(imageFetcherIsBusy() || videoStreamActive());
 
     // Defer reconnection while either a still image or live video is active.
     // Failed MQTT connects can block long enough to expire the video response
@@ -2444,6 +2474,8 @@ void loop() {
     if (!imageFetcherIsBusy() && !videoStreamActive()) {
       netCheckMqtt();   // Attempt reconnection (rate-limited to every 15s)
     }
+  } else {
+    netObserveRetryPolicy(imageFetcherIsBusy() || videoStreamActive());
   }
 
   // --- Task 3: Process HTTP response if in progress
@@ -2458,7 +2490,8 @@ void loop() {
   // --- Task 8: Transmit motion MQTT if connected ---
   if (ENABLE_MOTION_MQTT && g_isCurrentlyMoving && mqttClient.connected()) {
     if (millis() - lastMotionTXTime > MOTION_TIMEOUT) {
-      mqttClient.publish(MOTION_TOPIC, "1");
+      const bool accepted = mqttClient.publish(MOTION_TOPIC, "1");
+      diagnet::publish("motion", "periodic", accepted);
       lastMotionTXTime = millis();
       USBSerial.println("TX motion MQTT: Moving (periodic)");
     }

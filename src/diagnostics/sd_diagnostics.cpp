@@ -854,6 +854,18 @@ void writeHealth(const char* event = "HEALTH") {
     return;
   }
   writeRecord(diag::stamp(), "INFO", event, fields);
+  // Separate bounded companion record, using the same main-task health snapshot.
+  snprintf(fields, sizeof(fields),
+    "snapshot_valid=%u snapshot_age_ms=%llu connection=%u rssi=%d rssi_valid=%u wifi_suppressed=%lu "
+    "mqtt_inbound=%llu power_count=%llu energy_count=%llu inbound_age_ms=%lld image_suppressed=%lu",
+    s.healthUp != 0, static_cast<unsigned long long>(s.healthUp ? up - s.healthUp : up),
+    s.health.wifiConnection, s.health.lastRssi, s.health.rssiValid,
+    static_cast<unsigned long>(s.health.wifiSuppressed),
+    static_cast<unsigned long long>(s.health.mqttInbound), static_cast<unsigned long long>(s.health.mqttPower),
+    static_cast<unsigned long long>(s.health.mqttEnergy),
+    s.health.mqttInboundKnown ? static_cast<long long>(up - s.health.mqttInboundAt) : -1LL,
+    static_cast<unsigned long>(s.health.mqttImageSuppressed));
+  writeRecord(diag::stamp(), "INFO", "NET_HEALTH", fields);
 }
 bool pop(Event& event) {
   portENTER_CRITICAL(&mux);
