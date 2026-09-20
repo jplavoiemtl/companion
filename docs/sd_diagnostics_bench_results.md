@@ -8476,3 +8476,41 @@ Expect exactly one IMAGE_END failed/wifi_offline, UI_RETURN and no HTTP span
 for that offline request, recovery, CRCOK and zero drops/errors. This exercises
 failure evidence, not an HTTP timeout. Stage3 unaccepted, optional tail deferred,
 Stage4 unstarted. No firmware changes; completed results committed/pushed per JP.
+
+## September 20 09:43-09:45: offline Latest failure/return passes, boot 89
+
+JP reports normal test. IMAGE_BEGIN id10/triggerlatest/wifi0/mqtt0 has exactly
+one IMAGE_END failed/wifi_offline in99ms, zero bytes and unmeasured phase times0.
+UI_RETURN says request failed to start; no HTTP network span for this request.
+The brief loading-screen round trip occurs inside one loop: no UI_SCREEN record
+is expected from the documented polling observer. Console confirms load/unload
+and return; subsequent HEALTH screen1/idle agrees. No invented HTTP timeout.
+
+Driver loss reason2/auth_expired, MQTT_LOST state-3/TLS48 freshness unknown;
+fast real attempt19 fails2ms/state-2. Its1ms probe has zero samples, so is not a
+new sampled TLS gate. Offline repeats correctly reject raw RSSI-128 and retain
+-46 as last_valid, with suppression. NET_HEALTH reports26 suppressed at964242.
+Association/GOT_IP recover; real MQTT20 succeeds657ms/state0/recovery1, all
+subscriptions/calibration accepted. UI connection orange/red/green observed.
+Recovery probe largest51188/66 samples above20480; retained boot26612 unchanged.
+OP_HEALTH stays max5235/gaps1 (the prior planned MQTT gap). No new reset/stall.
+Queuehigh8, zero drops/errors/suppressed/truncated/slow writes, writer margin3096
+stable; final USB idle/unpaused/resultok/no link loss, Wi-Fi/MQTT connected.
+
+Download 529873 bytes, CRC32 57E80067, SHA256
+fc87ba81026f3ae1f3c4be12d12f8c3e999cb2bcc2a9a90bdee40d34d0c7d8f2. Browser CRCOK,5.30s. Previous516494-byte
+snapshot exact prefix;272 contiguous boot89 records,20 paired network spans,
+10 media lifecycles. Sources: [console](bench_data/sd_stage3_2026-09-20_boot89_offline_latest/console.txt)
+and [current log](bench_data/sd_stage3_2026-09-20_boot89_offline_latest/89-current.log.txt).
+
+Next single case: Live network-loss exit, same build/no rebuild. USB/browser
+remain connected, dashboard, DTR=true/RTS=false/test switches off. Status;
+start Live with hotspot/MQTT connected. Once video has played about5s, turn
+hotspot off. Wait for automatic failure/return; do not press Back. If it has
+not returned within30s, send status, restore hotspot and report what happened.
+After return, restore hotspot (settings open), allow up to90s for automatic
+Wi-Fi/MQTT recovery. Status/download current/status; send console/log and video
+behavior. Expected bounded Live error exit with one terminal record, actual
+failure reason (do not require a specific timeout vs connection-close label),
+recovery, CRCOK, zero drops/errors and memory gate. Stop if recovery fails.
+Stage3 remains unaccepted; optional tail deferred; Stage4 unstarted.
