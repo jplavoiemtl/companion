@@ -7,7 +7,93 @@ Design: [Codex review](sd_iphone_log_download_review.md) and
 Branch `iphone-log-retrieval`. Results are appended newest first as cases complete.
 
 Status: design review closed on September 20, 2026 with six corrections accepted.
-Case 1 is prepared and not yet run. No firmware exists for this feature yet.
+**Case 1 passed on September 20, 2026**, with transfer timing deliberately deferred. No
+firmware exists for this feature yet.
+
+---
+
+## Case 1 result - 2026-09-20, 18:21-18:55 - PASS, timing deferred
+
+**Rig.** Windows PC on the `iphone-jp` hotspot at `172.20.10.13/28`, phone at
+`172.20.10.1`, Ethernet left connected throughout. Python 3.13.9
+`python -m http.server 8000 --bind 172.20.10.13`, serving a scratch directory, never the
+repository. The companion was powered and connected to the same hotspot for the whole
+session. iOS version **not yet recorded** - outstanding, see below.
+
+**Verdict.** The listing loaded in Safari and `sample.bin` saved to Files at exactly
+262,144 bytes, so the case passes on its stated criterion. `big.bin` also saved in full at
+2,097,152 bytes. Seven substantive findings, two of which are firmware requirements.
+
+### Findings
+
+| # | Finding | Evidence |
+|---|---------|----------|
+| 1 | **Hotspot client-to-client reachability works.** This is the premise of the whole feature and was previously an assumption. | `172.20.10.1 - - [18:24:05] "GET / HTTP/1.1" 200` |
+| 2 | **Safari requests `/favicon.ico`**, once per session rather than per page load - the second listing load did not repeat it. | `"GET /favicon.ico HTTP/1.1" 404` at 18:24:05; absent at 18:27:01 |
+| 3 | **Content type decides inline versus download.** Identical 262,144 bytes: served as `application/octet-stream` Safari offered a download; served as `text/plain` Safari rendered it inline as text. | `sample.log` versus `sample.txt`, same bytes, different `Content-Type` |
+| 4 | **Safari opens two TCP connections per download.** A speculative or preconnect socket accompanies the real one. | `172.20.10.1:51950` and `:51952` both in `TIME_WAIT` for one GET; repeated at `:51955`/`:51956` |
+| 5 | **No `Range` and no `HEAD` requests at any size tested** - 262 KiB, 524 KiB or 2 MiB. Resumability is not required by the client. | Every transfer is a single `GET ... 200` |
+| 6 | **A 2 MiB transfer completes**, which is the archive size. | `big.bin` verified at 2.1 MB in Files; local fetch returned all 2,097,152 bytes |
+| 7 | **A truncated transfer is visibly partial on the phone**, shown as "713 KB of 2.1 MB" against `Content-Length`. | `big.log` interrupted by a link drop |
+
+### What this requires of the firmware
+
+- **Serve `application/octet-stream` with `Content-Disposition: attachment`**, never
+  `text/plain`. Finding 3 makes this mandatory rather than cosmetic: `text/plain` is the
+  intuitive choice for a log file and would put a quarter-megabyte of text on screen
+  instead of into Files.
+- **Answer `/favicon.ico` cheaply** - a 204 with no body, no SD access, and without
+  consuming the single retrieval session. Finding 2 means the very first page load would
+  otherwise spend the session before the user reaches a download.
+- **Budget at least two client sockets for one Safari session** (finding 4), on top of the
+  three `esp_http_server` reserves internally. `max_open_sockets = 2` would have looked
+  defensible and been wrong.
+- **No `Range` support needed for version 1** (finding 5). Deferring resume remains correct.
+- Finding 7 supports the verification scheme: `Content-Length` plus the expected size in
+  the filename makes truncation detectable on the phone with no tooling.
+
+### Two procedural findings, not firmware findings
+
+- **A Files "error" is not necessarily a failed download.** `big.bin` showed
+  "Your device couldn't connect to the server" yet was present at full size; Files was
+  failing to *preview* an unrecognised binary, which it labels a "MacBinary archive". JP
+  identified this; an earlier reading of it as a transfer failure was wrong and briefly
+  sent the investigation toward a `Range` hypothesis that finding 5 disproves.
+  **Always confirm by size in Files > Info, never by whether the file opens.**
+- **The iPhone stops advertising the hotspot when it locks or leaves the Personal Hotspot
+  screen.** Already-associated clients stay connected - the companion never dropped - but
+  the PC could not rejoin, and the SSID was absent from a scan. Keep the Personal Hotspot
+  screen open on the phone for the whole of any bench case.
+
+### Timing: deliberately deferred
+
+The 2 MiB duration was not obtained. Three attempts were interrupted by the PC losing the
+hotspot (`ConnectionAbortedError 10053`, 12 ping timeouts, `netsh wlan` reporting
+`disconnected`), and at the end the PC could see the SSID but could not associate at all.
+The companion stayed connected throughout every one of those events, so **none of it is
+evidence about the hotspot or the feature** - it is the test rig.
+
+Deferring costs nothing real: the number that governs the 120 second `current.log` limit
+and the 5 second stall bound is **ESP32-to-phone** throughput, where the board is the
+binding constraint, not a laptop's Wi-Fi. That measurement belongs to the first firmware
+transfer case. For reference only, a local fetch of the same 2 MiB file ran at roughly
+1.2 MB/s.
+
+### Outstanding
+
+- **iOS version** on the iPhone 13 Pro, needed as context for findings 2 to 5. Record it
+  from Settings > General > About > Software Version.
+- Whether an inbound firewall rule was required could not be established: no rule for port
+  8000 was found and no allow-dialog was observed, yet the phone connected. Anyone
+  reproducing this should expect to allow the **Public** profile, since a hotspot is
+  normally classified Public and a Private-only rule would not apply.
+
+### Limits of this result
+
+A laptop's Python server is not `esp_http_server`: response construction, timeouts, socket
+limits and concurrency are all untested here. The findings are Safari's behaviour on one
+phone, one iOS version and one date, over plain HTTP with no TLS, with a single client. The
+firmware must still pass its own reachability and transfer cases.
 
 ---
 
