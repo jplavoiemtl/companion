@@ -1,5 +1,155 @@
 # iPhone log retrieval - review against accepted Stage3
 
+## September20: consolidated spec review at7ec6269
+
+Verdict: close, but not yet ready for unconditional implementation approval.
+The architecture and JP decisions stand. Resolve the following contracts in
+sd_iphone_log_download_spec.md before JP approves increment1. No firmware,
+build or flash changes; this is a documentation-only review of current source.
+
+### 1. Increment1 needs an extraction boundary and compatibility contract
+
+Section9 names a shared reader/session service but leaves multiple reasonable
+implementations. Add a small API/ownership table, not a detailed class design:
+- Shared service owns managed inventory/file IDs, reservation, writer-only
+  reader/snapshot/pause/resume, prune/close integration, bounds and session ID.
+- USB adapter retains command parsing, base64/wire framing, USB link grace,
+  control/error output and public status compatibility. HTTP is absent in1.
+- Define request acceptance versus transfer start, busy/list reservation,
+  cancellation publication, writer tick, metadata-ready, buffer consumption
+  acknowledgement and terminal result. State which calls may run on main,
+  writer or future server, and which never wait.
+- Preserve144-byte raw USB chunks/240-byte wire envelope, framing/CRC, timeout
+  origins and progress semantics,1s USB-loss grace, pause/resume order, queue
+  abort, archive prune order, shutdown/no-output and offline status fallback.
+  HTTP can choose different chunks later; do not silently change USB here.
+- Host tests currently extract bodies by filename/function name; adapt their
+  source locations while retaining behavioral assertions, not weaken/remove
+  checks to make extraction pass. Add shared-session cancellation/reuse tests.
+- 'Existing USB cases re-run' is a suite, not one bench case. Name the first
+  gate: normal current.log transfer with status/CRC/append continuation, then
+  give the next case only after reviewing it. Queue/prune/cancel/close cases
+  remain required before calling the extraction accepted.
+
+### 2. Section4 is necessary but does not yet establish500ms completion
+
+Current diagnosticsClose (sd_diagnostics.cpp:1537-1559) bounds the CALLER WAIT
+at500ms and can returnfalse. It does not guarantee any SD operation finishes
+inside500ms. Keep this distinction; do not promise a universal successful close
+on a stalled card. New retrieval must introduce no wait for HTTP on that path.
+
+Define these independent acknowledgements:
+A. Writer cancellation: stop producing, close reader, resume appends for ordinary
+   cancellation (or continue the existing final drain/close on shutdown), publish
+   cleanup result. No wait for network handler or network-owned lock/buffer.
+B. Transport completion: handler stops using buffer/request/socket, acknowledges
+   release. Only then may that storage be freed/reused or server teardown finish.
+
+Concretely require a fixed bounded transfer buffer with explicit ownership,
+used-length/offset and session-generation token. Cancellation invalidates the
+session, but cannot free/reuse bytes a blocked send still references. Retain
+that buffer/reservation until transport release while logging resumes; reject
+new retrieval in the interim. Ignore stale acknowledgements by generation.
+Publish progress/cancel/result using a defined synchronized mailbox/atomic
+snapshot; HTTP events must not directly mutate main-owned mode fields.
+
+Name the non-main, non-writer teardown execution context and accepted-socket
+interruption mechanism. Specify how it wakes a blocked send, how its lifetime
+is protected against socket reuse, and what happens if it fails. A plain cancel
+flag cannot interrupt a socket call, while queued close cannot run ahead of a
+blocked synchronous handler. This is still open design work, not solved by the
+state names. Likewise choose the mechanism for bounded second-request service;
+an ordinary long synchronous handler contradicts section6's responsiveness goal.
+Keep media blocked in STARTING/STOPPING until release; shutdown must not wait for
+OFF. Add explicit startup-failure rollback and logger-failure handling.
+
+Bench: record cancel publication, writer cleanup and transport-release times
+separately. Test a non-reading client, shutdown, power loss, re-entry and stale
+completion. Preserve bounded caller return even when cleanup cannot succeed.
+
+### 3. Resolve state/admission contradictions before implementation
+
+Recommend REFUSE entry during pending display timeout or motion handover. It
+matches section2's all-required list and preserves media behavior. Remove the
+alternative cancellation branch from section10 once selected. A visible busy
+reason lets JP return to dashboard and retry. Use a dedicated image-module
+predicate; do not widen imageFetcherIsBusy and alter MQTT retry deferral.
+
+Add !closing explicitly: usbStatus.ready and closing are separate fields in
+sd_diagnostics.cpp:1099-1101. Include OFF as the only new-entry state; define
+repeated on/off commands as idempotent or refused with a stated result.
+Hotspot loss should leave ACTIVE with link/server-unavailable substates (or
+another explicitly defined representation), rather than implicitly traversing
+STOPPING->OFF. GOT_IP must not reset the five-minute deadline by itself.
+
+Section10 item3 is factually reversed: a deadline reset at request ARRIVAL can
+expire during a single transfer lasting over five minutes. Current snapshots
+have a120s cap, but archives have no total cap and a slow, progressing archive
+can reach five minutes. Recommend enforcing the already agreed request/touch
+idle rule even mid-transfer: clean abort at expiry. No progress-based reset or
+exemption without JP changing the decision. Add exact expiry-during-archive gate.
+The last-result/request path and favicon reset idle under the current decision.
+
+### 4. Response/record contract still permits incompatible implementations
+
+- HEAD: 'cheaply without a body' does not define status/headers or SD access.
+  Recommend405 with Allow: GET and no reader reservation in version1; if200
+  HEAD is desired, explicitly specify accurate metadata and listing/cache
+  behavior instead. This is an untested client-policy choice, not implied by
+  case1. Define unsupported methods and busy/not-found/unavailable responses.
+- Route id denotes managed file identity (current token or archive generation),
+  not transfer identity or a mutable list-row number. Bind it explicitly; stale
+  archive links return not-found rather than silently selecting a newer file.
+- Listing: inventory requires writer SD work. Specify reservation/cache policy
+  and what '/' shows while retrieval is busy. A last-result refresh must remain
+  SD-free, e.g. cached inventory or separate result route. UI must mark stale
+  inventory; favicon/404 never reserve the reader.
+- HTTP_GET_BEGIN precedes current snapshot size being frozen, so section7 cannot
+  require final expected size/CRC/result in BOTH BEGIN and END. BEGIN: ID/file/
+  started; metadata response: ID/frozen size; END and last-result: matching ID,
+  expected/sent/CRC coverage/result. This also avoids self-referential snapshot
+  size. Keep shutdown/end-record absence semantics.
+- Define progress as positive body bytes accepted by transport, not writer
+  prefetch or unrelated HTTP requests; state startup/headers timeout accounting.
+  CRC on failure covers exactly the reported prefix, with partial-send/retry
+  handling specified. Snapshot state is immutable once headers go out.
+- Pick socket limit2 or3 before server implementation, marking it provisional
+  pending memory/occupancy measurement; '2-3' cannot be a compiled value.
+  Decide capability yes/no before URL/auth UI work. No CORS wildcard as before.
+
+### 5. Timing gates: right categories, add explicit observability
+
+A/B/C are suitable baselines; by themselves successful transfers cannot set a
+robust stall policy. Keep120s/5s unchanged until slow/failure gates also pass.
+B and C must inherit A's metric set explicitly. Add transfer ID, frozen size,
+body-accepted count/CRC coverage, start/first-body/last-progress/send-end times,
+no-progress maxima INCLUDING a terminal stall, outcome and reason. For C add
+pause start, cancel publication, reader-close/append-resume times and confirmation
+of subsequent records/no drops. For shutdown distinguish close request/return,
+writer done and transport release rather than conflating them.
+
+Record stall/timeout/queue-abort cause independently; network slowness can hit
+queue pressure long before either timer. GateC's ordinary logging may never hit
+pressure, so a SEPARATE controlled pressure case is required to demonstrate it.
+Use sampled minima rather than start/end-only memory and measure repeated runs
+before tuning. No per-chunk log records that manufacture queue pressure. Phone
+save remains separately observed; export comparison stays in A/B.
+
+### Readiness and workflow
+
+Resolve the increment1 boundary and buffer/cancellation lifetime contract now;
+state the chosen pending-media policy. Remaining HTTP-specific items can be
+explicit named decisions due before their increments, rather than pretend they
+are already settled. No need to settle LVGL appearance before extraction.
+The eleven rows are implementation milestones, many containing several bench
+cases. Keep presenting only one next case, not whole rows as single procedures.
+Retain Claude review of each implemented increment before JP builds/flashes.
+
+I am not yet satisfied enough to recommend blanket approval of this draft.
+A short spec revision addressing these contracts should make increment1
+reviewable without introducing new features or changing accepted decisions.
+
+
 ## September20 follow-up: case1 evidence review at ed85ff6
 
 Requested result checkpoint0360c90; actual clean checkout ed85ff6 adds only the
