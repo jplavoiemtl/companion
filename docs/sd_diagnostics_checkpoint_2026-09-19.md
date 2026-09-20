@@ -1,5 +1,46 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## September 20: JP accepted Stage3; Stage4 field observation started
+
+JP explicitly accepted Stage3 and requested the next step. Acceptance covers
+the operation-context implementation and recorded bench results, with optional
+tail deferred and previously documented uninduced branches/limitations retained.
+The passing final bench checkpoint is f8ac6d8. Stage4 now begins with evidence
+collection; no field results or retention tuning are claimed yet.
+
+Normal firmware remains stage3-context on amoled-1-8-core-3-3-11: logging1,
+hooks0, fixture0, PSRAM writer1. No source change, build or flash is needed.
+Keep existing2MiB files/30 archives/62MiB content cap/16MiB free reserve.
+Do not clear existing logs. JP's untracked iPhone-download plan is untouched.
+
+Next single case: one ordinary car trip using the current firmware. Note local
+date and approximate power-on/start and power-off/end times, plus any visible
+incident and its time. Use the device and hotspot normally; no forced outages,
+repeated media exercise or imposed duration. Operate controls only while parked.
+After the trip, when parked and able to connect the computer, open the web
+console DTR=true/RTS=false/test switches off. Run status, Refresh files,
+Download current + newest 3, then status. Send the console, leave downloads
+available, and report trip times and whether recovery/media/power looked normal.
+If normal power-down occurred, reconnect/power on to retrieve retained logs;
+record that retrieval reboot separately. No need to keep the board awake just
+to preserve an uptime counter or to run VS Code monitor for this case.
+
+Analyze the marked trip interval by boot IDs, monotonic uptime and Montreal
+clock quality. Count actual record bytes within it, separate startup/retrieval
+activity, report bytes/trip and bytes/powered-hour with uncertainty where a
+power-off boundary is missing. Include rotations if present; do not subtract
+current file sizes across rotation. If newest3 cannot cover the trip, request
+only missing archives after inspection. Never infer zero incidents from absent
+logs, or a daily rate from one short trip without naming the assumed use time.
+Use this first sample to guide later observations, not immediate retention
+changes. Accepted IMU rate and writer core placement remain closed topics.
+
+See [Stage4 first field case](../src/diagnostics/STAGE4.md). This documentation
+checkpoint is committed/pushed per JP's standing request; no firmware tests
+are needed for this documentation-only handoff.
+
+Earlier entries below are historical.
+
 ## September 20 10:17-10:18: small-bundle overlap passes; Stage3 ready for scoped acceptance
 
 JP reports video and test looked fine. Normal logging is restored in source
