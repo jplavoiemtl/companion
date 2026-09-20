@@ -684,8 +684,12 @@ Documents:
   the SDK check behind the transport decision, and the accepted corrections.
 - [Codex design review](sd_iphone_log_download_review.md) - the counter-review and the six
   findings accepted on September 20.
+- [Implementation spec](sd_iphone_log_download_spec.md) - the consolidated, implementable
+  statement of settled behaviour, including the firmware timing gates. Draft, pending Codex
+  review and JP approval.
 - [Bench cases and results](sd_iphone_log_download_bench.md) - one case at a time. Case 1,
-  the no-firmware iPhone reachability proof, is prepared and pending.
+  the no-firmware iPhone reachability proof, **passed** on September 20, 2026 with timing
+  deferred to the firmware gates.
 - [Historical draft](sd_iphone_log_download_plan.md) - the original proposal, kept verbatim.
 
 ### Stage 4 — car use and retention tuning
