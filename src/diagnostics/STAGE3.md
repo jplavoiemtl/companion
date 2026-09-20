@@ -1,5 +1,49 @@
 # Stage 3 operation context - first build and bench handoff
 
+## September 20 09:49-09:50: Stage 3 Live network-loss exit passes
+
+JP reports normal test and recovery much faster than90s. The90s instruction
+was a maximum wait before reporting failed recovery, not expected latency.
+Same boot89, Live id11/net21 connects680ms, first frame1231562us. Following
+Wi-Fi driver loss at1265270, LIVE_END occurs1265274: reasonfetch_error,
+failureconnection_closed, http_code0 (no response status),16 frames/6618ms.
+The4ms is driver-observation-to-terminal-record time, not physical hotspot
+switch latency. UI_SCREEN2->1 follows7ms later. No duplicated terminal,
+no claimed response timeout, no reset or unexpected stall. Retry defers until
+media clears. Fast failed MQTT22 lasts2ms; its zero-sample probe is not a
+sampled memory gate. Wi-Fi association1290548 -> GOT_IP1291656 -> MQTT
+connected1292428:1.880s association-to-MQTT, with attempt23 taking667ms.
+Hotspot toggle time is not recorded, so total hotspot-to-recovery is unknown.
+Subscriptions/calibration accepted; UI orange/red/green captured.
+
+Live/TLS sampled largest31732 (661/68 samples), recovery55284 (67 samples),
+all above20480. Retained26612 unchanged; writer margin3096 stable. Queuehigh8,
+zero drops/errors/suppressed/truncated/slow writes; final USB idle/unpaused,
+resultok/no losses. OP_HEALTH before loss retains prior max5235/gaps1; no new
+LOOP_GAP record in this snapshot. No new health window after recovery yet.
+
+Download 543193 bytes, CRC32 097A1D6E, SHA256
+7629ae1576c16c575a05e8878a13536afaa0e07176bd28eaef50ded72b2f5616. Browser CRCOK,5.55s. Previous529873-byte
+snapshot exact prefix;330 contiguous boot89 records,23 paired network spans,
+11 media lifecycles. Sources: [console](../../docs/bench_data/sd_stage3_2026-09-20_boot89_live_loss/console.txt)
+and [current log](../../docs/bench_data/sd_stage3_2026-09-20_boot89_live_loss/89-current.log.txt).
+
+Next single case: screen-preference save/media interaction, same build/no rebuild.
+Hotspot/MQTT connected, web console DTR=true/RTS=false/test switches off.
+Status; navigate dashboard->G-meter, remain40s for existing30s preference
+save. Return dashboard, run Latest once promptly, then navigate back after
+image displayed. Remain dashboard40s to allow its preference save, then
+status/download current/status. Capture ScreenMem save lines, console/log and
+visual behavior. This exercises ordinary NVS saves around media and SD logging;
+it does not claim a deliberately forced simultaneous NVS/TLS write. Dashboard
+is restored as preferred screen. Require paired image lifecycle, correct screen
+observations, zero drops/errors/resets, CRCOK and memory gate. No calibration
+changes, firmware modifications/build/flash. Stage3 unaccepted, optional tail
+deferred, Stage4 unstarted; completed evidence committed/pushed per JP preference.
+
+Earlier entries below are historical.
+
+
 ## September 20 09:43-09:45: offline Latest failure/return passes, boot 89
 
 JP reports normal test. IMAGE_BEGIN id10/triggerlatest/wifi0/mqtt0 has exactly
