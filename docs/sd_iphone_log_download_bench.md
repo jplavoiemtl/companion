@@ -177,6 +177,11 @@ in the result and is needed context for every Safari behaviour observed later.
 1. **Turn on Personal Hotspot** on the iPhone 13 Pro. Connect the Windows laptop to it over
    Wi-Fi (not USB tethering - the companion uses Wi-Fi and that is the path under test).
 
+   **Foreground Settings > Personal Hotspot only to establish or re-establish the
+   association**, then switch to Safari to run the case. The two cannot be open at once on
+   the same phone, so do not treat "keep that screen open" as a standing instruction. If the
+   laptop later cannot rejoin, return to that screen, reconnect, and switch back.
+
 2. **Create a scratch folder with three test files.** Use the session scratch directory, not
    the repository - a default directory server exposes everything below it.
 
