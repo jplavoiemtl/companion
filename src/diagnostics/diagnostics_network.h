@@ -20,6 +20,7 @@ class Span {
  public:
   Span(const char* kind, diag::Phase phase, const char* context = "");
   ~Span();
+  uint64_t id() const { return id_; }
   void end(bool ok, int code = 0, WiFiClientSecure* secure = nullptr);
   Span(const Span&) = delete;
   Span& operator=(const Span&) = delete;

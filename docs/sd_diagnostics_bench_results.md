@@ -8334,3 +8334,9 @@ This is bounded bench acceptance evidence, not exhaustive event coverage:
 LOST_IP, secondary-profile failover and every error/notification branch were
 not separately induced. Existing monitor-close limitation and unsupported-card
 deferral remain. Stage3-4 unstarted. Commit/push completed results per JP request.
+
+## September 20: Stage 2 owner acceptance
+
+JP explicitly accepted Stage2 and authorized proceeding to Stage3. Evidence
+through dff6597 is accepted with the recorded limitations. Stage3 source changes
+are prepared but have no firmware build or board results yet.

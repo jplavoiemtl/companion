@@ -45,10 +45,10 @@ void videoStreamInit(const VideoStreamConfig& config);
 void videoStreamLoop();
 
 // Start the feed. Returns false if it could not be started.
-bool videoStreamStart();
+bool videoStreamStart(const char* trigger = "button");
 
 // Stop and release buffers. Safe to call when already stopped.
-void videoStreamStop();
+void videoStreamStop(const char* reason = "requested");
 
 // True while a feed is running. The image fetcher uses this to stand down;
 // without it an MQTT image push mid-feed frees buffers still being rendered.

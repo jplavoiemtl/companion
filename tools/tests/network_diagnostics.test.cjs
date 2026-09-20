@@ -125,7 +125,7 @@ test('normal flags and build identity are correct; fault hooks remain off',()=>{
  const config=read('src/diagnostics/diagnostics_config.h');
  for(const [name,value] of [['DIAG_ENABLED',1],['DIAG_TEST_HOOKS',0],['DIAG_USB_TEST_FIXTURE',0],['DIAG_WRITER_STACK_PSRAM',1]])
  assert(config.includes('#define '+name+' '+value));
- assert(config.includes('"stage2-network"'));
+ assert(config.includes('"stage3-context"'));
 });
 
 test('actual disconnect policy suppresses alternating reasons and handles profile/recovery boundaries',()=>{

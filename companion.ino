@@ -34,6 +34,7 @@
 #include "src/diagnostics/diagnostics_probes.h"
 #include "src/diagnostics/sd_diagnostics.h"
 #include "src/diagnostics/diagnostics_network.h"
+#include "src/diagnostics/diagnostics_operation.h"
 
 
 // QMI8658 Register Addresses
@@ -171,6 +172,7 @@ unsigned long lastMotionTXTime = 0;
 void custom_buttonBack_event_handler(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
     if (code == LV_EVENT_CLICKED) {
+        diagnet::event("UI_ACTION", "action=navigate_back result=processed");
         if (ui_previous_screen != NULL) {
              lv_disp_load_scr(ui_previous_screen);
         } else {
@@ -464,6 +466,7 @@ void buttonGmeter_event_handler(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
     
     if (code == LV_EVENT_CLICKED) {
+        diagnet::event("UI_ACTION", "action=gmeter result=processed");
         USBSerial.println("G-meter button clicked");
 
         // Don't reload if already on Screen3
@@ -672,10 +675,15 @@ void runBackgroundTick() {
     health.image = imageFetcherIsBusy() && !health.live;
     health.moving = g_isCurrentlyMoving;
     diagnet::health(health);
+    diagop::health(health);
     diagnosticsUpdateHealth(health);
   }
   updateImuData();
   updateMotionState();
+  lv_obj_t* observedScreen = lv_scr_act();
+  diagop::observe(observedScreen == ui_Screen1 ? 1 : observedScreen == ui_Screen2 ? 2 :
+    observedScreen == ui_Screen3 ? 3 : observedScreen == ui_InclinometerScreen ? 4 :
+    observedScreen == ui_calibrationScreen ? 5 : 0, vbusPresent, g_isCurrentlyMoving);
   updateGMeterDisplay(imuGetAccelInertialVert(), imuGetAccelInertialHoriz());
 
   if (millis() - lastBatteryUpdate >= 200) {
@@ -1621,6 +1629,9 @@ void updateConnectionStatusUI() {
     if (prev_wifi_status == -1 ||
         (current_wifi_status == WL_CONNECTED) != (prev_wifi_status == WL_CONNECTED) ||
         current_mqtt_status != prev_mqtt_status) {
+        diagnet::event("UI_CONNECTION", "color=%s wifi=%u mqtt=%u source=label_update",
+          current_mqtt_status ? "green" : current_wifi_status == WL_CONNECTED ? "orange" : "red",
+          current_wifi_status == WL_CONNECTED, current_mqtt_status);
         const uint16_t port = netGetActivePort();
         USBSerial.printf("[NET] WiFi=%s | MQTT=%s\n",
                          current_wifi_status == WL_CONNECTED ? "CONNECTED" : "OFFLINE",
@@ -1706,6 +1717,7 @@ void activity_event_handler(lv_event_t * e) {
 
 //***************************************************************************************************
 void goToDeepSleep() {
+  diagnet::event("POWER_DECISION", "action=sleep moving=%u usb=%u idle_ms=%lu", g_isCurrentlyMoving, vbusPresent, millis()-lastActivityTime);
   USBSerial.println("Preparing to enter Deep Sleep...");
 
   // --- Display "Sleeping..." message on the UI ---
@@ -1747,6 +1759,7 @@ void goToDeepSleep() {
 
 //***************************************************************************************************
 void goToShutdown() {
+  diagnet::event("POWER_DECISION", "action=shutdown moving=%u usb=%u idle_ms=%lu", g_isCurrentlyMoving, vbusPresent, millis()-lastActivityTime);
   USBSerial.println("Preparing to shut down...");
 
   // --- Display "Shutdown..." message on the UI ---
@@ -2005,7 +2018,21 @@ void initLVGL() {
  * Initialize UI Event Handlers and Components
  * Registers button callbacks and configures UI elements
  */
+// Observation only: generated callbacks continue to own navigation.
+static void diagnosticNavigationEvent(lv_event_t* e) {
+    lv_obj_t* target = lv_event_get_target(e);
+    const char* button = target == ui_Button1 ? "button1" : target == ui_Button3 ? "button3" :
+      target == ui_Button4 ? "button4" : target == ui_Button5 ? "button5" : "button6";
+    diagnet::event("UI_ACTION", "action=navigate button=%s result=processed", button);
+}
+
 void initUIHandlers() {
+    lv_obj_add_event_cb(ui_Button1, diagnosticNavigationEvent, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_Button3, diagnosticNavigationEvent, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_Button4, diagnosticNavigationEvent, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_Button5, diagnosticNavigationEvent, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_Button6, diagnosticNavigationEvent, LV_EVENT_CLICKED, NULL);
+
     // Button event handlers are intentionally NOT registered here.
     //
     // The SquareLine-generated wrappers already dispatch to them on LV_EVENT_CLICKED:
@@ -2399,6 +2426,7 @@ void setup() {
 //***************************************************************************************************
 //***************************************************************************************************
 void loop() {
+  diagop::Loop diagnosticLoop;
   static bool shutdownInitiated = false;
 
   // --- GATEKEEPER: Check for shutdown FIRST ---
@@ -2407,7 +2435,7 @@ void loop() {
     return; // Exit the loop immediately.
   }
 
-  netBenchLoop();  // Serial commands, including while WiFi is down.
+  { diagop::Block span("serial_commands"); netBenchLoop(); }  // Serial commands, including while WiFi is down.
   diagnosticsUsbMainTick();
   // Evaluate after commands so an accepted download excludes this turn's IMU sample.
   diagnosticsProbeNormalUpdate(!imageFetcherIsBusy() && !videoStreamActive() && !diagnosticsUsbTransferActive());
@@ -2418,7 +2446,7 @@ void loop() {
   // and lv_timer_handler. Anything that should also run during the WiFi-retry
   // phase of setup() belongs in runBackgroundTick, not here.
   runBackgroundTick();
-  updateCalibration();  // Calibration UI logic (only has effect on the calibration screen)
+  { diagop::Block span("calibration"); updateCalibration(); }  // Calibration UI logic (only has effect on the calibration screen)
 
   // --- Task 2-pre: Periodic WiFi retry when boot connection failed ---
   // attemptWiFiConnection() gates WiFi.begin() on a successful async scan, so
@@ -2465,7 +2493,7 @@ void loop() {
 
   // --- Task 2: Handle MQTT communications if connected ---
   if (WiFi.status() == WL_CONNECTED) {
-    mqttClient.loop();  // Always call loop() to maintain connection
+    { diagop::Block span("mqtt_loop"); mqttClient.loop(); }  // Always call loop() to maintain connection
     netObserveRetryPolicy(imageFetcherIsBusy() || videoStreamActive());
 
     // Defer reconnection while either a still image or live video is active.
@@ -2485,7 +2513,7 @@ void loop() {
   videoStreamLoop();
 
   // --- Task 4b: Screen Memory Update (30s debounce for NVS save) ---
-  screenMemoryUpdate();
+  { diagop::Block span("screen_nvs"); screenMemoryUpdate(); }
 
   // --- Task 8: Transmit motion MQTT if connected ---
   if (ENABLE_MOTION_MQTT && g_isCurrentlyMoving && mqttClient.connected()) {

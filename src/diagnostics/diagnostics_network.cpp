@@ -1,3 +1,4 @@
+#include "diagnostics_operation.h"
 #include "diagnostics_network.h"
 #include <WiFi.h>
 #include <esp_timer.h>
@@ -225,7 +226,9 @@ void Span::end(bool ok, int code, WiFiClientSecure* secure) {
   for (char* c = error; *c; ++c) {
     if (*c < 32 || *c > 126 || *c == '"' || *c == '\\') *c = '_';
   }
-  const uint64_t elapsed = nowMs() - start_;
+  const uint64_t ended = nowMs();
+  const uint64_t elapsed = ended - start_;
+  diagop::block(kind_, id_, start_, ended);
   event(!strcmp(kind_, "mqtt_connect") ? "MQTT_CONNECT_END" : "NET_END",
         "id=%llu kind=%s result=%s elapsed_ms=%llu %s=%d tls_queried=%u tls_code=%d tls_fresh=unknown tls_text=\"%s\"",
         static_cast<unsigned long long>(id_), kind_, ok ? "ok" : "failed",

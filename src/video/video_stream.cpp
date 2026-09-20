@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics_operation.h"
 #include "../diagnostics/diagnostics_network.h"
 #include "video_stream.h"
 #include "../diagnostics/diagnostics_probes.h"
@@ -220,6 +221,10 @@ char     epHost[96] = {0};
 uint16_t epPort = 443;
 char     epPath[96] = {0};
 
+uint32_t liveId = 0;
+const char* liveFailure = "none";
+uint32_t lastGapReport = 0, gapSuppressed = 0;
+int liveHttpCode = 0;
 bool     reqInFlight = false;
 bool     hdrDone = false;
 int      contentLen = -1;
@@ -269,7 +274,7 @@ static void screenVideo_event_handler(lv_event_t* e) {
   if (lv_event_get_code(e) != LV_EVENT_SCREEN_UNLOAD_START) return;
   if (active) {
     USBSerial.println("Video: screen left, stopping feed");
-    videoStreamStop();
+    videoStreamStop("screen_left");
   }
 }
 
@@ -342,6 +347,8 @@ static bool ensureConnected() {
   diagnosticsProbeBegin(ProbeWindow::LiveTls);
   const bool connected = vidClient->connect(epHost, epPort);
   connect.end(connected, connected ? 1 : 0, vidClient);
+  diagnet::event("LIVE_CONNECT", "id=%lu net_id=%llu ok=%u", (unsigned long)liveId, (unsigned long long)connect.id(), connected);
+  if (!connected) liveFailure = "connect";
   diagnosticsProbeEnd(ProbeWindow::LiveTls);
   if (!connected) {
     // Report enough to tell a RAM problem from a TLS or server problem. Largest
@@ -394,6 +401,7 @@ static int headerInt(const char* name) {
 // Write the GET and return immediately. pollResponse() collects the answer later,
 // which is what lets the network wait overlap decode and blit.
 static bool sendRequest() {
+  liveHttpCode = 0;
   if (!ensureConnected()) return false;
 
   hdrLen = 0;
@@ -413,6 +421,7 @@ static bool sendRequest() {
                          static_cast<unsigned>(REQ_QUALITY), API_TOKEN,
                          epHost, static_cast<unsigned>(epPort));
   if (n <= 0 || n >= static_cast<int>(sizeof(req))) {
+    liveFailure = "request_size";
     USBSerial.println("Video: request did not fit its buffer");
     return false;
   }
@@ -421,6 +430,7 @@ static bool sendRequest() {
   reqSentUs = micros();
   if (vidClient->write(reinterpret_cast<const uint8_t*>(req),
                        static_cast<size_t>(n)) != static_cast<size_t>(n)) {
+    liveFailure = "request_write";
     USBSerial.println("Video: request write failed");
     return false;
   }
@@ -437,12 +447,14 @@ static int pollResponse() {
   if (!vidClient) return -1;
 
   if (millis() - reqSentMs > HTTP_TIMEOUT_MS) {
+    liveFailure = "timeout";
     USBSerial.println("Video: response timeout");
     return -1;
   }
 
   // Buffered bytes still count after a close, so check both before giving up.
   if (!vidClient->connected() && vidClient->available() == 0) {
+    liveFailure = "connection_closed";
     USBSerial.println("Video: connection closed mid-response");
     return -1;
   }
@@ -460,6 +472,7 @@ static int pollResponse() {
 
     if (!hdrDone) {
       if (hdrLen >= sizeof(hdrBuf) - 1) {
+        liveFailure = "header_overflow";
         USBSerial.println("Video: header overflow");
         return -1;
       }
@@ -468,13 +481,18 @@ static int pollResponse() {
 
     hdrDoneUs = micros();
 
+    liveHttpCode = 200;
     if (!strstr(hdrBuf, " 200 ")) {
+      liveHttpCode = 0;
+      sscanf(hdrBuf, "HTTP/%*s %d", &liveHttpCode);
+      liveFailure = "http_status";
       USBSerial.println("Video: non-200 response");
       return -1;
     }
 
     contentLen = headerInt("Content-Length");
     if (contentLen <= 0 || contentLen > static_cast<int>(MAX_FRAME_BYTES)) {
+      liveFailure = "content_length";
       USBSerial.printf("Video: bad Content-Length: %d\n", contentLen);
       return -1;
     }
@@ -504,6 +522,7 @@ static int pollResponse() {
 // because it has that set to 1. Getting this wrong gives wrong colours rather
 // than an obvious failure.
 static bool decodeFrame(uint32_t* decodeUs) {
+  diagop::Block diagnosticBlock("live_decode", liveId);
   const uint32_t t0 = micros();
 
   jpeg_dec_config_t config;
@@ -514,6 +533,7 @@ static bool decodeFrame(uint32_t* decodeUs) {
 
   jpeg_dec_handle_t* dec = jpeg_dec_open(&config);
   if (!dec) {
+    liveFailure = "decoder_open";
     USBSerial.println("Video: jpeg_dec_open failed");
     return false;
   }
@@ -527,7 +547,10 @@ static bool decodeFrame(uint32_t* decodeUs) {
   io.inbuf = jpegBuf;
   io.inbuf_len = jpegLen;
 
-  if (jpeg_dec_parse_header(dec, &io, &info) != JPEG_ERR_OK) {
+  const jpeg_error_t headerResult = jpeg_dec_parse_header(dec, &io, &info);
+  if (headerResult != JPEG_ERR_OK) {
+    liveFailure = "decoder_header";
+    diagnet::event("LIVE_ERROR", "id=%lu phase=decode_header code=%d", (unsigned long)liveId, (int)headerResult);
     USBSerial.println("Video: parse_header failed");
     jpeg_dec_close(dec);
     return false;
@@ -572,6 +595,7 @@ static bool decodeFrame(uint32_t* decodeUs) {
     decodeBufSize = decodeBuf ? needed : 0;
   }
   if (!decodeBuf) {
+    liveFailure = "pixel_allocation";
     USBSerial.println("Video: PSRAM alloc failed for decode buffer");
     jpeg_dec_close(dec);
     return false;
@@ -582,6 +606,8 @@ static bool decodeFrame(uint32_t* decodeUs) {
   jpeg_dec_close(dec);
 
   if (err != JPEG_ERR_OK) {
+    liveFailure = "decoder_process";
+    diagnet::event("LIVE_ERROR", "id=%lu phase=decode_process code=%d", (unsigned long)liveId, (int)err);
     USBSerial.printf("Video: decode failed: %d\n", static_cast<int>(err));
     return false;
   }
@@ -602,6 +628,7 @@ static bool decodeFrame(uint32_t* decodeUs) {
 // lv_pct(100), and setting an explicit pixel size converts it to fixed sizing,
 // which caused a white flash on the home panel.
 static void displayFrame(uint32_t* blitUs) {
+  diagop::Block diagnosticBlock("live_blit", liveId);
   // Never touch the display while another screen owns it. Forcing rotation from
   // here after the user had navigated away is what left Screen 1 sideways.
   if (cfg.screenVideo && lv_scr_act() != cfg.screenVideo) {
@@ -704,11 +731,12 @@ static void printSummary() {
 }
 
 //***************************************************************************************************
-bool videoStreamStart() {
-  if (active) return true;
+bool videoStreamStart(const char* trigger) {
+  if (active) { diagnet::event("LIVE_REQUEST", "trigger=%s result=already_active", trigger); return true; }
 
   // Reject an offline start before allocating buffers or opening the loading screen.
   if (WiFi.status() != WL_CONNECTED) {
+    diagnet::event("LIVE_REQUEST", "trigger=%s result=refused reason=wifi_offline", trigger);
     USBSerial.println("Video: start refused - WiFi offline");
     return false;
   }
@@ -719,6 +747,7 @@ bool videoStreamStart() {
   if (!jpegBuf) {
     jpegBuf = static_cast<uint8_t*>(ps_malloc(MAX_FRAME_BYTES));
     if (!jpegBuf) {
+      diagnet::event("LIVE_REQUEST", "trigger=%s result=refused reason=jpeg_allocation", trigger);
       USBSerial.println("Video: PSRAM alloc failed for JPEG buffer");
       diagnosticsProbeEnd(ProbeWindow::Live);
       return false;
@@ -729,6 +758,9 @@ bool videoStreamStart() {
   sumDecode = sumBlit = sumFrame = 0;
   frames = 0;
   startMs = millis();
+  liveId = diagop::nextId(); liveFailure = "none"; liveHttpCode = 0;
+  lastGapReport = gapSuppressed = 0;
+  diagnet::event("LIVE_BEGIN", "id=%lu trigger=%s", (unsigned long)liveId, trigger);
   startUs = micros();
   lastFrameUs = startUs;
   firstFrameUs = maxFrameGapUs = 0;
@@ -746,12 +778,14 @@ bool videoStreamStart() {
   HEAP_CHECK("feed start, before any frame");
 
   if (!parseEndpoint()) {
+    diagnet::event("LIVE_END", "id=%lu reason=endpoint frames=0 elapsed_ms=%lu", (unsigned long)liveId, millis()-startMs);
     diagnosticsProbeEnd(ProbeWindow::Live);
     return false;
   }
 
   vidClient = imageFetcherSecureClient();
   if (!vidClient) {
+    diagnet::event("LIVE_END", "id=%lu reason=no_client frames=0 elapsed_ms=%lu", (unsigned long)liveId, millis()-startMs);
     USBSerial.println("Video: no shared TLS client available");
     diagnosticsProbeEnd(ProbeWindow::Live);
     return false;
@@ -763,7 +797,7 @@ bool videoStreamStart() {
   // moment the previous frame lands, so this is the only one sent from here.
   if (!sendRequest()) {
     USBSerial.println("Video: first request failed");
-    videoStreamStop();
+    videoStreamStop("first_request");
     return false;
   }
 
@@ -771,9 +805,14 @@ bool videoStreamStart() {
 }
 
 //***************************************************************************************************
-void videoStreamStop() {
+void videoStreamStop(const char* reason) {
   if (!active) return;
 
+  diagnet::event("LIVE_END", "id=%lu reason=%s failure=%s http_code=%d frames=%u elapsed_ms=%lu first_us=%lu max_gap_us=%lu gap_suppressed=%lu http_us=%llu ttfb_us=%llu xfer_us=%llu decode_us=%llu blit_us=%llu bytes=%llu",
+    (unsigned long)liveId, reason, liveFailure, liveHttpCode, (unsigned)frames, millis()-startMs,
+    (unsigned long)firstFrameUs, (unsigned long)maxFrameGapUs, (unsigned long)gapSuppressed,
+    (unsigned long long)sumHttp, (unsigned long long)sumTtfb, (unsigned long long)sumXfer,
+    (unsigned long long)sumDecode, (unsigned long long)sumBlit, (unsigned long long)sumBytes);
   printSummary();
   active = false;
 
@@ -804,7 +843,7 @@ void videoStreamLoop() {
   const int r = pollResponse();
   if (r < 0) {
     USBSerial.println("Video: fetch failed, stopping");
-    videoStreamStop();
+    videoStreamStop("fetch_error");
     returnToPreviousScreen();
     return;
   }
@@ -833,12 +872,12 @@ void videoStreamLoop() {
   // overlap is real; it is not a regression.
   if (more && !sendRequest()) {
     USBSerial.println("Video: prefetch failed, stopping");
-    videoStreamStop();
+    videoStreamStop("prefetch_error");
     returnToPreviousScreen();
     return;
   }
 
-  if (!HEAP_CHECK("fetch")) { videoStreamStop(); returnToPreviousScreen(); return; }
+  if (!HEAP_CHECK("fetch")) { videoStreamStop("heap_fetch"); returnToPreviousScreen(); return; }
 
   // Let LVGL run between the heavy stages. The touch controller is only sampled
   // inside lv_timer_handler(), and a tap may change screens, which fires
@@ -850,25 +889,35 @@ void videoStreamLoop() {
 
   if (!decodeFrame(&decodeUs)) {
     USBSerial.println("Video: decode failed, stopping");
-    videoStreamStop();
+    videoStreamStop("decode_error");
     returnToPreviousScreen();
     return;
   }
 
-  if (!HEAP_CHECK("decode")) { videoStreamStop(); returnToPreviousScreen(); return; }
+  if (!HEAP_CHECK("decode")) { videoStreamStop("heap_decode"); returnToPreviousScreen(); return; }
 
   lv_timer_handler();
   if (!active) return;
 
   displayFrame(&blitUs);
 
-  if (!HEAP_CHECK("blit")) { videoStreamStop(); returnToPreviousScreen(); return; }
+  if (!HEAP_CHECK("blit")) { videoStreamStop("heap_blit"); returnToPreviousScreen(); return; }
 
   const uint32_t now = micros();
   const uint32_t frameGapUs = (frames == 0) ? (now - startUs) : (now - lastFrameUs);
   sumFrame += frameGapUs;
-  if (frames == 0) firstFrameUs = frameGapUs;
+  if (frames == 0) {
+    firstFrameUs = frameGapUs;
+    diagnet::event("LIVE_FIRST_FRAME", "id=%lu elapsed_us=%lu bytes=%u", (unsigned long)liveId, (unsigned long)frameGapUs, (unsigned)jpegLen);
+  }
   else if (frameGapUs > maxFrameGapUs) maxFrameGapUs = frameGapUs;
+  if (frames && frameGapUs > 2000000) {
+    if (!lastGapReport || millis()-lastGapReport >= 5000) {
+      diagnet::event("LIVE_GAP", "id=%lu gap_us=%lu frame=%u suppressed=%lu", (unsigned long)liveId,
+        (unsigned long)frameGapUs, (unsigned)frames, (unsigned long)gapSuppressed);
+      lastGapReport = millis(); gapSuppressed = 0;
+    } else ++gapSuppressed;
+  }
   lastFrameUs = now;
   sumHttp += httpUs;
   sumTtfb += ttfbUs;
@@ -879,7 +928,7 @@ void videoStreamLoop() {
   frames++;
 
   if (!more) {
-    videoStreamStop();
+    videoStreamStop("duration");
     returnToPreviousScreen();
   }
 }

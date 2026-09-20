@@ -866,6 +866,10 @@ void writeHealth(const char* event = "HEALTH") {
     s.health.mqttInboundKnown ? static_cast<long long>(up - s.health.mqttInboundAt) : -1LL,
     static_cast<unsigned long>(s.health.mqttImageSuppressed));
   writeRecord(diag::stamp(), "INFO", "NET_HEALTH", fields);
+  snprintf(fields, sizeof(fields), "loop_max_ms=%llu loop_gaps=%llu pending_suppressed=%lu scope=main_loop",
+    (unsigned long long)s.health.loopMaxMs, (unsigned long long)s.health.loopGaps,
+    (unsigned long)s.health.loopSuppressed);
+  writeRecord(diag::stamp(), "INFO", "OP_HEALTH", fields);
 }
 bool pop(Event& event) {
   portENTER_CRITICAL(&mux);

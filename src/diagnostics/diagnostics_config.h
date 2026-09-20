@@ -23,4 +23,4 @@
 #if DIAG_WRITER_STACK_PSRAM != 0 && DIAG_WRITER_STACK_PSRAM != 1
 #error "DIAG_WRITER_STACK_PSRAM must be 0 or 1"
 #endif
-#define DIAG_BUILD_TAG "stage2-network"
+#define DIAG_BUILD_TAG "stage3-context"

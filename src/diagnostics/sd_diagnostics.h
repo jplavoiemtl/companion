@@ -4,6 +4,8 @@
 
 // All calls from task context. No caller touches SD; only the writer owns it.
 struct DiagnosticsHealth {
+  uint64_t loopMaxMs = 0, loopGaps = 0;
+  uint32_t loopSuppressed = 0;
   bool wifi = false;
   bool mqtt = false;
   int16_t rssi = 0;

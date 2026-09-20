@@ -1,5 +1,8 @@
 # Stage 2 network evidence - first bench handoff
 
+JP accepted Stage 2 on September 20: "Yes I accept let's proceed".
+The pending-acceptance statements below are historical. Stage 3 handoff: [STAGE3.md](STAGE3.md).
+
 ## 2026-09-20 08:10-08:11: normal Live comparison passes; Stage 2 ready for owner review
 
 JP reports video and test ran fine. Same boot87/build as outage case, Wi-Fi/MQTT

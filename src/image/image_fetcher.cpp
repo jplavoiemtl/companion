@@ -1,5 +1,7 @@
+#include "../diagnostics/diagnostics_operation.h"
 #include "../diagnostics/diagnostics_network.h"
 #include "image_fetcher.h"
+#include "../net/net_module.h"
 #include "../diagnostics/diagnostics_probes.h"
 
 #include <HTTPClient.h>
@@ -103,6 +105,28 @@ ImageFetcherConfig cfg{};
 
 // Asynchronous request tracking
 const char* pendingEndpoint = nullptr;
+// Lifecycle state is observational; never drives HTTP/UI policy.
+uint32_t imageId = 0;
+unsigned long imageStarted = 0, imageHeadersMs = 0, imageBodyMs = 0, imageDecodeMs = 0;
+size_t imageExpected = 0, imageReceived = 0;
+int imageCode = 0;
+const char* imageFailure = "none";
+static void imageEnd(const char* result, const char* reason) {
+  if (!imageId) return;
+  diagnet::event("IMAGE_END", "id=%lu result=%s reason=%s code=%d expected=%u received=%u headers_ms=%lu download_ms=%lu decode_ms=%lu total_ms=%lu",
+    (unsigned long)imageId, result, reason, imageCode, (unsigned)imageExpected, (unsigned)imageReceived,
+    imageHeadersMs, imageBodyMs, imageDecodeMs, millis()-imageStarted);
+  imageId = 0;
+}
+static void imageBegin(const char* trigger, const char* endpoint, unsigned long started) {
+  imageEnd("cancelled", "replaced");
+  imageId = diagop::nextId(); imageStarted = started;
+  imageHeadersMs = imageBodyMs = imageDecodeMs = 0;
+  imageExpected = imageReceived = 0; imageCode = 0; imageFailure = "none";
+  diagnet::event("IMAGE_BEGIN", "id=%lu trigger=%s endpoint=%s wifi=%u mqtt=%u",
+    (unsigned long)imageId, trigger, endpoint, WiFi.status()==WL_CONNECTED, netIsMqttConnected());
+}
+
 
 }  // namespace
 
@@ -181,6 +205,8 @@ static void cleanupImageRequest() {
 // "Getting image" screen until SCREEN2_LOADING_TIMEOUT expires. Callers must have already
 // released any buffers; this only clears the timeout flags and navigates.
 static void returnToPreviousScreen(const char* reason) {
+  imageEnd("failed", imageFailure);
+  diagnet::event("UI_RETURN", "kind=image reason=\"%s\"", reason);
   USBSerial.printf("Image request ended (%s) - returning to previous screen\n", reason);
 
   requestInProgress = false;
@@ -279,6 +305,7 @@ void imageFetcherLoop() {
     // screen2TimeoutActive) or HTTP_ERROR (which fails fast), so this cannot hang.
     if (screen2TimeoutActive && httpState != HTTP_DECODING &&
         millis() - screenTransitionTime > SCREEN2_LOADING_TIMEOUT) {
+      imageFailure = "loading_timeout";
       USBSerial.println("Screen 2 timeout - image loading took too long, returning to Screen 1");
 
       if (httpState != HTTP_IDLE && httpState != HTTP_COMPLETE) {
@@ -300,7 +327,7 @@ void imageFetcherLoop() {
           imageDisplayTimeoutActive = false;
           motionTriggered = false;
           USBSerial.println("Motion still shown, starting live feed");
-          if (!videoStreamStart()) {
+          if (!videoStreamStart("motion_handover")) {
             returnToPreviousScreen("live feed failed to start");
           }
         }
@@ -332,6 +359,7 @@ static bool requestImage(const char* endpoint_type) {
   USBSerial.printf("=== requestImage('%s') START ===\n", endpoint_type);
 
   if (WiFi.status() != WL_CONNECTED) {
+    imageFailure = "wifi_offline";
     USBSerial.println("WiFi not connected, cannot make HTTP request.");
     return false;
   }
@@ -347,6 +375,7 @@ static bool requestImage(const char* endpoint_type) {
     httpsClient.setCACert(remote_server_ca_cert);
     bool beginResult = httpClient.begin(httpsClient, url);
     if (!beginResult) {
+      imageFailure = "http_begin";
       diagnet::event("NET_SETUP_ERROR", "kind=image_request tls=1 result=begin_failed");
       USBSerial.println("FATAL: httpClient.begin() failed for HTTPS!");
       httpState = HTTP_ERROR;
@@ -359,6 +388,7 @@ static bool requestImage(const char* endpoint_type) {
                       String(endpoint_type) + "?token=***");
     bool beginResult = httpClient.begin(url);
     if (!beginResult) {
+      imageFailure = "http_begin";
       diagnet::event("NET_SETUP_ERROR", "kind=image_request tls=0 result=begin_failed");
       USBSerial.println("FATAL: httpClient.begin() failed for HTTP!");
       httpState = HTTP_ERROR;
@@ -383,9 +413,13 @@ static bool requestImage(const char* endpoint_type) {
   // Connect + TLS handshake + server think time, all of it blocking. This is the phase
   // that used to swallow the whole loading budget on the iPhone hotspot, so log it.
   unsigned long connectMs = millis() - httpRequestStartTime;
+  imageCode = httpCode; imageHeadersMs = connectMs;
+  diagnet::event("IMAGE_HTTP", "id=%lu net_id=%llu code=%d elapsed_ms=%lu",
+    (unsigned long)imageId, (unsigned long long)request.id(), httpCode, connectMs);
   if (isSecureConnection) diagnosticsProbeEnd(ProbeWindow::ImageHttps);
 
   if (httpCode != HTTP_CODE_OK) {
+    imageFailure = "http_status";
     USBSerial.printf("FATAL: HTTP GET failed with code: %d (after %lu ms)\n", httpCode, connectMs);
     httpClient.end();
     httpState = HTTP_ERROR;
@@ -393,9 +427,11 @@ static bool requestImage(const char* endpoint_type) {
   }
 
   int contentLength = httpClient.getSize();
+  imageExpected = contentLength > 0 ? contentLength : 0;
   USBSerial.printf("Response received in %lu ms, Content-Length: %d\n", connectMs, contentLength);
 
   if (contentLength <= 0) {
+    imageFailure = "content_length";
     // getSize() returns -1 when the server omits Content-Length (chunked transfer).
     // The receive loop is sized from this value, so we cannot proceed.
     USBSerial.printf("FATAL: no usable Content-Length (%d) - chunked responses unsupported\n",
@@ -406,6 +442,7 @@ static bool requestImage(const char* endpoint_type) {
   }
 
   if (contentLength > static_cast<int>(MAX_JPEG_SIZE)) {
+    imageFailure = "too_large";
     USBSerial.printf("FATAL: image too large: %d bytes (limit %u)\n", contentLength,
                      static_cast<unsigned>(MAX_JPEG_SIZE));
     httpClient.end();
@@ -415,6 +452,7 @@ static bool requestImage(const char* endpoint_type) {
 
   jpeg_buffer_psram = static_cast<uint8_t*>(ps_malloc(contentLength));
   if (!jpeg_buffer_psram) {
+    imageFailure = "jpeg_allocation";
     USBSerial.println("FATAL: Failed to allocate PSRAM for JPEG buffer");
     httpClient.end();
     httpState = HTTP_ERROR;
@@ -443,6 +481,7 @@ static void processHTTPResponse() {
   // completed at 14.9 s would be freed here before the decode branch below ever ran.
   if (httpState != HTTP_DECODING && millis() - httpRequestStartTime > HTTP_TIMEOUT_MS) {
     if (!timeoutMessageShown) {
+      imageFailure = "http_timeout";
       USBSerial.println("HTTP request timed out!");
       timeoutMessageShown = true;
     }
@@ -467,6 +506,7 @@ static void processHTTPResponse() {
           min(static_cast<size_t>(stream->available()), jpeg_buffer_size - jpeg_bytes_received);
       size_t bytesRead = stream->readBytes(jpeg_buffer_psram + jpeg_bytes_received, bytesToRead);
       jpeg_bytes_received += bytesRead;
+      imageReceived = jpeg_bytes_received;
 
       if (jpeg_bytes_received % 4096 == 0) {
         lv_timer_handler();
@@ -483,6 +523,7 @@ static void processHTTPResponse() {
       // the complete JPEG is already in PSRAM and no longer needs the connection.
       // Live uses this client separately and keeps its own per-frame reuse.
       httpsClient.stop();
+      imageBodyMs = millis() - httpRequestStartTime - imageHeadersMs;
       httpState = HTTP_DECODING;
     }
     return;
@@ -500,6 +541,7 @@ static void processHTTPResponse() {
     image_buffer_psram = static_cast<uint16_t*>(ps_malloc(imageBufferSize));
 
     if (!image_buffer_psram) {
+      imageFailure = "pixel_allocation";
       USBSerial.println("FATAL: PSRAM allocation failed for decoded image buffer");
       cleanupImageRequest();
       httpState = HTTP_ERROR;
@@ -509,12 +551,18 @@ static void processHTTPResponse() {
     TJpgDec.setJpgScale(1);
     TJpgDec.setCallback(tft_output);
 
-    uint8_t result = TJpgDec.drawJpg(0, 0, jpeg_buffer_psram, jpeg_buffer_size);
+    const unsigned long decodeStarted = millis();
+    uint8_t result;
+    { diagop::Block span("image_decode", imageId);
+      result = TJpgDec.drawJpg(0, 0, jpeg_buffer_psram, jpeg_buffer_size); }
+    imageDecodeMs = millis()-decodeStarted;
 
     free(jpeg_buffer_psram);
     jpeg_buffer_psram = nullptr;
 
     if (result != 0) {
+      imageFailure = "decode";
+      diagnet::event("IMAGE_ERROR", "id=%lu phase=decode code=%u", (unsigned long)imageId, (unsigned)result);
       USBSerial.println("TJpgDec error code: " + String(result));
       if (image_buffer_psram) { free(image_buffer_psram); image_buffer_psram = nullptr; }
       httpState = HTTP_ERROR;
@@ -540,6 +588,7 @@ static void processHTTPResponse() {
     USBSerial.printf("LVGL image source updated. Total %lu ms from button press (budget %lu ms).\n",
                      millis() - screenTransitionTime, SCREEN2_LOADING_TIMEOUT);
 
+    imageEnd("ok", "displayed");
     httpState = HTTP_COMPLETE;
     requestInProgress = false;
     screen2TimeoutActive = false;
@@ -569,6 +618,7 @@ bool requestLatestImage(bool fromNotification) {
   // rendering from. That reset the board on the home panel.
   if (videoStreamActive()) {
     if (fromNotification) diagnet::imageNotification("ignored_live");
+    if (!fromNotification) diagnet::event("IMAGE_REFUSED", "trigger=latest reason=live");
     USBSerial.println("Video burst active, ignoring image request");
     return false;
   }
@@ -588,11 +638,14 @@ bool requestLatestImage(bool fromNotification) {
   if (current_screen != cfg.screen1 && current_screen != cfg.screen2 &&
       current_screen != cfg.screen3 && current_screen != cfg.inclinometerScreen) {
     if (fromNotification) diagnet::imageNotification("ignored_screen");
+    if (!fromNotification) diagnet::event("IMAGE_REFUSED", "trigger=latest reason=screen");
     USBSerial.println("On unsupported screen, ignoring image request");
     return false;
   }
 
   USBSerial.println("Initiating async latest image request...");
+  const unsigned long started = millis();
+  imageBegin(fromNotification ? "mqtt" : "latest", "latest", started);
   prepareForRequest();
   // Must follow prepareForRequest(), which clears the flag.
   motionTriggered = fromNotification;
@@ -604,6 +657,7 @@ bool requestLatestImage(bool fromNotification) {
 //***************************************************************************************************
 void buttonLatest_event_handler(lv_event_t* e) {
   if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+    diagnet::event("UI_ACTION", "action=latest result=processed");
     USBSerial.println("Latest button clicked");
     requestLatestImage();
   }
@@ -615,6 +669,7 @@ void buttonNew_event_handler(lv_event_t* e) {
     // This button starts the live feed rather than requesting a fresh capture.
     // The image archive is still populated by the motion-driven capture in
     // Node-RED, so Latest and Back continue to see new images.
+    diagnet::event("UI_ACTION", "action=live result=processed");
     USBSerial.println("Live button clicked -> starting live feed");
     lv_obj_t* previousScreen = lv_scr_act();
     if (!videoStreamStart() && lv_scr_act() != previousScreen) {
@@ -633,6 +688,9 @@ void buttonNew_event_handler(lv_event_t* e) {
 void buttonBack_event_handler(lv_event_t* e) {
   if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
     USBSerial.println("Back button clicked, initiating async request...");
+    diagnet::event("UI_ACTION", "action=history_back result=processed");
+    const unsigned long started = millis();
+    imageBegin("history_back", "back", started);
     prepareForRequest();
     pendingEndpoint = "back";
   }
@@ -665,6 +723,7 @@ void screen2_event_handler(lv_event_t* e) {
       imageDisplayTimeoutActive = false;
     }
   } else if (code == LV_EVENT_SCREEN_UNLOAD_START) {
+    imageEnd("cancelled", "screen_left");
     USBSerial.println("Screen 2 Unloading: Freeing buffer and resetting rotation to 90 degrees.");
     screen2TimeoutActive = false;
     imageDisplayTimeoutActive = false;

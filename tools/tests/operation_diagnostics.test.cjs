@@ -1,0 +1,22 @@
+"use strict";
+// Source contracts and replay of the actual observer bodies; not C++ compilation.
+const fs=require('fs'), vm=require('vm'), assert=require('assert/strict'), cp=require('child_process');
+const read=p=>fs.readFileSync(p,'utf8').replace(/\r/g,'');
+const op=read('src/diagnostics/diagnostics_operation.cpp'), image=read('src/image/image_fetcher.cpp'), video=read('src/video/video_stream.cpp');
+let count=0; function test(n,f){f();count++;console.log('PASS '+n);}
+function body(s,signature){let i=s.indexOf(signature);assert(i>=0,signature);i=s.indexOf('{',i);let start=++i,d=1;while(d){if(s[i]=='{')d++;if(s[i]=='}')d--;i++;}return s.slice(start,i-1);}
+function translate(s){return s.replace(/^#.*$/gm,'').replace(/\(unsigned long long\)|\(unsigned long\)|\(unsigned\)/g,'').replace(/const uint64_t /g,'const ').replace(/diagnet::event/g,'event');}
+const sandbox={t:0,events:[],now(){return this.t},millis(){return this.t}};
+// Functions refer to the VM global t, not JS receiver binding.
+vm.createContext(sandbox);vm.runInContext(`let loopSeen=false,inLoop=false,loopStart=0,longest=0,longestId=0,maximum=0,gapCount=0,lastReport=0,suppressed=0,longestName='unmeasured'; function now(){return t;} function event(...a){events.push(a);} function reportGap(end){${translate(body(op,'void reportGap('))}} function begin(){${translate(body(op,'Loop::Loop()'))}} function end(){${translate(body(op,'Loop::~Loop()'))}} function block(name,id,start,end){${translate(body(op,'void block('))}}`,sandbox);
+const run=s=>vm.runInContext(s,sandbox);
+test('nested spans retain the longest measured interval without double counting',()=>{run('t=100;begin();block("tls",7,100,5100);block("decode",9,5100,5200);t=5250;end();begin();');assert.deepEqual(Array.from(sandbox.events[0].slice(2)),[5150,'tls',7,5000,150,0]);});
+test('gap threshold is strict and repeated gaps are bounded',()=>{run('t=6000;begin();t=7000;end();begin();');assert.equal(sandbox.events.length,1);run('t=7000;begin();t=8500;end();begin();');assert.equal(sandbox.events.length,1);run('t=8500;begin();t=12500;end();begin();');assert.equal(sandbox.events.length,2);assert.equal(sandbox.events[1].at(-1),1);});
+test('unmeasured excess remains explicitly unattributed and health retains maxima',()=>{const e=sandbox.events[1];assert.equal(e[3],'unmeasured');assert.equal(e[6],4000);assert.equal(run('maximum'),5150);assert.equal(run('gapCount'),3);});
+vm.runInContext(`let imageId=4,imageCode=200,imageExpected=100,imageReceived=100,imageHeadersMs=20,imageBodyMs=30,imageDecodeMs=10,imageStarted=0; function millis(){return t;} function imageEnd(result,reason){${translate(body(image,'static void imageEnd('))}}`,sandbox);
+test('completed/cancelled image lifecycle emits one terminal record only',()=>{const n=sandbox.events.length;run('imageEnd("ok","displayed");imageEnd("cancelled","screen_left");');assert.equal(sandbox.events.length,n+1);assert.equal(sandbox.events.at(-1)[0],'IMAGE_END');});
+test('Live records only first-frame and thresholded gaps, and all stop calls carry reasons',()=>{assert.match(video,/if \(frames == 0\) \{[\s\S]*?LIVE_FIRST_FRAME/);assert.match(video,/frames && frameGapUs > 2000000/);assert.match(video,/millis\(\)-lastGapReport >= 5000/);assert(!video.includes('videoStreamStop();'));for(const r of ['duration','screen_left','first_request','fetch_error','prefetch_error','decode_error'])assert(video.includes('videoStreamStop("'+r+'")'));});
+test('still cancellation/failure paths and decode errors preserve evidence',()=>{for(const r of ['wifi_offline','http_status','too_large','jpeg_allocation','pixel_allocation','loading_timeout','http_timeout'])assert(image.includes('imageFailure = "'+r+'"'));assert.match(image,/LV_EVENT_SCREEN_UNLOAD_START\) \{\s*imageEnd\("cancelled", "screen_left"\)/);assert.match(image,/IMAGE_ERROR/);});
+test('media timeouts and geometry constants stay at accepted Stage 2 values',()=>{for(const [p,s] of [['src/image/image_fetcher.cpp',image],['src/video/video_stream.cpp',video]]){const old=cp.execFileSync('git',['show','dff6597:'+p],{encoding:'utf8'});const constants=s=>s.match(/constexpr[^;]+;/g);assert.deepEqual(constants(s),constants(old));}});
+test('observer allocates no task, heap, filesystem or driver access',()=>{assert(!/xTaskCreate|malloc\(|new |SD_MMC|WiFi\.|USBSerial|Preferences/.test(op));assert.match(op,/elapsed <= 1000/);assert.match(op,/end - lastReport < 5000/);});
+console.log(count+' operation checks passed; no firmware build or hardware access.');

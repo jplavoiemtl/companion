@@ -1,5 +1,40 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## September 20: Stage 2 accepted; Stage 3 implementation prepared
+
+JP explicitly accepted Stage2: "Yes I accept let's proceed". Stage2 evidence
+through dff6597 is accepted with existing limitations; Stage3 operation-context
+logging is now prepared for JP's first build/bench. Stage4 is unstarted.
+
+Stage3 adds still/Live request IDs, outcome/timeout/cancellation reasons, network
+span links, bytes and timings, first frame and bounded >2s frame gaps. It adds
+processed UI actions, observed screens/colors, USB/motion transitions, power
+entry decisions and >1s main-loop entry gaps with longest measured span and
+unattributed remainder. No per-frame success records, raw payloads or secrets.
+Optional tail remains deferred until lifecycle instrumentation is bench-tested.
+See src/diagnostics/STAGE3.md for semantics, limits and the first case.
+
+Profile remains amoled-1-8-core-3-3-11; enabled1/hooks0/fixture0/PSRAM1,
+new tag stage3-context. Selected generated sketch removed before handoff.
+JP alone builds/flashes; last measured board remains Stage2 boot87.
+Host validation: 16 network +47 USB +8 operation checks pass. These are
+source contracts/replays, not firmware compilation or hardware validation.
+Network timeouts, retry/media guards, Live pacing, writer core and storage/
+USB policy remain. No generated SquareLine files changed. iPhone plan untouched.
+
+Next single case: JP builds/flashes in VS Code; stop and send first compiler
+error if any. Web console DTR=true/RTS=false, all test switches off. With
+hotspot/MQTT connected, status; Latest once, wait until displayed, navigate
+back to dashboard; remain there about70s, status, download current, status.
+Send console, log location and visual observations. Expect stage3-context,
+paired IMAGE_BEGIN/IMAGE_HTTP/IMAGE_END resultok with matching bytes, processed
+UI actions/screens, OP_HEALTH, CRCOK, zero drops/errors, memory>=20480.
+Do not add Live, outages, history or calibration to this first case.
+Stage3 remains unaccepted. Commit/push this prepared batch per JP preference.
+
+Earlier entries below are historical.
+
+
 ## 2026-09-20 08:10-08:11: normal Live comparison passes; Stage 2 ready for owner review
 
 JP reports video and test ran fine. Same boot87/build as outage case, Wi-Fi/MQTT
