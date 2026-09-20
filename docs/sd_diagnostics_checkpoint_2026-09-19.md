@@ -1,5 +1,42 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## 2026-09-20 08:10-08:11: normal Live comparison passes; Stage 2 ready for owner review
+
+JP reports video and test ran fine. Same boot87/build as outage case, Wi-Fi/MQTT
+connected throughout. Normal Live178/60.183s=2.9576 FPS; outage Live
+176/60.326s=2.9175 FPS. Outage is 1.36% below normal, inside about5%
+target. Comparable average images18.0 versus18.2KB; HTTP329 versus334ms,
+TTFB153ms both. This is an MQTT connected/outage comparison, not a new
+logging-off/on measurement or proof that logging has no performance cost.
+Reuse accepted Stage1B logging/USB comparisons within their documented scope.
+Normal first frame1219ms, max gap1065ms; JP observed normal video, no new stall.
+
+New Live connect spans id11/12 succeed662/734ms. No MQTT loss/retry during
+normal Live. Application counters progress4/6/8 (power2/3/4, energy2/3/4),
+showing inbound traffic after the previous recovery. Sampled TLS largest31732
+(66/73 samples), full Live28660 (6018 samples), above unchanged20480 gate.
+Ready/synced; queuehigh6; drops/errors/suppressed/truncated/slow writes0;
+writer margin3144 stable. USB idle/unpaused/resultok, no link losses/reset.
+
+Download 262208 bytes, CRC32 84D63CFE, SHA256
+28205c58bcdf0894dd3e85074e43965069b467244b19b79285f3f17adc8968b7.
+Browser CRC OK,2.57s; previous258232-byte snapshot exact prefix. Records1-74
+contiguous for boot87, all12 spans paired, no NET_FORMAT_ERROR. Sources:
+[console](bench_data/sd_stage2_2026-09-20_boot87_live_normal/console.txt) and
+[current log](bench_data/sd_stage2_2026-09-20_boot87_live_normal/87-current.log.txt).
+
+Stage2 planned startup/health, MQTT off/on, Wi-Fi loss/recovery, post-recovery
+Latest, corrected RSSI/suppression and Live outage/normal comparison now pass.
+Present Stage2 for JP's explicit acceptance before Stage3 operation-context
+logging. No further bench case assigned now; no firmware changes/build/flash.
+This is bounded bench acceptance evidence, not exhaustive event coverage:
+LOST_IP, secondary-profile failover and every error/notification branch were
+not separately induced. Existing monitor-close limitation and unsupported-card
+deferral remain. Stage3-4 unstarted. Commit/push completed results per JP request.
+
+Earlier entries below are historical and superseded by this result.
+
+
 ## 2026-09-20 08:06-08:08: Live during MQTT outage passes, boot 87
 
 JP reports video and test ran fine. Same corrected Stage2 build; boot87 is
