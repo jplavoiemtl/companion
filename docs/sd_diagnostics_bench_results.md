@@ -8555,3 +8555,43 @@ is restored as preferred screen. Require paired image lifecycle, correct screen
 observations, zero drops/errors/resets, CRCOK and memory gate. No calibration
 changes, firmware modifications/build/flash. Stage3 unaccepted, optional tail
 deferred, Stage4 unstarted; completed evidence committed/pushed per JP preference.
+
+## September 20 09:54-09:55: screen-preference save/media case passes
+
+JP reports normal test, same boot89. Console confirms G-meter selected09:54:11.527
+and saved09:54:41.532 (30.005s); dashboard selected09:54:49.620, media round
+trip pauses the preference timer, return09:54:54.172 resumes it, dashboard
+saved09:55:22.887. The screen-memory ID2 means G-meter; diagnostics UI_SCREEN
+ID3 means G-meter. These separate ID schemes are not a contradiction.
+No reboot persistence test or forced simultaneous NVS/TLS write is claimed.
+Both ordinary saves occurred while SD logging remained active; dashboard
+preference is restored. Save confirmations come from serial, not new NVS events.
+
+IMAGE_BEGIN id12/net24 -> HTTP200 -> one END ok/displayed, expected=received33843,
+headers775/download395/decode140/total1415ms (console1414ms). UI transitions
+1->3->1->2->1 and motion changes are coherent. HTTPS largest31732 (78 samples),
+retained26612 unchanged, both above20480. Writer margin3096 stable, queuehigh8,
+zero drops/errors/suppressed/truncated/slow writes. OP_HEALTH remains5235ms/1gap,
+the earlier known MQTT attempt; no new >1s gap around saves/media. Post-case
+HEALTH internal_free104576/largest55284, Wi-Fi/MQTT connected. No new reset.
+USB ends idle/unpaused/resultok/no losses. All supplied same-boot cases now span
+about27 minutes without a new retained memory low or stack-margin decline
+since the initial download; this is bounded observation, not a leak-proof soak.
+
+Download 553406 bytes, CRC32 593EB0F1, SHA256
+40e52d92d2bd131e51db56046aaa71e7d875ff39592b5f55e1aaa80830873f40. Browser CRCOK,5.58s. Previous543193-byte
+snapshot exact prefix;374 contiguous boot89 records,24 paired network spans,
+12 media lifecycles. Sources: [console](bench_data/sd_stage3_2026-09-20_boot89_screen_save/console.txt)
+and [current log](bench_data/sd_stage3_2026-09-20_boot89_screen_save/89-current.log.txt).
+
+Next single case: brief USB-power transition, same build/no rebuild. Current
+health confirms battery present at4.121V. Keep hotspot on and dashboard active;
+normal browser DTR=true/RTS=false/test switches off. Status, no transfer active;
+physically unplug USB for10s, then reconnect (within existing30s USB-loss grace).
+Board should stay on battery. Reconnect web console if needed with same signals,
+status/download current/status. Send console/log and whether screen stayed on
+or a reboot occurred. Expect POWER_USB present0 then1, same boot, logger ready,
+CRCOK and zero drops/errors. Expected USB transport disconnect itself is not a
+logger failure. This does not test shutdown/sleep POWER_DECISION records.
+Stage3 remains unaccepted; optional tail deferred; Stage4 unstarted. No source
+changes/build/flash; completed evidence commit/push authorized by JP.
