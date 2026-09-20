@@ -18,7 +18,7 @@ firmware exists for this feature yet.
 `172.20.10.1`, Ethernet left connected throughout. Python 3.13.9
 `python -m http.server 8000 --bind 172.20.10.13`, serving a scratch directory, never the
 repository. The companion was powered and connected to the same hotspot for the whole
-session. iOS version **not yet recorded** - outstanding, see below.
+session. iPhone 13 Pro running **iOS 26.6.2**.
 
 **Verdict.** The listing loaded in Safari and `sample.bin` saved to Files at exactly
 262,144 bytes, so the case passes on its stated criterion. `big.bin` also saved in full at
@@ -81,8 +81,6 @@ transfer case. For reference only, a local fetch of the same 2 MiB file ran at r
 
 ### Outstanding
 
-- **iOS version** on the iPhone 13 Pro, needed as context for findings 2 to 5. Record it
-  from Settings > General > About > Software Version.
 - Whether an inbound firewall rule was required could not be established: no rule for port
   8000 was found and no allow-dialog was observed, yet the phone connected. Anyone
   reproducing this should expect to allow the **Public** profile, since a hotspot is
@@ -92,8 +90,10 @@ transfer case. For reference only, a local fetch of the same 2 MiB file ran at r
 
 A laptop's Python server is not `esp_http_server`: response construction, timeouts, socket
 limits and concurrency are all untested here. The findings are Safari's behaviour on one
-phone, one iOS version and one date, over plain HTTP with no TLS, with a single client. The
-firmware must still pass its own reachability and transfer cases.
+phone running iOS 26.6.2, on one date, over plain HTTP with no TLS, with a single client.
+A future iOS update can change any of findings 2 to 5 - particularly the favicon request,
+the socket count and the absence of `Range` - so re-record the version whenever these are
+re-tested. The firmware must still pass its own reachability and transfer cases.
 
 ---
 
