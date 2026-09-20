@@ -1,7 +1,7 @@
 # iPhone log retrieval - Claude review of the design
 
 Date: September 20, 2026. Reviewer: Claude. Status: design review before implementation.
-Inputs: [original draft](sd_iphone_log_download_plan.md) (untracked, unchanged),
+Inputs: [original draft](sd_iphone_log_download_plan.md) (now tracked, content unchanged),
 [Codex review](sd_iphone_log_download_review.md), and the accepted `sd-diagnostics`
 branch at `9cf1bf7` (Stages 1, 1B, 2, 3 accepted; normal logging restored on
 `amoled-1-8-core-3-3-11`). No firmware, build or flash changes accompany this review.
@@ -21,9 +21,10 @@ deciding that retrieval is allowed only while USB power is present, with the car
 That decision is verified against the source below and it removes the blocker rather than
 working around it. **Blocker 2 - "refuse media" has five entry points in the current code,
 not the two the drafts describe - now carries a concrete proposal** rather than only a
-warning: one predicate, three refusals, two backstops and one host check. The remaining
-undecided item is where the socket lives, and one no-firmware check settles it. Everything
-else is detail that the bench gates below can handle.
+warning: one predicate, three refusals, two backstops and one host check. The architecture
+question - where the socket lives - is now **decided against the installed SDK**: Option A,
+`esp_http_server`, for reasons in that section. Everything else is detail that the bench
+gates below can handle.
 
 ## Blocker 1, resolved: retrieval only while USB power is present
 
@@ -242,45 +243,75 @@ before the car case, or the car case is run with a laptop attached for the USB c
 which defeats the purpose. Plan on the screen being a prerequisite for the car step, not
 for the bench steps.
 
-## Architecture: where the socket lives is not yet decided by evidence
+## Architecture: decided - Option A, `esp_http_server`
 
-Codex recommends `esp_http_server` with a bounded buffer handoff to the writer, pending
-memory measurement. That is a defensible choice, but there is a second option that fits
-this codebase's proven shape more closely, and the evidence to choose between them does
-not exist yet.
+The two options were: **A**, an `esp_http_server` task with a bounded handoff from the
+writer, and **B**, a non-blocking listening socket polled by the writer itself, reusing the
+accepted USB state machine with `send()`/`EWOULDBLOCK` in place of `sendLine()`'s
+availability check. The deciding question was whether the installed SDK even permits lwIP
+calls from the writer, whose stack is in PSRAM.
 
-**Option A - `esp_http_server` task plus a bounded PSRAM handoff.** Sockets never touch
-the writer; the writer fills a ring buffer and the server task drains it. Costs: a new
-task with an internal stack, cross-task cancellation, request generation IDs, late
-completion handling and stop ordering - all of which Codex correctly lists as things to
-define before writing code. Every one of those is a new failure mode that the accepted
-USB path does not have.
+### What the installed SDK actually says
 
-**Option B - a non-blocking listening socket polled by the writer.** This mirrors the
-existing USB state machine exactly: `Phase`, `stopReason()`, `finishError()`,
-`closeReaderAndResume()` are unchanged, and `sendLine()`'s "check space, return 0, retry
-next turn" becomes `send()` with `MSG_DONTWAIT` returning `EWOULDBLOCK`. No new task, no
-handoff buffer, no second owner of the transfer state, and cancellation/cleanup semantics
-come free because they are the ones already accepted at every bench gate. The HTTP subset
-needed is small: `GET` with two path forms, one response header block.
+Checked in `Arduino15/packages/esp32/tools/esp32s3-libs/3.3.11`, the bundle the
+`amoled-1-8-core-3-3-11` profile builds against. No firmware was built or flashed for this
+check.
 
-Two measured facts decide this, and both are cheap to obtain:
+- `CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY=y` and
+  `CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM=y`. External task stacks are permitted, which
+  is why the current writer works at all.
+- `idf_additions.h` documents only one restriction on such tasks: the TCB must stay in
+  internal RAM, which `DIAG_WRITER_STACK_PSRAM=1` already honours with its static TCB.
+  Nothing in the installed headers prohibits lwIP from an external stack; the documented
+  hazard for PSRAM stacks is cache-disabled execution (ISRs, flash operations), and a
+  task-level socket call is not that.
+- `esp_http_server` is present, on the include path and in `ld_libs`, so it needs
+  `#include <esp_http_server.h>` and nothing else.
 
-1. **Writer stack.** Current writer stack high-water margin is **3144-3640 bytes** of
-   `WRITER_STACK` (boots 86/87, repeated across sessions). lwIP socket calls consume
-   caller stack. Option B without raising the stack is not safe on that margin. The stack
-   is PSRAM (`DIAG_WRITER_STACK_PSRAM=1`), so raising it to 12-16 KB is nearly free in
-   internal RAM terms - but see (2).
-2. **Whether a PSRAM-stacked task may call lwIP at all** under the installed IDF 5.5.x.
-   I have not verified this and will not assume it. Check the installed headers and
-   Kconfig for the external-stack restrictions before choosing Option B. If lwIP calls
-   from an external-memory stack are restricted or undocumented, Option A wins by
-   default and the question is closed.
+**So Option B is not forbidden.** The question is settled on other grounds.
 
-My recommendation: check (2) first, since it can settle the matter without any firmware
-change. If Option B is permitted, prototype it - it is materially less new machinery. If
-not, take Option A and set `SO_SNDTIMEO` to a small value (~200 ms) so a blocked send
-cannot outlast the 500 ms close budget in `diagnosticsClose()`.
+### Why Option A wins anyway
+
+1. **A stack overflow in the writer takes down logging itself.** Option B adds an
+   unmeasured caller - lwIP - to the task that owns the SD card, on a measured margin of
+   **3144-3640 bytes**. The stack can be raised cheaply because it is PSRAM, but the
+   failure mode is the evidence system dying in the one situation it exists to record. A
+   separate server task is isolated: if it dies, logging survives. This project has spent
+   three stages protecting the writer; spending that margin on an HTTP server is the wrong
+   trade.
+2. **The component already provides what Option B would hand-roll**, and the installed
+   defaults are close to what this design wants: `send_wait_timeout` and
+   `recv_wait_timeout` are 5 seconds, matching the existing `STALL_MS`; `lru_purge_enable`
+   is **false**, so a new connection cannot evict the socket carrying an active transfer -
+   the hazard flagged earlier is off by default; `max_open_sockets` is 7 and should be
+   lowered to 2 or 3; `stack_size` is 4096 with
+   `task_caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT`; `max_req_hdr_len` is 1024 and
+   `max_uri_len` is 512. Accept, request parsing, socket limits and timeouts are all
+   solved and tested.
+3. The handoff is needed either way. SD reads stay writer-owned under both options, so
+   Option B's "no cross-task handoff" advantage only holds if the writer also owns the
+   socket - which is exactly what (1) rules out.
+
+Settings to pin at implementation: `max_open_sockets` 2-3, `lru_purge_enable` false
+(default), and a `send_wait_timeout` short enough that a blocked send cannot outlast the
+500 ms close budget in `diagnosticsClose()` - the 5 second default is **too long** for
+shutdown, so either lower it or make shutdown close the listening socket and trigger
+session close rather than waiting on the handler.
+
+### Internal memory this costs, to be measured not assumed
+
+`CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP` is **not** set, so Wi-Fi and lwIP buffers come from
+internal RAM. Per the installed config: `LWIP_TCP_SND_BUF_DEFAULT` 5744,
+`LWIP_TCP_WND_DEFAULT` 5760, `LWIP_TCP_MSS` 1436, `LWIP_MAX_SOCKETS` 16. With three
+sockets, a 4096-byte task stack and per-session scratch of 1024 + 512, the order of
+magnitude is roughly 10-16 KB internal while a transfer is active, with no single
+allocation near the 20480-byte largest-block gate. That is an estimate from configuration,
+not a measurement, and it does not settle the binding case: **an MQTT TLS reconnect needing
+a contiguous ~16 KB while the server holds its allocations.** That remains the memory gate.
+
+One placement note: `LWIP_TCPIP_TASK_AFFINITY_CPU0` pins the TCP/IP task to core 0 while
+the writer runs on core 1. Leaving the server task unpinned (`tskNO_AFFINITY`, the default)
+is the right starting point; pinning it is an optimisation with no evidence behind it yet.
 
 Independent of the choice: **SD reads stay writer-owned**, no HTTP path opens a file
 descriptor, and the existing `reserved` single-session flag becomes one session across
@@ -419,10 +450,11 @@ temporary firewall rule over disabling the firewall. Codex's point 1 stands as w
 
 ## Where I differ from, or would sharpen, the Codex review
 
-- **Point 3.** Agreed on the constraints, but I would not settle on `esp_http_server`
-  before checking the PSRAM-stack/lwIP question above. The simpler design may be
-  admissible, and if it is, it inherits accepted cleanup semantics instead of recreating
-  them.
+- **Point 3.** The check is done and lands on your recommendation: `esp_http_server`.
+  Not because the simpler design is forbidden - the installed SDK permits lwIP from a
+  PSRAM-stacked task - but because adding lwIP to the writer spends the 3144-3640 byte
+  margin of the task that owns the SD card, and the component already supplies the
+  timeouts, socket limits and non-evicting socket policy that design would hand-roll.
 - **Point 5.** Agreed, and the five-path table above is the concrete form of it. The Back
   button is the specific gap.
 - **Point 6.** Agreed, and it is a blocker with measured numbers, not an open detail.
@@ -458,20 +490,19 @@ Codex's list is good. These are not on it and each catches something real:
 ## Suggested order, one case at a time
 
 1. iPhone-to-laptop reachability proof, no firmware. Record the iOS version.
-2. The IDF PSRAM-stack/lwIP check, deciding Option A or B. No firmware change.
-3. Shared reader/session extraction with USB regression gates, before any HTTP code.
-4. Mode entry and exit by USB command: guards, power rules, status reporting, repeated
+2. Shared reader/session extraction with USB regression gates, before any HTTP code.
+3. Mode entry and exit by USB command: guards, power rules, status reporting, repeated
    entry/exit, idle memory. No HTTP yet.
-5. Server start/stop and address display inside the mode.
-6. Small immutable archive download, byte-for-byte verified from a laptop.
-7. `current.log` snapshot with logging continuing afterwards.
-8. The failure gates: cancel, lock/background, hotspot loss, prune conflict, shutdown,
+4. Server start/stop and address display inside the mode.
+5. Small immutable archive download, byte-for-byte verified from a laptop.
+6. `current.log` snapshot with logging continuing afterwards.
+7. The failure gates: cancel, lock/background, hotspot loss, prune conflict, shutdown,
    USB power loss.
-9. Memory gate: MQTT reconnect inside the mode with the server allocated.
-10. Media admission in both directions, all five paths.
-11. Single-session competition: USB request during an HTTP transfer and the reverse.
-12. Server-off regression: same-sitting Latest/Live/IMU, no new stalls or resets.
-13. LVGL entry screen, then the car: CAR build, accepted profile, blank FAT32, retrieval
+8. Memory gate: MQTT reconnect inside the mode with the server allocated.
+9. Media admission in both directions, all five paths.
+10. Single-session competition: USB request during an HTTP transfer and the reverse.
+11. Server-off regression: same-sitting Latest/Live/IMU, no new stalls or resets.
+12. LVGL entry screen, then the car: CAR build, accepted profile, blank FAT32, retrieval
     with the engine running.
 
 ## Decisions recorded on September 20
@@ -487,6 +518,8 @@ Codex's list is good. These are not on it and each catches something real:
    CRC32 is device-reported and laptop-verified at the bench gate.
 7. **Motion-based exit withdrawn**; idle backstop set to **five minutes**, reset by any
    HTTP request or panel touch.
+8. **Architecture: `esp_http_server`**, decided against the installed 3.3.11 SDK rather
+   than by preference. SD reads stay writer-owned; the server task never opens a file.
 
 ## Open questions for JP
 
