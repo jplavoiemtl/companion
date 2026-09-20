@@ -7,9 +7,14 @@ unit, review with Claude, and bench-accept it before real car testing. Then use
 accepted firmware and a blank FAT32 card in the car unit. Stage3 remains accepted;
 Stage4 field measurements are pending. The USB-after-trip procedure below is
 historical and is not the current action. No firmware/build/flash changes.
-See [wireless plan review](../../docs/sd_iphone_log_download_review.md). Claude's original
-untracked draft remains untouched. Next: settle scope and obtain Claude review,
-then run the actual-iPhone network proof one case at a time.
+See [wireless plan review](../../docs/sd_iphone_log_download_review.md) and the
+[Claude review](../../docs/sd_iphone_log_download_review_claude.md), which records JP's
+September 20 decisions: USB power required, USB-command entry on the bench with the LVGL
+screen before the car step, immediate exit on USB loss, mode kept open across a hotspot
+drop, a five-minute idle backstop, and the four-layer download verification. Claude's
+original untracked draft remains untouched. Work continues on the `iphone-log-retrieval`
+branch. Next: the no-firmware iPhone reachability proof and the IDF PSRAM-stack/lwIP check,
+one case at a time.
 
 
 JP accepted Stage3 on September20,2026 after checkpoint f8ac6d8. Stage4 is
