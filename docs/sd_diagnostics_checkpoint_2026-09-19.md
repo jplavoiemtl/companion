@@ -3,7 +3,9 @@
 ## Latest handoff - iPhone retrieval increment 1 implementation, September 20
 
 On `iphone-log-retrieval`, based on `8038b9c`, the approved USB reader/session extraction
-is implemented and awaits Claude review before JP builds/flashes. See the
+is implemented and passed Claude review at `0ba72e5`. Findings 1-3 are explicitly deferred
+with deadlines in the handoff; the unnecessary generated-sketch deletion note is corrected.
+JP may build/flash and run the issued single USB case. See the
 [increment 1 handoff](sd_iphone_log_download_increment1.md) for scope, 92 passing host
 checks, review focus and the first single bench gate. No firmware compilation or hardware
 validation performed; increment 2 remains unapproved. Older entries below retain their

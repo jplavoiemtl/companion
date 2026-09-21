@@ -1,6 +1,6 @@
 # iPhone log retrieval - increment 1 review handoff
 
-Status: implemented for Claude review; **not compiled, flashed or bench accepted**.
+Status: Claude review passed at `0ba72e5`; **not compiled, flashed or bench accepted**.
 Base: `8038b9c`, branch `iphone-log-retrieval`. Implements only the approved USB-only
 extraction in revision 3 of [the spec](sd_iphone_log_download_spec.md), section 3.
 Increment 2 is not approved.
@@ -63,10 +63,60 @@ shutdown and offline behavior; buffer ownership and C++ initialization/type comp
 and whether the adapted tests preserve their assertions and cover the new invariants.
 Report concrete defects or omissions. Do not build or flash.
 
-After Claude review and any corrections, JP performs the build/flash. Before that rebuild,
-remove the selected profile's generated `build/build_amoled-1-8-core-3-3-11/sketch/companion.ino.cpp`.
+JP performs the build/flash. No generated-sketch deletion is required for this increment:
+`companion.ino` is unchanged. If the new translation unit is not picked up correctly, use
+a clean build; send compilation errors to Codex.
 The first bench gate remains **one normal current.log USB transfer**, status before/after,
 CRC success and confirmed later append growth, using DTR=true and RTS=false. Give the
 precise case only at that handoff. Queue-pressure, prune, cancel and close gates remain
 required before accepting the extraction, issued one case at a time. No increment 2 work
 without JP's explicit approval.
+
+## Claude review disposition - September 20
+
+Review: [Claude findings](sd_iphone_log_download_increment1_review.md), `0ba72e5`.
+No firmware or test changes after that reviewed implementation. The four findings are
+resolved for the first bench handoff as follows; deferred work is not silently closed:
+
+1. **Deliberately defer refused progress/release diagnostics** until before a second
+   adapter is introduced (no later than increment 3). Current writer-only USB call paths
+   exclude these refusals, as independently reviewed. Adding a print alone would expose
+   but not resolve a retained reservation; choose the visible error, recovery and bounded
+   reporting policy together, then test injected failures. In particular, a legitimate
+   idle `diagnosticsUsbStop()` has no reservation to release and must not become a false
+   fault. This deferral preserves the reviewed extraction for its first regression gate.
+   HTTP's missing-release error/recovery requirement remains mandatory and unresolved.
+2. **Defer explicit scratch/read-only payload accessors** until before a second adapter
+   exists, no later than increment 3. USB intentionally writes wire scratch in the shared
+   allocation on the writer task; const protects the pointer, not its pointee. The current
+   interface must not be treated as permission for cross-task payload mutation.
+3. **Defer explicit-file extraction in `usb_connection_guard.test.cjs`** until the next
+   change to that test/shared function layout, and before adding a second adapter. All
+   current extracted signatures resolve correctly and Claude reconfirmed all assertions;
+   the concatenation remains a known maintenance risk, not a weakened current assertion.
+4. **Accept the build-note correction now.** No generated `companion.ino.cpp` deletion
+   for this source-only increment. Clean build is the fallback for a source-discovery
+   problem. No build or flash performed by Codex.
+
+## First USB extraction bench case - issued, result pending
+
+1. JP builds/flashes `amoled-1-8-core-3-3-11` in VS Code. Keep logging and PSRAM writer
+   enabled, both diagnostic test flags zero. Send any compile error before proceeding.
+2. Close the VS Code serial monitor, then connect COM4 in Chrome using
+   `tools/sd_log_browser.html`, mode **Apply explicit values after open**, DTR=true,
+   RTS=false. Let startup finish. Keep normal browser reads (no slow-reader fixture).
+3. Clear the console once. Send `status`, then `log status`; retain their full output.
+   Avoid starting Latest/Live or another download during this case.
+4. Click **Refresh files**, then **Download** on the `current.log` row only. Wait for
+   `CRC OK` and the saved file. Do not use the current-plus-three bundle.
+5. Send `status` and `log status` immediately after completion. Wait **70 seconds** with
+   the connection open (normal health records occur every 60 seconds), then send both
+   commands again. No second download is needed.
+6. Click **Save console**. Send the complete console capture and downloaded current.log,
+   and report any unexpected reset, stall or visible issue.
+
+Expected: CRC OK; logger ready; active=0, paused=0, result=ok after completion; zero drops;
+no new logger error, stall or reset; same boot; later current_size larger than immediately
+post-transfer. Check newest archive identity too: a rotation makes a simple size comparison
+inconclusive and must be interpreted from the capture. Internal largest block stays above
+20480 bytes. Append growth is not yet measured; do not call this gate passed before review.
