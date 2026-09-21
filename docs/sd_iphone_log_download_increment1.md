@@ -139,3 +139,10 @@ Gate 3 passed on boot 97: 8/16 triggered logger_busy; all eight test records sav
 61227-byte retry CRC OK, zero drops/errors. Next is the disposable-archive prune case
 on the same fixture build, then close coverage. See the [bench record](sd_iphone_log_download_bench.md).
 JP's local fixture=1 edit remains uncommitted for bench use. Increment 2 is not approved.
+
+## September 21 prune result
+
+Gate 4 passed: synthetic archive 22 removed during retrieval, 67600-byte normal retry
+CRC OK, zero drops/errors. Next single case is orderly shutdown close/restart on the
+same build; see [bench record](sd_iphone_log_download_bench.md). Fixture=1 remains local;
+normal fixture=0 restoration is due before final handoff. Increment 2 remains unapproved.

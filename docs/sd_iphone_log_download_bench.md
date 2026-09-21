@@ -15,6 +15,50 @@ as a whole remains pending its remaining regression gates.
 
 ---
 
+## Increment 1 USB gate 4 - 2026-09-21, 09:40-09:43 - PASS
+
+Selected synthetic archive pruning, same boot 97/fixture-enabled build. JP reports normal
+operation. Evidence: attachment `3496d409-128d-4ea3-9f04-89cfa38a2bb2/Pasted text.txt`
+and `C:/Users/photo/Downloads/97-current (1).log`.
+
+- Fixture creation completed with archive=00000022, bytes=2097152, result=ok. Two
+  earlier list requests returned unavailable while creation was active; this is the
+  documented guard, not a logger failure. After creation, list count was 9/newest=22.
+- `log test prune 22` armed and fired once; result=pruned, outcome=pruned. Device
+  returned pruned. Saved current records show archive-00000022.log completion with
+  bytes=1584, duration_ms=61, result=pruned, followed by USB_PRUNE_TEST synthetic=true.
+- After removal: count=8, newest=20, archives=7, pruned=1 (was 0), fixture result=
+  pruned_by_test. These counts return to the pre-fixture inventory; the capture does
+  not include individual FILE lines for a byte-by-byte inventory comparison.
+- USB active=1 in the refresh snapshots corresponds to the concurrent listing. Later
+  standalone status confirms active=0, paused=0, result=pruned before the retry.
+- Normal current retry: **67600 bytes, CRC OK**, 0.68 s. Local size matches, computed
+  CRC32 **F33D63CB**. Browser CRC OK verifies device-END comparison; numeric CRC is local.
+  Later size=68902; ready, active=0, paused=0, result=ok, zero drops/errors, same boot,
+  no new stall/reset, no USB link losses. Largest block=51188, stack minimum=2984.
+
+This passes the production removal-helper regression for an actively read disposable
+archive; it does not repeat retention threshold selection. Close coverage remains pending.
+No firmware edit/build/flash by Codex. JP's fixture=1 change stays local and uncommitted.
+
+### Next single case issued: orderly shutdown close and restart
+
+Same build, no flash. Keep hotspot available and Live stopped. Save status/log status
+and a fresh CRC-checked current.log as the pre-shutdown reference. Unplug USB from the
+battery-equipped unit, leave stationary and untouched, and allow up to two minutes for
+automatic Shutdown/screen-off. Do not force it with the power button; report a failure
+to shut down. After power-off, reconnect USB and Chrome with explicit DTR=true/RTS=false.
+Retain both console segments. Send status/log status, download current (CRC OK), wait
+70 seconds, then send both status commands again. Send both saved files and the console,
+plus observed shutdown behavior. Compare prefix preservation, prior SESSION_END
+reason=shutdown pending=0, new boot append, later growth and zero drops/errors.
+This is orderly idle shutdown/restart, not a measurement of an in-flight network or USB
+cancellation deadline. Existing host tests separately cover shutdown during a session.
+After reviewing close evidence, restore the normal fixture=0 build before final handoff;
+no increment 2 work without explicit approval.
+
+---
+
 ## Increment 1 USB gate 3 - 2026-09-21, 09:37-09:39 - PASS
 
 Queue-pressure abort and retry, boot 97, fixture=1/hooks=0/PSRAM writer=1.
