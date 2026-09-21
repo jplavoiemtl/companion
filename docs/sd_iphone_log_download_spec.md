@@ -1,13 +1,19 @@
 # iPhone log retrieval - implementation spec
 
-Status: **revision 2, for Codex review and JP approval.** Not implementation approval.
+Status: **revision 3.** Codex confirmed increment 1 ready at `724da61`; **increment 1 is
+approved to start.** Increments 2 and beyond are not approved: section 5's teardown
+mechanism is explicitly provisional and must be resolved before increment 3.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the
 [Codex review](sd_iphone_log_download_review.md) and the
 [case 1 result](sd_iphone_log_download_bench.md). Where those disagree, this document wins;
 where it is silent, they remain the reference.
 
-Revision 2 answers Codex's spec review at `97f8d30`: it adds the extraction boundary
+Revision 3 adds the release-acknowledgement invariant Codex raised at `724da61`, marks
+section 5's teardown mechanism provisional with its three unresolved problems, and moves
+server lifecycle and descriptor ownership to a before-increment-3 deadline.
+
+Revision 2 answered Codex's spec review at `97f8d30`: it adds the extraction boundary
 (section 3), replaces the cancellation and teardown contract (section 5), settles the
 admission and idle questions Codex found contradictory (section 4), and pins the response
 and record contracts (sections 7 and 8). Decision deadlines for the remaining HTTP choices
@@ -62,7 +68,10 @@ code exists**. HTTP is absent from increment 1.
 
 ### Call contract
 
-Each call states its caller and whether it may wait. **None of them waits on the network.**
+Each call states its caller and whether it may wait. **None of them introduces a new wait
+on the network or on a consumer.** This is not a claim that they are instantaneous: the
+existing SD operations behind them still take the time they always did, and **existing USB
+progress accounting is preserved exactly**, not redefined by the extraction.
 
 | Call | Caller | Waits? |
 |------|--------|--------|
@@ -183,12 +192,35 @@ are **retained until B**, and new retrieval is refused in the interim.
 
 A fixed, bounded transfer buffer with explicit ownership, a used-length and offset, and a
 **session-generation token**. Cancellation invalidates the generation but **cannot free or
-reuse bytes a blocked `send()` still references**. Acknowledgements carrying a stale
-generation are ignored. Progress, cancellation and result cross tasks through a defined
+reuse bytes a blocked `send()` still references**.
+
+**Invariant (Codex, `724da61`): an invalidated generation rejects further *progress* but
+must still accept the matching *release* acknowledgement for the retained buffer.**
+Otherwise cancellation would make release impossible and the buffer could never be freed -
+the deadlock this whole section exists to prevent. Stale acknowledgements from a *different*
+generation are ignored; the release from the cancelled generation is not. This is covered by
+the increment 1 cancellation and reuse tests. Progress, cancellation and result cross tasks through a defined
 synchronised mailbox or atomic snapshot; **HTTP events never directly mutate main-owned mode
 fields.**
 
-### Teardown execution context and socket interruption
+### Teardown execution context and socket interruption - PROVISIONAL
+
+**This subsection is not settled and does not gate increment 1**, which contains no HTTP.
+Codex identified three unresolved problems at `724da61`, all of which must be answered
+before increment 3 starts the server:
+
+1. **Descriptor reuse is not excluded.** Checking `(fd, generation)` and then calling
+   `shutdown()` leaves a window in which the descriptor can be closed and reused. A
+   coordinated lifetime guarantee is required, not a check.
+2. **`httpd_stop()` blocks wherever it is called.** Deferring it to a later main-loop
+   iteration does not make it non-blocking - it still waits for the server task. Lifecycle
+   teardown needs an execution context that is neither main nor the writer, which notifies
+   main on completion.
+3. **Holding resources indefinitely needs a policy.** Never freeing on a missing release is
+   safe against reuse but requires a defined visible error state and a recovery path.
+
+The mechanism below is the current candidate, retained so the open problems have something
+concrete to attach to. It is not approved.
 
 - **Main publishes cancellation and interrupts the socket.** A plain flag cannot interrupt a
   blocked socket call, and `httpd_sess_trigger_close()` queues work onto the HTTP task,
@@ -390,9 +422,10 @@ time, append resumption time and transport release time.
 
 | Decision | Deadline |
 |----------|----------|
+| **Server lifecycle teardown context and descriptor ownership** - the three problems in section 5 | **Before increment 3**, which already starts and stops the server |
+| **Provisional `max_open_sockets`** to build increment 3 against | **Before increment 3**; measured tuning completes in increment 8 |
 | Whether a per-session capability appears in the URL | Before increment 3 |
 | Whether bounded interleaving of a second request is wanted, replacing the queued-reply choice in section 7 | Before increment 4 |
-| Final `max_open_sockets` value from measured occupancy | Before increment 8 completes |
 
 Settled in revision 2 and no longer open: entry **refuses** during a pending display or
 handover; the idle deadline is enforced mid-transfer with a clean abort; `HEAD` returns
