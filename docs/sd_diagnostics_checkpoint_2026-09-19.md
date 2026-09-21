@@ -1,5 +1,13 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 2 idle-expiry gate passes
+
+Boot 103 persisted idle exit at 300009 ms after entry; status did not reset the timer.
+Gates 1-4 pass. Next single case: panel-touch idle reset. [Evidence/procedure](sd_iphone_log_download_bench.md).
+No firmware change or assistant build/flash. Increment 2 acceptance pending; increment 3
+unapproved.
+
+
 ## Latest result - September 21, increment 2 Live admission gate passes
 
 Boot 103 active-Live refusal passed; playback completed normally and mode entry/exit

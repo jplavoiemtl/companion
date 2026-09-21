@@ -150,3 +150,6 @@ entry during Live, per the bench record. Other increment 2 gates remain pending.
 September 21 gate 3 passes on boot 103: live_busy refusal during playback, full Live
 completion, successful subsequent mode entry/exit, CRC evidence. Next single case is
 five-minute idle expiry without panel touch; see the bench record.
+
+September 21 gate 4 passes: idle exit at entry +300009 ms, intermediate status does
+not reset the timer, CRC log verified. Next is one panel-touch idle-reset case.

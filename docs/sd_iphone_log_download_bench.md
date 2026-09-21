@@ -16,6 +16,40 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 2 gate 4 - 2026-09-21, 14:42-14:49 - PASS
+
+Five-minute idle expiry, boot 103; JP confirms pass. Evidence: attachment
+`5b0a46a7-973b-4b61-8a7a-da2f2a5d6ac5/Pasted text.txt`, Downloads
+`103-current (4).log`.
+
+Entry seq=149 up_ms=1053110. Intermediate mode status is ACTIVE/idle_ms=121654.
+Persisted idle_timeout stopping and ok records seq=165/166 are both at up_ms=1353119:
+**300009 ms after entry**. Thus the status request did not reset idle and exit occurred
+independently before the final status query, which confirms OFF/release_stuck=0.
+
+Download **1175630 bytes, browser CRC OK**, 11.06 s; local length matches, calculated
+CRC32 **63123CC4**. Pre-download status ready, drops=0, error=none, queue=0/16;
+internal largest=26612 > 20480, writer stack minimum=2920, no USB losses or retained
+failure, same boot and Wi-Fi/MQTT connected. No screen touch visible during the interval.
+No post-download status supplied; no stronger resource claim made. This is idle with no
+transfer; future HTTP archive-mid-transfer expiry remains a separate later gate.
+
+### Next single case issued: panel touch resets idle deadline
+
+Same build, no flash; USB/hotspot connected, dashboard idle, all browser switches off.
+Clear console, send mode on and confirm ACTIVE. At about two minutes after entry, tap
+once on an unused dashboard area (not a media/navigation button), then immediately send
+mode status: require ACTIVE and idle_ms near zero. Do not touch again. At five minutes
+ten seconds from original entry, send mode status: require still ACTIVE, idle_ms about
+190000. At five minutes ten seconds from the touch, send mode status: require OFF,
+reason=idle_timeout, release_stuck=0. Use one clock/timer and note both entry/touch times.
+If the touch does not reset idle, stop and send the capture. After expected expiry, send
+status/log status and download current (CRC OK). Send console/file and any extra touch
+or connection interruption. This is one touch-reset case; other link/power/admission
+gates remain pending. Increment 3 unapproved.
+
+---
+
 ## Increment 2 gate 3 - 2026-09-21, 14:37-14:39 - PASS
 
 Active-Live entry refusal, boot 103. JP confirms pass. Evidence: attachment
