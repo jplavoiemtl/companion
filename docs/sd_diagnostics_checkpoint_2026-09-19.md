@@ -1,5 +1,14 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 2 gate 1 passes
+
+Claude corrections approved at 5ed5ed1; JP built/flashed. Boot 103 reordered entry/
+exclusion/exit case passes: Latest displayed while OFF, refused while ACTIVE, CRC
+retrieval and persisted mode events. Next one case: pending-display entry refusal.
+[Evidence/procedure](sd_iphone_log_download_bench.md). No new firmware changes; no
+assistant build/flash. Increment 2 acceptance pending, increment 3 unapproved.
+
+
 ## Latest handoff - increment 2 review corrections, September 21
 
 Claude review 8121d5c addressed: MQTT refusals use the suppressed notification path only;

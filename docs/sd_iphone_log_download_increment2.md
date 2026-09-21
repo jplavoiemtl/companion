@@ -135,3 +135,10 @@ confirmed absent after this main-sketch edit. Normal configuration and historica
 unchanged. DIAG_ENABLED=0 deliberately prevents mode entry (logger_unavailable).
 Increment 3 remains unapproved. Review first; the previously drafted single entry/
 exclusion/exit bench case remains pending until corrections are reviewed.
+
+## First bench result - September 21
+
+Claude approved corrections at 5ed5ed1. JP's reordered gate 1 passes on boot 103:
+entry/repeated-command semantics, successful Latest while OFF, refusal while ACTIVE,
+paired exit records, CRC retrieval. [Evidence and next single pending-display case](sd_iphone_log_download_bench.md).
+Increment 2 acceptance remains pending its other gates; increment 3 is unapproved.

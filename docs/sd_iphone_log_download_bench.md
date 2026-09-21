@@ -12,8 +12,49 @@ wireless firmware exists for this feature yet. The USB-only extraction is now im
 and reviewed by Claude at `0ba72e5`; its host checks and issued first bench gate are recorded in the
 [increment 1 handoff](sd_iphone_log_download_increment1.md). All five issued USB regression gates and the restored normal-build handoff passed on
 September 21. JP accepted increment 1 and approved increment 2 on September 21. Increment 2 is
-implemented for [Claude review](sd_iphone_log_download_increment2.md); no increment 2
-hardware result exists yet. Historical acceptance-pending statements below predate that decision.
+reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. Historical acceptance-pending statements below predate that decision.
+
+---
+
+## Increment 2 gate 1 - 2026-09-21, 14:25-14:29 - PASS
+
+Entry/exclusion/exit with reordered steps, boot 103. JP reports the test worked, with
+Latest-in-mode tested last. Source checkpoint `5ed5ed1` includes Claude's approval of
+corrections `3b9d1cc`. Evidence: attachment
+`1a8641d2-e734-4b53-aab7-a12d76035ede/Pasted text.txt` and Downloads
+`103-current.log` / `103-current (1).log`.
+
+- Initially OFF; on -> ACTIVE/ok at 14:26:20; repeated on refused not_off. Off ->
+  STOPPING, then OFF confirmed; repeated off reports already_off.
+- Latest with mode OFF succeeded: IMAGE_BEGIN id=1, IMAGE_END ok/displayed, 31713 image
+  bytes, total_ms=1365 in persisted record. UI_ACTION processed belongs to that request.
+- Second on -> ACTIVE at 14:28:52; Latest at 14:28:56 printed Image refused: download
+  mode. Persisted seq=63 is IMAGE_REFUSED trigger=latest reason=download_mode, with no
+  IMAGE_BEGIN or UI_ACTION processed for that press. Thus "worked" means exclusion
+  worked, not that a new image was admitted while ACTIVE. No firmware correction needed.
+- Both exits have persisted stopping then ok records. Second exit completes at up_ms
+  237138; no RETRIEVAL_STUCK appears. Record spacing is not a measured close deadline.
+- USB downloads: 1145827 and **1148832 bytes**, both browser CRC OK. Second file size
+  verified locally, calculated CRC32 **BA86BA29**; it includes the final refusal/exit.
+  Two complete downloads plus size growth establish ongoing logging in this interval.
+- Last full status (before final refusal/download) is ready, hooks=0, drops=0, error=none,
+  queue=0/16, largest internal block=31732 > 20480, stack minimum=3208. No final full
+  status after the second download was supplied; no stronger final-memory claim is made.
+  Same boot throughout, no unexpected reset/stall visible. Normal fixture lines absent.
+
+### Next single case issued: refuse entry during completed-image display
+
+Same build, no flash. DTR=true/RTS=false; all browser switches off. On dashboard send
+log mode off, log mode status (OFF), status. Press Latest and wait for the image to finish
+loading. While that image remains displayed (within its normal one-minute display window),
+send log mode on. Expect OFF/refused/display_pending, with the image still displayed.
+If image_busy appears, wait for completion and retry while still on the image; if it already
+returned to the dashboard, report that timing rather than treating entry as a failure.
+Use the normal navigation control to return to dashboard (not the history-image Back
+request). Send log mode on: expect ACTIVE/ok, then off and mode status: OFF. Capture
+status/log status, download current with CRC OK, send console/file and screen observations.
+This tests the pending-display admission guard and its release on navigation, not remote
+motion handover or active Live. Those remain separate cases; increment 3 unapproved.
 
 ---
 
