@@ -1,6 +1,7 @@
 # iPhone log retrieval - increment 1 review handoff
 
-Status: Claude review passed at `0ba72e5`; **not compiled, flashed or bench accepted**.
+Status: Claude review passed at `0ba72e5`; JP returned a passing first USB bench case
+on September 21. **Full extraction acceptance remains pending.** No assistant build/flash.
 Base: `8038b9c`, branch `iphone-log-retrieval`. Implements only the approved USB-only
 extraction in revision 3 of [the spec](sd_iphone_log_download_spec.md), section 3.
 Increment 2 is not approved.
@@ -98,7 +99,11 @@ resolved for the first bench handoff as follows; deferred work is not silently c
    for this source-only increment. Clean build is the fallback for a source-discovery
    problem. No build or flash performed by Codex.
 
-## First USB extraction bench case - issued, result pending
+## First USB extraction bench case - passed September 21
+
+[Recorded result](sd_iphone_log_download_bench.md): boot 95, 32598 bytes, CRC OK, later
+append growth, zero drops/errors, internal largest block 51188 bytes. Procedure retained
+below for provenance.
 
 1. JP builds/flashes `amoled-1-8-core-3-3-11` in VS Code. Keep logging and PSRAM writer
    enabled, both diagnostic test flags zero. Send any compile error before proceeding.
@@ -119,4 +124,4 @@ Expected: CRC OK; logger ready; active=0, paused=0, result=ok after completion; 
 no new logger error, stall or reset; same boot; later current_size larger than immediately
 post-transfer. Check newest archive identity too: a rotation makes a simple size comparison
 inconclusive and must be interpreted from the capture. Internal largest block stays above
-20480 bytes. Append growth is not yet measured; do not call this gate passed before review.
+20480 bytes. Append growth is now confirmed by the September 21 result; remaining gates are pending.

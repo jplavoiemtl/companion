@@ -10,8 +10,43 @@ Status: design review closed on September 20, 2026 with six corrections accepted
 **Case 1 passed on September 20, 2026**, with transfer timing deliberately deferred. No
 wireless firmware exists for this feature yet. The USB-only extraction is now implemented
 and reviewed by Claude at `0ba72e5`; its host checks and issued first bench gate are recorded in the
-[increment 1 handoff](sd_iphone_log_download_increment1.md). No extraction bench result
-is claimed.
+[increment 1 handoff](sd_iphone_log_download_increment1.md). The first normal-current USB extraction gate passed on September 21; the extraction
+as a whole remains pending its remaining regression gates.
+
+---
+
+## Increment 1 USB gate 1 - 2026-09-21, 09:23-09:25 - PASS
+
+JP reports the test ran fine and the file downloaded. Checkout at review: `41dd46d`,
+firmware implementation `7976818`, reviewed by Claude at `0ba72e5`.
+Evidence: console attachment `bd3d1894-af58-4bd2-8264-ae1f7f796181/Pasted text.txt`
+and local download `C:/Users/photo/Downloads/95-current.log` (09:23:31).
+
+- Browser reports **32598 bytes, CRC OK**, 0.37 s, decoded 87865 B/s. Independent local
+  file inspection confirms 32598 bytes and computes CRC32 **59978670**. The capture hides
+  raw BEGIN/D/END frames, so that numeric CRC is a local calculation; browser CRC OK is
+  the evidence for its device-END comparison. The snapshot ends with `USB_GET_BEGIN`,
+  as expected; its own completion record cannot be in the frozen snapshot.
+- Same **boot 95**, current generation 21, newest archive 20 throughout; rotations=0.
+  Before transfer current_size=32438. At 09:23:45/50, post-transfer size=33890;
+  at 09:24:52 size=34898; at 09:24:57 size=35032. Later growth **1142 bytes** confirms
+  append continuation with no rotation ambiguity. The first post-transfer status was
+  about 15 seconds after completion; the later samples still establish the gate.
+- Post-transfer and final USB state: active=0, paused=0, bytes=32598, result=ok;
+  queue=0/16, drops=0, failure valid=0. Logger ready, error=none, errno=0; writes 35 -> 45.
+  No reset or new stall is visible in this capture. Wi-Fi and MQTT remain connected.
+- One transient USB connection observation: losses=1, max_loss_ms=3, pending=0;
+  recovered within the unchanged 1000 ms grace, with successful CRC completion.
+- Internal largest block **51188 bytes**, above the **20480-byte** gate; internal minimum
+  91952 bytes. Writer PSRAM stack minimum moved 3208 -> **2920 bytes** and then remained
+  there in the later sample. This is one transfer, not a repeated-resource stability test.
+
+The issued case requested DTR=true/RTS=false; opening is outside this cleared capture,
+so those settings are procedural, not independently visible here. No build transcript
+was supplied; running behavior is hardware evidence, not a compilation-log review.
+No firmware changes, assistant builds or flashes in this result review. Queue-pressure,
+prune-conflict, cancellation and close regression gates remain pending, one case at a
+time. Increment 2 remains unapproved.
 
 ---
 

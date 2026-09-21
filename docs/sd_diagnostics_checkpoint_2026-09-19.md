@@ -1,5 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 1 USB gate 1 passed
+
+JP's normal-current transfer on boot 95 passed: 32598 bytes, browser CRC OK (local saved
+file CRC32 59978670); later append size 33890 -> 35032 without rotation; zero drops/errors,
+logger ready and USB idle/unpaused. Largest internal block 51188 bytes; writer stack
+minimum 2920 bytes. One 3 ms connection blip recovered within USB grace. See the
+[bench result](sd_iphone_log_download_bench.md) for evidence and limits. Queue-pressure,
+prune, cancellation and close cases remain pending. Increment 2 is still unapproved.
+No firmware changes or assistant builds/flashes in this review.
+
+
 ## Latest handoff - iPhone retrieval increment 1 implementation, September 20
 
 On `iphone-log-retrieval`, based on `8038b9c`, the approved USB reader/session extraction
