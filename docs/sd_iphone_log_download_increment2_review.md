@@ -139,3 +139,83 @@ evidenced; the bench case remains the first real test.
 Fix defect 1 before flashing - it is a few lines and it protects the transfer path. Close or
 explicitly record defect 2. The two minor items can ride along or be deferred with a note.
 Then run the bounded entry/exclusion/exit case described in the handoff.
+
+---
+
+## Correction review - `8121d5c..3b9d1cc`, September 21
+
+**All four items are resolved. No new defects. Two low observations, neither blocking.**
+
+Verified against the source and by re-running the suite - **129 checks pass** (22 mode,
+15 media admission, plus the existing 92).
+
+### Defect 1 - fixed, and verified against the real suppression code
+
+`requestLatestImage()` now matches the existing Live convention exactly: exactly one record,
+chosen by path.
+
+```cpp
+if (fromNotification) diagnet::imageNotification("ignored_download_mode");
+else diagnet::event("IMAGE_REFUSED", "trigger=latest reason=download_mode");
+```
+
+The new test is the right kind: it extracts the **actual `imageNotification()` body** from
+`diagnostics_network.cpp` and runs it as the sink rather than mocking suppression. Twenty
+refused pushes produce **one** `MQTT_IMAGE` record with `suppressedImage == 19`; a push at
+4999 ms is suppressed; at 5000 ms a new record carries `suppressed=20`; and
+**zero `IMAGE_REFUSED` records** appear on that path. That closes the queue-pressure chain -
+eight refusals can no longer abort a paused `current.log` transfer. The suppression counter
+still reaches `NET_HEALTH`, so the aggregate stays visible.
+
+### Defect 2 - escalation implemented, ownership retained
+
+`RELEASE_WARN_MS = 10000` from the first exit request, one-shot via `releaseWarned`, emitting
+one queued `RETRIEVAL_STUCK reason=release_timeout exit=... recovery=await_release_or_reboot`
+plus one operator line, with `release_stuck` in status. Critically, **the reservation and
+media exclusion are retained** - escalation observes, it does not free anything. Rearming is
+correctly impossible: `logRetrievalExit()` returns early while already `Stopping`, so a
+repeated `off` cannot reset `stoppingAt` or `releaseWarned`, and `enter()` cannot run while
+non-`OFF`. The test confirms one record at the threshold, none before, and still one after a
+further 300 s plus a repeated `off`.
+
+### Latest event semantics - fixed
+
+`if (requestLatestImage()) diagnet::event("UI_ACTION", ...)` records a processed action only
+when admission succeeded. No evidence is lost: every button-path refusal already emits
+`IMAGE_REFUSED` with `trigger=latest`, so the press remains visible with an accurate outcome.
+
+### Tick placement - fixed
+
+The direct `loop()` call is removed; the single call site is inside `runBackgroundTick()`,
+which `loop()` invokes unconditionally at `companion.ino:2452` and which the Wi-Fi keep-alive
+paths also use. Tick frequency and recovery coverage are unchanged. The test asserts exactly
+one `logRetrievalTick();` in `companion.ino` and that it precedes `lv_timer_handler()`, which
+will catch a future duplicate.
+
+### Observation A - the Live button is now the odd one out
+
+`buttonNew_event_handler` (`image_fetcher.cpp:676`) still records
+`UI_ACTION action=live result=processed` **before** calling `videoStreamStart()`, which can
+refuse for download mode, Wi-Fi offline or allocation failure. After this correction, Latest
+and Back record only on success while Live records unconditionally, so the inconsistency has
+moved rather than gone. This is pre-existing and was not introduced by either increment, but
+download mode makes Live refusals routine. Aligning it is the same two-line change; JP's call
+whether it belongs here or in a later tidy-up.
+
+### Observation B - `release_stuck` is sticky through `OFF`
+
+`releaseWarned` is cleared only in `enter()`, so after a late release recovers, a
+`log mode status` in `OFF` still reports `release_stuck=1` until the next entry. The handoff
+states this is deliberate, and the log disambiguates through the following
+`RETRIEVAL_MODE action=exit result=ok` record. The residual risk is only that an operator
+reading the status line alone could read a recovered session as still stuck. Distinguishing
+the recovered case, or clearing on the transition to `OFF`, would remove the ambiguity.
+
+Also noted, not a concern: the `USBSerial.println` on the refusal path is unbounded per push,
+but it is console output, not a queued record, so it creates no SD queue pressure.
+
+### Recommendation
+
+Ready to build and flash. `companion.ino` changed in this increment, so remove the generated
+`build/build_amoled-1-8-core-3-3-11/sketch/companion.ino.cpp` first. Then run the bounded
+entry, exclusion and exit case from the handoff.
