@@ -16,6 +16,40 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 2 gate 6 - 2026-09-21, 15:04-15:07 - PASS
+
+Wi-Fi loss/recovery retains mode and timer, boot 103. JP confirms pass. Evidence:
+attachment `e7de58ac-b669-4db7-9842-c4d7fbc826e1/Pasted text.txt`, Downloads
+`103-current (6).log`.
+
+ACTIVE entry 15:04:45.934; offline status confirms Wi-Fi OFFLINE/MQTT DISCONNECTED
+and mode ACTIVE/link=down/idle_ms=41560. Persisted RETRIEVAL_LINK down at up_ms=2386751,
+up at 2420597: **33846 ms** observed link-down interval, not a reconnect latency measured
+from hotspot re-enable. Wi-Fi/MQTT recover; mode ACTIVE/link=up/idle_ms=70408, consistent
+with original entry (no reset). Explicit off completes OFF with release_stuck=0.
+
+Download **1203556 bytes**, browser CRC OK, 11.39 s; local size verified, computed
+CRC32 **08231D6E**. Last pre-download status ready, drops=0, error=none, queue=0/16,
+internal largest=26612 > 20480, stack minimum=2920, no USB losses/retained failure;
+same boot, ongoing append growth. This tests mode/link policy, not HTTP listener recovery
+(no server exists) or HTTPS readiness. No firmware changes.
+
+### Next single case issued: observed USB power loss exits mode
+
+Same build, no flash, battery connected/charged and hotspot available. No media/downloads
+in progress. Explicit DTR=true/RTS=false and all browser switches off. Clear console;
+send mode on/status and confirm ACTIVE, then status/log status to record boot. Physically
+unplug USB for about five seconds, then reconnect promptly (before the existing 30-second
+power-loss grace). Do not send mode off. Reconnect Chrome, preserving console output,
+and send mode status: expect OFF/reason=usb_power_lost/release_stuck=0. Send status/log
+status, then download current once with CRC OK. Send console/file and whether board stayed
+on without reboot. If boot changed, report it; OFF after a restart alone cannot prove
+power-triggered mode exit. Use persisted RETRIEVAL_MODE exit evidence to evaluate the gap.
+This is idle-mode power loss, not transfer interruption or battery-only entry admission.
+Increment 2 acceptance remains pending; increment 3 unapproved.
+
+---
+
 ## Increment 2 gate 5 - 2026-09-21, 14:52-15:01 - PASS
 
 Panel-touch idle reset, boot 103; JP confirms pass. Evidence: attachment

@@ -157,3 +157,7 @@ not reset the timer, CRC log verified. Next is one panel-touch idle-reset case.
 September 21 gate 5 passes: panel touch resets idle; persisted expiry 419849 ms after
 entry is approximately five minutes after the touch. Next single case: actual Wi-Fi
 loss/recovery while mode remains ACTIVE, with no idle reset.
+
+September 21 gate 6 passes: mode remains ACTIVE during measured Wi-Fi loss/recovery,
+idle age does not reset, CRC log saved. Next single case: brief USB power loss must exit
+mode without relying on a reboot. No firmware change required.

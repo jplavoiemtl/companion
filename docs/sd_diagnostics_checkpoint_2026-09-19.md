@@ -1,5 +1,13 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 2 Wi-Fi continuity gate passes
+
+Gates 1-6 pass, boot 103. Recorded Wi-Fi down/up interval 33846 ms; ACTIVE retained and
+idle age continuous. Next single case: brief USB power loss exits mode on battery,
+reconnect before normal shutdown grace. [Evidence/procedure](sd_iphone_log_download_bench.md).
+Increment 2 acceptance pending, increment 3 unapproved; no firmware changes.
+
+
 ## Latest result - September 21, increment 2 touch-reset gate passes
 
 Gates 1-5 pass. Boot 103 touch reset confirmed by idle_ms and persisted later exit;
