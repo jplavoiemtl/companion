@@ -1,5 +1,13 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 2 active-transfer exit passes
+
+Gates 1-8 pass. Boot 103 mode exit during USB current retrieval aborted 206208 bytes;
+persisted cleanup precedes mode exit completion; CRC retry passed. Next single case:
+direct Live refusal while mode ACTIVE. [Evidence/procedure](sd_iphone_log_download_bench.md).
+No firmware changes; increment 2 acceptance pending, increment 3 unapproved.
+
+
 ## Latest result - September 21, increment 2 USB-power exit passes
 
 Gates 1-7 pass. Boot 103 VBUS-loss exit persisted and OFF confirmed after reconnect on

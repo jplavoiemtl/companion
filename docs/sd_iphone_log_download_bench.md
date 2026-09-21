@@ -16,6 +16,39 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 2 gate 8 - 2026-09-21, 15:16-15:18 - PASS
+
+Explicit mode exit during current USB transfer, boot 103; JP confirms pass. Evidence:
+attachment `a71bd6ce-3153-4649-9902-a05ad1a5be00/Pasted text.txt`, Downloads
+`103-current (8).log`. Earlier OFF status in this capture preceded the omitted on command;
+JP then sent on successfully at 15:16:14.930. No defect was observed at initial setup.
+
+Current transfer started 15:16:30.875; off sent 15:16:32.853, followed by STOPPING and
+Device: aborted. Persisted order: mode stopping seq=322 up_ms=3070134; USB_GET_END
+seq=323 up_ms=3070138, bytes=206208, duration_ms=1990, result=aborted; mode exit ok
+seq=324 up_ms=3070158. This supports cleanup before completed mode exit; record spacing
+is not a separately instrumented release/close latency measurement.
+
+Subsequent mode status OFF/release_stuck=0, USB active=0/paused=0/result=aborted,
+queue=0/16, drops=0, no retained failure. Retry **1217047 bytes**, browser CRC OK,
+11.45 s; local size verified, calculated CRC32 **AFD46D5A**. Same boot. The only full
+resource status is before the test (largest=26612, stack_min=2920); no post-retry memory
+or status observation is claimed. Retry file preserves cancellation evidence and
+records appended afterward. No firmware changes.
+
+### Next single case issued: direct Live refusal while mode ACTIVE
+
+Same build/no flash, USB/hotspot connected, dashboard idle, test switches off. Clear
+console; mode on/status must be ACTIVE. Press Live once: expect Live refused: download
+mode, no loading screen/frames/navigation. Send mode status, still ACTIVE. Mode off/status
+must reach OFF. Press Live once and allow the full normal cycle to complete. Then
+status/log status and current download (CRC OK). Send console/file and whether the first
+press stayed on dashboard and the second played normally. Earlier live_busy gate tested
+the opposite admission direction; this covers the direct Live guard while mode is active.
+Remaining coverage is to be reviewed before increment 2 acceptance; increment 3 unapproved.
+
+---
+
 ## Increment 2 gate 7 - 2026-09-21, 15:09-15:11 - PASS
 
 USB-power-loss exit without reboot, boot 103; JP confirms pass. Evidence: attachment

@@ -165,3 +165,7 @@ mode without relying on a reboot. No firmware change required.
 September 21 gate 7 passes: USB power loss exits mode on boot 103 without reboot,
 persisted exit completion and CRC evidence. Next: explicit mode exit during a current
 USB transfer, to exercise STOPPING through actual writer cancellation/release.
+
+September 21 gate 8 passes: mode off during USB transfer produces stopping -> USB abort
+-> mode exit complete; idle/unpaused status and CRC retry verify reuse. Next single
+case: direct Live refusal while mode ACTIVE, then normal Live after exit.
