@@ -132,3 +132,10 @@ Cancellation/retry gate passed on boot 95: 1296-byte aborted transfer, successfu
 41702-byte retry (local CRC32 E936A9DC), append growth and no drops/errors. See the
 [bench record](sd_iphone_log_download_bench.md). Next is only queue pressure using the
 existing fixture flag; prune and close remain pending. No increment 2 approval implied.
+
+## September 21 queue-pressure result
+
+Gate 3 passed on boot 97: 8/16 triggered logger_busy; all eight test records saved;
+61227-byte retry CRC OK, zero drops/errors. Next is the disposable-archive prune case
+on the same fixture build, then close coverage. See the [bench record](sd_iphone_log_download_bench.md).
+JP's local fixture=1 edit remains uncommitted for bench use. Increment 2 is not approved.

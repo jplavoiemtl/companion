@@ -15,6 +15,51 @@ as a whole remains pending its remaining regression gates.
 
 ---
 
+## Increment 1 USB gate 3 - 2026-09-21, 09:37-09:39 - PASS
+
+Queue-pressure abort and retry, boot 97, fixture=1/hooks=0/PSRAM writer=1.
+JP reports the test ran fine. Evidence: attachment
+`7450c206-1d9e-47d3-b307-6c15820bc770/Pasted text.txt` and
+`C:/Users/photo/Downloads/97-current.log`.
+
+- `log test queue` armed; transfer fired once, added=8, queued_at_test=8/16,
+  result=injected. Device returned logger_busy, browser reported the expected error.
+- Saved retry contains all **eight USB_QUEUE_TEST records**, boot 97 seq=38..45,
+  followed by seq=46 `USB_GET_END bytes=1584 duration_ms=54 result=logger_busy`.
+  Thus the actual queued evidence was saved after abort, not merely reported injected.
+- Retry without rearming: **61227 bytes, CRC OK**, 0.61 s. Local file size matches;
+  independently calculated CRC32 **23E3FFE5**. Numeric CRC is local; browser CRC OK
+  establishes the device-END comparison.
+- Final gate retains fired=1, added=8, queued_at_test=8/16, result=injected,
+  outcome=logger_busy; armed/active=none. USB active=0, paused=0, result=ok, queue=0/16.
+  Logger ready, drops=0, error=none, no new stall/reset in capture. Queue high=9 is
+  compatible with the completion record after the half-full trigger, not an overflow.
+- current_size grows beyond the snapshot to 62520; same generation 21/newest 20,
+  rotations=0. Largest internal block 51188 exceeds 20480; internal minimum 91928;
+  stack minimum 3176 -> 2984 in this fixture build. No USB link losses.
+- JP omitted the intermediate status between abort and retry. The persisted abort
+  record, all eight records, successful retry and retained gate outcome substantiate
+  cleanup/reuse; no intermediate status observation is claimed.
+
+No firmware changes by Codex. JP's local DIAG_USB_TEST_FIXTURE=1 edit remains uncommitted
+and untouched for the next case; tracked default stays zero. Prune and close regression
+gates remain pending, and increment 2 remains unapproved.
+
+### Next single case issued: prune an actively read disposable archive
+
+No rebuild/flash; same fixture-enabled boot/build. Explicit DTR=true/RTS=false,
+all browser test switches off; no Live. Capture status/log status. Send `log test file`,
+wait for result=ok and note its new archive number N. Refresh files and preserve the
+list. Send `log test prune N` using only that newly created synthetic archive number,
+then download that archive. Expect Device: pruned and no saved partial file.
+Refresh files and capture status/log status: only the fixture disappears, pruned rises
+by one, result=pruned and outcome=pruned, logger ready and drops=0. Stop on mismatch.
+Download current.log normally (CRC OK), then status/log status. Send full saved console
+and that current.log. This exercises the production reader-close-before-unlink path;
+it does not retest retention threshold selection. No separate fixture deletion is needed.
+
+---
+
 ## Increment 1 USB gate 2 - 2026-09-21, 09:29-09:32 - PASS
 
 Cancellation and reuse, same boot 95 and normal build. JP reports the test ran fine.

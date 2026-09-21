@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 1 USB gate 3 passed
+
+Queue-pressure abort/retry passed on boot 97; eight queued records verified, CRC retry
+passed, zero drops/errors. Normal-current and cancellation gates also passed. Next:
+one disposable-archive prune case on the existing fixture-enabled build, then close
+coverage. [Bench evidence and procedure](sd_iphone_log_download_bench.md).
+JP's local fixture=1 config edit is retained uncommitted; no assistant build/flash.
+Increment 2 remains unapproved.
+
+
 ## Latest result - September 21, increment 1 USB gate 2 passed
 
 Cancellation and retry passed on boot 95; normal-current gate also passed. Next single
