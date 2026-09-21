@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 21, increment 1 ready for acceptance
+
+All five issued extraction regression cases and the restored normal-build check pass.
+Boot 101 confirms fixture=0/hooks=0, CRC retrieval, append growth and zero drops/errors.
+[Full evidence](sd_iphone_log_download_bench.md). Source is back to normal configuration.
+No further bench case requested now. Await JP's explicit increment 1 acceptance and
+increment 2 approval; propose mode/admission with USB commands, no HTTP server. Claude
+reviews implementation before JP builds/flashes. Review deferrals retain their deadlines.
+
+
 ## Latest result - September 21, increment 1 close gate passed
 
 All five issued USB extraction regression cases pass, including orderly shutdown boot

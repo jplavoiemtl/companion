@@ -10,8 +10,40 @@ Status: design review closed on September 20, 2026 with six corrections accepted
 **Case 1 passed on September 20, 2026**, with transfer timing deliberately deferred. No
 wireless firmware exists for this feature yet. The USB-only extraction is now implemented
 and reviewed by Claude at `0ba72e5`; its host checks and issued first bench gate are recorded in the
-[increment 1 handoff](sd_iphone_log_download_increment1.md). The first normal-current USB extraction gate passed on September 21; the extraction
-as a whole remains pending its remaining regression gates.
+[increment 1 handoff](sd_iphone_log_download_increment1.md). All five issued USB regression gates and the restored normal-build handoff passed on
+September 21. Increment 1 is ready for JP acceptance; increment 2 remains unapproved.
+
+---
+
+## Increment 1 normal-build handoff - 2026-09-21, 10:37-10:39 - PASS
+
+JP reports the test ran fine. Evidence: attachment
+`e7d8aa31-31c1-4ddf-9802-fe572e2382d7/Pasted text.txt` and
+`C:/Users/photo/Downloads/101-current.log`.
+
+- Boot 101, hooks=0; fixture, USB TEST and USB GATE status lines absent. Source flags
+  confirmed: logging=1, fixture=0, hooks=0, PSRAM writer=1; working tree clean.
+- **103377 bytes, browser CRC OK**, 1.04 s. Local file length matches and computed
+  CRC32 is **7F7FCDC7**. Numeric CRC is local; browser CRC OK supplies device-END
+  verification. Current size later reaches **104680** (+1303 beyond snapshot), same
+  generation 21/newest 20, no rotation. Writes 35 -> 41.
+- Final ready, active=0, paused=0, result=ok, queue=0/16, drops=0, error=none;
+  no retained transfer failure, USB losses or unexpected reset in capture. Wi-Fi/MQTT
+  remain connected. Internal largest block **51188** exceeds 20480; internal minimum
+  92004; writer stack minimum **2920**, matching the earlier normal-build cases.
+
+**Increment 1 is ready for JP's explicit acceptance.** Five scoped regression cases
+(normal current, cancellation/reuse, queue protection, selected-archive prune, orderly
+close/restart) plus this normal-build restoration check pass. Host checks and Claude
+review remain as recorded; no new code changes require their repetition. In-flight
+shutdown timing and delayed stale acknowledgements were not measured on hardware;
+the prior documented coverage limits and review deferrals remain. No additional bench
+case is requested now. No increment 2 implementation or approval is implied.
+
+Next action: JP may accept increment 1 and explicitly approve increment 2. Proposed
+increment 2 is mode state/admission with USB command entry and no server, per spec;
+implementation goes to Claude review before JP builds/flashes, with bench gates issued
+one at a time. Historical draft remains untouched.
 
 ---
 
