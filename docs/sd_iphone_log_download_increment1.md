@@ -125,3 +125,10 @@ no new logger error, stall or reset; same boot; later current_size larger than i
 post-transfer. Check newest archive identity too: a rotation makes a simple size comparison
 inconclusive and must be interpreted from the capture. Internal largest block stays above
 20480 bytes. Append growth is now confirmed by the September 21 result; remaining gates are pending.
+
+## September 21 follow-up
+
+Cancellation/retry gate passed on boot 95: 1296-byte aborted transfer, successful
+41702-byte retry (local CRC32 E936A9DC), append growth and no drops/errors. See the
+[bench record](sd_iphone_log_download_bench.md). Next is only queue pressure using the
+existing fixture flag; prune and close remain pending. No increment 2 approval implied.

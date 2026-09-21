@@ -15,6 +15,48 @@ as a whole remains pending its remaining regression gates.
 
 ---
 
+## Increment 1 USB gate 2 - 2026-09-21, 09:29-09:32 - PASS
+
+Cancellation and reuse, same boot 95 and normal build. JP reports the test ran fine.
+Evidence: attachment `cf8ccfce-6e10-4863-a073-1abd773a8e1b/Pasted text.txt` and
+`C:/Users/photo/Downloads/95-current (1).log`.
+
+- Deliberately damaged browser data caused `log abort` at 09:30:11.269; device replied
+  `@@ERR reason=aborted` at .281 and browser reported abort confirmed. The 12 ms is
+  host-observed command/response timing, not an isolated writer close measurement.
+- Following status: active=0, paused=0, bytes=1296, result=aborted, queue=0/16.
+  Retry snapshot contains `USB_GET_END bytes=1296 duration_ms=56 result=aborted`, seq=64.
+- Normal retry: **41702 bytes, CRC OK**, 0.43 s. Local file has exactly 41702 bytes;
+  independently computed CRC32 **E936A9DC**. Browser CRC OK establishes device-END
+  comparison; the numeric CRC is calculated locally, not exposed in the capture.
+- Post-retry current_size=41862 at 09:30:56, then 43139 at 09:32:07/14: **1277 bytes
+  growth**. Same generation 21/newest archive 20, no rotation. Final active=0, paused=0,
+  result=ok, ready, drops=0, error=none; no unexpected reset/stall in the capture.
+- Internal largest block remains 51188 bytes, internal minimum 91952, writer stack
+  minimum 2920. USB losses=0 for both new transfers; Wi-Fi/MQTT remain connected.
+
+This proves cancellation cleanup and subsequent reservation reuse on hardware, not delayed
+stale acknowledgements (those remain host-test coverage). Queue, prune and close gates
+remain pending. Increment 2 is unapproved.
+
+### Next single case issued: queue-pressure abort and normal retry
+
+Use the existing fixture build: JP sets `DIAG_USB_TEST_FIXTURE=1` in
+`src/diagnostics/diagnostics_config.h`, keeping DIAG_TEST_HOOKS=0, DIAG_ENABLED=1 and
+DIAG_WRITER_STACK_PSRAM=1, then builds/flashes amoled-1-8-core-3-3-11. No generated-sketch
+deletion is needed. This is existing bench instrumentation, not new firmware logic.
+The checked-in default remains zero; restore it after fixture regression work.
+
+Chrome: explicit DTR=true/RTS=false, all browser test switches off, no Live, Wi-Fi/MQTT
+connected. Capture status and log status, send `log test queue` (expect armed=queue),
+download current once (expect logger_busy and no partial save), then status/log status.
+Require fired=1, result=injected, outcome=logger_busy, queued_at_test=8/16, added>0,
+zero drops, and USB idle/unpaused. Stop on any mismatch. Download current again without
+rearming (CRC OK), then status/log status. Send full saved console and successful file
+so injected records and the terminal event can be checked. No later case issued yet.
+
+---
+
 ## Increment 1 USB gate 1 - 2026-09-21, 09:23-09:25 - PASS
 
 JP reports the test ran fine and the file downloaded. Checkout at review: `41dd46d`,
