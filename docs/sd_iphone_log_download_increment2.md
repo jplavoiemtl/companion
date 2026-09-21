@@ -161,3 +161,7 @@ loss/recovery while mode remains ACTIVE, with no idle reset.
 September 21 gate 6 passes: mode remains ACTIVE during measured Wi-Fi loss/recovery,
 idle age does not reset, CRC log saved. Next single case: brief USB power loss must exit
 mode without relying on a reboot. No firmware change required.
+
+September 21 gate 7 passes: USB power loss exits mode on boot 103 without reboot,
+persisted exit completion and CRC evidence. Next: explicit mode exit during a current
+USB transfer, to exercise STOPPING through actual writer cancellation/release.

@@ -1,5 +1,13 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 2 USB-power exit passes
+
+Gates 1-7 pass. Boot 103 VBUS-loss exit persisted and OFF confirmed after reconnect on
+same boot. Next single case: mode off during current USB download, then normal retry.
+[Evidence/procedure](sd_iphone_log_download_bench.md). No firmware changes; increment 2
+acceptance pending and increment 3 unapproved.
+
+
 ## Latest result - September 21, increment 2 Wi-Fi continuity gate passes
 
 Gates 1-6 pass, boot 103. Recorded Wi-Fi down/up interval 33846 ms; ACTIVE retained and

@@ -16,6 +16,42 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 2 gate 7 - 2026-09-21, 15:09-15:11 - PASS
+
+USB-power-loss exit without reboot, boot 103; JP confirms pass. Evidence: attachment
+`515d0129-20ce-43e5-b398-2ad7932114ae/Pasted text.txt`, Downloads
+`103-current (7).log`.
+
+ACTIVE confirmed before unplug. Host device removal 15:10:15.546, available again
+15:10:23.350. Persisted boot-103 mode exit usb_power_lost/stopping at up_ms=2692876
+and ok at 2692880. Post-reconnect status confirms OFF/reason=usb_power_lost,
+release_stuck=0; same boot 103/continuous uptime. No explicit off command or reboot
+explains this exit. Record spacing is not a physical VBUS-to-exit latency measurement.
+Movement occurred while handling the board; power loss is the recorded exit cause.
+
+Download **1209578 bytes, browser CRC OK**, 11.29 s; local length matches, calculated
+CRC32 **54FDFD6B**. Pre-download status ready, drops=0, error=none, queue=0/16,
+internal largest=26612 > 20480, stack minimum=2920, continued append growth. Initial
+USB active=1 on reconnect belongs to automatic listing; subsequent status is idle.
+No unexpected reset/stall visible. This is idle-mode VBUS exit, not battery-entry
+refusal or power loss during a transfer. No firmware changes.
+
+### Next single case issued: explicit mode exit during current USB retrieval
+
+Same build/no flash, USB/hotspot connected, DTR=true/RTS=false, browser test switches off.
+Capture status and mode on/status (ACTIVE). Pretype log mode off in the command box but
+do not send yet. Download current.log; while progress is advancing (about two seconds
+into the current roughly 11-second transfer), send that command. Expect STOPPING,
+Device: aborted, no saved partial file. Send mode status and log status after the abort:
+require OFF, release_stuck=0, active=0, paused=0, result=aborted. Stop on mismatch.
+Download current normally without re-entering mode (CRC OK); status/log status. Send
+console and successful file. If download finished before off arrived, report that timing;
+it did not exercise cancellation. This validates main exit -> writer cleanup/release ->
+OFF and subsequent reuse. Other admission/exclusion coverage remains for final review;
+increment 3 unapproved.
+
+---
+
 ## Increment 2 gate 6 - 2026-09-21, 15:04-15:07 - PASS
 
 Wi-Fi loss/recovery retains mode and timer, boot 103. JP confirms pass. Evidence:
