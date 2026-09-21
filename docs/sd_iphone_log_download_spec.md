@@ -168,6 +168,16 @@ without JP changing the decision. Any HTTP request resets it, including the last
 view and favicon, as does a panel touch. An expiry-during-archive-transfer case is a
 required bench gate.
 
+### Increment 2 STOPPING observation policy (September 21 review correction)
+
+With the USB-only adapter, a still-busy reservation after 10 seconds in STOPPING emits
+one RETRIEVAL_STUCK event and one serial warning, retaining a release_stuck status flag.
+It does not free resources or end media exclusion. A late release completes exit;
+otherwise the operator must reboot. Event persistence is best-effort through the existing
+queue, not guaranteed with a stuck writer. This is an observation threshold, not an
+extension of USB transfer limits or the power-close caller wait. It does not resolve the
+provisional HTTP descriptor/lifecycle/error-recovery contract below.
+
 ## 5. Ownership, cancellation and teardown
 
 SD is writer-owned. No HTTP path opens a file descriptor. One retrieval session exists

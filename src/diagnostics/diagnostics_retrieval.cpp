@@ -15,6 +15,10 @@ namespace {
 enum class Mode : uint8_t { Off, Starting, Active, Stopping };
 Mode mode = Mode::Off;
 constexpr uint64_t IDLE_MS = 300000;
+// Observation threshold, not permission to free a buffer or a close deadline.
+constexpr uint64_t RELEASE_WARN_MS = 10000;
+uint64_t stoppingAt = 0;
+bool releaseWarned = false;
 uint64_t activityAt = 0;
 bool linkUp = false;
 const char* lastReason = "boot";
@@ -29,9 +33,9 @@ const char* stateName() {
   }
 }
 void report(const char* result) {
-  USBSerial.printf("[LOG RETRIEVAL] state=%s link=%s result=%s reason=%s idle_ms=%llu server=absent\n",
+  USBSerial.printf("[LOG RETRIEVAL] state=%s link=%s result=%s reason=%s idle_ms=%llu release_stuck=%u server=absent\n",
     stateName(), linkUp ? "up" : "down", result, lastReason,
-    (unsigned long long)(mode == Mode::Off ? 0 : nowMs()-activityAt));
+    (unsigned long long)(mode == Mode::Off ? 0 : nowMs()-activityAt), unsigned(releaseWarned));
 }
 const char* entryRefusal() {
   if (mode != Mode::Off) return "not_off";
@@ -52,7 +56,7 @@ void enter() {
     report("refused"); return;
   }
   mode = Mode::Starting;
-  activityAt = nowMs(); linkUp = true; lastReason = "requested";
+  activityAt = nowMs(); linkUp = true; lastReason = "requested"; releaseWarned = false;
   // No startup resource or failure point until increment 3. Keep STARTING explicit.
   mode = Mode::Active;
   diagnet::event("RETRIEVAL_MODE", "action=enter trigger=usb reason=requested result=ok");
@@ -63,6 +67,7 @@ bool logRetrievalActive() { return mode != Mode::Off; }
 void logRetrievalExit(const char* reason) {
   if (mode == Mode::Off || mode == Mode::Stopping) return;
   mode = Mode::Stopping; lastReason = exitReason = reason;
+  stoppingAt = nowMs(); releaseWarned = false;
   // Existing USB adapter owns cleanup/release on the writer. Never wait for it here.
   if (diagnosticsUsbBusy()) diagnosticsUsbCommand("log abort");
   diagnet::event("RETRIEVAL_MODE", "action=exit trigger=%s reason=%s result=stopping", reason, reason);
@@ -83,6 +88,14 @@ void logRetrievalTick() {
       linkUp = connected;
       diagnet::event("RETRIEVAL_LINK", "state=%s", linkUp ? "up" : "down");
     }
+  }
+  if (mode == Mode::Stopping && diagnosticsUsbBusy() &&
+      !releaseWarned && nowMs()-stoppingAt >= RELEASE_WARN_MS) {
+    releaseWarned = true;
+    // One bounded queued record plus operator output. Retain storage and exclusion;
+    // a late release can recover naturally, otherwise an operator reboot is needed.
+    diagnet::event("RETRIEVAL_STUCK", "reason=release_timeout exit=%s recovery=await_release_or_reboot", exitReason);
+    report("release_timeout");
   }
   if (mode == Mode::Stopping && !diagnosticsUsbBusy()) {
     mode = Mode::Off; lastReason = exitReason;

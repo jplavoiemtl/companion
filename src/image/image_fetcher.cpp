@@ -623,8 +623,8 @@ static void processHTTPResponse() {
 //***************************************************************************************************
 bool requestLatestImage(bool fromNotification) {
   if (logRetrievalActive()) {
-    diagnet::event("IMAGE_REFUSED", "trigger=%s reason=download_mode", fromNotification ? "mqtt" : "latest");
     if (fromNotification) diagnet::imageNotification("ignored_download_mode");
+    else diagnet::event("IMAGE_REFUSED", "trigger=latest reason=download_mode");
     USBSerial.println("Image refused: download mode");
     return false;
   }
@@ -673,9 +673,8 @@ bool requestLatestImage(bool fromNotification) {
 //***************************************************************************************************
 void buttonLatest_event_handler(lv_event_t* e) {
   if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
-    diagnet::event("UI_ACTION", "action=latest result=processed");
     USBSerial.println("Latest button clicked");
-    requestLatestImage();
+    if (requestLatestImage()) diagnet::event("UI_ACTION", "action=latest result=processed");
   }
 }
 

@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - increment 2 review corrections, September 21
+
+Claude review 8121d5c addressed: MQTT refusals use the suppressed notification path only;
+STOPPING warns once after 10 seconds without releasing held resources; Latest processed
+records require acceptance; duplicate mode tick removed. 129 host checks pass.
+[Correction details and limits](sd_iphone_log_download_increment2.md). Quick Claude review
+before JP builds/flashes; selected profile generated sketch is absent. No assistant
+build/flash, no increment 3 approval. Normal flags unchanged.
+
+
 ## Latest handoff - September 21, increment 2 implemented for Claude review
 
 JP accepted increment 1 and approved increment 2. Mode/admission and USB commands are

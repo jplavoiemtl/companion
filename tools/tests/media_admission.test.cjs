@@ -7,7 +7,7 @@ const strip=s=>s.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\/[^\n]*|\/\*[\s
 function body(s,sig){let i=s.indexOf(sig);assert(i>=0,sig);i=s.indexOf('{',i);let a=++i,d=1;while(d){if(s[i]=='{')d++;if(s[i]=='}')d--;i++;}return s.slice(a,i-1);}
 function adapt(s){return s.replace(/diagnet::event/g,'event').replace(/diagnet::imageNotification/g,'notification').replace(/const unsigned long /g,'const ').replace(/lv_obj_t\* /g,'let ').replace(/lv_disp_t\* /g,'let ').replace(/\bNULL\b/g,'null');}
 function context(){const c={blocked:true,pendingEndpoint:null,motionTriggered:false,imageDisplayTimeoutActive:false,requestInProgress:false,screen2TimeoutActive:false,lastImageLoadedTime:0,NOTIFICATION_ECHO_WINDOW_MS:2000,screen:1,ui_previous_screen:null,cfg:{screen1:1,screen2:2,screen3:3,inclinometerScreen:4},events:[],notes:[],begins:0,ends:0,mutations:0,active:false,WL_CONNECTED:1,LV_EVENT_CLICKED:1,LV_DISP_ROT_90:1};c.logRetrievalActive=()=>c.blocked;c.event=(...x)=>c.events.push(x);c.notification=x=>c.notes.push(x);c.videoStreamActive=()=>c.active;c.millis=()=>10000;c.lv_scr_act=()=>c.screen;c.imageBegin=()=>c.begins++;c.imageEnd=()=>c.ends++;c.USBSerial={println:()=>{},printf:()=>{}};c.lv_event_get_code=e=>e;c.cleanupImageRequest=()=>{c.mutations++;};c.lv_disp_load_scr=s=>{c.screen=s;c.mutations++;};c.lv_disp_get_default=()=>1;c.lv_disp_set_rotation=()=>c.mutations++;c.lv_refr_now=()=>c.mutations++;c.WiFi={status:()=>1};vm.createContext(c);
-const defs=[['prepareForRequest','','static bool prepareForRequest() {'],['requestLatestImage','fromNotification=false','bool requestLatestImage('],['buttonBack_event_handler','e','void buttonBack_event_handler('],['imageFetcherHasPendingDisplay','','bool imageFetcherHasPendingDisplay()']];vm.runInContext(defs.map(([n,a,s])=>`function ${n}(${a}){${adapt(body(image,s))}}`).join('\n'),c);
+const defs=[['buttonLatest_event_handler','e','void buttonLatest_event_handler('],['prepareForRequest','','static bool prepareForRequest() {'],['requestLatestImage','fromNotification=false','bool requestLatestImage('],['buttonBack_event_handler','e','void buttonBack_event_handler('],['imageFetcherHasPendingDisplay','','bool imageFetcherHasPendingDisplay()']];vm.runInContext(defs.map(([n,a,s])=>`function ${n}(${a}){${adapt(body(image,s))}}`).join('\n'),c);
 // Execute the actual Live admission prefix; allowed allocation/rendering is outside this harness.
 vm.runInContext(`function videoStreamStart(trigger='button'){${adapt(body(video,'bool videoStreamStart(').split('  diagnosticsProbeBegin(')[0])}return 'admitted';}`,c);return c;}
 let count=0;function test(n,f){f(context());count++;console.log('PASS '+n);}
@@ -38,5 +38,27 @@ test('actual motion-handover branch clears pending flags and calls Live after ex
  const handover=body(body(image,'void imageFetcherLoop()'),'if (elapsed > MOTION_STILL_TIMEOUT)');
  vm.runInContext(`function handover(){${adapt(handover)}}`,c);c.handover();
  assert.equal(c.motionTriggered,false);assert.equal(c.imageDisplayTimeoutActive,false);
+});
+test('repeated refused MQTT pushes use actual suppression with no per-push unsuppressed record',c=>{
+ const network=read('src/diagnostics/diagnostics_network.cpp');
+ const notificationBody=body(network,'void imageNotification(')
+  .replace(/^#.*$/gm,'').replace(/static const char\* last = "";/,'')
+  .replace(/static uint64_t lastAt = 0;/,'').replace(/static uint32_t suppressed = 0;/,'')
+  .replace(/const uint64_t now/g,'const now').replace(/static_cast<unsigned long>\(suppressed\)/g,'suppressed');
+ c.t=10000;c.nowMs=()=>c.t;c.strcmp=(a,b)=>a===b?0:1;
+ vm.runInContext(`let last='',lastAt=0,suppressed=0,suppressedImage=0;function notification(result){${notificationBody}}`,c);
+ for(let i=0;i<20;i++)assert.equal(c.requestLatestImage(true),false);
+ assert.equal(c.events.length,1);assert.equal(c.events[0][0],'MQTT_IMAGE');
+ assert.equal(vm.runInContext('suppressedImage',c),19);
+ c.t=14999;c.requestLatestImage(true);assert.equal(c.events.length,1);
+ c.t=15000;c.requestLatestImage(true);assert.equal(c.events.length,2);
+ assert.equal(c.events[1][2],'ignored_download_mode');assert.equal(c.events[1][3],20);
+ assert.equal(c.events.filter(e=>e[0]=='IMAGE_REFUSED').length,0);assert.equal(c.begins,0);
+});
+test('Latest button records processed only when admission succeeds',c=>{
+ c.buttonLatest_event_handler(1);assert.equal(c.events.filter(e=>e[0]=='UI_ACTION').length,0);
+ assert.equal(c.events.filter(e=>e[0]=='IMAGE_REFUSED').length,1);
+ c.blocked=false;c.buttonLatest_event_handler(1);
+ assert.equal(c.events.filter(e=>e[0]=='UI_ACTION').length,1);assert.equal(c.begins,1);
 });
 console.log(`${count} media admission checks passed; source simulations only.`);

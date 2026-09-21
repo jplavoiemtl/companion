@@ -31,9 +31,10 @@ Exit publishes STOPPING and posts an existing USB abort if a retrieval is busy; 
 waits or prints on that path. Main tick completes OFF only after the reservation releases.
 With no HTTP resources, no other acknowledgement is needed in this increment. Repeated
 off is idempotent and explicit; on while non-OFF is refused. The original exit reason
-survives refused on commands while STOPPING. A stuck USB release keeps exclusion, as
-visible via mode status; comprehensive HTTP error/recovery remains the provisional
-section 5 work, not solved by this change.
+survives refused on commands while STOPPING. A stuck USB release keeps exclusion. After 10 seconds STOPPING emits one queued
+RETRIEVAL_STUCK record and one operator warning; status retains release_stuck=1. A late
+release recovers naturally; otherwise operator reboot is the stated recovery. Full HTTP
+resource/lifecycle recovery remains provisional section 5 work.
 
 Observed VBUS loss requests exit directly in updatePowerStatus. Central diagnosticsClose
 requests shutdown/deep-sleep exit without waiting for OFF or altering the existing caller
@@ -41,13 +42,13 @@ wait. No new serial output is added to the close path. Idle is 300000 ms using e
 valid touch resets it. Status, mode-on retries, USB progress and Wi-Fi reconnection do not.
 Link loss remains ACTIVE/link=down; link recovery does not reset idle. No HTTP arrival API
 exists yet; add a main-task mailbox for request activity with the server, not a cross-task
-call to the touch API. Main and background keep-alive ticks service exits during recovery;
+call to the touch API. The background keep-alive tick services exits in the ordinary loop and during recovery;
 existing blocking operations still bound observation latency. No new real-time guarantee
 is claimed. No motion-based exit or screen-memory debounce changes.
 
 ## Validation
 
-**124 host checks pass:** existing 92, plus 19 mode and 13 media-admission checks.
+**129 host checks pass:** existing 92, plus 22 mode and 15 media-admission checks.
 Mode checks execute actual C++ function bodies translated for JS with platform mocks:
 all entry reasons, repeated commands, exclusive transitional states, abort/release wait,
 power and logger exits, link recovery, five-minute deadline even when busy, touch reset,
@@ -94,3 +95,43 @@ bounded entry/exclusion/exit case. Battery admission, active media/pending hando
 VBUS loss, idle/touch and hotspot cases follow separately after its review, one at a time.
 No increment 3 implementation before explicit approval and resolution of its lifecycle,
 descriptor ownership and provisional socket budget decisions.
+
+## Correction after Claude review 8121d5c - September 21
+
+All four findings addressed; quick Claude review required before JP builds/flashes.
+Compare the correction commit to `8121d5c`.
+
+1. **MQTT refusal record bound fixed.** Download-mode refusal now follows the existing
+   Live convention: only imageNotification(ignored_download_mode) for MQTT, only
+   IMAGE_REFUSED for a button. The test executes the actual notification suppression
+   body alongside requestLatestImage: 20 repeated pushes produce one MQTT_IMAGE record,
+   the next at 4999 ms is suppressed, and at 5000 ms a new record reports suppressed=20.
+   No IMAGE_REFUSED is emitted on that path. Existing USB guards/limits are unchanged;
+   suppression reduces pressure but is not a guarantee against all queue-pressure causes.
+2. **STOPPING escalation implemented.** At 10000 ms from the first exit request, if
+   the reservation is still busy, main tick sets a retained release_stuck indicator,
+   queues one RETRIEVAL_STUCK reason=release_timeout record with the original exit reason
+   and recovery=await_release_or_reboot, and prints one release_timeout status line.
+   Repeated off/on attempts do not postpone or rearm the warning. The reservation,
+   buffer and media exclusion remain held: no timeout-based free or forced OFF. A late
+   release completes OFF; a new accepted mode clears the warning for that new cycle.
+   Ten seconds is an observation threshold (longer than USB's 5-second terminal-output
+   expiry), not a new transfer bound, close deadline or automatic reboot. Output occurs
+   only on main tick, never in logRetrievalExit or diagnosticsClose. Existing blocking
+   main work can delay observation. SD recording uses the normal bounded event queue;
+   if the writer is stuck or the queue is full, persistence is not guaranteed. Serial
+   warning and status remain available while main/USB function. Future car UI escalation
+   and HTTP-specific lifetime/recovery guarantees remain due with their planned increments.
+3. **Latest UI_ACTION corrected.** processed is recorded only after requestLatestImage
+   returns true. Refusal records remain at the authoritative request guard; no extra
+   early guard or duplicated refusal is added. Test covers both refusal and success.
+4. **Duplicate tick removed.** Ordinary loop uses its existing runBackgroundTick call;
+   mode tick remains there before lv_timer_handler, including recovery keep-alive paths.
+   The integration check asserts exactly one source call in companion.ino.
+
+Five new behavioral checks bring the total to 129, all eight suites pass; diff check
+passes. No firmware build/flash. The selected-profile generated companion.ino.cpp is
+confirmed absent after this main-sketch edit. Normal configuration and historical draft
+unchanged. DIAG_ENABLED=0 deliberately prevents mode entry (logger_unavailable).
+Increment 3 remains unapproved. Review first; the previously drafted single entry/
+exclusion/exit bench case remains pending until corrections are reviewed.

@@ -2441,7 +2441,6 @@ void loop() {
 
   { diagop::Block span("serial_commands"); netBenchLoop(); }  // Serial commands, including while WiFi is down.
   diagnosticsUsbMainTick();
-  logRetrievalTick();
   // Evaluate after commands so an accepted download excludes this turn's IMU sample.
   diagnosticsProbeNormalUpdate(!imageFetcherIsBusy() && !videoStreamActive() && !diagnosticsUsbTransferActive());
 
