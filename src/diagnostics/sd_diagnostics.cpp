@@ -1,3 +1,4 @@
+#include "diagnostics_retrieval.h"
 #include "sd_diagnostics.h"
 #include "diagnostics_usb.h"
 #include "diagnostics_internal.h"
@@ -1436,7 +1437,10 @@ void watchdogTest(void*) {
 }
 }
 #endif
+bool diagnosticsStorageReady() { return usbStatus().ready; }
+bool diagnosticsStorageClosing() { return closing(); }
 bool diagnosticsCommand(const char* command) {
+  if (logRetrievalCommand(command)) return true;
 #if DIAG_USB_TEST_FIXTURE
   if (!strcmp(command,"log test usb off")) {
     if (diagnosticsUsbBusy()) {
@@ -1535,6 +1539,7 @@ bool diagnosticsCommand(const char* command) {
   return false;
 }
 bool diagnosticsClose(bool deepSleep, uint32_t waitMs) {
+  logRetrievalExit(deepSleep ? "deep_sleep" : "shutdown");
 #if DIAG_ENABLED
   if (!initialized) return true;
 #if DIAG_TEST_HOOKS

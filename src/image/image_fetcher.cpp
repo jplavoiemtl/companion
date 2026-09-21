@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics_retrieval.h"
 #include "../diagnostics/diagnostics_operation.h"
 #include "../diagnostics/diagnostics_network.h"
 #include "image_fetcher.h"
@@ -140,7 +141,7 @@ WiFiClientSecure* imageFetcherSecureClient() {
 // Forward declarations
 static void cleanupImageRequest();
 static void returnToPreviousScreen(const char* reason);
-static void prepareForRequest();
+static bool prepareForRequest();
 static bool requestImage(const char* endpoint_type);
 static void processHTTPResponse();
 static bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap);
@@ -231,7 +232,15 @@ bool imageFetcherIsBusy() {
 }
 
 //***************************************************************************************************
-static void prepareForRequest() {
+bool imageFetcherHasPendingDisplay() { return imageDisplayTimeoutActive || motionTriggered; }
+
+static bool prepareForRequest() {
+  // Backstop only: callers must admit before imageBegin or any UI mutation.
+  if (logRetrievalActive()) {
+    diagnet::event("IMAGE_REFUSED", "trigger=prepare reason=download_mode path=late");
+    imageEnd("cancelled", "download_mode");
+    return false;
+  }
   USBSerial.println("Preparing UI for new image request...");
 
   cleanupImageRequest();
@@ -266,6 +275,7 @@ static void prepareForRequest() {
   // Force an immediate UI refresh so the rotation and "Loading" state are visible 
   // BEFORE we potentially block on the network request in the next loop.
   lv_refr_now(NULL);
+  return true;
 }
 
 //***************************************************************************************************
@@ -612,6 +622,12 @@ static void processHTTPResponse() {
 
 //***************************************************************************************************
 bool requestLatestImage(bool fromNotification) {
+  if (logRetrievalActive()) {
+    diagnet::event("IMAGE_REFUSED", "trigger=%s reason=download_mode", fromNotification ? "mqtt" : "latest");
+    if (fromNotification) diagnet::imageNotification("ignored_download_mode");
+    USBSerial.println("Image refused: download mode");
+    return false;
+  }
   // Stand down while the video burst owns the screen. This is reached straight
   // from the MQTT callback, so without this guard a push arriving mid-burst runs
   // prepareForRequest() -> cleanup and frees buffers the video module is still
@@ -646,7 +662,7 @@ bool requestLatestImage(bool fromNotification) {
   USBSerial.println("Initiating async latest image request...");
   const unsigned long started = millis();
   imageBegin(fromNotification ? "mqtt" : "latest", "latest", started);
-  prepareForRequest();
+  if (!prepareForRequest()) return false;
   // Must follow prepareForRequest(), which clears the flag.
   motionTriggered = fromNotification;
   if (fromNotification) diagnet::imageNotification("accepted");
@@ -687,11 +703,16 @@ void buttonNew_event_handler(lv_event_t* e) {
 //***************************************************************************************************
 void buttonBack_event_handler(lv_event_t* e) {
   if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+    if (logRetrievalActive()) {
+      diagnet::event("IMAGE_REFUSED", "trigger=history_back reason=download_mode");
+      USBSerial.println("Back refused: download mode");
+      return;
+    }
     USBSerial.println("Back button clicked, initiating async request...");
     diagnet::event("UI_ACTION", "action=history_back result=processed");
     const unsigned long started = millis();
     imageBegin("history_back", "back", started);
-    prepareForRequest();
+    if (!prepareForRequest()) return;
     pendingEndpoint = "back";
   }
 }

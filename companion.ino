@@ -1,3 +1,4 @@
+#include "src/diagnostics/diagnostics_retrieval.h"
 #include "calibration.h"
 #if defined(__has_include) && __has_include("secrets_private.h")
 #include "secrets_private.h"
@@ -587,6 +588,7 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
       }
       
       // 6. VALID TOUCH - All filters passed
+      logRetrievalTouch();
       data->state = LV_INDEV_STATE_PR;
       data->point.x = touchX;
       data->point.y = touchY;
@@ -704,6 +706,7 @@ void runBackgroundTick() {
     last_inclinometer_display_update = current_millis;
   }
 
+  logRetrievalTick(); // Also service idle/link exits inside Wi-Fi recovery keep-alive.
   lv_timer_handler();
 }
 
@@ -1451,6 +1454,7 @@ void updatePowerStatus() {
   
   // Detect USB disconnection (was present, now isn't)
   if (!vbusPresent && prevVbusPresent && usbWasEverPresent) {
+    logRetrievalExit("usb_power_lost"); // Main task: immediate on observed VBUS loss.
     usbDisconnectedTime = millis();  // Record when USB was lost
     allowSleep = true;  // ADD THIS LINE - Enable sleep after USB loss
     USBSerial.println("USB Power Disconnected - Starting grace period with motion monitoring");
@@ -2437,6 +2441,7 @@ void loop() {
 
   { diagop::Block span("serial_commands"); netBenchLoop(); }  // Serial commands, including while WiFi is down.
   diagnosticsUsbMainTick();
+  logRetrievalTick();
   // Evaluate after commands so an accepted download excludes this turn's IMU sample.
   diagnosticsProbeNormalUpdate(!imageFetcherIsBusy() && !videoStreamActive() && !diagnosticsUsbTransferActive());
 

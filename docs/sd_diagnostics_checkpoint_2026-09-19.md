@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 21, increment 2 implemented for Claude review
+
+JP accepted increment 1 and approved increment 2. Mode/admission and USB commands are
+implemented, with no HTTP. [Review handoff](sd_iphone_log_download_increment2.md): 124
+host checks pass, firmware compilation/flash/bench pending. Claude reviews before JP
+builds; generated sketch for the selected 3.3.11 profile removed after main-sketch edit.
+Normal flags unchanged. Increment 3 remains unapproved; provisional teardown and other
+before-increment-3 decisions remain unresolved. Earlier entries preserve history.
+
+
 ## Latest handoff - September 21, increment 1 ready for acceptance
 
 All five issued extraction regression cases and the restored normal-build check pass.

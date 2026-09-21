@@ -1,11 +1,11 @@
 # iPhone log retrieval - increment 1 review handoff
 
 Status: Claude review passed at `0ba72e5`; all five issued regression cases and restored
-normal-build handoff passed September 21. **Ready for JP acceptance; not yet accepted.**
+normal-build handoff passed September 21. **Accepted by JP on September 21.**
 No assistant build/flash.
 Base: `8038b9c`, branch `iphone-log-retrieval`. Implements only the approved USB-only
 extraction in revision 3 of [the spec](sd_iphone_log_download_spec.md), section 3.
-Increment 2 is not approved.
+JP approved increment 2 on September 21; see its separate handoff.
 
 ## Changes
 
@@ -162,3 +162,6 @@ Boot 101: normal fixture-disabled configuration confirmed, 103377-byte current d
 CRC OK (local 7F7FCDC7), later size 104680, zero drops/errors, largest block 51188.
 No further bench case requested before JP's explicit acceptance. Increment 2 remains
 unapproved; propose mode/admission and USB commands only, reviewed by Claude before flash.
+
+JP accepted increment 1 and approved increment 2 on September 21. Finding 3 is resolved
+in increment 2 by explicit-file test extraction; findings 1 and 2 retain their deadlines.

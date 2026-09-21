@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics_retrieval.h"
 #include "../diagnostics/diagnostics_operation.h"
 #include "../diagnostics/diagnostics_network.h"
 #include "video_stream.h"
@@ -732,6 +733,11 @@ static void printSummary() {
 
 //***************************************************************************************************
 bool videoStreamStart(const char* trigger) {
+  if (logRetrievalActive()) {
+    diagnet::event("LIVE_REQUEST", "trigger=%s result=refused reason=download_mode", trigger);
+    USBSerial.println("Live refused: download mode");
+    return false;
+  }
   if (active) { diagnet::event("LIVE_REQUEST", "trigger=%s result=already_active", trigger); return true; }
 
   // Reject an offline start before allocating buffers or opening the loading screen.

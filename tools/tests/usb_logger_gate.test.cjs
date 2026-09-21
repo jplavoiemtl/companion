@@ -37,7 +37,7 @@ function transportStop(){${adapt(body(usb,'const char* transportStop() {'))}}
 function reader_beforePrune(number){${adapt(body(reader,'bool beforePrune(uint32_t number) {'))}}
 function stopReason(){${adapt(body(usb,'const char* stopReason() {'))}}
 function diagnosticsUsbBeforePrune(number){${adapt(body(usb,'void diagnosticsUsbBeforePrune(uint32_t number)'))}}`;
-function context(){const c={UsbGate:{None:0,Queue:1,Prune:2},State:{Ready:1},QUEUE_COUNT:16,FILE_LIMIT:2097152,
+function context(){const c={logRetrievalCommand:()=>false,UsbGate:{None:0,Queue:1,Prune:2},State:{Ready:1},QUEUE_COUNT:16,FILE_LIMIT:2097152,
 queue:Array(16).fill(null),head:14,count:0,accepting:true,writerEvent:{},snapshot:{state:1,highWater:0,pruned:0},closeRequested:false,
 fixture:{busy:false,number:19,bytes:2097152,result:'ok'},fixtureFd:-1,fixtureDeleting:false,fixtureNumber:0,errno:5,
 progress:{valid:true,current:true,number:0,bytes:1440},paused:true,busy:false,reader:7,isCurrent:true,fileNumber:0,

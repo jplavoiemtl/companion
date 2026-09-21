@@ -11,7 +11,9 @@ Status: design review closed on September 20, 2026 with six corrections accepted
 wireless firmware exists for this feature yet. The USB-only extraction is now implemented
 and reviewed by Claude at `0ba72e5`; its host checks and issued first bench gate are recorded in the
 [increment 1 handoff](sd_iphone_log_download_increment1.md). All five issued USB regression gates and the restored normal-build handoff passed on
-September 21. Increment 1 is ready for JP acceptance; increment 2 remains unapproved.
+September 21. JP accepted increment 1 and approved increment 2 on September 21. Increment 2 is
+implemented for [Claude review](sd_iphone_log_download_increment2.md); no increment 2
+hardware result exists yet. Historical acceptance-pending statements below predate that decision.
 
 ---
 

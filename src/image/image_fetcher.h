@@ -29,6 +29,8 @@ bool requestLatestImage(bool fromNotification = false);
 // Callers in loop() use this to defer anything that blocks for seconds at a time —
 // every millisecond spent elsewhere comes straight out of the image loading budget.
 bool imageFetcherIsBusy();
+// Separate from fetch busy: preserves MQTT retry-deferral semantics.
+bool imageFetcherHasPendingDisplay();
 
 // Shared TLS client.
 //

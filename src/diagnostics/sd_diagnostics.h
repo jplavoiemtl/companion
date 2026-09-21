@@ -32,3 +32,7 @@ bool diagnosticsCommand(const char* command); // Bounded USB commands and fault 
 bool diagnosticsUsbTransferActive();
 void diagnosticsUsbMainTick(); // Control-only fallback when writer is disabled/off
 bool diagnosticsClose(bool deepSleep, uint32_t waitMs = 500); // bounded, idempotent
+
+// Main-task admission snapshots; never access the filesystem.
+bool diagnosticsStorageReady();
+bool diagnosticsStorageClosing();

@@ -1,8 +1,9 @@
 # iPhone log retrieval - implementation spec
 
-Status: **revision 3.** Codex confirmed increment 1 ready at `724da61`; **increment 1 is
-approved to start.** Increments 2 and beyond are not approved: section 5's teardown
-mechanism is explicitly provisional and must be resolved before increment 3.
+Status: **revision 3.** JP accepted increment 1 and approved increment 2 on September 21.
+Increment 2 is implemented for Claude review; see [handoff](sd_iphone_log_download_increment2.md).
+Increment 3 and beyond are not approved: section 5's teardown mechanism remains
+explicitly provisional and must be resolved before increment 3.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the
 [Codex review](sd_iphone_log_download_review.md) and the

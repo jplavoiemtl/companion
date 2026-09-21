@@ -7,8 +7,7 @@ const assert = require('node:assert/strict');
 const usb = fs.readFileSync(path.join(__dirname, '../../src/diagnostics/diagnostics_usb.cpp'), 'utf8');
 const reader = fs.readFileSync(path.join(__dirname, '../../src/diagnostics/diagnostics_reader.cpp'), 'utf8');
 const header = fs.readFileSync(path.join(__dirname, '../../src/diagnostics/diagnostics_reader.h'), 'utf8');
-const source = usb + '\n' + reader + '\n' + header;
-function body(signature) {
+function body(source, signature) {
   const start = source.indexOf(signature);
   assert.ok(start >= 0, signature);
   const open = source.indexOf('{', start);
@@ -32,16 +31,16 @@ function body(signature) {
     .replace(/\bint\(/g, 'Number(')
     .replace(/\bnullptr\b/g, 'null');
 }
-const adapted = `function reader_stopReason(transportStop){${body('const char* stopReason(const char* (*transportStop)()) {')}}
-function transportStop(){${body('const char* transportStop() {')}}
-function reader_release(generation){${body('bool release(uint64_t generation) {')}}
-function testStartDownload(fileDownload){${body('void testStartDownload(bool fileDownload) {')}}
-function testDataWaiting(){${body('bool testDataWaiting() {')}}
-function release(){${body('void release() {')}}
-function testCommand(command){${body('bool diagnosticsUsbCommand(const char* command) {').split('  if (!strcmp(command,"log status"))')[0]} return false;}
-function transferConnected(){${body('bool transferConnected() {')}}
-function stopReason(){${body('const char* stopReason() {')}}
-function sendLine(bytes, transfer=false){${body('int sendLine(const char* bytes, bool transfer = false) {')}}`;
+const adapted = `function reader_stopReason(transportStop){${body(reader, 'const char* stopReason(const char* (*transportStop)()) {')}}
+function transportStop(){${body(usb, 'const char* transportStop() {')}}
+function reader_release(generation){${body(reader, 'bool release(uint64_t generation) {')}}
+function testStartDownload(fileDownload){${body(usb, 'void testStartDownload(bool fileDownload) {')}}
+function testDataWaiting(){${body(usb, 'bool testDataWaiting() {')}}
+function release(){${body(usb, 'void release() {')}}
+function testCommand(command){${body(usb, 'bool diagnosticsUsbCommand(const char* command) {').split('  if (!strcmp(command,"log status"))')[0]} return false;}
+function transferConnected(){${body(usb, 'bool transferConnected() {')}}
+function stopReason(){${body(usb, 'const char* stopReason() {')}}
+function sendLine(bytes, transfer=false){${body(usb, 'int sendLine(const char* bytes, bool transfer = false) {')}}`;
 function context() {
   const c = {
     now:1000, connected:true, readings:[], writes:0, free:240, shortWrite:false,
@@ -56,7 +55,7 @@ function context() {
     strlen:s=>s.length, strcmp:(a,b)=>a===b ? 0 : 1, errors:[], statusRequested:false,
   };
   for (const name of ['DISCONNECT_MS','STALL_MS','CURRENT_MS','WIRE','TEST_DATA_INTERVAL_MS']) {
-    const match=source.match(new RegExp('\\b'+name+' = (\\d+)'));
+    const match=(['STALL_MS','CURRENT_MS'].includes(name) ? header : usb).match(new RegExp('\\b'+name+' = (\\d+)'));
     assert.ok(match, name); c[name]=Number(match[1]);
   }
   c.milliseconds=()=>c.now;
@@ -178,7 +177,7 @@ check('release disables active pacing; listing release preserves an armed test',
   c.testSlowArmed=true;c.release();assert.equal(c.testSlowArmed,true);
 });
 // Ensure the simulated wait is integrated after safety checks, never ahead of them.
-const tick=source.slice(source.indexOf('void diagnosticsUsbTick() {'),source.indexOf('void diagnosticsUsbStop() {'));
+const tick=usb.slice(usb.indexOf('void diagnosticsUsbTick() {'),usb.indexOf('void diagnosticsUsbStop() {'));
 assert.ok(tick.indexOf('stopReason()') < tick.indexOf('if (testDataWaiting()) break;'));
 assert.ok(tick.indexOf('if (testDataWaiting()) break;') < tick.indexOf('diagreader::readChunk()'));
 assert.ok(tick.indexOf('testLastDataAt = lastProgress;') > tick.indexOf('if (!sent) break;'));
