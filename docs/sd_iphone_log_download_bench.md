@@ -16,6 +16,42 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 2 gate 5 - 2026-09-21, 14:52-15:01 - PASS
+
+Panel-touch idle reset, boot 103; JP confirms pass. Evidence: attachment
+`4456aa00-915b-4ccb-8e5b-46c8ec8ea528/Pasted text.txt`, Downloads
+`103-current (5).log`.
+
+Entry up_ms=1657076 (14:52:59.836). Touch is visible at host 14:54:59.687; mode status
+at 14:55:04.092 shows ACTIVE/idle_ms=4417, proving reset. Persisted idle exit at
+up_ms=2076925 (14:59:59.685) is **419849 ms after entry**, approximately five minutes
+after touch. The original-deadline status query was omitted; the persisted later exit
+plus reset observation establish the intended behavior without a repeat. Host touch and
+device record timestamps are not an exact same-clock latency measurement. Movement
+occurred shortly after entry without exiting mode; no extra panel touch is visible.
+
+Final mode OFF/idle_timeout/release_stuck=0. Download **1190003 bytes**, browser CRC OK,
+11.26 s; local length matches and calculated CRC32 **BA9A10A9**. Pre-download status
+ready, zero drops/errors, queue=0/16, largest block=26612 > 20480, stack minimum=2920,
+no USB loss/retained failure. Same boot, Wi-Fi/MQTT connected; appends continue.
+
+### Next single case issued: Wi-Fi loss/recovery retains mode and idle age
+
+No flash; same build, USB connected, dashboard idle, no board touches/media/downloads.
+Use the actual hotspot/AP currently serving the companion; serial off is MQTT-only and
+cannot test Wi-Fi loss. Clear console, mode on -> ACTIVE, mode status capture. Disable
+that hotspot for about 30 seconds; send status and mode status, expecting WiFi disconnected
+and ACTIVE/link=down. If Wi-Fi remains connected (for example another configured network),
+stop and report that instead of claiming a loss. Re-enable hotspot, wait for status to
+confirm Wi-Fi/MQTT recovery, then mode status: ACTIVE/link=up, idle_ms continuing forward
+rather than near zero. Complete within five minutes of entry so idle expiry is not a
+confound; report delay/expiry rather than re-entering silently. Mode off/status -> OFF;
+status/log status and one current download with CRC OK. Send console/file and note any
+touch or power interruption. No iPhone wireless download/server exists at this increment.
+Other power/admission gates remain pending; increment 3 unapproved.
+
+---
+
 ## Increment 2 gate 4 - 2026-09-21, 14:42-14:49 - PASS
 
 Five-minute idle expiry, boot 103; JP confirms pass. Evidence: attachment

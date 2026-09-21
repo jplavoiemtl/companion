@@ -1,5 +1,13 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 2 touch-reset gate passes
+
+Gates 1-5 pass. Boot 103 touch reset confirmed by idle_ms and persisted later exit;
+CRC evidence saved. Next single case: actual Wi-Fi loss/recovery retaining ACTIVE and
+idle age. [Evidence/procedure](sd_iphone_log_download_bench.md). No firmware changes;
+increment 2 acceptance pending, increment 3 unapproved.
+
+
 ## Latest result - September 21, increment 2 idle-expiry gate passes
 
 Boot 103 persisted idle exit at 300009 ms after entry; status did not reset the timer.

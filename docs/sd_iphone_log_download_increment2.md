@@ -153,3 +153,7 @@ five-minute idle expiry without panel touch; see the bench record.
 
 September 21 gate 4 passes: idle exit at entry +300009 ms, intermediate status does
 not reset the timer, CRC log verified. Next is one panel-touch idle-reset case.
+
+September 21 gate 5 passes: panel touch resets idle; persisted expiry 419849 ms after
+entry is approximately five minutes after the touch. Next single case: actual Wi-Fi
+loss/recovery while mode remains ACTIVE, with no idle reset.
