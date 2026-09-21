@@ -3,6 +3,7 @@ const fs=require('node:fs'), vm=require('node:vm'), assert=require('node:assert/
 const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../../src/diagnostics/sd_diagnostics.cpp'),'utf8');
 const usb=fs.readFileSync(path.join(__dirname,'../../src/diagnostics/diagnostics_usb.cpp'),'utf8');
+const reader=fs.readFileSync(path.join(__dirname,'../../src/diagnostics/diagnostics_reader.cpp'),'utf8');
 function body(text,sig){const s=text.indexOf(sig);assert.ok(s>=0,sig);const o=text.indexOf('{',s);let d=1,e=o+1;while(d){if(text[e]==='{')++d;if(text[e]==='}')--d;++e;}return text.slice(o+1,e-1);}
 function adapt(t){return t
 .replace(/^#(?:if DIAG_USB_TEST_FIXTURE|endif).*$/gm,'')
@@ -17,6 +18,8 @@ function adapt(t){return t
 .replace(/command\+15/g,'command.slice(15)')
 .replace(/const char\* result/g,'let result')
 .replace(/const (?:bool|uint64_t|auto) /g,'const ')
+.replace(/diagreader::(\w+)/g,(_,n)=>'reader_'+n)
+.replace(/if \(const char\* reason = transportStop\(\)\) return reason;/g,'const reason=transportStop(); if(reason)return reason;')
 .replace(/constexpr uint32_t target = \(QUEUE_COUNT \+ 1\) \/ 2;/g,'const target = Math.floor((QUEUE_COUNT+1)/2);')
 .replace(/(?:uint32_t|uint64_t|bool) (\w+) =/g,'let $1 =')
 .replace(/static_assert\([^;]+;/g,'')
@@ -29,6 +32,9 @@ function adapt(t){return t
 const sigs=[['usbGateBegin','name','void usbGateBegin(const char* name)'],['usbGateEnd','outcome','void usbGateEnd(const char* outcome)'],['usbGateTick','','void usbGateTick()'],['pruneArchive','number','bool pruneArchive(uint32_t number)']];
 const code=sigs.map(([n,a,s])=>`function ${n}(${a}){${adapt(body(source,s))}}`).join('\n')+
 `\nfunction command(command){${adapt(body(source,'bool diagnosticsCommand(const char* command)').split('  const bool createFixture')[0])}return false;}
+function reader_stopReason(transportStop){${adapt(body(reader,'const char* stopReason(const char* (*transportStop)()) {'))}}
+function transportStop(){${adapt(body(usb,'const char* transportStop() {'))}}
+function reader_beforePrune(number){${adapt(body(reader,'bool beforePrune(uint32_t number) {'))}}
 function stopReason(){${adapt(body(usb,'const char* stopReason() {'))}}
 function diagnosticsUsbBeforePrune(number){${adapt(body(usb,'void diagnosticsUsbBeforePrune(uint32_t number)'))}}`;
 function context(){const c={UsbGate:{None:0,Queue:1,Prune:2},State:{Ready:1},QUEUE_COUNT:16,FILE_LIMIT:2097152,
@@ -42,6 +48,7 @@ strcmp:(a,b)=>a===b?0:1,strncmp:(a,b,n)=>a.slice(0,n)===b.slice(0,n)?0:1,strlen:
 decimal:s=>/^[0-9]+$/.test(s)&&Number(s)<=99999999?Number(s):null,
 archiveNumber:s=>/^archive-[0-9]{8}\.log$/.test(s)?Number(s.slice(8,16)):null,
 max:Math.max,printUsbGate:()=>{},vTaskDelay:()=>{},USBSerial:{println:()=>{}},milliseconds:()=>100,transferConnected:()=>true};
+c.abortPending=()=>c.abortRequested;
 c.usbGate=c.freshGate();c.diagnosticsUsbPaused=()=>c.paused;c.diagnosticsUsbBusy=()=>c.busy;
 c.hooks={status:()=>({ready:true,closing:false,queued:c.count,capacity:16})};c.diag={stamp:()=>123,record:(...a)=>c.records.push(a)};
 c.archivePath=(n,p)=>p.number=n;c.stat=(p,i)=>{i.st_size=c.fileSize;i.st_mode=c.regular;return c.fileExists?0:-1;};c.S_ISREG=x=>x;

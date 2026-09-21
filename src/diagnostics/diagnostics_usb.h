@@ -2,21 +2,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "diagnostics_config.h"
+#include "diagnostics_reader.h"
 
 // Main posts commands; tick/stop/beforePrune are called only by the SD writer.
-struct DiagnosticsUsbStatus {
-  uint64_t boot, uptime, size, cardBytes, freeBytes;
-  uint32_t newest, files, drops, queued, capacity;
-  const char* logger;
-  bool ready, closing;
-};
-struct DiagnosticsUsbHooks {
-  DiagnosticsUsbStatus (*status)();
-  bool (*begin)(const char* name); // Persist USB_GET_BEGIN before snapshot.
-  bool (*pause)();
-  bool (*resume)();
-  void (*end)(const char* name, uint64_t bytes, uint64_t ms, const char* result);
-};
+using DiagnosticsUsbStatus = diagreader::Status;
+using DiagnosticsUsbHooks = diagreader::Hooks;
 void diagnosticsUsbInit(const DiagnosticsUsbHooks& hooks);
 bool diagnosticsUsbCommand(const char* command);
 bool diagnosticsUsbBusy();

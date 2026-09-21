@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - iPhone retrieval increment 1 implementation, September 20
+
+On `iphone-log-retrieval`, based on `8038b9c`, the approved USB reader/session extraction
+is implemented and awaits Claude review before JP builds/flashes. See the
+[increment 1 handoff](sd_iphone_log_download_increment1.md) for scope, 92 passing host
+checks, review focus and the first single bench gate. No firmware compilation or hardware
+validation performed; increment 2 remains unapproved. Older entries below retain their
+historical scope and are superseded by this handoff where applicable.
+
+
 ## September20 revision: wireless retrieval before car testing
 
 JP changed the sequence: develop iPhone log retrieval on the companion bench

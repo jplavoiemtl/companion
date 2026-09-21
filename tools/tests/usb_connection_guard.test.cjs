@@ -4,7 +4,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
-const source = fs.readFileSync(path.join(__dirname, '../../src/diagnostics/diagnostics_usb.cpp'), 'utf8');
+const usb = fs.readFileSync(path.join(__dirname, '../../src/diagnostics/diagnostics_usb.cpp'), 'utf8');
+const reader = fs.readFileSync(path.join(__dirname, '../../src/diagnostics/diagnostics_reader.cpp'), 'utf8');
+const header = fs.readFileSync(path.join(__dirname, '../../src/diagnostics/diagnostics_reader.h'), 'utf8');
+const source = usb + '\n' + reader + '\n' + header;
 function body(signature) {
   const start = source.indexOf(signature);
   assert.ok(start >= 0, signature);
@@ -19,15 +22,20 @@ function body(signature) {
     .replace(/const (?:bool|uint64_t|size_t|int|auto) /g, 'const ')
     .replace(/^#(?:if DIAG_USB_TEST_FIXTURE|endif).*$/gm, '')
     .replace(/Phase::/g, 'Phase.')
+    .replace(/diagreader::(\w+)/g, (_, n) => 'reader_' + n)
+    .replace(/if \(const char\* reason = transportStop\(\)\) return reason;/g, 'const reason = transportStop(); if (reason) return reason;')
     .replace(/bool abort =/g, 'const abort =')
-    .replace(/port(?:ENTER|EXIT)_CRITICAL\(&usbMux\);/g, '')
+    .replace(/port(?:ENTER|EXIT)_CRITICAL\(&(?:usbMux|sessionMux)\);/g, '')
     .replace(/if \(const char\* reason = stopReason\(\)\) \{/g,
       'const reason = stopReason(); if (reason) {')
     .replace(/reinterpret_cast<const uint8_t\*>\(bytes\)/g, 'bytes')
     .replace(/\bint\(/g, 'Number(')
     .replace(/\bnullptr\b/g, 'null');
 }
-const adapted = `function testStartDownload(fileDownload){${body('void testStartDownload(bool fileDownload) {')}}
+const adapted = `function reader_stopReason(transportStop){${body('const char* stopReason(const char* (*transportStop)()) {')}}
+function transportStop(){${body('const char* transportStop() {')}}
+function reader_release(generation){${body('bool release(uint64_t generation) {')}}
+function testStartDownload(fileDownload){${body('void testStartDownload(bool fileDownload) {')}}
 function testDataWaiting(){${body('bool testDataWaiting() {')}}
 function release(){${body('void release() {')}}
 function testCommand(command){${body('bool diagnosticsUsbCommand(const char* command) {').split('  if (!strcmp(command,"log status"))')[0]} return false;}
@@ -38,7 +46,7 @@ function context() {
   const c = {
     now:1000, connected:true, readings:[], writes:0, free:240, shortWrite:false,
     testSlowArmed:false, testSlowActive:false, testLastDataAt:0, dataLines:0,
-    reserved:true, buffers:null, entries:null, pendingBytes:0, phase:'Data', Phase:{Idle:'Idle'},
+    sessionGeneration:1, retainedGeneration:1, invalidated:false, reader:-1, paused:false, reserved:true, buffers:null, entries:null, pendingBytes:0, phase:'Data', Phase:{Idle:'Idle'},
     heap_caps_free:()=>{},
     connectionLost:false, connectionLostAt:0, longestLoss:0, connectionLosses:0,
     lastProgress:1000, startedAt:1000, isCurrent:false, abortRequested:false,
@@ -52,6 +60,7 @@ function context() {
     assert.ok(match, name); c[name]=Number(match[1]);
   }
   c.milliseconds=()=>c.now;
+  c.reader_busy=()=>c.reserved; c.abortPending=()=>c.abortRequested;
   c.queueError=reason=>c.errors.push(reason);
   c.hooks={status:()=>c.state};
   c.USBSerial={
@@ -171,7 +180,7 @@ check('release disables active pacing; listing release preserves an armed test',
 // Ensure the simulated wait is integrated after safety checks, never ahead of them.
 const tick=source.slice(source.indexOf('void diagnosticsUsbTick() {'),source.indexOf('void diagnosticsUsbStop() {'));
 assert.ok(tick.indexOf('stopReason()') < tick.indexOf('if (testDataWaiting()) break;'));
-assert.ok(tick.indexOf('if (testDataWaiting()) break;') < tick.indexOf('read(reader,'));
+assert.ok(tick.indexOf('if (testDataWaiting()) break;') < tick.indexOf('diagreader::readChunk()'));
 assert.ok(tick.indexOf('testLastDataAt = lastProgress;') > tick.indexOf('if (!sent) break;'));
 assert.doesNotMatch(tick,/vTaskDelay|\bdelay\(/);
 console.log(`${checks} connection/pacing checks passed (source simulation only; no firmware build).`);

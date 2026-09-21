@@ -1,41 +1,31 @@
 #include "diagnostics_usb.h"
 #include "diagnostics_config.h"
+#include "diagnostics_reader.h"
 #include "HWCDC.h"
-#include <esp_heap_caps.h>
 #include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/portmacro.h>
 #include <freertos/task.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <errno.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 extern HWCDC USBSerial;
 namespace {
-constexpr size_t WIRE = 240, CHUNK = 144, MAX_ENTRIES = 256;
-constexpr uint64_t STALL_MS = 5000, CURRENT_MS = 120000;
+constexpr size_t WIRE = 240;
+using diagreader::Request;
+using diagreader::STALL_MS;
+using diagreader::CURRENT_MS;
+using diagreader::parseNumber;
+using diagreader::nameFor;
+using diagreader::closeReaderAndResume;
 constexpr uint64_t DISCONNECT_MS = 1000;
-constexpr char ROOT[] = "/sdcard/logs/";
-enum class Request : uint8_t { None, List, Current, Archive };
 enum class Phase : uint8_t { Idle, Begin, Data, End, List, Terminal };
-struct FileEntry { uint64_t size; uint32_t number; bool current; };
-struct Buffers { char wire[WIRE + 1]; uint8_t raw[CHUNK]; };
 portMUX_TYPE usbMux = portMUX_INITIALIZER_UNLOCKED;
 DiagnosticsUsbHooks hooks{};
-Request pending = Request::None;
-uint32_t requestedNumber = 0;
-uint64_t acceptedAt = 0;
-bool reserved = false, abortRequested = false, statusRequested = false;
+bool statusRequested = false;
+uint64_t sessionGeneration = 0; // Writer-only retained reservation identity.
 const char* controlError = nullptr; // Coalesced bounded reply slot, never heap strings.
 uint64_t controlAt = 0;
-uint64_t publishedBytes = 0;
-bool publishedPaused = false;
-const char* lastResult = "none";
 #if DIAG_USB_TEST_FIXTURE
 // One-shot bench setting, shared with the serial parser under usbMux.
 constexpr uint64_t TEST_DATA_INTERVAL_MS = 100;
@@ -44,19 +34,27 @@ uint64_t testLastDataAt = 0; // Writer only; successful data lines only.
 #endif
 // Remaining state belongs exclusively to the writer (or terminal/off fallback).
 Phase phase = Phase::Idle;
-Buffers* buffers = nullptr;
-FileEntry* entries = nullptr;
-size_t entryCount = 0, entryIndex = 0, pendingBytes = 0;
-int reader = -1;
-bool isCurrent = false, paused = false, begun = false;
-uint32_t fileNumber = 0, dataLines = 0, crc = 0xffffffff;
-uint64_t fileSize = 0, sentBytes = 0, startedAt = 0, lastProgress = 0;
+const auto& buffers = diagreader::view().buffers;
+const auto& entries = diagreader::view().entries;
+const auto& entryCount = diagreader::view().entryCount;
+const auto& pendingBytes = diagreader::view().pendingBytes;
+const auto& reader = diagreader::view().reader;
+const auto& isCurrent = diagreader::view().isCurrent;
+const auto& paused = diagreader::view().paused;
+const auto& fileNumber = diagreader::view().fileNumber;
+const auto& crc = diagreader::view().crc;
+const auto& fileSize = diagreader::view().fileSize;
+const auto& sentBytes = diagreader::view().sentBytes;
+const auto& startedAt = diagreader::view().startedAt;
+const auto& lastProgress = diagreader::view().lastProgress;
+const auto& filename = diagreader::view().filename;
+size_t entryIndex = 0;
+uint32_t dataLines = 0;
 // Writer-owned connection observations. Reset only at the next transfer.
 // A false reading stops writes immediately, but needs sustained loss to abort.
 bool connectionLost = false;
 uint64_t connectionLostAt = 0, longestLoss = 0;
 uint32_t connectionLosses = 0;
-char filename[24] = {};
 const char* terminalReason = nullptr;
 const char* terminalPhase = "idle";
 // Retain the last transfer-write observation; status/error writes do not overwrite it.
@@ -119,29 +117,7 @@ bool transferConnected() {
   }
   return connected;
 }
-void publish() {
-  portENTER_CRITICAL(&usbMux);
-  publishedBytes = sentBytes; publishedPaused = paused;
-  portEXIT_CRITICAL(&usbMux);
-}
-bool parseNumber(const char* text, uint32_t& n) {
-  if (!*text) return false;
-  n = 0;
-  for (; *text; ++text) {
-    if (*text < '0' || *text > '9' || n > (99999999u - (*text - '0')) / 10) return false;
-    n = n * 10 + (*text - '0');
-  }
-  return true;
-}
-bool archiveName(const char* name, uint32_t& number) {
-  if (strlen(name) != 20 || strncmp(name, "archive-", 8) || strcmp(name + 16, ".log")) return false;
-  char digits[9]; memcpy(digits, name + 8, 8); digits[8] = 0;
-  return parseNumber(digits, number);
-}
-void nameFor(const FileEntry& file, char* output, size_t capacity) {
-  if (file.current) snprintf(output, capacity, "current.log");
-  else snprintf(output, capacity, "archive-%08lu.log", static_cast<unsigned long>(file.number));
-}
+
 void queueError(const char* reason) {
   portENTER_CRITICAL(&usbMux);
   if (!controlError || strcmp(controlError, "aborted") || !strcmp(reason, "aborted")) {
@@ -183,28 +159,16 @@ int sendLine(const char* bytes, bool transfer = false) {
   return written == length ? 1 : -1;
 }
 void release() {
-  if (buffers) heap_caps_free(buffers);
-  if (entries) heap_caps_free(entries);
-  buffers = nullptr; entries = nullptr; phase = Phase::Idle; pendingBytes = 0;
+  // USB never retains a buffer beyond this writer turn, including terminal output.
+  diagreader::release(sessionGeneration);
+  phase = Phase::Idle;
   portENTER_CRITICAL(&usbMux);
-  reserved = false;
 #if DIAG_USB_TEST_FIXTURE
-  testSlowActive = false; // Success or failure: the next download is normal.
+  testSlowActive = false;
 #endif
   portEXIT_CRITICAL(&usbMux);
 }
-bool closeReaderAndResume(bool recordEnd, const char* result, bool keepEvent = false) {
-  bool ok = true;
-  if (reader >= 0) { ok = ::close(reader) == 0; reader = -1; }
-  if (paused) { paused = false; ok = hooks.resume() && ok; }
-  publish();
-  if (begun && recordEnd) hooks.end(filename, sentBytes, milliseconds() - startedAt, result);
-  if (!keepEvent) {
-    begun = false;
-    portENTER_CRITICAL(&usbMux); lastResult = result; portEXIT_CRITICAL(&usbMux);
-  }
-  return ok;
-}
+
 void finishError(const char* reason, bool reply = true, const char* path = "stop_guard") {
   // Capture before cleanup resets lastProgress or error/status writes run.
   if ((!strcmp(reason,"stalled") || !strcmp(reason,"disconnected") || !strcmp(reason,"timeout")) &&
@@ -219,38 +183,22 @@ void finishError(const char* reason, bool reply = true, const char* path = "stop
     lastFailure.check = lastSendCheck; lastFailure.stop = lastSendStop;
     snprintf(lastFailure.file, sizeof(lastFailure.file), "%s", phase == Phase::List ? "list" : filename);
   }
-  if (!strcmp(reason,"aborted")) {
-    portENTER_CRITICAL(&usbMux); abortRequested = false; portEXIT_CRITICAL(&usbMux);
-  }
+  if (!strcmp(reason,"aborted")) diagreader::takeAbort();
+  diagreader::invalidate(sessionGeneration);
   terminalPhase = phaseName(phase);
   const bool ok = closeReaderAndResume(strcmp(reason,"shutdown") != 0, reason);
   terminalReason = ok ? reason : "logger_failed";
-  pendingBytes = 0;
   // Cleanup happens before any error output, including failed read-open.
   if (!reply || !USBSerial.isConnected()) { release(); return; }
-  phase = Phase::Terminal; lastProgress = milliseconds();
+  phase = Phase::Terminal; diagreader::terminalClock();
 }
-const char* stopReason() {
-  const auto s = hooks.status();
-  if (s.closing) return "shutdown";
-  if (!s.ready) return "logger_failed";
+const char* transportStop() {
   const bool connected = transferConnected();
   if (!connected && milliseconds() - connectionLostAt >= DISCONNECT_MS) return "disconnected";
-  portENTER_CRITICAL(&usbMux); bool abort = abortRequested; portEXIT_CRITICAL(&usbMux);
-  if (abort) return "aborted";
-  if (s.queued * 2 >= s.capacity) return "logger_busy";
-  const uint64_t now = milliseconds();
-  if (isCurrent && now - startedAt >= CURRENT_MS) return "timeout";
-  if (now - lastProgress >= STALL_MS) return "stalled";
   return nullptr;
 }
-uint32_t updateCrc(uint32_t value, const uint8_t* data, size_t length) {
-  for (size_t i = 0; i < length; ++i) {
-    value ^= data[i];
-    for (unsigned bit = 0; bit < 8; ++bit) value = (value >> 1) ^ (0xedb88320u & (0u - (value & 1u)));
-  }
-  return value;
-}
+const char* stopReason() { return diagreader::stopReason(transportStop); }
+
 void encode64(const uint8_t* data, size_t length, char* out) {
   constexpr char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   for (size_t i = 0; i < length; i += 3) {
@@ -261,61 +209,20 @@ void encode64(const uint8_t* data, size_t length, char* out) {
   }
   *out = 0;
 }
-bool captureList() {
-  entries = static_cast<FileEntry*>(heap_caps_calloc(MAX_ENTRIES + 1, sizeof(FileEntry), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-  if (!entries) { finishError("memory"); return false; }
-  DIR* dir = opendir(ROOT);
-  if (!dir) { finishError("read_failed"); return false; }
-  size_t seen = 0; entryCount = entryIndex = 0; const char* failure = nullptr;
-  for (;;) {
-    if ((failure = stopReason())) break;
-    errno = 0; dirent* item = readdir(dir);
-    if (!item) { if (errno) failure = "read_failed"; break; }
-    if (++seen > MAX_ENTRIES) { failure = "directory_limit"; break; }
-    const bool current = !strcmp(item->d_name, "current.log");
-    uint32_t n = 0;
-    if (current || archiveName(item->d_name, n)) {
-      char path[64]; snprintf(path, sizeof(path), "%s%s", ROOT, item->d_name);
-      struct stat st{};
-      if (stat(path, &st)) { failure = "read_failed"; break; }
-      if (S_ISREG(st.st_mode) && st.st_size >= 0) entries[entryCount++] = {uint64_t(st.st_size), n, current};
-    }
-    if (!(seen % 8)) vTaskDelay(1);
-  }
-  if (closedir(dir) && !failure) failure = "read_failed";
-  if (failure) { finishError(failure, strcmp(failure,"shutdown") && strcmp(failure,"disconnected")); return false; }
-  return true;
-}
-void start(Request request, uint32_t number, uint64_t accepted) {
+
+void start(const diagreader::Accepted& accepted) {
 #if DIAG_USB_TEST_FIXTURE
-  testStartDownload(request == Request::Current || request == Request::Archive);
+  testStartDownload(accepted.request == Request::Current || accepted.request == Request::Archive);
 #endif
-  isCurrent = request == Request::Current; fileNumber = number;
-  startedAt = lastProgress = accepted; sentBytes = fileSize = 0; dataLines = 0; crc = 0xffffffff;
-  begun = paused = false; terminalReason = nullptr; pendingBytes = 0;
+  dataLines = 0; terminalReason = nullptr;
   connectionLost = false; connectionLostAt = longestLoss = 0; connectionLosses = 0;
   terminalPhase = "idle"; lastLineBytes = 0; lastTxFree = lastWriteBytes = -1;
-  lastSendCheck = lastSendStop = "none"; publish();
-  buffers = static_cast<Buffers*>(heap_caps_calloc(1, sizeof(Buffers), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-  if (!buffers) { finishError("memory"); return; }
-  if (const char* reason = stopReason()) { finishError(reason, strcmp(reason,"shutdown") && strcmp(reason,"disconnected")); return; }
-  if (request == Request::List) { if (captureList()) phase = Phase::List; return; }
-  nameFor({0,number,isCurrent}, filename, sizeof(filename));
-  char path[64]; snprintf(path, sizeof(path), "%s%s", ROOT, filename);
-  struct stat st{};
-  if (stat(path, &st)) { finishError(errno == ENOENT ? "not_found" : "read_failed"); return; }
-  if (!S_ISREG(st.st_mode) || st.st_size < 0) { finishError("not_found"); return; }
-  if (!hooks.begin(filename)) { finishError("logger_failed"); return; }
-  begun = true;
-  if (isCurrent) {
-    // Mark before calling pause: a flush/close failure still takes cleanup.
-    paused = true; publish();
-    if (!hooks.pause()) { finishError("logger_failed"); return; }
+  lastSendCheck = lastSendStop = "none";
+  if (const char* reason = diagreader::start(accepted,transportStop)) {
+    finishError(reason, strcmp(reason,"shutdown") && strcmp(reason,"disconnected")); return;
   }
-  reader = open(path, O_RDONLY);
-  if (reader < 0) { finishError("read_failed"); return; }
-  if (fstat(reader, &st) || st.st_size < 0) { finishError("read_failed"); return; }
-  fileSize = st.st_size; phase = Phase::Begin;
+  if (accepted.request == Request::List) { entryIndex = 0; phase = Phase::List; }
+  else phase = Phase::Begin;
 }
 void controlTick() {
   bool wantStatus; const char* error; uint64_t errorAt;
@@ -342,10 +249,9 @@ void controlTick() {
       (unsigned long)s.newest,(unsigned long)s.drops,(unsigned long long)(s.cardBytes >> 20),
       (unsigned long long)(s.freeBytes >> 20),(unsigned long)s.files);
   } else if (statusPart == 2) {
-    portENTER_CRITICAL(&usbMux);
-    const bool active = reserved, pause = publishedPaused;
-    const uint64_t bytes = publishedBytes; const char* result = lastResult;
-    portEXIT_CRITICAL(&usbMux);
+    const auto snapshot = diagreader::published();
+    const bool active = diagreader::busy(), pause = snapshot.paused;
+    const uint64_t bytes = snapshot.bytes; const char* result = snapshot.result;
     snprintf(wire,sizeof(wire),"\n@@USB active=%u paused=%u bytes=%llu result=%s queue=%lu/%lu current_limit_ms=%llu stall_ms=%llu\n",
       active,pause,(unsigned long long)bytes,result,(unsigned long)s.queued,(unsigned long)s.capacity,
       (unsigned long long)CURRENT_MS,(unsigned long long)STALL_MS);
@@ -385,17 +291,15 @@ void controlTick() {
 }
 } // namespace
 
-void diagnosticsUsbInit(const DiagnosticsUsbHooks& value) { hooks = value; }
-bool diagnosticsUsbBusy() {
-  portENTER_CRITICAL(&usbMux); const bool value = reserved; portEXIT_CRITICAL(&usbMux); return value;
-}
+void diagnosticsUsbInit(const DiagnosticsUsbHooks& value) { hooks = value; diagreader::init(value); }
+bool diagnosticsUsbBusy() { return diagreader::busy(); }
 bool diagnosticsUsbPaused() { return paused; }
 bool diagnosticsUsbCommand(const char* command) {
 #if DIAG_USB_TEST_FIXTURE
   const bool slowOn = !strcmp(command,"log test slow on");
   if (slowOn || !strcmp(command,"log test slow off")) {
     portENTER_CRITICAL(&usbMux);
-    const bool busy = slowOn && reserved;
+    const bool busy = slowOn && diagreader::busy();
     if (!busy) {
       testSlowArmed = slowOn;
       if (!slowOn) testSlowActive = false; // Off is allowed during a download.
@@ -410,7 +314,7 @@ bool diagnosticsUsbCommand(const char* command) {
     portENTER_CRITICAL(&usbMux); statusRequested = true; portEXIT_CRITICAL(&usbMux); return true;
   }
   if (!strcmp(command,"log abort")) {
-    portENTER_CRITICAL(&usbMux); abortRequested = true; portEXIT_CRITICAL(&usbMux); return true;
+    diagreader::requestAbort(); return true;
   }
   if (strncmp(command,"log ",4)) return false;
   if (diagnosticsUsbBusy()) { queueError("busy"); return true; }
@@ -422,20 +326,17 @@ bool diagnosticsUsbCommand(const char* command) {
     request = Request::Archive;
   } else return false; // Stage 1 hooks retain their parser when idle.
   if (!hooks.status || !hooks.status().ready) { queueError("unavailable"); return true; }
-  portENTER_CRITICAL(&usbMux);
-  pending = request; requestedNumber = number; acceptedAt = milliseconds(); reserved = true;
-  portEXIT_CRITICAL(&usbMux);
+  if (!diagreader::reserve(request,number,milliseconds())) queueError("busy");
   return true;
 }
 void diagnosticsUsbTick() {
   if (!hooks.status) return;
   if (hooks.status().closing) { diagnosticsUsbStop(); return; }
   // Explicit abort is acknowledged only after cleanup, including queued requests.
-  portENTER_CRITICAL(&usbMux);
-  bool abort = abortRequested; abortRequested = false;
-  Request request = pending; uint32_t number = requestedNumber; uint64_t accepted = acceptedAt;
-  pending = Request::None;
-  portEXIT_CRITICAL(&usbMux);
+  const auto accepted = diagreader::takeRequest();
+  const bool abort = accepted.abort;
+  const Request request = accepted.request;
+  if (request != Request::None) sessionGeneration = accepted.generation;
   if (abort) {
 #if DIAG_USB_TEST_FIXTURE
     // A cancelled queued file request consumes the one-shot test as well.
@@ -443,7 +344,7 @@ void diagnosticsUsbTick() {
 #endif
     if (phase != Phase::Idle || request != Request::None) finishError("aborted");
     else queueError("aborted");
-  } else if (request != Request::None) start(request,number,accepted);
+  } else if (request != Request::None) start(accepted);
   if (phase != Phase::Idle && phase != Phase::Terminal) {
     if (const char* reason = stopReason()) finishError(reason, strcmp(reason,"shutdown") && strcmp(reason,"disconnected"));
   }
@@ -475,12 +376,7 @@ void diagnosticsUsbTick() {
         // above still run on every tick; waiting is not transfer progress.
         if (testDataWaiting()) break;
 #endif
-        if (!pendingBytes) {
-          const size_t wanted = fileSize-sentBytes < CHUNK ? size_t(fileSize-sentBytes) : CHUNK;
-          const ssize_t got = read(reader,buffers->raw,wanted);
-          if (got <= 0) { finishError("read_failed"); break; }
-          pendingBytes = size_t(got);
-        }
+        if (const char* reason = diagreader::readChunk()) { finishError(reason); break; }
       }
       if (phase == Phase::Data) {
         const int prefix = snprintf(wire,WIRE+1,"\n@@D %lu ",(unsigned long)(dataLines+1));
@@ -507,14 +403,13 @@ void diagnosticsUsbTick() {
     }
     if (sent < 0) { finishError("stalled", true, "send_failed"); break; }
     if (!sent) break;
-    lastProgress = milliseconds();
+    diagreader::progress(sessionGeneration,phase == Phase::Data);
     if (phase == Phase::Begin) phase = Phase::Data;
     else if (phase == Phase::Data) {
 #if DIAG_USB_TEST_FIXTURE
       testLastDataAt = lastProgress;
 #endif
-      crc = updateCrc(crc,buffers->raw,pendingBytes); sentBytes += pendingBytes;
-      pendingBytes = 0; ++dataLines; publish();
+      ++dataLines;
     } else if (phase == Phase::End) {
       closeReaderAndResume(true,"ok"); release();
     }
@@ -522,8 +417,11 @@ void diagnosticsUsbTick() {
   }
 }
 void diagnosticsUsbStop() {
+  const auto accepted = diagreader::takeRequest();
+  if (accepted.request != Request::None) sessionGeneration = accepted.generation;
+  diagreader::invalidate(sessionGeneration);
   portENTER_CRITICAL(&usbMux);
-  pending = Request::None; abortRequested = statusRequested = false; controlError = nullptr;
+  statusRequested = false; controlError = nullptr;
 #if DIAG_USB_TEST_FIXTURE
   testSlowArmed = testSlowActive = false;
 #endif
@@ -533,13 +431,11 @@ void diagnosticsUsbStop() {
   release();
 }
 void diagnosticsUsbBeforePrune(uint32_t number) {
-  if (reader >= 0 && !isCurrent && number == fileNumber) finishError("pruned");
+  if (diagreader::beforePrune(number)) finishError("pruned");
 }
 void diagnosticsUsbOfflineTick() {
   if (!hooks.status) return;
-  portENTER_CRITICAL(&usbMux);
-  bool abort = abortRequested; abortRequested = false;
-  portEXIT_CRITICAL(&usbMux);
+  const bool abort = diagreader::takeAbort();
   if (abort) queueError("aborted");
   controlTick(); // No filesystem access while the writer is absent/parked.
 }

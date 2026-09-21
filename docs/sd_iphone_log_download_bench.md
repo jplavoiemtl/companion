@@ -8,7 +8,10 @@ Branch `iphone-log-retrieval`. Results are appended newest first as cases comple
 
 Status: design review closed on September 20, 2026 with six corrections accepted.
 **Case 1 passed on September 20, 2026**, with transfer timing deliberately deferred. No
-firmware exists for this feature yet.
+wireless firmware exists for this feature yet. The USB-only extraction is now implemented
+for Claude review; its host checks and remaining first bench gate are recorded in the
+[increment 1 handoff](sd_iphone_log_download_increment1.md). No extraction bench result
+is claimed.
 
 ---
 
