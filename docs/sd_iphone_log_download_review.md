@@ -1,5 +1,91 @@
 # iPhone log retrieval - review against accepted Stage3
 
+## September20: revision2 review at8f85730 - increment1 ready for JP approval
+
+Verdict: YES for increment1, the USB-only shared reader/session extraction.
+This is not approval of HTTP teardown or permission to implement before JP
+approves. Section3 now defines a workable boundary, compatibility obligations,
+source-test adaptation and first bench case. Do not block USB extraction on
+server-specific choices. No firmware/build/flash changes in this review.
+
+### Increment1 interpretations and required tests
+
+'No waits' means no network/consumer wait or new cross-task blocking: existing
+writer SD open/read/flush/close operations can still take time. Do not replace
+them with a new async SD design merely to satisfy that literal wording. USB's
+accepted bounded send behavior remains in its adapter, unchanged. Preserve
+all existing timeout/progress semantics, including control/header progress,
+rather than importing section8's HTTP body-only rule into USB.
+
+The generation contract needs this explicit distinction during implementation:
+a cancelled reservation remains identifiable until release. Reject subsequent
+data/progress for it, but accept the matching terminal RELEASE for that retained
+reservation. Only releases from unrelated/older reservations are stale. Otherwise
+'invalidate generation; ignore stale acknowledgements' discards the very B that
+is required to free the buffer and wedges the session. Test cancel->matching
+release->reuse, duplicate release, old progress/release after reuse and cancellation
+before writer start. Physical task/main ownership and bounded state snapshots
+must stay explicit. USB can acknowledge release synchronously because its adapter
+runs on writer, without an HTTP task or socket introduced in increment1.
+
+Terminal result ownership must also preserve eventual transport prefix/counts:
+writer cleanup acknowledgement is not necessarily final transport-result publication.
+A send already in flight at cancellation may report accepted bytes on release.
+No output or wait is added to shutdown to obtain that report.
+
+### Section5 is NOT yet a safe HTTP teardown implementation contract
+
+1. Generation validation is not an fd-lifetime pin. Main can read(fd,generation),
+   then the handler clears/returns, HTTPD closes it, another socket reuses that
+   integer, and main shuts down the unrelated socket. Require an interruption
+   claim/lease coordinated with ALL close paths so the fd cannot be closed and
+   reused until the interruption finishes; a snapshot check alone is inadequate.
+   Do not hold a spinlock across shutdown(). Define unexpected error/close paths.
+2. Calling httpd_stop on a later main-loop iteration is still blocking. IDF5.5.5
+   httpd_stop waits for HTTPD task termination. 'No handler currently executing'
+   is also a race unless new admission/parsing is quiesced, and idle or partial
+   requests are not covered by the active-transfer fd. Name a non-main lifecycle
+   context and a completion notification, or otherwise establish a bounded
+   mechanism. This must be settled before increment3, which already starts/stops
+   a server even without downloads.
+3. shutdown(fd) is a plausible wake mechanism, not a proven instantaneous or
+   nonblocking main-task operation. Validate installed lwIP behavior and protect
+   the main close path from waiting on networking. FULLDUPLEX support in the
+   installed lwipopts.h supports concurrent socket use but does not solve the
+   application's fd reuse race. Sender may have partial progress; do not assume
+   every cancellation produces only a negative send result.
+4. If release never arrives, holding buffer/reservation and refusing media is
+   memory-safe containment, not recovery. Define elapsed escalation threshold,
+   one recorded error/visible status, later-release recovery, and user-directed
+   recovery action. Do not auto-free/delete a still-referencing task or silently
+   add reboot policy. Logging and ordinary device shutdown remain independent.
+
+Source reference for blocking stop (matching IDF version):
+https://github.com/espressif/esp-idf/blob/v5.5.5/components/esp_http_server/src/httpd_main.c
+
+### Decision deadlines
+
+- Common reservation cancellation/release semantics: increment1 implementation
+  and host checks, as clarified above. No additional JP product choice required.
+- Capability decision: before3, correctly placed.
+- Server lifecycle context, fd lifetime protocol and stuck-release policy: add
+  before3; transfer-specific cancellation mechanics must be reviewed before4.
+- Choose provisional client socket count before3; final measured tuning before8
+  is fine. The spec can recommend2 initially without calling it bench-proven.
+- Queued second replies: HTTP requests queued behind a synchronous stream cannot
+  reset main's request-arrival idle deadline until parsed. Define 'arrival' as
+  parsed request, or provide a mechanism observing earlier arrival. A progressing
+  archive has no transfer total cap; any claim of a fixed reply bound therefore
+  needs its interaction with panel-touch resets specified. Settle before4 (before3
+  for the general idle-event publication contract). Do not silently change JP's
+  five-minute rule. Interleaving remains an explicit later choice.
+
+Proceeding with increment1 does not commit to the unsafe fd snapshot or blocking
+main-loop stop. Claude reviews the implemented extraction before JP builds/flashes;
+the first requested bench case remains normal current.log USB/status/CRC/append
+continuation. Other required USB cases follow individually, not as one instruction.
+
+
 ## September20: consolidated spec review at7ec6269
 
 Verdict: close, but not yet ready for unconditional implementation approval.
