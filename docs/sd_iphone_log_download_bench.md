@@ -15,6 +15,45 @@ as a whole remains pending its remaining regression gates.
 
 ---
 
+## Increment 1 USB gate 5 - 2026-09-21, 10:30-10:33 - PASS
+
+Orderly shutdown and restart, boots 98 -> 99, fixture-enabled build. JP reports the test
+ran fine. Evidence: attachment `281557af-8003-4e4e-b338-fbd7ae3d18b0/Pasted text.txt`,
+`C:/Users/photo/Downloads/98-current.log` and `99-current.log`.
+
+- Before: 78888 bytes, browser CRC OK, local CRC32 **6AF52D0E**. After: 86435 bytes,
+  browser CRC OK, local CRC32 **FF9C81B8**. The first **78888 bytes match exactly**.
+- USB removal at host 10:31:06.494 is expected for this test. Persisted boot 98 records:
+  POWER_DECISION action=shutdown moving=0 usb=0 idle_ms=88833 at 10:31:37.471;
+  SESSION_END reason=shutdown pending=0 at 10:31:37.531. Boot 99 records reset=power_on,
+  context=append. This establishes orderly close and append preservation, not an exact
+  diagnosticsClose latency: clocks and record intervals are not a caller-wait measurement.
+- Post-restart CRC transfer succeeds; later current_size=87730 (1295 beyond snapshot).
+  Same file generation 21/newest 20, archives=7; no rotation. Final ready, active=0,
+  paused=0, result=ok, queue=0/16, drops=0, error=none, no USB losses or retained failure.
+  Wi-Fi/MQTT connected. Internal largest block 51188 > 20480, internal minimum 94412,
+  writer stack minimum 2984. Startup sd_max_us=159198 is reported, not treated as a
+  transfer stall; slow write count=0.
+
+All five issued increment 1 bench cases now pass. This close case is idle shutdown,
+not in-flight close or deep-sleep repetition; host tests cover session shutdown and
+previous accepted platform evidence remains applicable. Full acceptance belongs to JP.
+
+### Next single case issued: restore normal build and verify configuration
+
+Codex restored only the temporary fixture define from 1 to its tracked default 0;
+DIAG_ENABLED=1, DIAG_TEST_HOOKS=0 and DIAG_WRITER_STACK_PSRAM=1 remain unchanged.
+JP builds/flashes amoled-1-8-core-3-3-11 (no generated-sketch deletion). Connect Chrome
+with explicit DTR=true/RTS=false and all test switches off. Send status/log status,
+download current once (CRC OK), wait 70 seconds, then send both status commands again.
+Send saved console and current.log. Verify hooks=0, fixture/test/gate status lines absent,
+ready, no drops/errors, USB idle/unpaused, CRC success and append growth. This is the
+normal-configuration handoff check, not a repeat of the fixture suite. After reviewing it,
+present increment 1 for explicit acceptance and ask for increment 2 approval separately
+or together. No increment 2 implementation has begun.
+
+---
+
 ## Increment 1 USB gate 4 - 2026-09-21, 09:40-09:43 - PASS
 
 Selected synthetic archive pruning, same boot 97/fixture-enabled build. JP reports normal

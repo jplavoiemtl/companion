@@ -146,3 +146,11 @@ Gate 4 passed: synthetic archive 22 removed during retrieval, 67600-byte normal 
 CRC OK, zero drops/errors. Next single case is orderly shutdown close/restart on the
 same build; see [bench record](sd_iphone_log_download_bench.md). Fixture=1 remains local;
 normal fixture=0 restoration is due before final handoff. Increment 2 remains unapproved.
+
+## September 21 close result and normal restoration
+
+Orderly close/restart passed, boots 98 -> 99: SESSION_END shutdown pending=0, power_on
+append restart, exact 78888-byte prefix retained, CRC OK and later append growth. All
+five issued regression cases pass. See [bench record](sd_iphone_log_download_bench.md).
+Temporary fixture define restored to tracked zero; JP's normal-build handoff check is
+next. Explicit increment 1 acceptance and increment 2 approval remain pending.

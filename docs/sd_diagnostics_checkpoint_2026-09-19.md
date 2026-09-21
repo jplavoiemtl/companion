@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 1 close gate passed
+
+All five issued USB extraction regression cases pass, including orderly shutdown boot
+98 -> 99 with exact log-prefix preservation and continued appends. See the
+[bench record](sd_iphone_log_download_bench.md). The temporary fixture flag is restored
+to zero in source; JP must build/flash and perform the issued normal-configuration
+handoff check. No assistant build/flash. Increment 1 acceptance and increment 2 approval
+remain pending; no increment 2 code exists.
+
+
 ## Latest result - September 21, increment 1 USB gate 4 passed
 
 Synthetic archive 22 pruning passed on boot 97, including a CRC-checked current retry
