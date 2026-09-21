@@ -142,3 +142,7 @@ Claude approved corrections at 5ed5ed1. JP's reordered gate 1 passes on boot 103
 entry/repeated-command semantics, successful Latest while OFF, refusal while ACTIVE,
 paired exit records, CRC retrieval. [Evidence and next single pending-display case](sd_iphone_log_download_bench.md).
 Increment 2 acceptance remains pending its other gates; increment 3 is unapproved.
+
+September 21 gate 2 also passes: completed image display refuses entry with display_pending;
+navigation releases it, later entry/exit succeeds, CRC evidence saved. Next single case:
+entry during Live, per the bench record. Other increment 2 gates remain pending.

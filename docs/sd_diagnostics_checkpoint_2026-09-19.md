@@ -1,5 +1,13 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 2 pending-display gate passes
+
+Boot 103: display_pending refusal while a completed image remains displayed, successful
+entry after navigation and persisted exit completion, CRC-checked log. Gate 1 also passed.
+Next single case: Live-active entry refusal. [Evidence/procedure](sd_iphone_log_download_bench.md).
+No firmware change; increment 2 acceptance pending, increment 3 unapproved.
+
+
 ## Latest result - September 21, increment 2 gate 1 passes
 
 Claude corrections approved at 5ed5ed1; JP built/flashed. Boot 103 reordered entry/

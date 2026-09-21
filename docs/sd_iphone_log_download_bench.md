@@ -16,6 +16,39 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 2 gate 2 - 2026-09-21, 14:32-14:34 - PASS
+
+Pending-display admission, boot 103. JP confirms the test passed, including the screen
+behavior. Evidence: attachment `b9e78bbd-c14b-42aa-801f-55e98c6f1381/Pasted text.txt`
+and `C:/Users/photo/Downloads/103-current (2).log`.
+
+Latest completes at 14:32:56.699 (31713 image bytes, 1492 ms). On at 14:33:00.243 is
+OFF/refused/display_pending, before screen unload at 14:33:10.268. After navigation,
+on at 14:33:27.579 succeeds ACTIVE/ok. Off reports STOPPING; persisted seq=95 confirms
+exit result=ok at up_ms=496900 even though final mode status was omitted. No stuck-release
+record is needed for this ordinary exit. The saved log contains the refusal and re-entry.
+
+Current download **1155516 bytes, browser CRC OK**, 10.89 s; local file size matches,
+computed CRC32 **9FA07F97**. Last pre-download full status: ready, drops=0, error=none,
+queue=0/16, internal largest=31732 > 20480, writer stack minimum=2920, no USB loss or
+retained failure. Same boot, Wi-Fi/MQTT connected; no unexpected reset/stall visible.
+No post-download status was supplied, so those resource observations precede retrieval.
+This establishes completed-image display admission, not the brief motion handover gap.
+
+### Next single case issued: refuse entry during Live
+
+Same build, no flash. Dashboard, Wi-Fi/MQTT connected, DTR=true/RTS=false, browser test
+switches off. Send mode off/status and confirm OFF. Start Live normally. While frames
+are visibly updating (about five seconds in), send log mode on; expect OFF/refused/live_busy,
+and Live should continue normally. Let the full cycle finish; return to dashboard if
+needed. Send mode on (ACTIVE/ok), off, then mode status (OFF). Send status/log status,
+download current once with CRC OK, save console. Send console/file and whether Live
+continued normally. If command arrives after Live finishes, report the timing; that does
+not exercise this refusal gate. Other increment 2 gates remain pending; increment 3 is
+unapproved. No firmware change or assistant build/flash in this review.
+
+---
+
 ## Increment 2 gate 1 - 2026-09-21, 14:25-14:29 - PASS
 
 Entry/exclusion/exit with reordered steps, boot 103. JP reports the test worked, with
