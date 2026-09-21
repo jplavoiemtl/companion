@@ -16,6 +16,39 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 2 gate 9 - 2026-09-21, 15:19-15:22 - PASS
+
+Direct Live exclusion while ACTIVE, boot 103; JP confirms pass. Evidence: attachment
+`6c60d715-acac-423c-93a6-00c7814708ea/Pasted text.txt`, Downloads
+`103-current (9).log`.
+
+ACTIVE at 15:19:26; button at 15:19:40 refused download_mode. Persisted LIVE_REQUEST
+seq=338 is refused, with no LIVE_BEGIN for that attempt; subsequent status remains ACTIVE.
+Mode exit completes seq=340 before the next LIVE_BEGIN id=4. The explicit OFF query was
+omitted, but persisted completion establishes ordering. Allowed Live ends reason=duration,
+failure=none, http_code=200, 183 frames/60397 ms = **3.03 fps** (not a paired benchmark).
+
+Download **1224471 bytes**, browser CRC OK, 11.63 s; local length matches, computed
+CRC32 **56240213**. Pre-download status ready, drops=0, error=none, queue=0/16,
+internal minimum=34304 and largest=24564 > 20480, stack minimum=2920. Largest retained
+block is lower than the prior 26612 observation; no leak or cause is inferred from these
+boot-retained minima. No unexpected reset/stall visible. Same boot, normal flags.
+
+### Next single case issued: history-image Back exclusion and recovery
+
+Same build/no flash, dashboard, USB/hotspot connected, browser test switches off. Mode
+on/status -> ACTIVE. Press the dashboard history-image Back button (not screen-return
+navigation) once: expect Back refused: download mode, no image/loading screen. Mode
+status stays ACTIVE. Mode off/status -> OFF. Press the same history-image Back button
+once; expect normal older-image retrieval. After it displays, return to dashboard via
+normal navigation; status/log status, then current download (CRC OK). Send console/file
+and screen observations. If the server has no older image, report that result rather
+than counting successful rendering. This covers the remaining local still caller;
+remote MQTT/handover and battery-entry evidence still need an explicit coverage decision
+before increment 2 acceptance. Increment 3 unapproved; no new firmware changes.
+
+---
+
 ## Increment 2 gate 8 - 2026-09-21, 15:16-15:18 - PASS
 
 Explicit mode exit during current USB transfer, boot 103; JP confirms pass. Evidence:

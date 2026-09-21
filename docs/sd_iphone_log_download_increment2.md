@@ -169,3 +169,7 @@ USB transfer, to exercise STOPPING through actual writer cancellation/release.
 September 21 gate 8 passes: mode off during USB transfer produces stopping -> USB abort
 -> mode exit complete; idle/unpaused status and CRC retry verify reuse. Next single
 case: direct Live refusal while mode ACTIVE, then normal Live after exit.
+
+September 21 gate 9 passes: direct Live refused while ACTIVE, full successful Live after
+mode exit, CRC log verified. Next: history-image Back refusal/recovery. Remote/handover
+and battery-entry coverage remain explicit outstanding items for acceptance review.

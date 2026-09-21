@@ -1,5 +1,13 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 2 direct-Live exclusion passes
+
+Gates 1-9 pass. Boot 103 direct Live refused in ACTIVE and successful after exit; largest
+block 24564 still above gate. Next single case: dashboard history-image Back exclusion/
+recovery. [Evidence/procedure](sd_iphone_log_download_bench.md). Remote/handover and
+battery-entry coverage remain open; increment 2 acceptance pending, increment 3 unapproved.
+
+
 ## Latest result - September 21, increment 2 active-transfer exit passes
 
 Gates 1-8 pass. Boot 103 mode exit during USB current retrieval aborted 206208 bytes;
