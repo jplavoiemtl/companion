@@ -146,3 +146,7 @@ Increment 2 acceptance remains pending its other gates; increment 3 is unapprove
 September 21 gate 2 also passes: completed image display refuses entry with display_pending;
 navigation releases it, later entry/exit succeeds, CRC evidence saved. Next single case:
 entry during Live, per the bench record. Other increment 2 gates remain pending.
+
+September 21 gate 3 passes on boot 103: live_busy refusal during playback, full Live
+completion, successful subsequent mode entry/exit, CRC evidence. Next single case is
+five-minute idle expiry without panel touch; see the bench record.

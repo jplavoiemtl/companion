@@ -16,6 +16,39 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 2 gate 3 - 2026-09-21, 14:37-14:39 - PASS
+
+Active-Live entry refusal, boot 103. JP confirms pass. Evidence: attachment
+`64484ff4-6ea6-4ef4-9541-e79a146d7cea/Pasted text.txt` and Downloads
+`103-current (3).log`.
+
+Live started 14:37:24; mode on at 14:37:30.561 refused live_busy, state OFF.
+Live continued to duration completion: persisted LIVE_END failure=none, http_code=200,
+173 frames / 60197 ms = **2.87 fps**, no performance comparison claimed. Mode entry
+succeeded after completion; off then status confirmed OFF, release_stuck=0. Persisted
+mode events confirm refusal, later entry and exit completion.
+
+Download **1164408 bytes**, browser CRC OK, 10.96 s; local length verified, computed
+CRC32 **11A657C5**. Pre-download status ready, drops=0, error=none, queue=0/16,
+internal largest=26612 > 20480, stack minimum=2920. Same boot, no unexpected reset/stall
+visible. Last resource status precedes retrieval. This proves Live-active entry refusal,
+not a paired FPS benchmark or direct Live refusal while mode ACTIVE.
+
+### Next single case issued: five-minute idle exit
+
+Same build, no flash. Keep USB and hotspot connected, dashboard idle, no media/downloads,
+no panel touch, browser test switches off. Send mode off/status, clear console, then mode
+on and confirm ACTIVE. Start timing from that successful on. At about two minutes send
+only log mode status: expect ACTIVE and idle_ms near 120000 (status must not reset it).
+At five minutes ten seconds from entry send mode status: expect OFF/reason=idle_timeout,
+release_stuck=0. Do not send mode off before observing that result. Then status/log status
+and one current download (CRC OK); send console/file and report any panel touch or USB/
+hotspot interruption. Persisted timestamps, not manual timing alone, determine expiry.
+This tests idle expiry without touch; touch reset and link/power cases remain separate.
+Increment 2 acceptance pending, increment 3 unapproved.
+
+---
+
 ## Increment 2 gate 2 - 2026-09-21, 14:32-14:34 - PASS
 
 Pending-display admission, boot 103. JP confirms the test passed, including the screen

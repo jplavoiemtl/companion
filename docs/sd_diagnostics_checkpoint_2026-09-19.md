@@ -1,5 +1,13 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 21, increment 2 Live admission gate passes
+
+Boot 103 active-Live refusal passed; playback completed normally and mode entry/exit
+worked afterward. Gates 1-3 passed. Next single case: five-minute idle expiry with no
+panel touch. [Evidence/procedure](sd_iphone_log_download_bench.md). No firmware change
+or assistant build/flash; increment 2 acceptance pending and increment 3 unapproved.
+
+
 ## Latest result - September 21, increment 2 pending-display gate passes
 
 Boot 103: display_pending refusal while a completed image remains displayed, successful
