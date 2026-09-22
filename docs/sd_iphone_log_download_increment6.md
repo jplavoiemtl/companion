@@ -105,3 +105,12 @@ If Safari reports partial/failure, preserve it and capture the same status/USB e
 do not retry or change limits before review. Normal transfer result remains unmeasured.
 Controlled queue-pressure case follows separately, not mixed into this case. No next
 increment or timestamp feature implementation yet; both remain gated as recorded above.
+
+
+## Gate C normal leg passes - controlled pressure remains
+
+Boot 114 Safari current snapshot equals the later USB prefix, 1444367 bytes, CRC06AD67A4,
+dual match, pause28230 ms, appends=resumed, HTTP margin2420, zero drops, clean104 ms exit.
+See bench record. Next single case uses paced on-device Latest refusals during the paused
+HTTP current transfer, at most ten taps one second apart, expecting logger_busy and resume.
+No firmware change/build/flash. Gate C and increment 6 acceptance await this pressure evidence.

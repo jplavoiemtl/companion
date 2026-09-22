@@ -1,6 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 22, normal gate C passes; pressure case next
+
+Boot114 Safari snapshot equals USB prefix:1444367 bytes, CRC06AD67A4, dual match.
+Paused28230 ms then resumed, HTTP margin2420, zero drops, clean mode exit104 ms.
+[Bench record and next case](sd_iphone_log_download_bench.md): same firmware, one current
+snapshot with paced Latest refusals (maximum ten, one per second), expecting logger_busy
+and resumed appends with no drops. Gate C acceptance pending. No rebuild; increment7
+and timestamp usability implementation remain unapproved.
+
+
 ## Latest handoff - September 22, increment 6 cleared for JP build
 
 Claude clearance bb9db3e; 219 checks confirmed. No further code changes. JP may build/flash

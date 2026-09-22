@@ -1,6 +1,63 @@
 # iPhone log retrieval - bench cases and results
 
 
+## September 22, 16:40-16:43 - gate C normal current snapshot passes
+
+JP reports pass; console attachment dff28b32-b1b2-4951-be17-07788f0f6e36/Pasted text.txt.
+Boot 114, generation 1. Downloads files read: 114-1-current-1444367.log (actual Safari
+export) and 114-current.log (later USB, 1446892 bytes, CRC OK). Safari file equals exactly
+the first 1444367 bytes of the USB log. Independent CRC32 06AD67A4; SHA256
+677df2ac8163db1a91c981f36450ecc5cf77796c2797cc09d71b7aa0c32cf6b9.
+The latest-result screenshot is supplied, but underlying records and saved bytes establish
+the verdict. No whole-file equality expected; no rotation occurred (generation 22).
+
+HTTP id=1, current.log: request=123465, reader=123498, pause=123500, header=123525,
+first body=123526, last=151725, reader close=151726, resume/cleanup close=151730,
+transport release=151731 (monotonic ms). Paused 28230 ms with appends=resumed;
+request-to-release 28266 ms, about 51.1 kB/s, first body after 61 ms. Maximum progress
+gap=61 ms, terminal gap=6 ms, cancel=0. Expected/HTTP/writer counts all 1444367;
+both CRCs 06AD67A4, crc_check=match, result=ok. Reader-to-header interval includes
+pause/open/fstat and scheduling, not an isolated measurement of flush duration.
+
+MEM internal_free=81488, internal_largest=38900, http_margin=2420. Later status
+internal_min=74236, internal_largest=34804 (>20480), writer margin=3128, worker=2304
+after shutdown. Queue high=7 before and after, drops/truncated=0, slow=0, logger error=none.
+Snapshot grew by 2525 bytes to USB capture; final current size 1448068, confirming continued
+appends. Final completed transfer inactive/unpaused, queue 0; subsequent list temporarily
+reports active=1 while listing, not a retained download. USB link losses=0.
+Mode exit stopping at 203061, ok at 203165: 104 ms. Console confirms OFF/server=off,
+release_stuck=0, accepted=9/rejected=0, no reset. Normal gate C leg passes.
+
+Gate C remains pending a separately controlled queue-pressure abort/resume case. This
+normal successful pause does not validate the full 120-second cap or change stall limits.
+
+### Next single case - paced Latest refusals while current snapshot is paused
+
+Same firmware, no rebuild. Keep dashboard Latest button visible, USB power and hotspot,
+DTR=true/RTS=false. Capture status/log status, enter mode and await ACTIVE. Start one
+Safari current.log download. About 3 seconds into the transfer, send log status to capture
+paused=1 (if transfer already ended, stop and send evidence rather than continuing taps).
+Then tap the companion's Latest button once per second, at most ten taps, stopping early
+if Safari reports failure. No other action or concurrent transfer during these taps.
+
+Source: Screen1 invokes buttonLatest_event_handler; requestLatestImage's download-mode
+branch queues exactly one unsuppressed IMAGE_REFUSED trigger=latest per click, before any
+image side effects. Appends are paused so records accumulate; writer stopReason aborts
+at >=8/16 queued. Paced taps allow writer scheduling and should produce logger_busy,
+close/resume, a truncated HTTP body and zero dropped records. This is a real bounded UI
+stimulus, not test-hook injection. Ordinary records may cause the threshold before tap 8.
+
+After terminal result capture Last result, log mode status, status and log status. Exit
+mode, confirm OFF/server=off, download current.log via USB with CRC OK; wait 10 seconds,
+capture log status. Save any partial phone file if available but do not require Safari
+to expose it. Send full console, last-result screenshot and later USB file. Do not retry
+or increase tap rate if abort does not occur. Evaluate result=logger_busy, prefix coverage
+(match or legitimate prefix_diff), appends=resumed, cleanup timing, queue/drops, continued
+growth and no stuck reservation/reset. Retain 120000/5000 limits. Increment 6 not yet
+accepted; increment 7 and deferred timestamp implementation remain unapproved.
+
+
+
 ## September 22, 15:19-15:23 - gate B representative archive passes
 
 JP reports test passed. Console attachment:
