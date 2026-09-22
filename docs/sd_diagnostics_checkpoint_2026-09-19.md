@@ -1,6 +1,17 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 22, gate A complete; increment 4 acceptance pending
+
+Boot 112 Safari archive 17 export equals the retained USB reference: 308745 bytes,
+CRC32 541A8F0C; writer/HTTP comparison match. HTTP margin 2744 on 6144 stack,
+smallest reported internal largest block 36852 (>20480), zero drops, appends continuing.
+Request-to-release 6125 ms, progress gap 43 ms, measured mode exit 103 ms, OFF confirmed.
+[Full evidence](sd_iphone_log_download_bench.md). No more gate A bench work required.
+JP's explicit increment 4 acceptance and increment 5 approval are the next decisions.
+No firmware change/build/flash. Current/stall limits unchanged.
+
+
 ## Latest handoff - September 22, HTTP stack correction cleared for Safari gate A
 
 Claude clearance af9523f: HTTP task now 6144 internal bytes; lifecycle worker unchanged.

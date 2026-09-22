@@ -215,3 +215,11 @@ shutdown again for this new build/session. Gate A remains pending these results 
 acceptance. Large archive/current throughput estimates are projections, not gates B/C.
 Increment 5 remains unapproved; propose the next large-archive increment only after gate A
 acceptance and explicit authorization.
+
+
+## Gate A complete - increment 4 presented for acceptance
+
+Boot 112 Safari export is byte-identical to the USB reference, dual CRC match 541A8F0C.
+HTTP margin 2744, internal largest above 20480, zero drops, append continuation and clean
+103 ms mode exit recorded. See bench document for exact evidence and timings. No additional
+build or test needed for gate A. Await JP acceptance; increment 5 still requires approval.

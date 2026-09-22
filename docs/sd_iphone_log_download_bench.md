@@ -1,6 +1,47 @@
 # iPhone log retrieval - bench cases and results
 
 
+## September 22, 14:34-14:37 - gate A Safari continuation passes
+
+JP reports the test passed and supplied console attachment
+b1ccd0b5-370b-4b12-8abf-7f8f644b82e6/Pasted text.txt. Boot 112 on the rebuilt
+6144-byte HTTP task stack. Evidence read from Downloads:
+112-1-archive-00000017-308745.log and 112-current.log (1007893 bytes, USB CRC OK).
+The exported Safari archive is byte-identical to 110-archive-00000017.log, the retained
+USB reference: 308745 bytes, CRC32 541A8F0C, SHA256
+c592bf6b49d7b52defab68fda97c4476ad2c33b737191ed99546d839da5dc28e.
+This compares Safari export against SD bytes retrieved over USB, not a physical-card reread.
+latest-result.PNG was supplied too; image-tool sandbox failure prevented viewing it.
+The underlying END record independently supplies the result and both CRCs.
+
+HTTP_GET_BEGIN id=1 started_ms=126819, range=0, if_range=0. META reader_ms=126844,
+header_ms=126861; first body=126862 (43 ms from request), last=132943, close=132943,
+release=132944. Request through release: 6125 ms, about 50.4 kB/s. Maximum progress
+gap=43 ms, terminal gap=1 ms, cancel=0, resume=0, appends=unpaused. END expected,
+HTTP bytes and writer bytes all 308745; both CRCs 541A8F0C, crc_check=match, result=ok.
+These are device transport times, not a measurement of Safari's final filesystem save.
+
+HTTP_GET_MEM: http_margin=2744, internal_free=89132, internal_largest=47092.
+Post-transfer status reports internal_min=78792 and internal_largest=36852, still above
+20480. Writer stack margin=3224; lifecycle worker minimum=2304 after teardown.
+Queue high-water=7/16, drops=0, truncated=0, logger error=none, USB link losses=0.
+Current size grew from 1004042 before entry to 1007385 after transfer and to 1008057
+after the 1007893-byte USB snapshot: continuing appends, including 164 bytes after snapshot.
+
+Exit record stopping at up_ms=191030, result=ok at 191133: 103 ms measured mode exit.
+Console subsequently confirms OFF/server=off, error=none, release_stuck=0, accepted=5,
+rejected=0, same boot. Later WiFi offline at 14:38:17 and reconnect at 15:01:51 occur
+after this gate and mode shutdown; their cause is not established by this evidence.
+
+Gate A evidence is complete and passing, including retained laptop leg and actual Safari
+export. Increment 4 is presented for JP's explicit acceptance; increment 5 remains
+unapproved. No further measurement or rebuild is needed for gate A. Next proposal is
+representative 2 MiB archive work and timing gate B, one case at a time. CURRENT_MS and
+STALL_MS remain unchanged; this successful archive does not establish current-log or
+slow-client safety. No firmware changes in this result recording.
+
+
+
 ## September 22, 14:24-14:25 - gate A laptop shutdown confirmed
 
 JP supplied the follow-up console: log mode off at 14:24:59.275, STOPPING at
