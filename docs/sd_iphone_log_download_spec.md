@@ -467,6 +467,32 @@ time, append resumption time and transport release time.
 **queue-pressure** cases are required before `CURRENT_MS` or `STALL_MS` change. Both stay at
 120 s and 5 s pending that data.
 
+### Deferred usability proposal - finding logs by event time
+
+Recorded September 22 at JP's request during increment 5. In the car, JP needs to find
+which file contains a strange event without knowing its archive number. JP proposed
+including the file's start date/time in its download filename.
+
+Proposed scope for design review after increment 6 (current.log retrieval) passes, before
+increment 11's final download screen and car deployment:
+
+- Show each file's covered date/time range on the listing, alongside archive identity
+  and size, so an event can be matched to a file. For current.log, distinguish the displayed
+  range from the later frozen download snapshot.
+- Include a trustworthy start date/time in the exported attachment filename while retaining
+  archive identity. Preserve existing SD filenames and managed-file route identities.
+- Label the timezone explicitly. If the clock was unsynchronized at file start, show the
+  start as unavailable; do not present the first synchronized record as the file's actual
+  start. Define behavior for clock corrections and files spanning boots during review.
+- Review metadata storage, recovery and caching with Claude; avoid repeated full-file scans
+  or adding SD reads to ordinary HTTP listing requests. Exact format and implementation
+  remain open. Existing archives with missing metadata need an explicit fallback.
+
+This is a recorded proposal, not implementation approval or a change to gate B. Revisit
+with JP at the increment 6 acceptance checkpoint and obtain approval for a bounded follow-up.
+Validate displayed ranges and exported names against log contents, including unsynchronized
+starts, before relying on them in the car. Current testing continues unchanged.
+
 ## 12. Remaining decisions, with deadlines
 
 | Decision | Deadline |

@@ -1,6 +1,13 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Deferred follow-up - locate car logs by event time
+
+JP's start-date/time filename idea and proposed listing time ranges are recorded in the
+[active spec, deferred usability proposal](sd_iphone_log_download_spec.md#deferred-usability-proposal---finding-logs-by-event-time).
+Revisit after increment 6 passes, before final UI/car deployment; design and implementation
+approval still pending. Gate B continues unchanged. Historical plan draft remains verbatim.
+
 ## Latest handoff - September 22, increment 4 accepted; increment 5 approved
 
 JP accepts increment 4 and authorizes increment 5. Gate B is a representative 2 MiB
