@@ -1,5 +1,20 @@
 # iPhone log retrieval - bench cases and results
 
+
+## September 22, 14:16 - increment 4 gate A preflight; archive selection pending
+
+JP supplied the post-build console directly. Boot 110, WiFi/MQTT connected, logger ready,
+hooks=0, PSRAM writer placement valid. Drops=0, queue high=7, slow=0, error=none;
+writer margin 3224, internal_min=90768, reported internal_largest=51188; probe
+largest_min=47092, above 20480. Current size 964476, generation 22, newest archive 21,
+eight archives plus current. No HTTP transfer or HTTP stack measurement yet.
+
+At 14:16:26.355 console says Listed 9 managed files but omits filenames and byte sizes.
+The preceding active=1 is sampled during the list command, not evidence of a stuck
+reservation. Request the existing web console Files table (screenshot or copied text),
+not a repeat build/list/transfer. Select one small immutable archive only after its size
+is known. Timing gate A remains pending; increment 5 unapproved.
+
 ## September 22, 11:57-11:59 - incomplete-header cancellation PASSED
 
 Evidence: b384075b-ab28-41be-bf09-e97da29fb3d3/Pasted text.txt and PowerShell output.
