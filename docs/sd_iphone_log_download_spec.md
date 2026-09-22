@@ -1,6 +1,6 @@
 # iPhone log retrieval - implementation spec
 
-Status: **revision 3.** JP accepted increment 1 and approved increment 2 on September 21.
+Status: **revision 4.** JP accepted increment 1 and approved increment 2 on September 21.
 JP accepted increment 2 on September 22 after eleven issued hardware cases passed; see
 [handoff](sd_iphone_log_download_increment2.md) and [bench evidence](sd_iphone_log_download_bench.md).
 Acceptance includes the proposed deferral of battery-only entry refusal and entry during
@@ -14,7 +14,10 @@ Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [case 1 result](sd_iphone_log_download_bench.md). Where those disagree, this document wins;
 where it is silent, they remain the reference.
 
-Revision 3 adds the release-acknowledgement invariant Codex raised at `724da61`, marks
+Revision 4 records two JP decisions of September 22: what counts as activity for the idle
+deadline (section 4), and no capability token (section 12).
+
+Revision 3 added the release-acknowledgement invariant Codex raised at `724da61`, marks
 section 5's teardown mechanism provisional with its three unresolved problems, and moves
 server lifecycle and descriptor ownership to a before-increment-3 deadline.
 
@@ -168,9 +171,17 @@ progressing archive can reach five minutes.
 
 **JP's rule is enforced unchanged, including mid-transfer: at expiry the transfer is
 cleanly aborted and the mode exits.** No progress-based reset and no transfer exemption
-without JP changing the decision. Any HTTP request resets it, including the last-result
-view and favicon, as does a panel touch. An expiry-during-archive-transfer case is a
-required bench gate.
+without JP changing the decision.
+
+**What counts as activity, decided September 22 (revision 4).** Reset on actions the user
+took: loading the listing, loading the last-result view, a file transfer, or a panel touch.
+**Do not** reset on incidental browser traffic: `/favicon.ico`, unknown paths and rejected
+methods. This supersedes the earlier wording that any HTTP request resets the deadline. The
+reason for the split is that refreshing the result page to see whether a download worked is
+a deliberate act and should hold the mode open, while background requests are not evidence
+that anyone is present - and if they counted, a browser tab left open could keep the mode
+alive indefinitely, defeating the one job this deadline has. An expiry-during-archive-
+transfer case is a required bench gate.
 
 ### Increment 2 STOPPING observation policy (September 21 review correction)
 
@@ -437,10 +448,30 @@ time, append resumption time and transport release time.
 
 | Decision | Deadline |
 |----------|----------|
-| **Server lifecycle teardown context and descriptor ownership** - the three problems in section 5 | **Before increment 3**, which already starts and stops the server |
-| **Provisional `max_open_sockets`** to build increment 3 against | **Before increment 3**; measured tuning completes in increment 8 |
-| Whether a per-session capability appears in the URL | Before increment 3 |
+| **Server lifecycle teardown context and descriptor ownership** - the three problems in section 5 | Answered by the increment 3 design: cancellable transport overrides, no descriptor leaves HTTP execution, lifecycle worker off main |
+| **Provisional `max_open_sockets`** to build increment 3 against | 3, with `lru_purge_enable` false; measured tuning completes in increment 8 |
 | Whether bounded interleaving of a second request is wanted, replacing the queued-reply choice in section 7 | Before increment 4 |
+
+**Decided September 22: no capability token.** JP's reasoning, accepted: the server exists
+only while download mode is active, the mode is off by default and needs USB power and a
+deliberate entry, it closes itself after five minutes, and the hotspot is WPA-protected with
+no other devices expected. A token's cost was never the comparison - it was delivery, which
+without an entry screen forced a serial reveal, and this project commits console captures to
+git, so manual redaction would have been the only control over the one secret in the design.
+
+Dropping it also removes the serial `log mode url` exception, the redaction discipline, the
+RNG-while-Wi-Fi-active dependency, invalidation on exit and the 403 path.
+
+The structural protections stay and do the practical work: the server exists only during the
+mode, bound to the hotspot interface, managed-file IDs only with no arbitrary paths, no
+upload or delete, no permissive CORS, `Cache-Control: no-store`.
+
+**Revisit when file bodies are served (increment 4 or later)**, because the exposure changes
+from a listing of names and sizes to the logs themselves, and by then an entry screen may
+make on-panel display or a QR code trivial. Also revisit if the hotspot password is shared
+beyond JP. Logs carry no credentials - SSID, password and BSSID are already excluded - but
+they do carry operational metadata: entrance-camera motion events, power and driving
+patterns, network quality and screen usage.
 
 Settled in revision 2 and no longer open: entry **refuses** during a pending display or
 handover; the idle deadline is enforced mid-transfer with a clean abort; `HEAD` returns
