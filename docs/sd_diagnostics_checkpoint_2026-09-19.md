@@ -1,6 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 22, increment 4 cleared for JP build
+
+Claude clearance 08479cd; 208 host checks independently confirmed. Existing maximum-width
+END record check already covers his low note (447 bytes below 456). No firmware changes.
+JP may build/flash the selected 3.3.11 profile; no generated sketch deletion needed.
+Gate A preparation: capture status/log status/log list and actual archive names/sizes,
+then select one small archive before issuing transfer steps. No HTTP transfer requested
+yet. [Handoff](sd_iphone_log_download_increment4.md). Increment 5 remains unapproved.
+
+
 ## Latest handoff - September 22, increment 4 dual-CRC follow-up for quick review
 
 Claude review 0bb2eb0 cleared the base implementation. Recommended writer CRC check is

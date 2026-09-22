@@ -150,3 +150,26 @@ reviewed call-site exclusion still applies. The two added writer coverage fields
 increase View/Result copies; measure HTTP_GET_MEM http_margin first in gate A, before
 interpreting throughput or CRC. No claim of measured stack safety is made by host tests.
 Increment 5 remains unapproved. No generated sketch deletion needed for these src changes.
+
+
+## Claude clearance and gate A preparation - September 22
+
+Claude cleared the CRC follow-up at 08479cd and reran all 208 checks. No firmware change
+after clearance. His low note about a missing record-size assertion is already covered
+by the final test in tools/tests/http_transfer.test.cjs, added at 01a116e: it substitutes
+maximum uint64 widths, CRCs and longest current labels into the actual END format and
+asserts length below the actual field capacity. It evaluates to 447 bytes (<456), not
+approximately 140 bytes of headroom at pathological widths. No duplicate test needed.
+
+JP may build/flash amoled-1-8-core-3-3-11: logging and PSRAM writer on, both test switches
+zero. companion.ino unchanged, so no generated sketch deletion required. Compile errors
+go directly to Codex. Gate A starts with selection of one existing small immutable archive:
+after flash, console DTR=true/RTS=false, USB power and hotspot connected, capture status,
+log status and log list. Send actual listed names and byte sizes (the console capture may
+only summarize the list, so copy the Files table if needed). Keep mode OFF and do not
+start HTTP transfers yet; choose the small archive from evidence before issuing the
+single-file download steps. No new fixture or larger archive is silently substituted.
+
+After selection, gate A will capture server stack margin first, dual CRC comparison,
+then exported Safari bytes against the reference. No hardware result yet. Increment 5
+remains unapproved.
