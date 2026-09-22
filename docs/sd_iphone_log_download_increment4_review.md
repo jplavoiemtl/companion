@@ -148,3 +148,90 @@ meets one. `companion.ino` is unchanged, so no generated-sketch deletion is requ
 Build and flash, then run timing gate A on one small immutable archive. The comparison that
 matters most is the exported Safari file against the card bytes, since that is the only check
 that spans the whole path rather than the device's own view of it.
+
+---
+
+## Dual-CRC follow-up review - `0bb2eb0..01a116e`, September 22
+
+**Cleared for JP's build.** The recommendation is implemented correctly, including the two
+races that make a naive comparison worse than none. One low note on record-size headroom.
+
+### The comparison is correctly scoped
+
+```cpp
+if (!closed.closed || closed.id!=result.id) { result.crcCheck="unavailable"; return; }
+```
+
+It compares only against a **finalized, identity-matched** writer snapshot, so an in-flight
+or foreign close cannot produce a verdict. That is the right guard: a comparison that could
+run against a partial writer CRC would manufacture mismatches.
+
+### Cancellation-prefix handling is right, and it is the subtle part
+
+```cpp
+if (result.bytes!=result.writerBytes) result.crcCheck="prefix_diff";
+```
+
+Unequal lengths are classified as `prefix_diff`, not `mismatch`. This matters: an in-flight
+`httpd_send` can succeed *after* the writer has invalidated the generation, so the HTTP
+prefix legitimately exceeds the credited prefix on a cancelled transfer. Treating that as
+corruption would have fired a false alarm on every cancellation - the most common non-happy
+path - and would have trained everyone to ignore the field. Only an **equal-length**
+divergence is called `mismatch`, which is the only case that can actually mean corruption.
+
+The escalation is also scoped correctly:
+
+```cpp
+else { result.crcCheck="mismatch"; if (!strcmp(result.result,"ok")) result.result="crc_mismatch"; }
+```
+
+A previously failed transfer keeps its original reason and still records the mismatch, so
+one failure is never renamed as another - consistent with the rule applied to writer versus
+server-stop failures in increment 3.
+
+### Capture ordering and late close
+
+`writerBytes`/`writerCrc` are read after `closeReaderAndResume()` returns, so both are final,
+and they are assigned **inside the same critical section** that sets `box.closed=true`. No
+observer can see `closed == true` alongside stale CRC fields. The writer is the only mutator
+of `sentBytes`/`crc`, and this runs on the writer.
+
+Both orderings are handled: `close()` updates `lastResult` when HTTP released first, and
+`release()` compares when the writer closed first. The handler itself compares against its
+bounded-wait `finalState` before emitting `HTTP_GET_END`. So a close arriving after the 5 s
+wait leaves `crc_check=unavailable` in the record while the `/result` page is updated later -
+which preserves the existing rule that a record cannot claim a completion that had not
+happened when it was written.
+
+Both sides finalise identically (`^0xffffffff`), so the two values are directly comparable.
+
+### Test coverage
+
+**208 checks pass** across ten suites, re-run and confirmed. The new coverage includes the
+case I asked for: an equal-length divergence forced through `writerCrcOverride`, asserting
+`crc_check=mismatch`, the escalated `crc_mismatch` result, and the exact field text in
+`HTTP_GET_END`. That exercises the path that previously could not fail.
+
+### Note - `HTTP_GET_END` headroom is adequate but unguarded
+
+`diag::record()` refuses any field string of 456 bytes or more and counts it as truncated
+and dropped, so an oversized record is **silently lost** - and this is now the record
+carrying the CRC verdict.
+
+Counting the format: roughly 180 bytes of literal keys and separators, plus realistic worst
+case values - a 20-character result such as `writer_close_pending`, five uptime timestamps,
+two 7-digit byte counts, two 8-digit CRCs and an 11-character `crc_check` - gives about 313
+bytes. Even with pathological 20-digit timestamps it stays under 456. So there is no defect
+and roughly 140 bytes of headroom.
+
+That headroom is not asserted anywhere. A single host check that formats the record with
+worst-case values and asserts the result is shorter than 456 would make the margin explicit
+before the next field is added. Cheap, and it protects the one record whose loss would be
+hardest to notice.
+
+### Clearance
+
+Cleared. Build and flash, then run timing gate A on one small immutable archive. With the
+dual CRC in place the reading order is: `http_margin` from `HTTP_GET_MEM`, then
+`crc_check` - `match` means the device agrees with itself end to end, and the exported
+Safari file comparison then extends that agreement across the parts the device cannot see.
