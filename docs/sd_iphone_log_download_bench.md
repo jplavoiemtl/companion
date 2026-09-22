@@ -1,5 +1,33 @@
 # iPhone log retrieval - bench cases and results
 
+## September 22, 11:44-11:49 - increment 3 repeated entry/exit PASSED
+
+Evidence: b895e915-f629-43b1-ba71-23b32ba82fa5/Pasted text.txt; JP reports test passed.
+Same boot 108 throughout. Three entries advance HTTP generation 2, 3, 4; counters reset
+on entry and each later shows accepted=1/rejected=0, error=none, release_stuck=0.
+Generations 2 and 4 have explicit OFF/server=off observations. Generation 3's OFF query
+was skipped; successful generation 4 entry confirms it reached OFF because entryRefusal
+rejects any other mode and OFF follows completed teardown. Do not claim a directly
+observed generation 3 OFF sample or exact stop latency.
+
+Reported internal_largest remains 49140 bytes at all status samples; probe largest_min
+bottoms at 47092, above the 20480 gate. Internal low-water minimum moves 88804 -> 87524
+-> 87508; these historical minima do not measure retained free memory or prove a leak.
+Worker/HTTP stack minima remain 2304/1688; writer minimum remains 2920. Logger stays
+ready with drops=0, high=7, slow=0; WiFi/MQTT connected at status samples. Final USB
+active=0/paused=0, queue=0/16. Current grows from 222001 to 228923 bytes. No reset,
+new USB link loss or stuck release in the capture. This passes the bounded three-cycle
+reuse/resource gate, not a long-duration leak proof. No firmware changes or rebuild.
+
+Next case: cancel during incomplete HTTP headers using a single laptop TCP connection
+on the hotspot. Send request line and Host line but no terminating blank line; timestamp
+send/peer close, with an eight-second client read timeout. JP issues log mode off within
+two seconds of sending, before the server's five-second header deadline. Capture console
+and client output; a late command/timeout is inconclusive for cancellation, not a pass.
+Then confirm OFF, re-enter and reload Safari once to prove reuse, finally stop and capture
+status/log status. Increment 4 remains unapproved; startup-failure rollback remains separate.
+
+
 ## September 22, 11:31 - increment 3 first server gate PASSED (boot 108)
 
 Final confirmation: JP confirms the iPhone listing matches the USB file list and the

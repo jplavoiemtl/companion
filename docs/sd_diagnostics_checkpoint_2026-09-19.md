@@ -1,5 +1,14 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 22, increment 3 repeated lifecycle gate passed
+
+Boot 108, generations 2-4 reuse successfully; no drops/reset/error/stuck release.
+Largest reported block 49140, probe minimum 47092, worker/HTTP margins 2304/1688.
+Middle OFF sample omitted but confirmed by subsequent entry's OFF-only admission.
+[Bench evidence](sd_iphone_log_download_bench.md) records the observation limits.
+Next single case is incomplete-header cancellation and re-entry on current firmware;
+PC must rejoin hotspot. No build/flash. Increment 4 remains unapproved.
+
 ## Latest handoff - September 22, increment 3 first server gate passed on boot 108
 
 At reviewed checkpoint 767cbbc, accepted=3/rejected=0, HTTP stack margin 1688, worker
