@@ -169,3 +169,93 @@ deterministic check on the lifecycle worker's PSRAM stack making the firmware's 
 calls, since `httpd_start()` creates the listener and control sockets on the worker. If
 `httpd_start()` misbehaves, move the worker to an internal stack through review and rebuild
 rather than debugging PSRAM and lwIP interaction.
+
+---
+
+## Correction review - `de0b4e8`, IPv4-mapped admission, September 22
+
+**Verdict: the diagnosis is correct, the fix is right, and it is ready for JP's rebuild.**
+One note on what the host checks do and do not prove.
+
+### The diagnosis is verified on both halves
+
+- Installed `sdkconfig` has **`CONFIG_LWIP_IPV6=y`**.
+- IDF v5.5.5 `httpd_main.c`, `httpd_server_init()`:
+  ```c
+  #if CONFIG_LWIP_IPV6
+      int fd = socket(PF_INET6, SOCK_STREAM, 0);
+  #else
+      int fd = socket(PF_INET, SOCK_STREAM, 0);
+  #endif
+  ```
+  bound to `IN6ADDR_ANY`.
+
+So every accepted connection reports an `AF_INET6` local address, with IPv4 peers appearing
+as `::ffff:a.b.c.d`. The previous `sockaddr_in` buffer with an `AF_INET` requirement rejected
+**every** connection, which is exactly the observed behaviour: TCP established, reset before
+response headers, and `http_min=0` because `sampleHttp()` is only reached on the accept path.
+The root cause is established, not inferred from the symptom.
+
+### This was a miss in my own review
+
+I checked that the interface restriction existed, sat in `open_fn`, and compared against the
+station address - and accepted it. I did not check that the address *family* would match on
+a dual-stack listener, which is the one thing that determined whether it worked at all. A
+defect that rejects 100% of connections should not survive a code review, and this one did.
+Worth recording so the next review of socket-facing code starts from the configured stack
+rather than from the code's own assumptions.
+
+### The fix is correct
+
+`addressMatches()` validates family and length before reading, accepts native `AF_INET`, and
+accepts `AF_INET6` **only** in the exact `::ffff:` form - first ten bytes zero, bytes 10 and
+11 `0xff`, then the four address bytes compared. Native IPv6 is refused, and so is the
+deprecated IPv4-compatible `::a.b.c.d` form, which is the right call: accepting it would let
+a non-mapped address be read as a station IPv4.
+
+Byte-order handling is sound. `expected[]` is built from `IPAddress::operator[]`, which
+yields dotted-quad order, and `sin_addr.s_addr` holds network byte order whose in-memory
+bytes are in that same order on this target, so the `memcmp` compares like for like. This is
+also more robust than the previous `uint32_t(WiFi.localIP())` comparison, which relied on
+Arduino's conversion matching the socket layout.
+
+Fail-closed ordering is preserved exactly: both overrides are installed before any rejection
+path, then readiness, then interface, then address, then serial, slot and context - each now
+with its own reason.
+
+### The interface restriction is preserved, and now actually functional
+
+Before this fix it rejected everything, so it was vacuously "safe". It now admits only the
+hotspot station address in either form. One property worth stating plainly, because it is
+easy to misread: the listener binds `IN6ADDR_ANY`, so a connection on any address still
+completes its TCP handshake and is then closed at `open_fn`. "Restricted to the hotspot
+interface" means accepted-then-immediately-closed, not never-accepted. That matches the
+spec's operational wording and cannot be tightened without a patched listener.
+
+### The new counters close the diagnostic gap
+
+`accepted`, `rejected` and `last_reject` are reset per mode entry and reported in
+`[LOG HTTP]`. That is the right response to what made the first case ambiguous: the previous
+evidence could only show *that* admission failed, never *why*. Each rejection path now names
+itself, and no per-request SD record is added.
+
+### Regression coverage, and its one limit
+
+**177 checks pass** across nine suites, five of them new, and they execute the real
+`addressMatches` body rather than a restatement. The matrix is the right one: native IPv4
+accepted, mapped accepted, wrong address refused in both forms, native IPv6 refused,
+IPv4-compatible refused, truncated lengths refused, unknown family refused.
+
+**What they cannot prove:** the mock models `sin_addr.s_addr` as a byte array, so the checks
+verify the *logic* - family selection, offsets, the mapped prefix - and not the endianness of
+the real `s_addr`. I reasoned that through above, but hardware is what confirms it. The
+reassurance is that a byte-order error would produce exactly the original symptom, and
+`last_reject=local_address` with `accepted=0` now identifies it on the first status line
+instead of costing another bench case.
+
+### Recommendation
+
+Rebuild and resume the same first case. On `log mode status`, the line to read first is
+`accepted=` and `last_reject=`: `accepted>=1` means admission works and the remaining gate is
+the listing itself; `accepted=0 last_reject=local_address` would mean the address comparison
+is still wrong rather than anything else in the stack.
