@@ -411,7 +411,7 @@ Fields are assigned to the record that can actually carry them:
 |---------|-------|--------|
 | `max_open_sockets` | 3 initially | Counts clients; three more are reserved internally. Measured tuning in increment 8 |
 | `lru_purge_enable` | `false` (default) | A new connection must not evict an active transfer |
-| `stack_size` / `task_caps` | 6144 internal proposed for review after gate A measured 696 bytes remaining with 4096 | Recheck HTTP margin and unchanged 20480-byte largest-block gate after JP rebuild |
+| `stack_size` / `task_caps` | 6144 internal, cleared at af9523f after gate A measured 696 bytes remaining with 4096 | Recheck HTTP margin and unchanged 20480-byte largest-block gate after JP rebuild |
 | `core_id` | `tskNO_AFFINITY` | TCP/IP is pinned to core 0, writer on core 1; pinning is unevidenced |
 | `max_req_hdr_len` / `max_uri_len` | 1024 / 512 defaults | Bounded request input |
 

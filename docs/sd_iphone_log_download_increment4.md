@@ -189,3 +189,29 @@ stays 4096, and transfer logic is unchanged. Claude review before JP rebuild/fla
 Recheck http_margin and the unchanged 20480-byte largest-block gate after rebuilding;
 reuse the same archive and existing reference. Gate A needs Safari export afterward.
 No generated sketch deletion required. No build/flash by Codex. Increment 5 unapproved.
+
+
+## HTTP stack correction cleared - Safari gate A continuation
+
+Claude cleared the 6144-byte internal HTTP task stack at af9523f and confirmed 208
+checks. No additional firmware changes for this rebuild. Pinning lifecycle configuration
+in a host assertion remains a non-blocking follow-up, not a prerequisite to this case.
+The 4096-byte PSRAM lifecycle worker is unchanged. companion.ino is unchanged, so no
+generated sketch deletion is needed. JP builds/flashes amoled-1-8-core-3-3-11.
+
+One next case: Safari download of archive-00000017.log (308745 bytes), using the existing
+USB reference (CRC32 541A8F0C). With USB power, hotspot connected and console DTR=true,
+RTS=false, capture status/log status/log list, enter log mode and await ACTIVE. Open the
+reported URL in iPhone Safari, download that archive and inspect the last-result page.
+Export the actual saved Safari file unchanged to the PC for byte comparison. Capture
+log mode status and status, then log mode off followed by OFF/server=off confirmation.
+Download current.log over USB afterward to obtain HTTP_GET_END and HTTP_GET_MEM, then
+capture log status. Read Safari http_margin first, then dual CRC and exported file bytes;
+check internal largest block remains above 20480 and drops remain zero.
+
+No repeat curl transfer or new reference is required. The PC need not join the hotspot
+for this Safari case. Earlier boot-110 shutdown was already confirmed at 1a4f703; capture
+shutdown again for this new build/session. Gate A remains pending these results and JP
+acceptance. Large archive/current throughput estimates are projections, not gates B/C.
+Increment 5 remains unapproved; propose the next large-archive increment only after gate A
+acceptance and explicit authorization.

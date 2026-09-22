@@ -1,6 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 22, HTTP stack correction cleared for Safari gate A
+
+Claude clearance af9523f: HTTP task now 6144 internal bytes; lifecycle worker unchanged.
+JP rebuilds/flashes the selected 3.3.11 profile. No generated sketch deletion required.
+Next single case is Safari archive 17 (308745 bytes), export the actual phone download,
+collect HTTP_GET_MEM/END via current.log and capture new-session OFF/server=off.
+Reuse existing USB reference CRC32 541A8F0C. Read Safari stack margin first; gate A remains
+pending. [Exact handoff](sd_iphone_log_download_increment4.md). Increment 5 unapproved.
+
+
 ## Latest handoff - September 22, gate A laptop integrity passes; HTTP stack correction for review
 
 Boot 110 archive 17 (308745 bytes): HTTP equals USB reference, CRC32 541A8F0C,
