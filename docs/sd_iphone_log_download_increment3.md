@@ -202,3 +202,16 @@ If JP accepts this disposition and increment 3, proposed next work is the increm
 small immutable archive transfer implementation, only with explicit authorization and
 Claude review before build. Revisit the no-token exposure decision as required before
 serving log bodies; retain timing gate A and one bench case at a time.
+## JP acceptance - September 22
+
+JP explicitly accepts increment 3 following the startup-rollback disposition proposal
+at 99aa401. Normal server/list/favicon/stop, repeated entry/exit and incomplete-header
+cancellation hardware gates are accepted. Startup-failure rollback is accepted on host
+coverage for this increment; deterministic hardware fault injection remains deferred to
+increment 7 and due before car deployment. It is not a hardware pass. Earlier pending
+acceptance notes are superseded by this decision.
+
+JP's message accepts increment 3 only; it does not authorize increment 4 implementation.
+No firmware changes, build, flash or further bench action. The next proposed increment
+is small immutable archive download with access protection revisited before log bodies,
+Claude code review before JP builds, and timing gate A as the first single bench case.

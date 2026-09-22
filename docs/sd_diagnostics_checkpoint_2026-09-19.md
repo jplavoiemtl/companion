@@ -1,5 +1,14 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 22, increment 3 ACCEPTED by JP
+
+JP accepts increment 3, including host-only startup rollback coverage for this increment
+and hardware fault-injection deferral to increment 7, due before car deployment. Normal
+server, repeated lifecycle and incomplete-header cancellation hardware gates passed.
+[Acceptance record](sd_iphone_log_download_increment3.md) supersedes pending notes below.
+Increment 4 remains unapproved: acceptance alone is not implementation authorization.
+No firmware changes/build/flash or further results required for increment 3.
+
 ## Latest handoff - September 22, increment 3 acceptance proposal
 
 Normal server, repeated lifecycle and incomplete-header cancellation hardware gates passed.
