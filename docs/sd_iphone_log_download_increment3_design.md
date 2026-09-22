@@ -1,7 +1,8 @@
 # Increment 3 design proposal - lifecycle and cached listing
 
 Revision 2, September 22, 2026. Reviewed base: `d0483ce`, branch `iphone-log-retrieval`.
-**For Claude review, then JP approval. No increment 3 implementation is approved.**
+**JP approved implementation after review of revision 2, including the persistent
+4096-byte PSRAM worker stack with internal static TCB, created lazily on first entry.**
 Increment 2 is accepted with its two explicitly deferred hardware admission checks.
 The historical draft remains verbatim. This proposal does not silently amend the spec.
 
@@ -377,3 +378,28 @@ verified safe for plain TCP. D4: bounded session pool/reset/free rules specified
 late-completion clear rule specified. D7: close path verified in matching source and the
 installed binary before approval. D8: three worker choices presented; persistent PSRAM
 is recommended and needs JP's approval. No firmware, build or flash changes.
+
+## Approval and first-start verification
+
+JP approved increment 3 implementation after `d3a8dfe`, accepting the default pending
+check correction and STA-only/local-address enforcement. httpd_start invokes
+httpd_server_init on the lifecycle worker, creating listening/control sockets there.
+This worker is the first firmware task to call lwIP from a PSRAM stack. The SD writer
+proves the allocation pattern, not lwIP-on-external-stack behavior. The first normal
+server bench case also verifies that property. If first start misbehaves, move the worker
+to an internal stack for review/rebuild rather than investigate PSRAM/lwIP internals.
+No build/flash or bench is authorized during implementation; Claude reviews code first.
+
+## Implementation refinement: rejected accepts in installed IDF 5.5.5
+
+Read-only installed-archive inspection found an SDK double-close path when open_fn
+returns non-OK: httpd_sess_new calls httpd_sess_delete at +0x89, then httpd_thread's
+inlined accept path sees failure at +0x3a0, branches +0x3bd -> +0x23a and closes the same
+numeric descriptor at +0x23f. This could collide with another task reusing that number.
+Therefore open_fn installs fail-closed send/receive hooks first and returns ESP_OK even
+for a rejected accept, queueing httpd_sess_trigger_close on that same HTTP task instead.
+Missing session context makes both I/O hooks fail without touching the socket. A queueing
+or hook-installation failure cancels the server and is escalated for lifecycle cleanup.
+This use of the component's queued close is only for rejected accepts, not interruption
+of an executing synchronous handler. No raw fd leaves HTTP execution; no SDK patch or
+custom close callback is added. Claude should review this specific implementation detail.

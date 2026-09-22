@@ -1,3 +1,4 @@
+#include "diagnostics_inventory.h"
 #include "diagnostics_retrieval.h"
 #include "sd_diagnostics.h"
 #include "diagnostics_usb.h"
@@ -356,6 +357,7 @@ bool pruneArchive(uint32_t number) {
   if (fixtureFd >= 0 && fixtureDeleting && fixtureNumber == number)
     fixtureFinish("pruned"); // Close fixture-validation reader before normal pruning.
 #endif
+  diaginventory::writerChanged();
   if (unlink(path)) { disable("archive_delete", errno); return false; }
   portENTER_CRITICAL(&mux); ++snapshot.pruned; portEXIT_CRITICAL(&mux);
   vTaskDelay(1);
@@ -651,6 +653,8 @@ bool unused(uint32_t n) {
   return true;
 }
 bool rotate(const char* reason) {
+  diaginventory::writerPreempt();
+  diaginventory::writerChanged();
   diag::breadcrumb(true, diag::Phase::SdRotate);
   Inventory files;
   if (!inventory(files)) return false;
@@ -1131,6 +1135,7 @@ void usbEnd(const char* name, uint64_t bytes, uint64_t elapsed, const char* resu
 // from its callees. Use FatFS/SDMMC sector wrappers, never raw host/command APIs
 // with stack-local data buffers. Cache-off and DMA restrictions still apply.
 void writerTask(void*) {
+  diaginventory::writerOnline();
   // The task stack and control block exist here, before formatter or SD work.
   // Do not add a startup barrier: main-task Wi-Fi setup may overlap these readings.
   captureStartup(StartupPoint::WriterEntry);
@@ -1173,6 +1178,7 @@ void writerTask(void*) {
       usbGateEnd("shutdown");
       portENTER_CRITICAL(&mux); usbGate.armed = UsbGate::None; portEXIT_CRITICAL(&mux);
 #endif
+      diaginventory::writerOffline();
       diagnosticsUsbStop(); // Close reader and resume append before the close drain.
       if (!good()) break;
 #if DIAG_TEST_HOOKS
@@ -1209,6 +1215,7 @@ void writerTask(void*) {
     if (!good()) break;
 #endif
     if (diagnosticsUsbPaused()) {
+      diaginventory::writerTick(good()); // stop acknowledgement also while USB pauses appends
       diagnosticsUsbTick(); // Bounds and queue checks continue while append is closed.
       vTaskDelay(1);
       continue;
@@ -1231,6 +1238,7 @@ void writerTask(void*) {
     }
     if (dirty && nowMs() - lastFlush >= FLUSH_MS) flushFile();
     if (good()) diagnosticsUsbTick(); // Logging batches have priority over USB.
+    diaginventory::writerTick(good()); // Cache yields to logging and USB.
 #if DIAG_USB_TEST_FIXTURE
     if (good() && fixtureBusy()) fixtureTick();
 #endif
@@ -1241,6 +1249,7 @@ void writerTask(void*) {
   usbGateEnd("logger_stopped");
   portENTER_CRITICAL(&mux); usbGate.armed = UsbGate::None; portEXIT_CRITICAL(&mux);
 #endif
+  diaginventory::writerOffline();
   diagnosticsUsbStop();
   if (fd >= 0) { // terminal error: release handle, never retry writes this boot
     int old = fd; fd = -1; ::close(old);

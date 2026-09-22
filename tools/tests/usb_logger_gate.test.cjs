@@ -19,6 +19,7 @@ function adapt(t){return t
 .replace(/const char\* result/g,'let result')
 .replace(/const (?:bool|uint64_t|auto) /g,'const ')
 .replace(/diagreader::(\w+)/g,(_,n)=>'reader_'+n)
+.replace(/diaginventory::writerChanged\(\)/g,'inventoryChanged()')
 .replace(/if \(const char\* reason = transportStop\(\)\) return reason;/g,'const reason=transportStop(); if(reason)return reason;')
 .replace(/constexpr uint32_t target = \(QUEUE_COUNT \+ 1\) \/ 2;/g,'const target = Math.floor((QUEUE_COUNT+1)/2);')
 .replace(/(?:uint32_t|uint64_t|bool) (\w+) =/g,'let $1 =')
@@ -54,7 +55,7 @@ c.hooks={status:()=>({ready:true,closing:false,queued:c.count,capacity:16})};c.d
 c.archivePath=(n,p)=>p.number=n;c.stat=(p,i)=>{i.st_size=c.fileSize;i.st_mode=c.regular;return c.fileExists?0:-1;};c.S_ISREG=x=>x;
 c.unlink=p=>{c.order.push('unlink');assert.equal(c.reader,-1);if(!c.unlinkError)c.removed.push(p.number);return c.unlinkError;};
 c.inventory=()=>true;c.spaceAvailable=()=>true;c.disable=(...a)=>c.errors.push(a);
-c.finishError=r=>{c.order.push('close');c.reader=-1;c.usbGateEnd(r);};vm.createContext(c);vm.runInContext(code,c);return c;}
+c.finishError=r=>{c.order.push('close');c.reader=-1;c.usbGateEnd(r);};c.inventoryChanged=()=>{c.inventoryInvalidations=(c.inventoryInvalidations||0)+1;};vm.createContext(c);vm.runInContext(code,c);return c;}
 let checks=0;function check(n,f){f(context());console.log('PASS',n);++checks;}
 function queue(c){c.command('log test queue');c.usbGateBegin('current.log');}
 function prune(c){c.command('log test prune 19');c.usbGateBegin('archive-00000019.log');c.progress.current=false;c.progress.number=19;c.isCurrent=false;c.fileNumber=19;}

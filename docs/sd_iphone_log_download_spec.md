@@ -1,22 +1,28 @@
 # iPhone log retrieval - implementation spec
 
-Status: **revision 4.** JP accepted increment 1 and approved increment 2 on September 21.
+Status: **revision 5.** JP accepted increment 1 and approved increment 2 on September 21.
 JP accepted increment 2 on September 22 after eleven issued hardware cases passed; see
 [handoff](sd_iphone_log_download_increment2.md) and [bench evidence](sd_iphone_log_download_bench.md).
 Acceptance includes the proposed deferral of battery-only entry refusal and entry during
 the brief pending-handover gap to controlled hardware checks before car deployment.
 These two checks are not hardware passes; host coverage is retained.
-Increment 3 and beyond are not approved: section 5's teardown mechanism remains
-explicitly provisional and must be resolved before increment 3.
+JP approved increment 3 implementation after `d3a8dfe`, including a persistent lazy
+4096-byte PSRAM lifecycle worker with internal static TCB. Increment 3 is implemented
+for Claude code review; no build/flash yet. Increment 4 and beyond remain unapproved.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the
 [Codex review](sd_iphone_log_download_review.md) and the
 [case 1 result](sd_iphone_log_download_bench.md). Where those disagree, this document wins;
 where it is silent, they remain the reference.
-Design follow-up: [increment 3 design revision 2](sd_iphone_log_download_increment3_design.md)
-resolves Claude's remaining review points and presents the PSRAM lifecycle-worker choice
-and precise hotspot-interface enforcement for JP approval. These implementation choices
-remain proposals until JP approves; no firmware work is authorized yet.
+The [approved increment 3 design](sd_iphone_log_download_increment3_design.md) specifies
+lifecycle, socket/cache ownership and hotspot-interface enforcement. See the
+[increment 3 code handoff](sd_iphone_log_download_increment3.md) for validation and the
+installed-component rejected-accept cleanup refinement awaiting Claude code review.
+
+Revision 5 records JP's implementation approval and replaces the superseded provisional
+cross-task socket shutdown scheme with the approved HTTP-owned I/O/lifecycle worker design.
+The first server bench case verifies PSRAM-stack lwIP; on a misbehaving start the agreed
+response is an internal worker stack, not a PSRAM/lwIP investigation.
 
 Revision 4 records two JP decisions of September 22: what counts as activity for the idle
 deadline (section 4), and no capability token (section 12).
@@ -233,39 +239,21 @@ the increment 1 cancellation and reuse tests. Progress, cancellation and result 
 synchronised mailbox or atomic snapshot; **HTTP events never directly mutate main-owned mode
 fields.**
 
-### Teardown execution context and socket interruption - PROVISIONAL
+### Approved teardown execution context and socket ownership
 
-**This subsection is not settled and does not gate increment 1**, which contains no HTTP.
-Codex identified three unresolved problems at `724da61`, all of which must be answered
-before increment 3 starts the server:
+JP approved the [increment 3 design revision 2](sd_iphone_log_download_increment3_design.md).
+The old candidate in which main called shutdown(fd) is superseded. Synchronous HTTP owns
+all client descriptors; cancellable send/receive overrides unwind on cancellation without
+cross-task descriptor operations. A persistent lifecycle worker, with 4096-byte PSRAM
+stack and internal static TCB, owns httpd_start/registration/stop. main and the SD writer
+never wait for HTTP teardown. The default pending function remains unset for plain TCP.
 
-1. **Descriptor reuse is not excluded.** Checking `(fd, generation)` and then calling
-   `shutdown()` leaves a window in which the descriptor can be closed and reused. A
-   coordinated lifetime guarantee is required, not a check.
-2. **`httpd_stop()` blocks wherever it is called.** Deferring it to a later main-loop
-   iteration does not make it non-blocking - it still waits for the server task. Lifecycle
-   teardown needs an execution context that is neither main nor the writer, which notifies
-   main on completion.
-3. **Holding resources indefinitely needs a policy.** Never freeing on a missing release is
-   safe against reuse but requires a defined visible error state and a recovery path.
-
-The mechanism below is the current candidate, retained so the open problems have something
-concrete to attach to. It is not approved.
-
-- **Main publishes cancellation and interrupts the socket.** A plain flag cannot interrupt a
-  blocked socket call, and `httpd_sess_trigger_close()` queues work onto the HTTP task,
-  which cannot run ahead of a blocked synchronous handler. Main therefore calls
-  `shutdown(fd, SHUT_RDWR)` directly on the active socket descriptor, which forces a blocked
-  `send()` to return an error so the handler unwinds.
-- **The fd is published by the handler** under the session generation while it is in use and
-  cleared before it returns. Main only interrupts an fd whose generation is current, which
-  bounds the exposure to descriptor reuse.
-- **`httpd_stop()` is never called from the main loop's power-transition or close path.** It
-  runs only once transport release (B) is acknowledged and no handler is executing, on a
-  later loop iteration - main polls across iterations and never blocks.
-- **If release never arrives**, the mode stays in `STOPPING`, media stays refused, the
-  reservation and buffer stay held, and the condition is recorded and escalated. Device
-  shutdown does not wait for it.
+Generation-tagged startup/cancellation, handler quiescence, independent writer cleanup,
+transport release and cache cleanup precede reuse/OFF as specified in that design.
+Missing completion retains resources and media exclusion with one recorded escalation
+and a main-owned lv_layer_top notice; late complete teardown clears the notice, otherwise
+operator reboot is required. A 10-second observation threshold is not a force-free timer.
+No change to diagnosticsClose's bounded caller wait or to the two-acknowledgement rules.
 
 ### Relationship to `diagnosticsClose()`
 
@@ -355,7 +343,13 @@ refreshed while idle**. During an active transfer, `/` serves the cached copy **
 stale**, shows the busy state, and performs no SD access. The last-result view is **SD-free**
 and may be a separate route; incidental requests never overwrite the stored result.
 
-**Second requests while streaming are queued behind the streaming handler**, bounded by the
+One response per TCP connection is enforced by the HTTP handler's failure return after
+sending the response, which the installed component propagates to socket cleanup without
+another response body. Same-connection pipelined requests are not served; a browser uses
+a new connection. Listing/result pages are bounded non-chunked HTML from a 32768-byte
+PSRAM buffer, released after successful server stop.
+
+**Second requests on other connections while streaming are queued behind the streaming handler**, bounded by the
 transfer's own limits, and the delayed reply is documented and tested. This is the explicit
 version-1 choice: `esp_http_server` services requests from one task, so socket capacity
 alone does not make handlers concurrent. If bounded interleaving is wanted later it needs a
@@ -391,7 +385,7 @@ Fields are assigned to the record that can actually carry them:
 
 | Setting | Value | Reason |
 |---------|-------|--------|
-| `max_open_sockets` | 2-3, measured | Counts clients; three more are reserved internally. Case 1 does not disprove 2 |
+| `max_open_sockets` | 3 initially | Counts clients; three more are reserved internally. Measured tuning in increment 8 |
 | `lru_purge_enable` | `false` (default) | A new connection must not evict an active transfer |
 | `stack_size` / `task_caps` | 4096 internal, measured like the writer's | An overflow reboots the device |
 | `core_id` | `tskNO_AFFINITY` | TCP/IP is pinned to core 0, writer on core 1; pinning is unevidenced |

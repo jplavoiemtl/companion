@@ -1,3 +1,4 @@
+#include "diagnostics_inventory.h"
 #include "diagnostics_usb.h"
 #include "diagnostics_config.h"
 #include "diagnostics_reader.h"
@@ -211,6 +212,7 @@ void encode64(const uint8_t* data, size_t length, char* out) {
 }
 
 void start(const diagreader::Accepted& accepted) {
+  diaginventory::writerPreempt(); // SD writer only; no USB state/progress change.
 #if DIAG_USB_TEST_FIXTURE
   testStartDownload(accepted.request == Request::Current || accepted.request == Request::Archive);
 #endif

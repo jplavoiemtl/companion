@@ -1,5 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 22, increment 3 implemented for Claude code review
+
+JP approved implementation after d3a8dfe. [Code handoff](sd_iphone_log_download_increment3.md)
+records server lifecycle/cached listing, lazy persistent PSRAM worker, 172 passing host
+checks and an installed-SDK rejected-accept double-close avoidance for specific review.
+No firmware compile, flash or hardware measurements. Claude reviews before JP builds.
+First future server gate also verifies lwIP from the PSRAM worker; internal-stack fallback
+on a misbehaving start is agreed. Increment 4 remains unapproved. Historical draft and
+companion.ino unchanged; no generated-sketch deletion required by this src-only increment.
+
+
 ## Latest handoff - September 22, increment 3 design revision 2 ready for JP decision
 
 [Design revision 2](sd_iphone_log_download_increment3_design.md) applies JP's spec revision 4
