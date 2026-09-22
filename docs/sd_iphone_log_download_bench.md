@@ -16,6 +16,45 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 2 gate 10 - 2026-09-22, 08:15-08:16 - PASS
+
+History-image Back exclusion/recovery, boot 104; JP confirms pass. Evidence: attachment
+`b34e9571-c1bc-4456-abce-1462e7212b7c/Pasted text.txt`, Downloads `104-current.log`.
+
+Mode ACTIVE at 08:15:09.614; Back at 08:15:23 refused download_mode, with persisted
+IMAGE_REFUSED trigger=history_back seq=37 and no IMAGE_BEGIN for the refused request.
+Status remains ACTIVE. Exit requested 08:15:44.897; saved exit completion seq=42 precedes
+allowed IMAGE_BEGIN seq=44 at 08:15:53.402. The explicit OFF query was omitted, but the
+saved ordering confirms completed exit. IMAGE_END seq=49: displayed, HTTP 200,
+34586 expected/received bytes, total_ms=1362. JP reports normal operation.
+
+Current download **1795870 bytes**, 16.59 s, browser CRC OK; local size matches and
+computed CRC32 **12B27089**. Before download: ready, drops=0, error=none, queue=0/16,
+internal minimum=43708, largest=31732 > 20480, stack minimum=3208. No post-download
+resource status was captured; these are pre-download observations. No unexpected reset
+or stall is visible in this capture. This is a new sitting/boot, not a paired comparison
+with yesterday. No firmware changes.
+
+### Next single case issued: remote notification exclusion and handover recovery
+
+Same build/no flash, USB and hotspot connected, DTR=true/RTS=false, browser test switches
+off, dashboard idle. Clear console, send status then log mode on/status; require ACTIVE.
+Use the normal entrance-camera system to send one real MQTT latest-image notification
+(not movement of the companion itself). Expect refusal with no still or Live, then mode
+status remains ACTIVE. Send log mode off/status; require OFF. Wait at least 15 seconds
+after any preceding image display, then trigger a fresh camera notification. Expect the
+normal brief still followed by Live; allow the full cycle to finish. Capture status and
+log status, download current with CRC OK, then log status again to check unpaused/idle
+and drops. Send console, downloaded file and visual observations. If a notification
+cannot be triggered or received, report that rather than substituting a local button.
+
+This covers real MQTT admission and successful still-to-Live handover after exit; it does
+not prove entry refusal during the short pending-handover gap or battery-only entry.
+Those coverage decisions remain open before increment 2 acceptance. Increment 3 remains
+unapproved and requires lifecycle/descriptor decisions before implementation.
+
+---
+
 ## Increment 2 gate 9 - 2026-09-21, 15:19-15:22 - PASS
 
 Direct Live exclusion while ACTIVE, boot 103; JP confirms pass. Evidence: attachment

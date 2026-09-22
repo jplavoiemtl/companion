@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 22, increment 2 history-image exclusion passes
+
+Gates 1-10 pass. Boot 104 Back refused in ACTIVE and image displayed after completed
+exit; current download 1795870 bytes, CRC32 12B27089 verified. Next single case: real
+remote MQTT notification refusal and normal still-to-Live handover after exit.
+[Evidence/procedure](sd_iphone_log_download_bench.md). Battery-only entry and brief
+pending-handover admission coverage remain open. Increment 2 acceptance pending;
+increment 3 unapproved. No firmware changes or rebuild required.
+
+
 ## Latest result - September 21, increment 2 direct-Live exclusion passes
 
 Gates 1-9 pass. Boot 103 direct Live refused in ACTIVE and successful after exit; largest

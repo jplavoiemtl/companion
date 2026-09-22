@@ -173,3 +173,8 @@ case: direct Live refusal while mode ACTIVE, then normal Live after exit.
 September 21 gate 9 passes: direct Live refused while ACTIVE, full successful Live after
 mode exit, CRC log verified. Next: history-image Back refusal/recovery. Remote/handover
 and battery-entry coverage remain explicit outstanding items for acceptance review.
+
+September 22 gate 10 passes on boot 104: Back refused while ACTIVE, older image displayed
+after completed exit, CRC32 12B27089 verified. Next single case: real MQTT notification
+refusal then normal still-to-Live handover after exit. Battery-only entry and the brief
+pending-handover admission gap remain coverage decisions; increment 3 is unapproved.
