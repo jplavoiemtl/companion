@@ -16,6 +16,20 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 2 accepted - September 22, 2026
+
+JP explicitly accepted increment 2 after gate 11, including the preceding proposal to
+defer battery-only entry refusal and brief pending-handover entry refusal hardware checks
+until controlled bench coverage before car deployment. All eleven issued cases passed;
+the two deferred cases remain unproven on hardware. No additional test or flash is needed
+for this acceptance. Earlier pending-acceptance statements below are historical.
+
+Next: prepare increment 3's lifecycle/descriptor ownership design for Claude review,
+along with provisional socket budget and capability decision required by spec section 12.
+Increment 3 implementation remains unapproved and requires JP's separate authorization.
+
+---
+
 ## Increment 2 gate 11 - 2026-09-22, 08:37-08:41 - PASS
 
 Remote MQTT notification exclusion and still-to-Live recovery, boot 104; JP confirms pass.

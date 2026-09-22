@@ -1,7 +1,11 @@
 # iPhone log retrieval - implementation spec
 
 Status: **revision 3.** JP accepted increment 1 and approved increment 2 on September 21.
-Increment 2 is implemented for Claude review; see [handoff](sd_iphone_log_download_increment2.md).
+JP accepted increment 2 on September 22 after eleven issued hardware cases passed; see
+[handoff](sd_iphone_log_download_increment2.md) and [bench evidence](sd_iphone_log_download_bench.md).
+Acceptance includes the proposed deferral of battery-only entry refusal and entry during
+the brief pending-handover gap to controlled hardware checks before car deployment.
+These two checks are not hardware passes; host coverage is retained.
 Increment 3 and beyond are not approved: section 5's teardown mechanism remains
 explicitly provisional and must be resolved before increment 3.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the

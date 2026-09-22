@@ -1,5 +1,18 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest decision - September 22, increment 2 accepted by JP
+
+JP explicitly accepted increment 2 following eleven passed issued bench cases, including
+the proposed deferral of battery-only entry and brief pending-handover entry hardware
+checks until controlled bench coverage before car deployment. These remain unproven on
+hardware. [Acceptance and evidence](sd_iphone_log_download_bench.md).
+
+No build, flash or further increment 2 measurement is currently required. Next work:
+increment 3 lifecycle/descriptor ownership design for Claude review, provisional socket
+budget and capability decision. Increment 3 implementation still requires separate JP
+approval. Earlier acceptance-pending entries below are historical.
+
+
 ## Latest result - September 22, increment 2 remote-notification gate passes
 
 Gates 1-11 pass. Boot 104 MQTT refusal in ACTIVE followed by successful still-to-Live

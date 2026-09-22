@@ -184,3 +184,11 @@ and motion-handover Live complete successfully. CRC32 1298A90B; append continuat
 and zero drops confirmed. All issued cases pass. Acceptance proposal in the bench record
 explicitly defers two unobserved hardware admission checks, subject to JP approval;
 no spec gate is silently closed and increment 3 remains unapproved.
+
+## Acceptance - September 22, 2026
+
+JP: "I accept increment 2". Acceptance follows eleven passed issued cases and the
+explicit proposal to defer battery-only entry and brief pending-handover entry hardware
+checks until before car deployment. These are deferred, not passed. Increment 3 remains
+unapproved; next work is a reviewed lifecycle/descriptor design and other section 12
+prerequisites before separate implementation approval. No firmware changes or flash.
