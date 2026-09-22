@@ -116,3 +116,37 @@ body; exact CRC prefix; 4096-byte HTTP stack and added fixed memory. Independent
 precedes JP build/flash. companion.ino is unchanged, so generated sketch deletion is not
 required. No code has been compiled by Codex. Existing minor naming/idle-worker polling
 notes remain deferred; this increment does not change lifecycle scheduling.
+
+
+## Claude review follow-up - dual CRC, September 22
+
+Claude's review at 0bb2eb0 found no blocking defects and independently confirmed 202
+checks. Codex implemented the recommended writer CRC comparison before JP builds;
+this follow-up requires Claude's quick diff review. No firmware build/flash.
+
+The writer publishes its final acknowledged byte count and finalized CRC atomically
+with closed=true. HTTP_GET_END keeps crc32 as the HTTP transport-accepted prefix CRC,
+and adds writer_bytes, writer_crc32 and crc_check. The last-result page carries both.
+Comparison values: match, mismatch (equal lengths only), prefix_diff (different covered
+lengths), unavailable (writer not closed or identity not matching). Equal-prefix mismatch
+turns an otherwise ok result into crc_mismatch; an existing abort/error reason is retained
+alongside crc_check=mismatch. No payload or progress accounting is changed.
+
+An in-flight send may be accepted after writer cancellation invalidates acknowledgement,
+so HTTP can legitimately cover a longer prefix. Reporting both byte counts prevents that
+from being called corruption. Late writer close updates the retained last result's writer
+coverage/comparison; an already-emitted END remains an observation at its emission time.
+
+208 host checks pass: HTTP transfer 28 (six added); other counts unchanged. Added checks
+force equal-length CRC divergence in the actual handler and assert END contains mismatch,
+verify match, unequal cancellation prefixes, unavailable identity/close, late close and
+maximum-width END fitting the existing 456-byte field buffer. Host uint32 assignments
+are explicitly modelled so JavaScript signed XOR does not create a false mismatch.
+git diff --check passes. USB code and companion.ino are unchanged by this follow-up.
+
+Review's low notes: terminal fallback type/assertion hardening and narrower hot-path view
+accessors remain deliberately deferred to avoid expanding this correction; the existing
+reviewed call-site exclusion still applies. The two added writer coverage fields modestly
+increase View/Result copies; measure HTTP_GET_MEM http_margin first in gate A, before
+interpreting throughput or CRC. No claim of measured stack safety is made by host tests.
+Increment 5 remains unapproved. No generated sketch deletion needed for these src changes.

@@ -23,11 +23,14 @@ void close(const char* reason) {
   if (!readerGeneration || view().closed) return;
   diagreader::invalidate(readerGeneration);
   const bool ok=diagreader::closeReaderAndResume(false,reason);
+  const auto& writerState=diagreader::view();
   portENTER_CRITICAL(&mux);
+  box.writerBytes=writerState.sentBytes; box.writerCrc=writerState.crc ^ 0xffffffff;
   box.closed=true; box.closedAt=nowMs(); box.result=ok ? reason : "logger_failed";
   if (box.released && lastResult.id==box.id) {
     lastResult.closedAt=box.closedAt;
     if (strcmp(box.result,"ok")) lastResult.result=box.result;
+    compareWriter(lastResult,box);
   }
   if (strcmp(box.result,"ok") && !cancellation) { cancellation=box.result; box.cancelledAt=nowMs(); }
   portEXIT_CRITICAL(&mux);
@@ -73,9 +76,22 @@ void release(uint64_t id, const Result& result) {
   if (box.reserved && box.id==id && !box.released) {
     box.released=true; lastResult=result;
     if (box.closed) { lastResult.closedAt=box.closedAt; if (strcmp(box.result,"ok")) lastResult.result=box.result; }
+    compareWriter(lastResult,box);
     if (!cancellation && strcmp(result.result,"ok")) { cancellation=result.result; box.cancelledAt=nowMs(); }
   }
   portEXIT_CRITICAL(&mux);
+}
+void compareWriter(Result& result, const View& closed) {
+  if (!closed.closed || closed.id!=result.id) { result.crcCheck="unavailable"; return; }
+  result.writerBytes=closed.writerBytes; result.writerCrc=closed.writerCrc;
+  // An in-flight send may succeed after writer cancellation invalidates its ack.
+  // Unequal prefix lengths are expected in that race, not evidence of corruption.
+  if (result.bytes!=result.writerBytes) result.crcCheck="prefix_diff";
+  else if (result.crc==result.writerCrc) result.crcCheck="match";
+  else {
+    result.crcCheck="mismatch";
+    if (!strcmp(result.result,"ok")) result.result="crc_mismatch";
+  }
 }
 Result last() { portENTER_CRITICAL(&mux); Result s=lastResult; portEXIT_CRITICAL(&mux); return s; }
 void writerOnline() { portENTER_CRITICAL(&mux); online=true; portEXIT_CRITICAL(&mux); }

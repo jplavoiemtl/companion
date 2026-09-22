@@ -13,11 +13,12 @@ function adapt(s){return s.replace(/port(?:ENTER|EXIT)_CRITICAL\(&mux\);/g,'')
  .replace(/lastResult=result/g,'lastResult={...result}')
  .replace(/if \(const reason=([^;]+)\) \{/g,'{ const reason=$1; if(reason) {') // extra close handled below
  .replace(/\{ const reason=([^;]+); if\(reason\) \{ close\(reason\); return; \}/g,'{ const reason=$1; if(reason) { close(reason); return; } }')
+ .replace('box.writerCrc=writerState.crc ^ 0xffffffff','box.writerCrc=(writerState.crc ^ 0xffffffff)>>>0')
  .replace(/size_t\(/g,'Number(').replace(/r.buffers->raw/g,'r.buffers.raw').replace(/nullptr/g,'null');}
-const defs=[['view','','View view()'],['busy','','bool busy()'],['request','number,now','uint64_t request('],['progress','id,bytes,at','bool progress('],['cancel','id,reason','void cancel('],['cancelAll','reason','void cancelAll('],['release','id,result','void release('],['last','','Result last()'],['transportStop','','const char* transportStop('],['close','reason','void close('],['finishRelease','','void finishRelease()'],['writerOnline','','void writerOnline()'],['writerOffline','','void writerOffline()'],['failure','','const char* failure()'],['accept','request','void accept('],['tick','','void tick()'],['stop','pending','void stop('],['beforePrune','number','void beforePrune('],['offlineTick','','void offlineTick()']];
+const defs=[['compareWriter','result,closed','void compareWriter('],['view','','View view()'],['busy','','bool busy()'],['request','number,now','uint64_t request('],['progress','id,bytes,at','bool progress('],['cancel','id,reason','void cancel('],['cancelAll','reason','void cancelAll('],['release','id,result','void release('],['last','','Result last()'],['transportStop','','const char* transportStop('],['close','reason','void close('],['finishRelease','','void finishRelease()'],['writerOnline','','void writerOnline()'],['writerOffline','','void writerOffline()'],['failure','','const char* failure()'],['accept','request','void accept('],['tick','','void tick()'],['stop','pending','void stop('],['beforePrune','number','void beforePrune('],['offlineTick','','void offlineTick()']];
 function context(){
- const fresh=()=>({id:0,generation:0,size:0,offset:0,started:0,closedAt:0,cancelledAt:0,readerAt:0,length:0,reserved:false,metadata:false,closed:false,released:false,result:'none',data:new Uint8Array(144)});
- const c={fresh,structuredClone,box:fresh(),lastResult:{},nextId:0,acknowledged:0,progressAt:0,cancellation:null,readerGeneration:0,started:false,online:true,t:1000,UINT64_MAX:Number.MAX_SAFE_INTEGER,Request:{None:0,HttpArchive:4},calls:[],storageReady:true,releaseOk:true,startError:null,readError:null,stopError:null,g:0,held:false,invalid:false,content:Buffer.from('123456789'),position:0,r:{fileSize:0,sentBytes:0,pendingBytes:0,buffers:{raw:Buffer.alloc(144)}}};
+ const fresh=()=>({id:0,generation:0,size:0,offset:0,started:0,closedAt:0,cancelledAt:0,readerAt:0,writerBytes:0,writerCrc:0,length:0,reserved:false,metadata:false,closed:false,released:false,result:'none',data:new Uint8Array(144)});
+ const c={fresh,structuredClone,box:fresh(),lastResult:{},nextId:0,acknowledged:0,progressAt:0,cancellation:null,readerGeneration:0,started:false,online:true,t:1000,UINT64_MAX:Number.MAX_SAFE_INTEGER,Request:{None:0,HttpArchive:4},calls:[],storageReady:true,releaseOk:true,startError:null,readError:null,stopError:null,g:0,held:false,invalid:false,content:Buffer.from('123456789'),position:0,r:{fileSize:0,sentBytes:0,crc:0xffffffff,pendingBytes:0,buffers:{raw:Buffer.alloc(144)}}};
  c.nowMs=()=>c.t;c.strcmp=(a,b)=>a===b?0:1;c.memcpy=(dst,src,n)=>dst.set(src.subarray(0,n));
  c.inventory={writerPreempt:()=>c.calls.push('preempt')};
  c.reader={reserve:(request,number,at)=>{if(c.held)return false;c.held=true;c.g++;c.pending={request,number,at,generation:c.g,abort:false};return true;},
@@ -57,9 +58,10 @@ function downloadContext(content=Buffer.from('123456789')) {
  c.headerPresent=(r,n)=>n==='Range'?c.range:c.ifRange;
  c.reader={status:()=>({ready:c.ready,closing:false,boot:108}),busy:()=>c.busy,updateCrc:(crc,data,n)=>{for(const b of data.subarray(0,n)){crc^=b;for(let j=0;j<8;j++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}return crc>>>0;}};
  c.transfer={request:()=>{c.reservationAttempts++;return c.requestOk?1:0;},
- view:()=>({id:1,metadata:c.metadata,size:c.content.length,closed:c.closed,result:c.reason,closedAt:c.closed?c.t:0,cancelledAt:c.reason==='ok'?0:c.t,readerAt:1001,offset:0,length:c.content.length,data:c.content}),
+ view:()=>({id:1,metadata:c.metadata,size:c.content.length,closed:c.closed,result:c.reason,closedAt:c.closed?c.t:0,cancelledAt:c.reason==='ok'?0:c.t,readerAt:1001,writerBytes:c.writerBytesOverride ?? c.accepted,writerCrc:c.writerCrcOverride ?? ((c.reader.updateCrc(0xffffffff,c.content,c.accepted)^0xffffffff)>>>0),offset:0,length:c.content.length,data:c.content}),
  progress:(id,bytes,at)=>{assert(bytes>c.accepted);c.accepted=bytes;if(bytes===c.content.length)c.closed=true;return true;},
  cancel:(id,r)=>{c.reason=r;c.closed=true;},release:(id,r)=>{c.released={...r};}};
+ c.transfer.compareWriter=(result,closed)=>c.compareWriter(result,closed);
  c.diag={record:(name,page)=>{c.records.push({name,text:page.value});return true;}};
  c.snprintf=(page,cap,fmt,...args)=>{let i=0;page.value=fmt.replace(/%08lu|%08lX|%llu|%u|%s/g,m=>{const a=args[i++];if(m==='%08lu')return String(a).padStart(8,'0');if(m==='%08lX')return (a>>>0).toString(16).toUpperCase().padStart(8,'0');return String(a);});assert(page.value.length<cap);return page.value.length;};
  c.httpd_resp_set_status=(r,s)=>c.statusCode=s;c.httpd_resp_send=(r,data,n)=>{c.reply=data?.slice(0,n);return 0;};
@@ -75,8 +77,9 @@ function downloadContext(content=Buffer.from('123456789')) {
  .replace(/state.data\+offset/g,'state.data.subarray(offset)').replace(/page\+offset/g,'page.value.slice(offset)')
  .replace(/nullptr/g,'null').replace(/"\s*\n\s*"/g,'"+"');
  // C++ default member initializers.
- b=b.replace('let result={};','let result={bytes:0,expected:0,firstBody:0,lastBody:0,maxGap:0,cancelledAt:0,closedAt:0,releasedAt:0};');
- vm.createContext(c);vm.runInContext(`function download(req,io,number){${b}}`,c);return c;
+ b=b.replace('result.crc=crc^0xffffffff','result.crc=(crc^0xffffffff)>>>0');
+ b=b.replace('let result={};','let result={bytes:0,expected:0,firstBody:0,lastBody:0,maxGap:0,cancelledAt:0,closedAt:0,releasedAt:0,writerBytes:0,writerCrc:0,crcCheck:"unavailable"};');
+ vm.createContext(c);vm.runInContext(`function compareWriter(result,closed){${adapt(body(source,'void compareWriter('))}}`,c);vm.runInContext(`function download(req,io,number){${b}}`,c);return c;
 }
 test('actual HTTP handler sends full fixed-length response and exact partial-send CRC',()=>{
  const c=downloadContext();c.sendSteps=[3,2,4];assert.equal(c.download(c.req,c.io,7),-1);
@@ -105,5 +108,37 @@ test('actual handler busy refusal does not reserve or overwrite last result',()=
 });
 test('actual handler empty archive still sends 200 and Content-Length zero',()=>{
  const c=downloadContext(Buffer.alloc(0));c.closed=true;c.download(c.req,c.io,7);assert.match(c.raw,/200 OK/);assert.match(c.raw,/Content-Length: 0/);assert.equal(c.released.result,'ok');assert.equal(c.released.crc,0);
+});
+
+test('equal-length writer CRC divergence is explicit in END and changes successful result',()=>{
+ const c=downloadContext();c.writerCrcOverride=0x12345678;c.download(c.req,c.io,7);
+ assert.equal(c.released.crc>>>0,0xcbf43926);assert.equal(c.released.writerCrc,0x12345678);
+ assert.equal(c.released.result,'crc_mismatch');assert.equal(c.released.crcCheck,'mismatch');
+ const end=c.records.find(x=>x.name==='HTTP_GET_END').text;
+ assert.match(end,/crc32=CBF43926/);assert.match(end,/writer_bytes=9 writer_crc32=12345678 crc_check=mismatch/);
+});
+test('matching writer CRC is carried independently and preserves accepted-prefix CRC',()=>{
+ const c=downloadContext();c.download(c.req,c.io,7);assert.equal(c.released.crcCheck,'match');assert.equal(c.released.result,'ok');
+ assert.match(c.records.find(x=>x.name==='HTTP_GET_END').text,/writer_bytes=9 writer_crc32=CBF43926 crc_check=match/);
+});
+test('cancellation with unequal prefix coverage never reports corruption',()=>{
+ const c=downloadContext();c.sendSteps=[3,-1];c.writerBytesOverride=0;c.writerCrcOverride=0;c.download(c.req,c.io,7);
+ assert.equal(c.released.bytes,3);assert.equal(c.released.crc>>>0,0x884863d2);assert.equal(c.released.crcCheck,'prefix_diff');assert.equal(c.released.result,'body_send_failed');
+});
+test('late writer close updates retained comparison without overwriting HTTP CRC',()=>{
+ const c=context();const id=begin(c);c.release(id,{id,bytes:3,crc:0x12345678,result:'writer_close_pending',releasedAt:1000});
+ c.r.sentBytes=3;c.r.crc=0xabcdef01;c.close('aborted');assert.equal(c.lastResult.crc,0x12345678);
+ assert.equal(c.lastResult.writerBytes,3);assert.equal(c.lastResult.crcCheck,'mismatch');assert.equal(c.lastResult.result,'aborted');
+});
+test('unclosed or different-generation writer snapshot cannot claim comparison',()=>{
+ const c=context();const r={id:2,bytes:0,crc:0,result:'writer_close_pending'};
+ c.compareWriter(r,{id:2,closed:false});assert.equal(r.crcCheck,'unavailable');
+ c.compareWriter(r,{id:1,closed:true,writerBytes:0,writerCrc:0});assert.equal(r.crcCheck,'unavailable');
+});
+test('dual-CRC END fits the fixed log field capacity at maximum numeric widths',()=>{
+ const capacity=Number(sd.split('char fields[')[1].split(']')[0]);
+ const format='id=%llu expected=%llu bytes='+http.split('snprintf(page,PAGE_CAP,"id=%llu expected=%llu bytes=')[1].split('"')[0];
+ const worst=format.replace(/%llu/g,'18446744073709551615').replace(/%08lX/g,'FFFFFFFF').replace(/%s/, 'writer_close_pending').replace(/%s/,'unavailable');
+ assert(worst.length<capacity,`${worst.length} >= ${capacity}`);
 });
 console.log(`${count} HTTP transfer checks passed; source simulations only.`);

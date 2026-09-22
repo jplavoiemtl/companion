@@ -1,6 +1,17 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 22, increment 4 dual-CRC follow-up for quick review
+
+Claude review 0bb2eb0 cleared the base implementation. Recommended writer CRC check is
+now added: HTTP_GET_END retains transport crc32 and adds writer_bytes/writer_crc32 plus
+comparison. Only equal prefixes can mismatch; cancellation prefix differences are labelled
+separately. 208 host checks pass, including forced divergence and record-size boundary.
+[Follow-up handoff](sd_iphone_log_download_increment4.md) records low-note deferrals.
+Claude quick diff review before JP build/flash; no build or measurement by Codex.
+First future gate A: small immutable archive, read http_margin first. Increment 5 unapproved.
+
+
 ## Latest handoff - September 22, increment 4 implemented for Claude review
 
 JP approved increment 4 and explicitly retained no token on his trusted hotspot for

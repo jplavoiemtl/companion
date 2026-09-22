@@ -219,6 +219,8 @@ bool formatPage(bool resultOnly, size_t& used) {
   else ok=ok && append(used,"<p>Transfer %llu: %s; transport accepted %llu / %llu bytes; prefix CRC32 %08lX. Device send result, not phone save verification.</p>",
     (unsigned long long)transfer.id,transfer.result,(unsigned long long)transfer.bytes,
     (unsigned long long)transfer.expected,(unsigned long)transfer.crc);
+  if (transfer.id) ok=ok && append(used,"<p>Writer prefix: %llu bytes; CRC32 %08lX; comparison: %s.</p>",
+    (unsigned long long)transfer.writerBytes,(unsigned long)transfer.writerCrc,transfer.crcCheck);
   if (!resultOnly) {
     const auto v = diaginventory::pin(nowMs());
     const bool busy = diagreader::busy();
@@ -383,14 +385,16 @@ esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number) {
     if(strcmp(finalState.result,"ok")) result.result=finalState.result;
   } else { result.result="writer_close_pending"; diagtransfer::cancel(id,result.result); setFailure(result.result); }
   result.crc=crc^0xffffffff;
+  diagtransfer::compareWriter(result,finalState);
   result.releasedAt=nowMs();
   diagtransfer::release(id,result);
-  snprintf(page,PAGE_CAP,"id=%llu expected=%llu bytes=%llu crc32=%08lX result=%s first_ms=%llu last_ms=%llu gap_ms=%llu cancel_ms=%llu close_ms=%llu release_ms=%llu terminal_gap_ms=%llu resume_ms=0 appends=unpaused",
+  snprintf(page,PAGE_CAP,"id=%llu expected=%llu bytes=%llu crc32=%08lX result=%s first_ms=%llu last_ms=%llu gap_ms=%llu cancel_ms=%llu close_ms=%llu release_ms=%llu terminal_gap_ms=%llu resume_ms=0 appends=unpaused writer_bytes=%llu writer_crc32=%08lX crc_check=%s",
     (unsigned long long)id,(unsigned long long)result.expected,(unsigned long long)result.bytes,
     (unsigned long)result.crc,result.result,(unsigned long long)result.firstBody,
     (unsigned long long)result.lastBody,(unsigned long long)result.maxGap,(unsigned long long)result.cancelledAt,
     (unsigned long long)result.closedAt,(unsigned long long)result.releasedAt,
-    (unsigned long long)(result.releasedAt-(result.lastBody ? result.lastBody : at)));
+    (unsigned long long)(result.releasedAt-(result.lastBody ? result.lastBody : at)),
+    (unsigned long long)result.writerBytes,(unsigned long)result.writerCrc,result.crcCheck);
   diag::record("HTTP_GET_END",page,true);
   sampleHttp();
   snprintf(page,PAGE_CAP,"id=%llu internal_free=%u internal_largest=%u http_margin=%u",
