@@ -8,8 +8,8 @@ writer/HTTP crc_check=match, curl 5.926519 s, zero drops. HTTP margin only 696 b
 not an observed overflow, but propose task stack 4096 -> 6144 internal (+2048 during
 server allocation) for headroom. Claude review before JP rebuild; no assistant build.
 [Bench evidence](sd_iphone_log_download_bench.md). Gate A still needs stack recheck and
-Safari export comparison. No mode-off observation supplied for this case; ask JP to
-close mode and confirm status. Increment 5 remains unapproved.
+Safari export comparison. Follow-up at 14:25 confirms OFF/server=off without error
+or stuck release; the missing shutdown evidence is now complete. Increment 5 remains unapproved.
 
 
 ## Latest handoff - September 22, increment 4 cleared for JP build

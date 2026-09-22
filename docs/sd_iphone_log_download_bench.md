@@ -1,6 +1,18 @@
 # iPhone log retrieval - bench cases and results
 
 
+## September 22, 14:24-14:25 - gate A laptop shutdown confirmed
+
+JP supplied the follow-up console: log mode off at 14:24:59.275, STOPPING at
+14:24:59.279, OFF/server=off at 14:25:10.639. Generation 1, error=none,
+release_stuck=0, accepted=1/rejected=0. HTTP minimum remains 696 bytes;
+lifecycle worker minimum after teardown 2304. Probe largest_min=49140 throughout
+the supplied idle windows, above the 20480 gate. The observation interval does not
+measure actual stop duration. This closes the earlier missing shutdown evidence;
+no repeat required. Stack increase c4bbba4 still awaits Claude clearance before
+JP rebuild; gate A still needs headroom remeasurement and Safari export comparison.
+
+
 ## September 22, 14:19-14:21 - gate A laptop transfer integrity passed; stack headroom correction
 
 Boot 110. JP reports test passed and supplied console/curl output. Local evidence read:
