@@ -1,6 +1,6 @@
 # Increment 3 design proposal - lifecycle and cached listing
 
-September 22, 2026. Base: `71786fe`, branch `iphone-log-retrieval`.
+Revision 2, September 22, 2026. Reviewed base: `d0483ce`, branch `iphone-log-retrieval`.
 **For Claude review, then JP approval. No increment 3 implementation is approved.**
 Increment 2 is accepted with its two explicitly deferred hardware admission checks.
 The historical draft remains verbatim. This proposal does not silently amend the spec.
@@ -12,8 +12,10 @@ The historical draft remains verbatim. This proposal does not silently amend the
 2. A dedicated lifecycle worker calls httpd_start/register/stop. Main and the SD writer
    only exchange bounded commands and status; neither waits for server teardown.
 3. Start with max_open_sockets=3, LRU purge off, one retrieval reservation across USB/HTTP.
-4. Recommend a random capability per mode entry, shared by the listing and future file
-   links. This is a proposed product choice for JP, not an already confirmed decision.
+4. JP decided no capability token (spec revision 4). Keep the interface and route
+   restrictions below. Revisit access protection before file bodies in increment 4.
+   Recommend a persistent 4096-byte PSRAM lifecycle-worker stack with internal TCB;
+   the worker-stack choice is presented for JP approval below.
 5. Implement only startup, cached listing, favicon, empty last-result view and shutdown.
    No HTTP file body, reader transport handoff or new transfer limits in increment 3.
 
@@ -63,12 +65,24 @@ it. Future file-session generation is separate. A stop is sticky for that lifecy
 late start completion cannot reactivate it. Stop completion is acted on only for its
 matching lifecycle. No raw httpd_handle_t or fd is published for main to operate on.
 
-Provisional worker allocation: one lazy-created persistent worker, 4096-byte internal
-stack, normal low application priority, no affinity. Keep it dormant after OFF; this
-retained RAM is explicit and must be included in server-off regression and memory gates.
-Creation failure refuses entry cleanly. Avoid task deletion/recreation races and idle-task
-reclamation assumptions. HTTP task remains 4096 internal bytes initially. Both stacks need
-separate high-water observations; neither size is a measured adequacy claim.
+### Worker stack - recommendation for JP approval
+
+| Choice | Benefit | Cost / consequence |
+|---|---|---|
+| Persistent 4096-byte internal stack | Simple lifetime, conventional placement | Retains 4 KiB of scarce internal RAM after first use, plus TCB |
+| Per-entry internal task with self-deletion | Releases stack after task reclamation | Requires task-exit/reclamation synchronization before re-entry; publishing completion alone is insufficient |
+| **Persistent 4096-byte PSRAM stack, internal static TCB (recommended)** | Simple lifetime without retaining 4 KiB internal | Retains 4 KiB PSRAM and an internal TCB; placement and stack margin must be measured |
+
+Use the same explicit static-task allocation pattern as the existing SD writer,
+normal low application priority, no affinity. Create lazily on first entry; allocation
+failure refuses entry without an internal-stack fallback. Retain task/stack until reboot,
+sleeping on notification while OFF. Installed CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM=1
+and the existing working writer support this placement; do not reintroduce the withdrawn
+claim that lwIP categorically forbids a PSRAM stack. This is a different task, so the
+writer's measured stack margin does not prove its adequacy. No direct flash/NVS work is
+added to it. Measure worker high-water mark, stack/TCB placement and internal memory.
+HTTP's own stack remains 4096 internal bytes and is measured separately. Approval of
+this revised design should explicitly include this recommended worker choice.
 
 ## Startup, cancellation and OFF
 
@@ -77,7 +91,7 @@ It starts the same five-minute deadline then. Worker allocates bounded HTTP/cach
 starts the server and registers all routes/error handlers. Until main accepts matching
 startup success, handlers refuse service without SD work. Only then does main publish
 ready and enter ACTIVE. IP display occurs on main; a DHCP change updates the address,
-not the mode deadline or capability. Link loss retains ACTIVE/link_down as before.
+not the mode deadline. Link loss retains ACTIVE/link_down as before.
 
 Any exit first clears ready and sets cancellation under the mailbox lock, before posting
 STOP. main's logRetrievalExit remains nonwaiting, including during STARTING. In-flight
@@ -108,6 +122,40 @@ release: those remain writer-only, and the cross-task transfer mailbox belongs t
 
 ## Cancellable network I/O
 
+### Pending-data check and per-session state
+
+Leave pending_fn unset; do not install httpd_sess_set_pending_override. Contrary to the
+review's suggested default-socket concern, the installed library's httpd_sess_pending
+only calls a pending function if non-null, otherwise tests parser pending_len. It does
+not call recv/ioctl on this path. Plain TCP has no extra TLS/decryption buffer to report.
+Socket readability still comes from select. Buffered/readable data may dispatch after
+cancellation, but the receive override and authoritative handler admission reject it;
+no SD/UI/session mutation is allowed. Cancellation is not enforced by pending_fn.
+
+Use a fixed three-slot internal SessionIo pool, one slot per client socket (not six:
+HTTP's three control/listening sockets never use these callbacks). Bound each slot to
+96 bytes with a compile-time size check. Store fd, lifecycle generation, unique connection
+serial, allocation flag, receive/header/output start timestamps and explicit started/
+header-complete flags. Do not index the pool by numeric fd. Only HTTP execution accesses
+slots; callbacks read lifecycle cancellation through the synchronized mailbox.
+
+open_fn acquires and zero-initializes a fresh slot on every accept, even if the numeric fd
+was just reused. Attach it through httpd_sess_set_transport_ctx with a custom context-free
+callback that clears/releases the slot, then install send/receive overrides. The component
+owns context cleanup; close_fn stays unset. If setup fails before attachment, release the
+slot locally; after attachment leave cleanup to the component exactly once. Pool exhausted,
+missing context or fd/generation mismatch fails closed. No shared reader allocation is
+involved. Internal sockets and unrelated MQTT sockets never acquire a slot.
+
+First recv attempt starts its initial-wait clock; first positive recv starts the absolute
+header clock. Receipt of additional bytes never resets it. At handler entry, verify the
+header deadline once more and mark headers complete. First output attempt starts the
+absolute output clock, shared across every header/body send. No per-send reset. A
+connection serves only one request, so clocks reset only on a new open_fn. Terminal
+cancellation/deadline returns HTTPD_SOCK_ERR_FAIL to close, not a parser-retry timeout;
+EAGAIN retries remain inside the callback with the same deadlines. Explicit flags handle
+timestamp zero correctly. Mode activity uses a separate generation-tagged mailbox.
+
 Install both send and receive overrides from open_fn, before parsing requests. Use
 per-call MSG_DONTWAIT (preserving other flags), not a globally nonblocking socket flag
 that would change the component's select/parser assumptions. The installed lwIP sockets.h defines MSG_DONTWAIT; confirm its send/receive behavior
@@ -135,10 +183,41 @@ handler exists. Register no application HTTP event callback that blocks or acces
 The component's own event-post waits remain a source of latency; benchmark rather than
 claim a hard bound from the retry interval alone.
 
-Send Connection: close and enforce one response per socket via the HTTP task's close
-path after response completion (handler failure return where supported by the component;
-verify it closes without emitting another body). Do not rely on that header alone to
-force closure. TCP keepalive and SO_LINGER remain disabled.
+### Enforced close - verified before implementation approval
+
+Send Connection: close, complete the response, release pins/application references, then
+return ESP_FAIL deliberately from every response handler (including custom HTTP error
+handlers). Record the actual send result separately: deliberate closure is not a failed
+application response. On send failure also return ESP_FAIL; never append an error body.
+TCP keepalive and SO_LINGER stay disabled. No explicit client shutdown/close is needed.
+
+The installed bundle contains headers and libesp_http_server.a, not the component C
+sources. Therefore verification used matching IDF 5.5.5 source **and the installed archive's
+disassembly**, rather than claiming an unavailable local source file was inspected:
+
+- httpd_uri propagates nonzero handler return as ESP_FAIL without a second response.
+- httpd_req_new returns that result after request cleanup; httpd_sess_process propagates it.
+- httpd_process_session invokes httpd_sess_delete on that failure; default deletion closes
+  the socket and frees transport context. No custom close callback is installed.
+
+References: [URI dispatch](https://github.com/espressif/esp-idf/blob/v5.5.5/components/esp_http_server/src/httpd_uri.c#L336),
+[parser](https://github.com/espressif/esp-idf/blob/v5.5.5/components/esp_http_server/src/httpd_parse.c#L628),
+[session cleanup](https://github.com/espressif/esp-idf/blob/v5.5.5/components/esp_http_server/src/httpd_sess.c#L339).
+Installed archive SHA256:
+`01258A9E813A8FDBCEDF285991264F07EF583CB194B63F642F7E80AC2A9A6E3F`.
+Read-only verification used xtensa-esp32s3-elf-objdump -dr --disassemble=<function>.
+In that archive: httpd_uri handler call at +0x95 returns through +0x98..0xa0;
+httpd_req_new calls httpd_uri at +0x2d3 then takes cleanup/return;
+httpd_sess_process branches on failure at +0x25;
+httpd_process_session calls httpd_sess_delete at +0x4d.
+
+A second request on the same connection, including pipelined bytes, is not served.
+A second connection can be accepted/queued within the three-client budget and receives
+its reply when the synchronous HTTP task is available. This specifies the spec's queued
+second-request behavior precisely; it does not introduce concurrent handlers. Bench still
+checks actual browser completion and single-response closure; source/binary inspection
+is not phone-save evidence. Component warning text for deliberate handler failure may
+occur; do not misclassify it as a failed file/result record.
 
 ## Stuck teardown and visible recovery
 
@@ -151,8 +230,15 @@ exclusion; no concurrent retry or timeout-based free. Later successful completio
 exclusion normally. For an unrecoverable returned error, recovery is operator reboot.
 
 Add a main-owned persistent on-screen error notice for stuck teardown using a custom
-LVGL object, not generated UI edits; it states that log download mode could not close
-and a restart is needed. It must not steal the entire display or invoke network work.
+LVGL object parented to lv_layer_top(), not the currently active screen or generated UI.
+Main creates it once with a child label: download mode could not close; waiting, restart
+if it persists. It survives screen loads, does not capture touches outside its small
+notice area and invokes no network work. Main deletes it and nulls the pointer only on
+a matching late successful teardown reaching OFF; clear the active release_stuck flag
+then while retaining the historical diagnostic event. Status queries, repeated off/on,
+link recovery and screen navigation do not clear it. A terminal failure needs reboot.
+If UI allocation fails, retain serial/status/event escalation and retry UI creation at
+most once per second while stuck; absence of a label never permits resource release.
 This is needed now so failure is visible without a serial status command; the full entry
 screen still belongs to increment 11. No automatic reboot and no wait added to the power/
 deep-sleep path. Event loss must not erase the retained status or UI indication.
@@ -187,10 +273,42 @@ size is advisory, not a frozen current.log transfer size. Mark stale during retr
 after known storage mutations, refresh error, or cache age over 5 s. Generation is the
 managed identity; stale archive links must never resolve to a newer archive. In increment
 3 render entries as text without download links; /f/... returns 503 not_implemented and
-never reserves or reads a file. Favicon, status/result display, unknown paths and rejected
-methods perform no SD work and do not trigger inventory refresh or reset idle time.
+never reserves or reads a file. All views are SD-free on the HTTP task.
 
-## Socket budget and capability proposal
+### Listing output storage
+
+Allocate one 32768-byte PSRAM response buffer during startup, explicit
+MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT, with no internal fallback. Only the synchronous HTTP
+task formats/uses it; no buffer on its 4096-byte stack and no per-request growth. Pin one
+inventory snapshot during formatting, unpin before any network send. Limit the page to
+256 managed entries at at most 112 formatted bytes each, plus at most 2048 bytes for
+fixed markup/status: 30720 bytes, below capacity including NUL. Managed names are
+fixed-format ASCII, sizes/IDs bounded decimal; never insert raw path/error/request text.
+Every append checks remaining capacity, and overflow before headers yields a fixed 500
+response rather than a truncated page. Build-time format-size assertions and boundary
+host checks cover maximum values and count. Last-result view uses the same buffer,
+showing no HTTP transfer yet in this increment.
+
+Send a single non-chunked text/html response with its computed Content-Length using
+httpd_resp_send. The 5 s output deadline covers headers and body together. PSRAM remains
+pinned by server ownership until synchronous send returns, and is freed only after
+handler quiescence and successful server stop. Component temporary headers/session/parser
+allocations remain internal and must fit the unchanged 20480-byte largest-block gate;
+PSRAM output allocation does not remove that measurement requirement.
+
+### User activity - JP's revision 4 decision
+
+An admitted GET / or GET /result posts one generation-tagged user-activity timestamp at
+request admission; main applies max(current activity, timestamp) only for the still-active
+matching generation. Panel touch also resets. Future accepted file-transfer arrival
+resets it once; body progress does not repeatedly reset it, preserving idle expiry during
+long transfers. Favicon, unknown paths, rejected methods, refused /f/... in increment 3,
+startup/stopping refusals and background refresh do not reset it. No auto-refresh, polling
+or prefetch script is included in the page. Process activity before main's expiry decision
+using a synchronized snapshot; once STOPPING wins, late activity cannot revive the mode.
+Loading the last-result view explicitly counts as activity and does not trigger SD work.
+
+## Socket budget and JP's no-token decision
 
 Use max_open_sockets=3, lru_purge_enable=false, default header/URI limits 1024/512,
 HTTP port 80, default control port, one synchronous HTTP task. This provisions three
@@ -203,21 +321,22 @@ six times a fixed buffer. Measure MQTT/DNS/recovery and occupied-client cases in
 Do not derive total internal RAM solely from TCP send/window constants: count the two
 stacks, component/parser/session allocations, pbufs, control resources and cache metadata.
 
-Recommend 128 random bits per accepted mode entry, encoded as 32 hex characters using
-the ESP RNG while Wi-Fi is active. Serve the listing at /?k=<capability>; future links
-carry the same query parameter. Bad/missing capability gets a cheap 403 and no SD work;
-GET /favicon.ico stays unauthenticated 204. Method policy remains 405/Allow: GET before
-capability checks; unknown paths stay cheap 404. All responses use no-store; the listing
-also uses Referrer-Policy: no-referrer, no external assets, no permissive CORS.
-Invalidate on exit, retain across link loss, regenerate on new accepted entry.
+JP has decided no capability token. Serve / and /result directly, with no RNG dependency,
+auth query, 403 authorization path, credential display command or redaction exception.
+Print the ordinary http://<STA-address>/ on successful entry and in mode status. All
+responses use no-store. No upload/delete, arbitrary filesystem paths, external assets,
+permissive CORS, TLS or remote-access feature. Managed IDs only when bodies are added.
+Revisit access protection before increment 4 serves logs, as spec revision 4 requires.
 
-Do not put the token in SD records, routine status, access/error logging or review logs.
-For the USB-only entry UI in increment 3, add an explicit local 'log mode url' command
-that reveals the address to JP; that deliberate credential display is the sole serial
-exception and must be redacted from captures sent back. Later show it locally/QR on the
-increment 11 UI. JP must approve this interaction. A capability does not encrypt HTTP or
-protect against a peer observing traffic; it limits casual access by other hotspot
-clients during explicit download mode. Do not add TLS or remote access in this increment.
+Interface restriction: the installed httpd_config_t has no bind-interface field. Do not
+claim a literal listener bind that this API cannot provide. On this STA-only build,
+require STA mode with no SoftAP/other active data interface before startup; in open_fn
+verify getsockname's local IPv4 address equals the current hotspot STA address before
+installing context/overrides. Reject mismatches and link-down accepts. This restricts
+application service to the hotspot interface, though the component listener uses ANY.
+If another interface becomes enabled, request teardown rather than serve it. Reject
+IPv6 in this version (numeric IPv4 URL). This explicit implementation interpretation of
+'bound to the hotspot interface' requires review; no custom component patch is proposed.
 
 ## Review and validation gates
 
@@ -229,11 +348,11 @@ Before implementation approval, Claude should specifically challenge:
 - Worker retention cost, generation/ack ordering, cancellation before startup completion,
   and visibility/recovery when stop returns error or never returns.
 - Inventory scan preemption/close ownership, buffer pinning and impact on unchanged USB.
-- Capability display exception and provisional socket budget as explicit choices for JP.
+- PSRAM worker recommendation and the explicit interface restriction described above.
 
 Implementation host checks must cover those races and allocation/registration failures,
 late completion, stop twice, stop while STARTING, no SD/reservation for incidental paths,
-HEAD/method routing, stale inventory, invalid capability, bounded output/error formatting,
+HEAD/method routing, stale inventory, three-slot context reuse, bounded output formatting,
 partial send/EAGAIN/EOF and cancellation in receive. Preserve all existing checks without
 weakening assertions. Host simulations do not prove lwIP scheduling or memory margins.
 
@@ -241,11 +360,20 @@ weakening assertions. Host simulations do not prove lwIP scheduling or memory ma
 start/list/favicon/stop cycle from iPhone Safari on the existing hotspot. Capture status
 before entry, ACTIVE and address, listing matching USB managed inventory, favicon 204
 checked with a laptop if Safari observation is insufficient, unchanged retrieval
-reservation/last-result, OFF after explicit exit, and status/memory afterward. Redact the
-capability. No HTTP file download yet. JP receives only this case when the code is ready.
+reservation/last-result, OFF after explicit exit, and status/memory afterward.
+No HTTP file download yet. JP receives only this case when the code is ready.
 Repeated cycles, incomplete-header cancellation, startup-failure rollback and memory
 checks follow separately; this document is not an instruction to run them now.
 
 After Claude resolves objections, fold approved choices into spec sections 5, 7, 9 and 12,
 then ask JP for increment 3 implementation approval. The two deferred increment 2 hardware
 checks remain due before car deployment and are not closed by this design review.
+
+## Revision 2 disposition
+
+D1/D2: JP's revision 4 idle and no-token decisions applied throughout. D3: pending default
+verified safe for plain TCP. D4: bounded session pool/reset/free rules specified. D5:
+32 KiB PSRAM, full bounded non-chunked listing specified. D6: top-layer notice and matching
+late-completion clear rule specified. D7: close path verified in matching source and the
+installed binary before approval. D8: three worker choices presented; persistent PSRAM
+is recommended and needs JP's approval. No firmware, build or flash changes.

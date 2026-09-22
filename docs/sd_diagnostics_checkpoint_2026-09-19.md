@@ -1,5 +1,24 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 22, increment 3 design revision 2 ready for JP decision
+
+[Design revision 2](sd_iphone_log_download_increment3_design.md) applies JP's spec revision 4
+idle/no-token decisions and resolves Claude's six remaining specification points. Close
+behavior was checked in matching IDF 5.5.5 source and installed libesp_http_server.a
+disassembly (bundle has no component C source). Default pending_fn is null and the default
+pending check only inspects buffered parser data; no extra socket operation is involved.
+
+JP decision requested: approve increment 3 implementation with a persistent 4096-byte
+PSRAM lifecycle-worker stack/internal TCB (recommended), rather than retaining 4 KiB
+internal or recreating a task per entry. The design also explicitly implements hotspot-only
+service via STA-only admission and accepted local-address checks: the API has no literal
+listener-interface binding field. This distinction is documented for approval.
+
+No firmware, build or flash changes. Increment 3 implementation remains unapproved until
+JP responds. Code will go to Claude before JP builds/flashes; only the first bench case
+will be issued then. Historical draft untouched; increment 2 deferred checks remain due.
+
+
 ## Latest handoff - September 22, increment 3 design proposed for Claude review
 
 JP authorized proceeding with design review after accepting increment 2. The

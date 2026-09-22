@@ -13,6 +13,10 @@ Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Codex review](sd_iphone_log_download_review.md) and the
 [case 1 result](sd_iphone_log_download_bench.md). Where those disagree, this document wins;
 where it is silent, they remain the reference.
+Design follow-up: [increment 3 design revision 2](sd_iphone_log_download_increment3_design.md)
+resolves Claude's remaining review points and presents the PSRAM lifecycle-worker choice
+and precise hotspot-interface enforcement for JP approval. These implementation choices
+remain proposals until JP approves; no firmware work is authorized yet.
 
 Revision 4 records two JP decisions of September 22: what counts as activity for the idle
 deadline (section 4), and no capability token (section 12).
