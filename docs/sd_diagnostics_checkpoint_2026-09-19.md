@@ -1,6 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 22, gate B passed; increment 5 acceptance pending
+
+Large Safari archive 21 equals USB reference: 2097146 bytes, CRC32 0B301A04, dual match.
+Transfer 41.482 s, maximum progress gap 42 ms, HTTP margin 2524, internal largest 34804
+or above, zero drops and continued appends. Successful mode exit recorded in 102 ms.
+[Bench evidence](sd_iphone_log_download_bench.md). No more gate B testing needed.
+Next: JP accepts increment 5 and explicitly approves increment 6 current.log HTTP snapshot
+implementation. No firmware changes or rebuild; time-based log discovery proposal retained.
+
+
 ## Deferred follow-up - locate car logs by event time
 
 JP's start-date/time filename idea and proposed listing time ranges are recorded in the

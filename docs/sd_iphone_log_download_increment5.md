@@ -1,6 +1,6 @@
 # Increment 5 - representative 2 MiB archive
 
-Status: approved by JP on September 22 after accepting increment 4. Timing gate B pending.
+Status: approved by JP on September 22 after accepting increment 4. Timing gate B passed; explicit increment 5 acceptance pending.
 No firmware changes, build or flash required. The accepted 6144-byte HTTP-stack build
 already streams any managed archive with a fixed 144-byte mailbox and uint64 byte counts.
 The handler runs until the frozen expected length; CURRENT_MS applies only to current.log.
@@ -39,3 +39,12 @@ After passing gate B, request JP's increment 5 acceptance and explicit increment
 before implementing current.log HTTP snapshot retrieval. Any resulting firmware change
 requires Claude review before JP builds/flashes. The deferred configuration host assertion
 can accompany later code work; it is not needed to run this unchanged-firmware case.
+
+
+## Gate B result - September 22
+
+JP reports pass; independently verified Safari/USB bytes equal (2097146), CRC 0B301A04,
+dual CRC match, 41.482 s request-to-release, maximum gap 42 ms. HTTP margin 2524, reported
+internal largest at least 34804, zero drops, appends continuing, clean recorded exit 102 ms.
+See bench record for details and qualifications. No remaining evidence for this case.
+Await explicit increment 5 acceptance and increment 6 implementation approval.

@@ -1,6 +1,53 @@
 # iPhone log retrieval - bench cases and results
 
 
+## September 22, 15:19-15:23 - gate B representative archive passes
+
+JP reports test passed. Console attachment:
+ce58c6da-e797-47f4-86e8-1cd04a894cb8/Pasted text.txt. Same boot 112, server generation 2,
+unchanged accepted firmware. Downloads evidence read: 112-archive-00000021.log (USB CRC OK),
+112-2-archive-00000021-2097146.log (actual Safari export), 112-current (1).log (1167643
+bytes, USB CRC OK). Both archive files are byte-identical, 2097146 bytes (2 MiB minus 6),
+independent CRC32 0B301A04, SHA256
+8f9aa99aa6b8bbc73518531469f0bb0c2762d27f651f786a8e8987f1e84b6433.
+The latest-result.PNG was supplied; verdict is verified from the underlying records and
+saved bytes rather than relying on the screenshot. Reference is USB-retrieved SD data,
+not a physical-card reread.
+
+HTTP id=2, file=00000021: request=2838073, reader=2838094, header/first=2838115,
+last=2879553, close=2879554, release=2879555 (monotonic ms). Time to first body=42 ms;
+request-to-release=41482 ms, about 50.6 kB/s, consistent with the small Safari case's
+about 50.4 kB/s. Maximum no-progress interval=42 ms, terminal gap=2 ms, cancellation=0,
+resume=0, appends=unpaused. No measured throughput collapse over the larger file; aggregate
+throughput and maximum gap do not establish a per-second rate distribution or phone save
+duration. Range=0/If-Range=0 for this request only.
+
+END expected/HTTP bytes/writer bytes all 2097146; both CRCs 0B301A04, crc_check=match,
+result=ok. MEM internal_free=87344, internal_largest=42996, http_margin=2524.
+Post-transfer status internal_min=76344, internal_largest=34804 (>20480); writer margin
+2936, lifecycle worker margin 2304. Queue high-water=8/16 and slow=1 (147311 us maximum
+flush) already existed before the case and did not increase. Drops/truncated=0 and logger
+error=none throughout. No new stall or reset evidenced. Current size 1163376 before
+reference retrieval, 1167129 after HTTP, 1168840 after snapshot; 1197 bytes appended after
+the 1167643-byte current snapshot. Final USB inactive/unpaused, queue=0. One 2 ms USB link
+loss was recorded by final status, below the 1000 ms grace, with successful CRC and no
+pending loss or transfer failure; it was absent in the immediate post-HTTP status.
+
+Console omits the requested final log mode status, but current.log supplies successful
+exit: stopping=2928594, result=ok at 2928696, 102 ms. Source diagnostics_retrieval.cpp
+emits that successful exit only after !diagnosticsUsbBusy() and diaghttp::stopped(), and
+after setting Mode::Off. This closes shutdown evidence without repeating a bench action.
+Accepted connections=6, rejected=0; console stopping state has error=none/release_stuck=0.
+
+Gate B complete and passing. Present increment 5 for JP's explicit acceptance; increment 6
+remains unapproved. No further files, build or measurement required for this normal case.
+Next proposed implementation is current.log HTTP snapshot retrieval after approval and
+Claude review before JP builds. CURRENT_MS/STALL_MS unchanged: successful archives do not
+prove current-log pause safety or justify stall tuning. The event-time listing/filename
+proposal remains scheduled for design review after increment 6 acceptance.
+
+
+
 ## September 22, 14:34-14:37 - gate A Safari continuation passes
 
 JP reports the test passed and supplied console attachment
