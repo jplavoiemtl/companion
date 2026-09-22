@@ -95,3 +95,42 @@ No bench instructions are issued now; Claude review precedes JP build/flash. com
 is unchanged, so this increment does not require deleting its generated sketch; a clean
 build remains fallback for added translation-unit discovery issues. The two increment 2
 hardware admission deferrals remain due before car deployment.
+
+## Claude review accepted for first build - September 22
+
+Claude's review at d61e921 found no blocking defects and independently reran 172 checks.
+No code change after review. Two non-blocking notes are deliberately deferred: rename
+idleExpired to express its decide-and-cancel side effect, and reduce the lifecycle
+worker's 100 ms idle polling. Neither changes the correctness of this build; avoid
+inserting an unreviewed change before its first hardware case. Revisit naming/polling
+with the next reviewed code increment, preserving immediate cancellation notifications.
+
+JP may build/flash amoled-1-8-core-3-3-11 with logging and PSRAM writer enabled, hooks and
+USB fixture disabled. companion.ino is unchanged; generated-sketch deletion not required.
+Use a clean build only if new translation units are not discovered. Compile errors come
+to Codex; no board test until successful build and flash.
+
+### First single bench case issued: normal server start/list/favicon/stop
+
+USB power, existing iPhone hotspot, dashboard idle. Connect the web console with
+DTR=true/RTS=false and test switches off. Capture status, log status, log list, then
+log mode on. Expect STARTING followed by ACTIVE and a numeric http:// address in LOG HTTP.
+Send log mode status. On the hotspot-host iPhone open that address in Safari. If inventory
+is pending, wait a few seconds then reload once; verify the file names match the USB list
+and sizes are plausible (current size is advisory). Open Last result: no HTTP transfer yet.
+No file download links are expected.
+
+On a laptop connected to the same hotspot, check the same server's favicon with
+`curl.exe --noproxy "*" --max-time 10 -i "http://<device-IP>/favicon.ico"`.
+Expect HTTP 204 and no body. Capture its output. If laptop connectivity is unavailable,
+report that limitation; Safari rendering alone does not verify the 204 gate. Return to
+console: log status, log mode status (ACTIVE, no USB reservation), log mode off, wait
+about two seconds, log mode status (OFF/server=off), status, log status. Download current
+via the existing USB console (CRC OK), then log status again for append/unpaused state.
+
+Send the full console, curl output, downloaded current.log and iPhone observations.
+No throughput measurement or separate stress case. This also verifies the first lwIP
+start on the PSRAM worker. If startup resets/stalls, stop and send the capture; the agreed
+response is an internal worker stack through review/rebuild. A monitor-close restart
+before the case must be identified separately from a restart on log mode on.
+No gate result is recorded yet; increment 4 remains unapproved.

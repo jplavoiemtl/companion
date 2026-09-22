@@ -1,5 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 22, increment 3 reviewed; first server bench case issued
+
+Claude review d61e921: no blocking defects; 172 host checks independently confirmed.
+JP may build/flash the unchanged reviewed implementation using amoled-1-8-core-3-3-11.
+Normal diagnostic flags verified. No companion.ino edit, so generated-sketch deletion
+is not required. Two minor naming/polling notes are explicitly deferred in the
+[increment 3 handoff and first single case](sd_iphone_log_download_increment3.md).
+First case: start/list/favicon/stop over the existing iPhone hotspot, with USB evidence.
+This also checks PSRAM-worker lwIP startup. No hardware result yet; increment 4 unapproved.
+
+
 ## Latest handoff - September 22, increment 3 implemented for Claude code review
 
 JP approved implementation after d3a8dfe. [Code handoff](sd_iphone_log_download_increment3.md)
