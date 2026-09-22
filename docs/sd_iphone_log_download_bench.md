@@ -1,5 +1,38 @@
 # iPhone log retrieval - bench cases and results
 
+## September 22, 11:31 - increment 3 corrected admission passes; first case completion pending
+
+Reviewed checkpoint 767cbbc; JP reports the test passed. Evidence: console attachment
+265f1cd4-4897-4190-9b44-89cca49a461e/Pasted text.txt and pasted laptop curl output.
+Boot 108, same profile amoled-1-8-core-3-3-11, normal diagnostic switches.
+
+- STARTING at 11:31:31.764, ACTIVE at 11:31:31.768. Worker PSRAM placement and internal
+  TCB confirmed; worker margin 2656 bytes, HTTP margin 1688 bytes after requests.
+- Admission reaches accepted=2, then 3; rejected=0, last_reject=none, error=none.
+  This hardware run verifies the corrected dual-stack admission on this connection path.
+- Laptop favicon GET returns HTTP/1.1 204 No Content, Content-Length: 0,
+  Connection: close, Cache-Control: no-store and Referrer-Policy: no-referrer.
+- Logger ready, drops=0, high=7, slow=0; internal_min=88804, reported internal_largest=49140.
+  Probe largest_min reaches 47092, above the 20480-byte gate. No reset in this capture.
+- USB current transfer succeeds while mode remains ACTIVE: 210225 bytes, 2.13 seconds,
+  CRC OK. Later current_size=210388, confirming 163 bytes of append growth;
+  active=0, paused=0, queue=0/16, result=ok. One 5 ms USB link loss recovered within grace.
+
+The requested manual stop was not executed: at 11:33:20.347 the command was literally
+`Run log mode off`, rejected as unknown. At 11:33:31 mode was still ACTIVE. No OFF/server=off
+observation follows. This is a procedure correction, not a demonstrated shutdown defect.
+JP's message ends with "Then I got this in the web UI:" but the UI detail is missing;
+listing-name comparison and Last result content cannot yet be independently marked complete.
+The downloaded file itself was not supplied in this turn; CRC evidence is the console report.
+
+Continue only the outstanding portion of this same case, without rebuilding: capture
+log mode status; if already OFF through idle timeout, enter mode again; issue exactly
+log mode off, wait two seconds, then log mode status, status and log status. Request the
+missing web UI detail and whether listing/Last result matched expectations. No repeat
+USB download needed on this evidence. Increment 3 gate remains incomplete; increment 4
+unapproved. No firmware changes or assistant build/flash.
+
+
 Running bench record for the wireless retrieval feature, one case at a time.
 Design: [Codex review](sd_iphone_log_download_review.md) and
 [Claude review](sd_iphone_log_download_review_claude.md). Historical draft:

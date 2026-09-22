@@ -1,5 +1,17 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 22, corrected HTTP admission verified on boot 108
+
+At reviewed checkpoint 767cbbc, accepted=3/rejected=0, HTTP stack margin 1688, worker
+margin 2656; favicon returns HTTP 204 with zero body. USB CRC passes for 210225 bytes,
+then appends grow by 163 bytes; no queue drops, memory above gate. See the newest
+[bench entry](sd_iphone_log_download_bench.md).
+First gate remains incomplete only for missing UI detail and manual shutdown evidence:
+`Run log mode off` was rejected, leaving ACTIVE. Finish this same case with exact
+`log mode off` and status capture; no rebuild or repeat USB download required.
+Increment 4 remains unapproved. No firmware changes.
+
+
 ## Latest handoff - September 22, first HTTP case blocked by address-family defect
 
 Boot 106 shows successful PSRAM-worker server startup and idle teardown, but curl resets
