@@ -16,6 +16,47 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 2 gate 11 - 2026-09-22, 08:37-08:41 - PASS
+
+Remote MQTT notification exclusion and still-to-Live recovery, boot 104; JP confirms pass.
+Evidence: attachment `17e8481e-f4a5-4863-880e-f1d3f4ee314c/Pasted text.txt`, Downloads
+`104-current (1).log`.
+
+ACTIVE at 08:37:52; remote refusal at 08:38:11 is persisted as MQTT_IMAGE
+result=ignored_download_mode seq=133, with no IMAGE_BEGIN/LIVE_BEGIN for that attempt.
+The intermediate ACTIVE query after refusal was omitted; no exit is recorded until the
+explicit off command at 08:38:45, followed by exit completion seq=135 and OFF status.
+Fresh notification at 08:39:22 yields IMAGE_BEGIN trigger=mqtt, accepted MQTT_IMAGE,
+and IMAGE_END displayed/HTTP 200, expected=received=34207. LIVE_BEGIN seq=146 has
+trigger=motion_handover. LIVE_END seq=157 is duration/failure=none/HTTP 200,
+**165 frames / 60368 ms = 2.73 fps**. This is functional recovery, not a paired FPS gate.
+
+Download **1827146 bytes**, 16.92 s, browser CRC OK; local length matches and computed
+CRC32 **1298A90B**. Post-Live full status: ready, drops=0, error=none, stack_min=2920,
+internal_min=38032, internal_largest=26612 > 20480. After download, USB active=0,
+paused=0, result=ok, queue=0/16, drops=0, no retained USB failure; current_size=1827313
+exceeds the downloaded snapshot by 167 bytes, confirming append continuation. Same boot,
+no unexpected reset visible; JP reports the test passed. No firmware changes.
+
+### Acceptance coverage proposal - awaiting JP, not a change to the approved spec
+
+All eleven issued increment 2 cases pass. Section 11 of the spec still calls for battery-only
+entry refusal and entry refusal during the brief pending motion handover. Neither has been
+observed on hardware. Host source simulations cover usb_power_required and display_pending;
+the completed-display pending guard and real VBUS-loss exit have hardware evidence, but
+these do not establish the two missing cases.
+
+Recommend accepting increment 2 with those two hardware checks explicitly deferred to a
+controlled bench procedure before car deployment, using later entry UI or an approved
+bounded fixture if necessary. Do not silently mark them passed or assume a timed manual
+command catches the short gap. JP must approve this coverage exception; otherwise design
+one targeted case at a time. No further bench case is issued pending that decision.
+After acceptance, propose resolving increment 3 descriptor lifetime and lifecycle teardown
+ownership with Claude review before JP explicitly authorizes implementation. Increment 3
+remains unapproved. Historical draft unchanged.
+
+---
+
 ## Increment 2 gate 10 - 2026-09-22, 08:15-08:16 - PASS
 
 History-image Back exclusion/recovery, boot 104; JP confirms pass. Evidence: attachment

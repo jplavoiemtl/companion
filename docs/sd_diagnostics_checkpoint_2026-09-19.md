@@ -1,5 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest result - September 22, increment 2 remote-notification gate passes
+
+Gates 1-11 pass. Boot 104 MQTT refusal in ACTIVE followed by successful still-to-Live
+handover after exit. Download 1827146 bytes, CRC32 1298A90B, append continuation,
+zero drops, internal largest 26612 > 20480. [Evidence and acceptance proposal](sd_iphone_log_download_bench.md).
+JP approval is required to defer battery-only entry and brief pending-handover entry
+hardware checks until controlled bench coverage before car deployment. They remain
+unproven, not passed. Increment 2 acceptance pending; increment 3 unapproved. No new
+bench case or firmware change is issued pending the coverage decision.
+
+
 ## Latest result - September 22, increment 2 history-image exclusion passes
 
 Gates 1-10 pass. Boot 104 Back refused in ACTIVE and image displayed after completed

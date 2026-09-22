@@ -178,3 +178,9 @@ September 22 gate 10 passes on boot 104: Back refused while ACTIVE, older image 
 after completed exit, CRC32 12B27089 verified. Next single case: real MQTT notification
 refusal then normal still-to-Live handover after exit. Battery-only entry and the brief
 pending-handover admission gap remain coverage decisions; increment 3 is unapproved.
+
+September 22 gate 11 passes: real MQTT notification refused in ACTIVE; after exit, still
+and motion-handover Live complete successfully. CRC32 1298A90B; append continuation
+and zero drops confirmed. All issued cases pass. Acceptance proposal in the bench record
+explicitly defers two unobserved hardware admission checks, subject to JP approval;
+no spec gate is silently closed and increment 3 remains unapproved.
