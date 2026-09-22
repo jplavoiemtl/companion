@@ -1,5 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+
+## Latest handoff - September 22, increment 4 implemented for Claude review
+
+JP approved increment 4 and explicitly retained no token on his trusted hotspot for
+actual log retrieval. Archive-only fixed-length attachments, writer/mailbox cancellation,
+partial-prefix CRC and timing/resource records implemented. 202 host checks pass;
+no firmware compile/flash/hardware result. [Handoff](sd_iphone_log_download_increment4.md)
+flags terminal-writer-to-main memory-release ownership for review. Claude review before
+JP build; first future gate A is one small immutable archive with exported phone bytes.
+companion.ino and historical draft untouched. Increment 5 remains unapproved.
+
 ## Latest handoff - September 22, increment 3 ACCEPTED by JP
 
 JP accepts increment 3, including host-only startup rollback coverage for this increment

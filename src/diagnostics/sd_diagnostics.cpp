@@ -1,3 +1,4 @@
+#include "diagnostics_http_transfer.h"
 #include "diagnostics_inventory.h"
 #include "diagnostics_retrieval.h"
 #include "sd_diagnostics.h"
@@ -1136,6 +1137,7 @@ void usbEnd(const char* name, uint64_t bytes, uint64_t elapsed, const char* resu
 // with stack-local data buffers. Cache-off and DMA restrictions still apply.
 void writerTask(void*) {
   diaginventory::writerOnline();
+  diagtransfer::writerOnline();
   // The task stack and control block exist here, before formatter or SD work.
   // Do not add a startup barrier: main-task Wi-Fi setup may overlap these readings.
   captureStartup(StartupPoint::WriterEntry);
@@ -1178,6 +1180,7 @@ void writerTask(void*) {
       usbGateEnd("shutdown");
       portENTER_CRITICAL(&mux); usbGate.armed = UsbGate::None; portEXIT_CRITICAL(&mux);
 #endif
+      diagtransfer::writerOffline();
       diaginventory::writerOffline();
       diagnosticsUsbStop(); // Close reader and resume append before the close drain.
       if (!good()) break;
@@ -1249,6 +1252,7 @@ void writerTask(void*) {
   usbGateEnd("logger_stopped");
   portENTER_CRITICAL(&mux); usbGate.armed = UsbGate::None; portEXIT_CRITICAL(&mux);
 #endif
+  diagtransfer::writerOffline();
   diaginventory::writerOffline();
   diagnosticsUsbStop();
   if (fd >= 0) { // terminal error: release handle, never retry writes this boot

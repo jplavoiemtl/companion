@@ -17,8 +17,8 @@ function adapt(s){return s
  .replace(/const char\* reason = stopReason\(transportStop\)/g,'__unused') // handled below, before actual execution
  .replace(/if \(__unused\) return reason;/g,'const reason=stopReason(transportStop); if(reason)return reason;')
  .replace(/if \(const char\* reason = transportStop\(\)\) return reason;/g,'const reason=transportStop(); if(reason)return reason;')
- .replace(/const uint64_t /g,'const ')
- .replace(/Request::/g,'Request.')
+ .replace(/const uint64_t /g,'const ').replace(/buffers->raw\+bytes/g,'buffers.raw.subarray(bytes)')
+ .replace(/Request::/g,'Request.').replace(/diagtransfer::/g,'diagtransfer.')
  .replace(/static_cast<Buffers\*>\(heap_caps_calloc\(1, sizeof\(Buffers\), MALLOC_CAP_SPIRAM \| MALLOC_CAP_8BIT\)\)/g,'allocate()')
  .replace(/nameFor\(\{0,accepted.number,isCurrent\}, filename, sizeof\(filename\)\);/g,'filename=nameFor(accepted.number,isCurrent);')
  .replace(/char path\[64\]; snprintf\(path, sizeof\(path\), "%s%s", ROOT, filename\);/g,'const filePath=ROOT+filename;')
@@ -37,11 +37,11 @@ function adapt(s){return s
  .replace(/value >> 1/g,'value >>> 1') // C++ value is uint32_t
  .replace(/return value;\s*$/g,'return value;')
  .replace(/\bnullptr\b/g,'null');}
-const specs=[['reserve','request,number,at','bool reserve('],['busy','','bool busy()'],['requestAbort','','void requestAbort()'],['abortPending','','bool abortPending()'],['takeAbort','','bool takeAbort()'],['takeRequest','','Accepted takeRequest()'],['invalidate','generation','void invalidate('],['release','generation','bool release('],['publish','','void publish()'],['published','','Published published()'],['start','accepted,transportStop','const char* start('],['stopReason','transportStop','const char* stopReason('],['readChunk','','const char* readChunk()'],['progress','generation,body','bool progress('],['terminalClock','','void terminalClock()'],['closeReaderAndResume','recordEnd,result,keepEvent=false','bool closeReaderAndResume('],['beforePrune','number','bool beforePrune('],['updateCrc','value,data,length','uint32_t updateCrc(']];
+const specs=[['reserve','request,number,at','bool reserve('],['busy','','bool busy()'],['requestAbort','','void requestAbort()'],['abortPending','','bool abortPending()'],['takeAbort','','bool takeAbort()'],['takeRequest','','Accepted takeRequest()'],['invalidate','generation','void invalidate('],['release','generation','bool release('],['publish','','void publish()'],['published','','Published published()'],['start','accepted,transportStop','const char* start('],['stopReason','transportStop','const char* stopReason('],['readChunk','','const char* readChunk()'],['progress','generation,body','bool progress('],['progressBytes','generation,bytes,at','bool progressBytes('],['terminalClock','','void terminalClock()'],['closeReaderAndResume','recordEnd,result,keepEvent=false','bool closeReaderAndResume('],['beforePrune','number','bool beforePrune('],['updateCrc','value,data,length','uint32_t updateCrc(']];
 const code=specs.map(([n,a,s])=>`function ${n}(${a}){${adapt(body(s))}}`).join('\n');
 function context(){
  const c={nextGeneration:0,retainedGeneration:0,reserved:false,invalidated:false,abortRequested:false,
- pending:{request:0,number:0,at:0,generation:0,abort:false},Request:{None:0,List:1,Current:2,Archive:3},UINT64_MAX:Number.MAX_SAFE_INTEGER,
+ pending:{request:0,number:0,at:0,generation:0,abort:false},Request:{None:0,List:1,Current:2,Archive:3,HttpArchive:4},diagtransfer:{busy:()=>false},UINT64_MAX:Number.MAX_SAFE_INTEGER,
  now:1000,buffers:null,entries:null,pendingBytes:0,entryCount:0,reader:-1,paused:false,begun:false,isCurrent:false,
  fileNumber:0,fileSize:0,sentBytes:0,crc:0xffffffff,startedAt:0,lastProgress:0,filename:'',snapshot:{bytes:0,paused:false,result:'none'},
  ROOT:'/sdcard/logs/',O_RDONLY:0,ENOENT:2,errno:0,order:[],frees:[],content:Buffer.from('123456789'),position:0,
@@ -50,7 +50,7 @@ function context(){
  for(const k of ['CHUNK','STALL_MS','CURRENT_MS']){const m=header.match(new RegExp('\\b'+k+' = (\\d+)'));assert.ok(m,k);c[k]=Number(m[1]);}
  c.milliseconds=()=>c.now;c.nameFor=(n,current)=>current?'current.log':`archive-${String(n).padStart(8,'0')}.log`;
  c.allocate=()=>{c.order.push('allocate');return c.allocOk?{raw:Buffer.alloc(c.CHUNK),wire:{}}:null;};
- c.heap_caps_free=x=>c.frees.push(x);
+ c.heap_caps_free=x=>c.frees.push(x);c.memmove=(dst,src,n)=>src.copy(dst,0,0,n);
  c.stat=(p,s)=>{c.order.push('stat');s.st_mode=c.regular;s.st_size=c.content.length;return c.statOk?0:-1;};c.S_ISREG=x=>x;
  c.open=()=>{c.order.push('open');c.position=0;return c.openOk?7:-1;};
  c.fstat=(fd,s)=>{c.order.push('fstat');s.st_size=c.content.length;return c.fstatOk?0:-1;};
@@ -92,7 +92,7 @@ check('adapter emits unchanged BEGIN/D/END with resume before END and append rea
   .replace(/char\* wire =/g,'let wire =').replace(/char wire\[WIRE\+1\];/g,'let wire = {};')
   .replace(/char name\[24\];/g,'let name = {};')
   .replace(/if \(const char\* reason = ([^;\n]+?)\) (?=\{|finishError)/g,'if ((reason = $1)) ')
-  .replace(/diagreader::/g,'service.').replace(/Phase::/g,'Phase.').replace(/Request::/g,'Request.')
+  .replace(/diagreader::/g,'service.').replace(/Phase::/g,'Phase.').replace(/Request::/g,'Request.').replace(/diagtransfer::/g,'diagtransfer.')
   .replace(/buffers->/g,'buffers.').replace(/sizeof\((wire|name)\)/g,'241')
   .replace(/\(unsigned long long\)/g,'').replace(/\(unsigned long\)/g,'').replace(/unsigned\(/g,'Number(')
   .replace(/const char\* reason =/g,'const reason =').replace(/\bnullptr\b/g,'null');
@@ -135,5 +135,15 @@ assert.match(usb,/diagreader::progress\(sessionGeneration,phase == Phase::Data\)
 assert.ok(usb.indexOf('if (!sent) break;')<usb.indexOf('diagreader::progress(sessionGeneration'));
 
 
+check('HTTP partial progress credits each accepted prefix once and keeps unsent tail',c=>{
+ c.reserve(c.Request.HttpArchive,7,c.now);const a=c.takeRequest();assert.equal(c.start(a,c.transportStop),null);
+ assert.equal(c.begun,false);assert(!c.order.includes('begin'));assert(!c.paused);
+ c.readChunk();assert(c.progressBytes(a.generation,3,1010));assert.equal(c.sentBytes,3);assert.equal(c.pendingBytes,6);
+ assert.equal(c.buffers.raw.subarray(0,6).toString(),'456789');assert.equal(c.lastProgress,1010);
+ assert(!c.progressBytes(a.generation,7,1015));assert(c.progressBytes(a.generation,6,1020));
+ assert.equal((c.crc^0xffffffff)>>>0,0xcbf43926);assert.equal(c.sentBytes,9);
+ c.invalidate(a.generation);assert(!c.progressBytes(a.generation,1,1030));
+ c.closeReaderAndResume(false,'ok');assert(c.release(a.generation));
+});
 check('offline abort consumption preserves the queued request and reservation',c=>{c.reserve(2,0,42);c.requestAbort();assert.equal(c.takeAbort(),true);assert.equal(c.takeAbort(),false);assert.ok(c.busy());const a=c.takeRequest();assert.equal(a.request,2);assert.equal(a.at,42);assert.equal(a.abort,false);});
 console.log(`${checks} reader/session checks passed; source simulations only, no firmware build.`);

@@ -1,14 +1,18 @@
 # iPhone log retrieval - implementation spec
 
-Status: **revision 5.** JP accepted increment 1 and approved increment 2 on September 21.
+Status: **revision 6.** JP accepted increment 1 and approved increment 2 on September 21.
 JP accepted increment 2 on September 22 after eleven issued hardware cases passed; see
 [handoff](sd_iphone_log_download_increment2.md) and [bench evidence](sd_iphone_log_download_bench.md).
 Acceptance includes the proposed deferral of battery-only entry refusal and entry during
 the brief pending-handover gap to controlled hardware checks before car deployment.
 These two checks are not hardware passes; host coverage is retained.
 JP approved increment 3 implementation after `d3a8dfe`, including a persistent lazy
-4096-byte PSRAM lifecycle worker with internal static TCB. Increment 3 is implemented
-for Claude code review; no build/flash yet. Increment 4 and beyond remain unapproved.
+4096-byte PSRAM lifecycle worker with internal static TCB. JP accepted increment 3 on
+September 22; hardware startup-failure injection is deferred to increment 7, due before
+car deployment, with host coverage accepted for increment 3. JP explicitly approved
+increment 4 and reconfirmed no token on his trusted hotspot for actual log retrieval.
+Increment 4 implementation is awaiting Claude review, not ready for build/flash.
+Increment 5 and beyond remain unapproved.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the
 [Codex review](sd_iphone_log_download_review.md) and the
@@ -17,9 +21,10 @@ where it is silent, they remain the reference.
 The [approved increment 3 design](sd_iphone_log_download_increment3_design.md) specifies
 lifecycle, socket/cache ownership and hotspot-interface enforcement. See the
 [increment 3 code handoff](sd_iphone_log_download_increment3.md) for validation and the
-installed-component rejected-accept cleanup refinement awaiting Claude code review.
+installed-component rejected-accept cleanup refinement reviewed by Claude. See the
+[increment 4 handoff](sd_iphone_log_download_increment4.md) for archive transfers and validation.
 
-Revision 5 records JP's implementation approval and replaces the superseded provisional
+Revision 5 recorded JP's implementation approval and replaces the superseded provisional
 cross-task socket shutdown scheme with the approved HTTP-owned I/O/lifecycle worker design.
 The first server bench case verifies PSRAM-stack lwIP; on a misbehaving start the agreed
 response is an internal worker stack, not a PSRAM/lwIP investigation.
@@ -270,6 +275,25 @@ Existing transfer bounds carry over unchanged: `CURRENT_MS` 120 s overall for `c
 `STALL_MS` 5 s no-progress abort, the 50 % queue-pressure abort (8 of 16 events), and reader
 close before an archive is unlinked.
 
+### Increment 4 implementation ownership refinement for review
+
+The writer dispatches the existing shared reservation queue to USB or HttpArchive; HTTP
+never consumes that queue or calls reader lifecycle methods. A locked mailbox copies
+one 144-byte chunk; HTTP uses a private copy and posts cumulative accepted-byte counts.
+The writer alone updates its reader offset/CRC and closes before prune/shutdown. Positive
+body writes reset the body no-progress timer; headers/metadata do not count as progress.
+The shared reader still applies the five-second guard from request acceptance until body
+progress; both current limits remain unchanged. No current.log HTTP route in increment 4.
+
+A terminal-writer exception is required for a late transport release: after the writer
+has closed the reader and published Parked/Deleted, main's existing offline tick may
+free retained reader buffers/release the reservation. It performs no SD work and cannot
+overlap writer access. This extends the section 3 writer-only release rule only after
+terminal ownership transfer, and is explicitly flagged for Claude's review. The writer
+publishes close completion and never waits for HTTP before the close caller can return.
+Lifecycle teardown waits off-main for handler and reservation release; missing release
+retains exclusion/resources with the existing visible error policy.
+
 ## 6. Media admission
 
 **One authoritative guard, ahead of every side effect.** Both still callers run
@@ -450,7 +474,12 @@ time, append resumption time and transport release time.
 | **Provisional `max_open_sockets`** to build increment 3 against | 3, with `lru_purge_enable` false; measured tuning completes in increment 8 |
 | Whether bounded interleaving of a second request is wanted, replacing the queued-reply choice in section 7 | Before increment 4 |
 
-**Decided September 22: no capability token.** JP's reasoning, accepted: the server exists
+**Decided September 22: no capability token.** Reconfirmed explicitly by JP for increment 4
+when actual log contents become available: any device on his trusted hotspot can download
+while the mode is active. Five minutes means inactivity expiry, reset by approved user
+actions, not an absolute five-minute session lifetime.
+
+ JP's reasoning, accepted: the server exists
 only while download mode is active, the mode is off by default and needs USB power and a
 deliberate entry, it closes itself after five minutes, and the hotspot is WPA-protected with
 no other devices expected. A token's cost was never the comparison - it was delivery, which

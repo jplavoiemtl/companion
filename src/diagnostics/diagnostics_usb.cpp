@@ -1,3 +1,4 @@
+#include "diagnostics_http_transfer.h"
 #include "diagnostics_inventory.h"
 #include "diagnostics_usb.h"
 #include "diagnostics_config.h"
@@ -336,6 +337,13 @@ void diagnosticsUsbTick() {
   if (hooks.status().closing) { diagnosticsUsbStop(); return; }
   // Explicit abort is acknowledged only after cleanup, including queued requests.
   const auto accepted = diagreader::takeRequest();
+  if (accepted.request == Request::HttpArchive) {
+    diagtransfer::accept(accepted); diagtransfer::tick(); controlTick(); return;
+  }
+  if (diagtransfer::busy()) {
+    if (accepted.abort) diagtransfer::cancelAll("aborted");
+    diagtransfer::tick(); controlTick(); return;
+  }
   const bool abort = accepted.abort;
   const Request request = accepted.request;
   if (request != Request::None) sessionGeneration = accepted.generation;
@@ -420,6 +428,9 @@ void diagnosticsUsbTick() {
 }
 void diagnosticsUsbStop() {
   const auto accepted = diagreader::takeRequest();
+  if (accepted.request == Request::HttpArchive || diagtransfer::busy()) {
+    diagtransfer::stop(accepted); return;
+  }
   if (accepted.request != Request::None) sessionGeneration = accepted.generation;
   diagreader::invalidate(sessionGeneration);
   portENTER_CRITICAL(&usbMux);
@@ -433,9 +444,11 @@ void diagnosticsUsbStop() {
   release();
 }
 void diagnosticsUsbBeforePrune(uint32_t number) {
+  if (diagtransfer::busy()) { diagtransfer::beforePrune(number); return; }
   if (diagreader::beforePrune(number)) finishError("pruned");
 }
 void diagnosticsUsbOfflineTick() {
+  diagtransfer::offlineTick();
   if (!hooks.status) return;
   const bool abort = diagreader::takeAbort();
   if (abort) queueError("aborted");

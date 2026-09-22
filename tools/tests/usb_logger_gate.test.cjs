@@ -18,6 +18,8 @@ function adapt(t){return t
 .replace(/command\+15/g,'command.slice(15)')
 .replace(/const char\* result/g,'let result')
 .replace(/const (?:bool|uint64_t|auto) /g,'const ')
+.replace(/diagtransfer::busy\(\)/g,'false')
+.replace(/diagtransfer::beforePrune\(number\)/g,'httpBeforePrune(number)')
 .replace(/diagreader::(\w+)/g,(_,n)=>'reader_'+n)
 .replace(/diaginventory::writerChanged\(\)/g,'inventoryChanged()')
 .replace(/if \(const char\* reason = transportStop\(\)\) return reason;/g,'const reason=transportStop(); if(reason)return reason;')

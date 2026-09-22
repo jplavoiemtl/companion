@@ -41,6 +41,7 @@ uint64_t& lastProgress = state.lastProgress;
 char (&filename)[24] = state.filename;
 } // namespace
 void init(const Hooks& value) { hooks = value; }
+Status status() { return hooks.status ? hooks.status() : Status{}; }
 const ReaderState& view() { return state; }
 bool reserve(Request request, uint32_t number, uint64_t at) {
   portENTER_CRITICAL(&sessionMux);
@@ -80,7 +81,7 @@ void invalidate(uint64_t generation) {
   portEXIT_CRITICAL(&sessionMux);
 }
 bool release(uint64_t generation) {
-  // Only writer may call: adapter has relinquished its buffer reference first.
+  // Writer, or exclusive terminal-writer fallback: adapter relinquished its reference.
   portENTER_CRITICAL(&sessionMux);
   const bool matches = reserved && retainedGeneration == generation;
   portEXIT_CRITICAL(&sessionMux);
@@ -192,8 +193,10 @@ const char* start(const Accepted& accepted, const char* (*transportStop)()) {
   struct stat st{};
   if (stat(path, &st)) return errno == ENOENT ? "not_found" : "read_failed";
   if (!S_ISREG(st.st_mode) || st.st_size < 0) return "not_found";
-  if (!hooks.begin(filename)) return "logger_failed";
-  begun = true;
+  if (accepted.request != Request::HttpArchive) {
+    if (!hooks.begin(filename)) return "logger_failed";
+    begun = true;
+  }
   if (isCurrent) {
     paused = true; publish();
     if (!hooks.pause()) return "logger_failed";
@@ -234,3 +237,16 @@ bool beforePrune(uint32_t number) {
   return reader >= 0 && !isCurrent && number == fileNumber;
 }
 } // namespace diagreader
+
+namespace diagreader {
+bool progressBytes(uint64_t generation, size_t bytes, uint64_t at) {
+  portENTER_CRITICAL(&sessionMux);
+  const bool valid = reserved && retainedGeneration == generation && !invalidated;
+  portEXIT_CRITICAL(&sessionMux);
+  if (!valid || !bytes || bytes > pendingBytes) return false;
+  crc = updateCrc(crc,buffers->raw,bytes);
+  sentBytes += bytes; pendingBytes -= bytes;
+  if (pendingBytes) memmove(buffers->raw,buffers->raw+bytes,pendingBytes);
+  lastProgress = at; publish(); return true;
+}
+}

@@ -6,7 +6,7 @@
 namespace diagreader {
 constexpr size_t CHUNK = 144, SCRATCH = 241, MAX_ENTRIES = 256;
 constexpr uint64_t STALL_MS = 5000, CURRENT_MS = 120000;
-enum class Request : uint8_t { None, List, Current, Archive };
+enum class Request : uint8_t { None, List, Current, Archive, HttpArchive };
 struct Status {
   uint64_t boot, uptime, size, cardBytes, freeBytes;
   uint32_t newest, files, drops, queued, capacity;
@@ -48,10 +48,12 @@ void requestAbort(); // Also preserves the USB idle-abort acknowledgement.
 bool abortPending();
 bool takeAbort(); // Consume only abort; offline fallback must leave requests alone.
 Accepted takeRequest(); // Writer consumes main's command.
-// Remaining lifecycle/ack methods are writer-only in increment 1. A future
-// asynchronous transport must post acknowledgements, never call these on its task.
+// Lifecycle/ack methods are writer-only while it runs. HTTP posts acknowledgements.
+// After terminal writer publication, main may call release for an already-closed
+// HTTP reader; this fallback does no SD work and cannot overlap writer access.
 void invalidate(uint64_t generation); // Reject future progress, retain reservation/storage.
-bool release(uint64_t generation); // Writer, ONLY after adapter no longer uses the buffer.
+bool release(uint64_t generation); // Writer/terminal fallback, ONLY after adapter releases its buffer.
+Status status(); // Locked logger snapshot, no SD work.
 Published published(); // Thread-safe status snapshot.
 // Writer-only view, never publish these pointers to another task without a handoff.
 const ReaderState& view();
@@ -63,6 +65,7 @@ const char* stopReason(const char* (*transportStop)());
 const char* start(const Accepted& request, const char* (*transportStop)());
 const char* readChunk();
 bool progress(uint64_t generation, bool body); // USB calls after a complete wire line.
+bool progressBytes(uint64_t generation, size_t bytes, uint64_t at); // Writer consumes HTTP ack.
 void terminalClock(); // Error-delivery deadline; does not revive an invalid generation.
 bool closeReaderAndResume(bool recordEnd, const char* result, bool keepEvent = false);
 bool beforePrune(uint32_t number); // Writer checks this before unlink.

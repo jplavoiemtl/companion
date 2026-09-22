@@ -1,3 +1,5 @@
+#include "diagnostics_http_transfer.h"
+#include "diagnostics_internal.h"
 #include "diagnostics_http.h"
 #include "diagnostics_inventory.h"
 #include "diagnostics_reader.h"
@@ -47,6 +49,8 @@ httpd_handle_t server = nullptr; // lifecycle worker only
 struct SessionIo {
   uint64_t generation = 0, serial = 0, receiveAt = 0, headerAt = 0, outputAt = 0;
   int fd = -1;
+  uint64_t transfer = 0; // HTTP-only identity; zero outside file output.
+  bool bodyOutput = false;
   bool used = false, receiveStarted = false, headerStarted = false, headerComplete = false, outputStarted = false;
 };
 static_assert(sizeof(SessionIo) <= 96,"bounded per-client state");
@@ -115,8 +119,12 @@ int transmit(httpd_handle_t hd, int fd, const char* buf, size_t length, int flag
   if (!io->outputStarted) { io->outputStarted = true; io->outputAt = nowMs(); }
   for (;;) {
     if (cancelled(io->generation) || nowMs()-io->outputAt >= IO_MS) return HTTPD_SOCK_ERR_FAIL;
+    if (io->transfer) {
+      const auto transfer=diagtransfer::view();
+      if (transfer.id!=io->transfer || (transfer.closed && strcmp(transfer.result,"ok"))) return HTTPD_SOCK_ERR_FAIL;
+    }
     const int n = send(fd,buf,length,flags | MSG_DONTWAIT);
-    if (n > 0) return n;
+    if (n > 0) { if (io->bodyOutput) io->outputAt=nowMs(); return n; }
     if (n == 0 || (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)) return HTTPD_SOCK_ERR_FAIL;
     nap();
   }
@@ -205,7 +213,12 @@ bool append(size_t& used, const char* format, ...) {
 // One fixed page, no stack-sized inventory or page. Pin ends before network output.
 bool formatPage(bool resultOnly, size_t& used) {
   used = 0;
-  bool ok = append(used,"<!doctype html><html><head><meta name=viewport content='width=device-width'><title>Companion logs</title></head><body><h1>Companion logs</h1><p>No HTTP transfer yet.</p><a href='/'>Logs</a> <a href='/result'>Last result</a>");
+  bool ok = append(used,"<!doctype html><html><head><meta name=viewport content='width=device-width'><title>Companion logs</title></head><body><h1>Companion logs</h1><a href='/'>Logs</a> <a href='/result'>Last result</a>");
+  const auto transfer=diagtransfer::last();
+  if (!transfer.id) ok=ok && append(used,"<p>No HTTP transfer yet.</p>");
+  else ok=ok && append(used,"<p>Transfer %llu: %s; transport accepted %llu / %llu bytes; prefix CRC32 %08lX. Device send result, not phone save verification.</p>",
+    (unsigned long long)transfer.id,transfer.result,(unsigned long long)transfer.bytes,
+    (unsigned long long)transfer.expected,(unsigned long)transfer.crc);
   if (!resultOnly) {
     const auto v = diaginventory::pin(nowMs());
     const bool busy = diagreader::busy();
@@ -213,10 +226,11 @@ bool formatPage(bool resultOnly, size_t& used) {
       v.valid ? "available" : "pending",(unsigned long long)(v.valid ? nowMs()-v.at : 0),unsigned(v.stale || busy),unsigned(busy),v.error);
     for (size_t i=0; ok && i<v.count; ++i) {
       char name[24]; diagreader::nameFor(v.entries[i],name,sizeof(name));
-      ok = append(used,"%s  %llu bytes\n",name,(unsigned long long)v.entries[i].size);
+      if (v.entries[i].current) ok=append(used,"%s  %llu bytes (USB only)\n",name,(unsigned long long)v.entries[i].size);
+      else ok=append(used,"<a href='/f/%08lu'>%s</a> %llu bytes\n",(unsigned long)v.entries[i].number,name,(unsigned long long)v.entries[i].size);
     }
     diaginventory::unpin(v);
-    ok = ok && append(used,"</pre><p>File downloads are not implemented yet.</p>");
+    ok = ok && append(used,"</pre><p>Archive downloads available; current.log remains USB only.</p>");
   }
   return ok && append(used,"</body></html>");
 }
@@ -225,6 +239,7 @@ void headers(httpd_req_t* req) {
   httpd_resp_set_hdr(req,"Cache-Control","no-store");
   httpd_resp_set_hdr(req,"Referrer-Policy","no-referrer");
 }
+esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number);
 // Always return failure after output: documented and binary-verified close path.
 esp_err_t handle(httpd_req_t* req) {
   SessionIo* io = session(req->handle,httpd_req_to_sockfd(req));
@@ -251,10 +266,139 @@ esp_err_t handle(httpd_req_t* req) {
     httpd_resp_set_type(req,"text/html; charset=utf-8");
     httpd_resp_send(req,page,used); return ESP_FAIL;
   }
+  if (!strncmp(req->uri,"/f/",3)) {
+    uint32_t number=0;
+    // Canonical archive identity only: eight digits, no query or arbitrary path.
+    if (strlen(req->uri+3)==8 && diagreader::parseNumber(req->uri+3,number))
+      return download(req,io,number);
+    httpd_resp_set_status(req,"404 Not Found");
+    httpd_resp_send(req,nullptr,0); return ESP_FAIL;
+  }
   if (!strcmp(req->uri,"/favicon.ico")) httpd_resp_set_status(req,"204 No Content");
-  else if (!strncmp(req->uri,"/f/",3)) httpd_resp_set_status(req,"503 Service Unavailable");
   else httpd_resp_set_status(req,"404 Not Found");
   httpd_resp_send(req,nullptr,0); return ESP_FAIL;
+}
+// Raw non-chunked response through the installed send override: exact frozen length,
+// positive partial-send accounting, and no error response appended after headers.
+bool headerPresent(httpd_req_t* req, const char* name) {
+  char value[1];
+  const esp_err_t result=httpd_req_get_hdr_value_str(req,name,value,sizeof(value));
+  return result==ESP_OK || result==ESP_ERR_HTTPD_RESULT_TRUNC;
+}
+esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number) {
+  const auto storage=diagreader::status();
+  if (!storage.ready || storage.closing || diagreader::busy()) {
+    httpd_resp_set_status(req,"503 Service Unavailable");
+    httpd_resp_send(req,"retrieval_busy_or_unavailable",HTTPD_RESP_USE_STRLEN); return ESP_FAIL;
+  }
+  const uint64_t at=nowMs();
+  const uint64_t id=diagtransfer::request(number,at);
+  if (!id) {
+    httpd_resp_set_status(req,"503 Service Unavailable");
+    httpd_resp_send(req,"retrieval_busy",14); return ESP_FAIL;
+  }
+  portENTER_CRITICAL(&mux);
+  if (!shared.cancel && shared.generation==io->generation) shared.userActivity=at;
+  portEXIT_CRITICAL(&mux);
+  const bool range=headerPresent(req,"Range");
+  const bool ifRange=headerPresent(req,"If-Range");
+  // BEGIN has no final size/CRC. Records contain managed IDs only, never user header text.
+  snprintf(page,PAGE_CAP,"id=%llu file=%08lu started_ms=%llu range=%u if_range=%u",
+    (unsigned long long)id,(unsigned long)number,(unsigned long long)at,unsigned(range),unsigned(ifRange));
+  diag::record("HTTP_GET_BEGIN",page,true);
+  diagtransfer::Result result;
+  result.id=id; result.number=number; result.started=at; result.result="pending";
+  uint32_t crc=0xffffffff;
+  bool headersSent=false;
+  for (;;) {
+    const auto state=diagtransfer::view();
+    if (state.metadata && (!state.closed || !strcmp(state.result,"ok"))) { result.expected=state.size; break; }
+    if (state.closed) { result.result=state.result; result.closedAt=state.closedAt; break; }
+    if (cancelled(io->generation) || nowMs()-at>=IO_MS) {
+      result.result=cancelled(io->generation) ? "mode_exit" : "metadata_timeout"; break;
+    }
+    nap();
+  }
+  if (!strcmp(result.result,"pending")) {
+    const int length=snprintf(page,PAGE_CAP,
+      "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\n"
+      "Content-Disposition: attachment; filename=\"%llu-%llu-archive-%08lu-%llu.log\"\r\n"
+      "Content-Length: %llu\r\nConnection: close\r\nCache-Control: no-store\r\n"
+      "Referrer-Policy: no-referrer\r\n\r\n",
+      (unsigned long long)storage.boot,(unsigned long long)id,(unsigned long)number,
+      (unsigned long long)result.expected,(unsigned long long)result.expected);
+    io->transfer=id;
+    // Header output is bounded independently; only body writes count as progress.
+    headersSent=true;
+    size_t offset=0;
+    while(offset<size_t(length)) {
+      const int n=httpd_send(req,page+offset,size_t(length)-offset);
+      if(n<=0) { result.result="header_send_failed"; break; }
+      offset+=size_t(n);
+    }
+    if(offset==size_t(length)) {
+      snprintf(page,PAGE_CAP,"id=%llu expected=%llu header_ms=%llu reader_ms=%llu",
+        (unsigned long long)id,(unsigned long long)result.expected,(unsigned long long)nowMs(),(unsigned long long)diagtransfer::view().readerAt);
+      diag::record("HTTP_GET_META",page,true);
+      io->bodyOutput=true; io->outputAt=nowMs();
+      while(result.bytes<result.expected) {
+        const auto state=diagtransfer::view(); // Private copy; writer never waits for network.
+        if(state.closed) { result.result=state.result; result.closedAt=state.closedAt; break; }
+        if(cancelled(io->generation)) { result.result="mode_exit"; break; }
+        if(nowMs()-io->outputAt>=IO_MS) { result.result="stalled"; break; }
+        if(!state.length || result.bytes<state.offset || result.bytes>=state.offset+state.length) {
+          vTaskDelay(1); continue;
+        }
+        const size_t offset=size_t(result.bytes-state.offset);
+        const int n=httpd_send(req,reinterpret_cast<const char*>(state.data+offset),state.length-offset);
+        if(n<=0) { result.result="body_send_failed"; break; }
+        const uint64_t progressAt=nowMs();
+        const uint64_t gap=progressAt-(result.lastBody ? result.lastBody : at);
+        if(gap>result.maxGap) result.maxGap=gap;
+        if(!result.firstBody) result.firstBody=progressAt;
+        result.lastBody=progressAt;
+        crc=diagreader::updateCrc(crc,state.data+offset,size_t(n));
+        result.bytes+=size_t(n);
+        if(!diagtransfer::progress(id,result.bytes,progressAt)) { result.result="cancelled"; break; }
+      }
+      if(result.bytes==result.expected && !strcmp(result.result,"pending")) result.result="ok";
+    }
+  }
+  io->transfer=0; io->bodyOutput=false;
+  if(strcmp(result.result,"ok")) {
+    result.cancelledAt=nowMs(); diagtransfer::cancel(id,result.result);
+    if(!headersSent && !cancelled(io->generation)) {
+      httpd_resp_set_status(req,!strcmp(result.result,"not_found") ? "404 Not Found" : "503 Service Unavailable");
+      httpd_resp_send(req,result.result,strlen(result.result));
+    }
+  }
+  // Wait on HTTP task only for writer close. Writer never waits for this handler.
+  // Bounded wait: on an unresponsive writer release still posts; reservation remains.
+  const uint64_t waitAt=nowMs();
+  while(!diagtransfer::view().closed && nowMs()-waitAt<IO_MS) vTaskDelay(1);
+  const auto finalState=diagtransfer::view();
+  if(finalState.closed) {
+    result.closedAt=finalState.closedAt;
+    result.cancelledAt=finalState.cancelledAt;
+    if(strcmp(finalState.result,"ok")) result.result=finalState.result;
+  } else { result.result="writer_close_pending"; diagtransfer::cancel(id,result.result); setFailure(result.result); }
+  result.crc=crc^0xffffffff;
+  result.releasedAt=nowMs();
+  diagtransfer::release(id,result);
+  snprintf(page,PAGE_CAP,"id=%llu expected=%llu bytes=%llu crc32=%08lX result=%s first_ms=%llu last_ms=%llu gap_ms=%llu cancel_ms=%llu close_ms=%llu release_ms=%llu terminal_gap_ms=%llu resume_ms=0 appends=unpaused",
+    (unsigned long long)id,(unsigned long long)result.expected,(unsigned long long)result.bytes,
+    (unsigned long)result.crc,result.result,(unsigned long long)result.firstBody,
+    (unsigned long long)result.lastBody,(unsigned long long)result.maxGap,(unsigned long long)result.cancelledAt,
+    (unsigned long long)result.closedAt,(unsigned long long)result.releasedAt,
+    (unsigned long long)(result.releasedAt-(result.lastBody ? result.lastBody : at)));
+  diag::record("HTTP_GET_END",page,true);
+  sampleHttp();
+  snprintf(page,PAGE_CAP,"id=%llu internal_free=%u internal_largest=%u http_margin=%u",
+    (unsigned long long)id,unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+    unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+    unsigned(uxTaskGetStackHighWaterMark(nullptr)));
+  diag::record("HTTP_GET_MEM",page,true);
+  return ESP_FAIL;
 }
 esp_err_t errorHandler(httpd_req_t* req, httpd_err_code_t code) {
   // Parser errors are SD-free, do not reset activity, and use cancellable output.
@@ -305,7 +449,7 @@ void worker(void*) {
     while (!cancelled(generation)) { ulTaskNotifyTake(pdTRUE,pdMS_TO_TICKS(100)); sampleWorker(); }
     diaginventory::stop();
     setStage("handler");
-    while (snapshot().handlers) nap();
+    while (snapshot().handlers || diagtransfer::busy()) nap();
     if (server) {
       setStage("server_stop");
       if (httpd_stop(server) != ESP_OK) {
@@ -350,6 +494,7 @@ bool start() {
   xTaskNotifyGive(workerHandle); return true;
 }
 void stop() {
+  diagtransfer::cancelAll("mode_exit");
   portENTER_CRITICAL(&mux); shared.cancel = true; shared.ready = false; portEXIT_CRITICAL(&mux);
   if (workerHandle) xTaskNotifyGive(workerHandle);
 }
@@ -360,7 +505,7 @@ bool activate() {
   portEXIT_CRITICAL(&mux); return ok;
 }
 bool stopped() { return snapshot().phase == Phase::Off; }
-const char* failure() { return snapshot().failure; }
+const char* failure() { const char* error=snapshot().failure; return error ? error : diagtransfer::failure(); }
 const char* stage() { return snapshot().stage; }
 uint64_t activity() { return snapshot().userActivity; }
 bool idleExpired(uint64_t now, uint64_t panelActivity, uint64_t limit) {
