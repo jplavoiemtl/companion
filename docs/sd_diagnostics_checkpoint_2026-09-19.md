@@ -1,6 +1,17 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 22, gate A laptop integrity passes; HTTP stack correction for review
+
+Boot 110 archive 17 (308745 bytes): HTTP equals USB reference, CRC32 541A8F0C,
+writer/HTTP crc_check=match, curl 5.926519 s, zero drops. HTTP margin only 696 bytes;
+not an observed overflow, but propose task stack 4096 -> 6144 internal (+2048 during
+server allocation) for headroom. Claude review before JP rebuild; no assistant build.
+[Bench evidence](sd_iphone_log_download_bench.md). Gate A still needs stack recheck and
+Safari export comparison. No mode-off observation supplied for this case; ask JP to
+close mode and confirm status. Increment 5 remains unapproved.
+
+
 ## Latest handoff - September 22, increment 4 cleared for JP build
 
 Claude clearance 08479cd; 208 host checks independently confirmed. Existing maximum-width

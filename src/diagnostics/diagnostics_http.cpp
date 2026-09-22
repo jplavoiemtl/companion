@@ -429,7 +429,8 @@ void worker(void*) {
       else if (!diaginventory::start(generation)) setFailure("inventory_start");
       else if (!cancelled(generation)) {
         httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-        config.stack_size = 4096; config.task_caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
+        // Gate A measured only 696 bytes remaining at 4096; add 2 KiB headroom.
+        config.stack_size = 6144; config.task_caps = MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
         config.core_id = tskNO_AFFINITY; config.max_open_sockets = CLIENTS;
         config.lru_purge_enable = false; config.keep_alive_enable = false; config.enable_so_linger = false;
         config.max_resp_headers = 8; config.open_fn = openSession;

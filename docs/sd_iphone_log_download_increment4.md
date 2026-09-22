@@ -173,3 +173,19 @@ single-file download steps. No new fixture or larger archive is silently substit
 After selection, gate A will capture server stack margin first, dual CRC comparison,
 then exported Safari bytes against the reference. No hardware result yet. Increment 5
 remains unapproved.
+
+
+## Gate A first measurement - focused HTTP stack correction for review
+
+Laptop HTTP and USB reference archive 17 are byte-identical; CRC32 541A8F0C, both device
+CRCs match. 308745 bytes transferred in 5.926519 s curl time. Details in the bench record.
+HTTP_GET_MEM reports 696 bytes of HTTP stack margin on the normal path, internal_free
+90296 and largest 47092. No overflow or reset occurred; no pre-agreed stack threshold is
+being retroactively called failed. Codex recommends more headroom before Safari testing.
+
+Only firmware change: httpd task config.stack_size 4096 -> 6144 (internal). This costs
+2048 additional internal bytes while server is allocated; lazy PSRAM lifecycle worker
+stays 4096, and transfer logic is unchanged. Claude review before JP rebuild/flash.
+Recheck http_margin and the unchanged 20480-byte largest-block gate after rebuilding;
+reuse the same archive and existing reference. Gate A needs Safari export afterward.
+No generated sketch deletion required. No build/flash by Codex. Increment 5 unapproved.

@@ -1,6 +1,38 @@
 # iPhone log retrieval - bench cases and results
 
 
+## September 22, 14:19-14:21 - gate A laptop transfer integrity passed; stack headroom correction
+
+Boot 110. JP reports test passed and supplied console/curl output. Local evidence read:
+C:/Users/photo/Downloads/110-archive-00000017.log (USB reference, 308745 bytes),
+gateA-17-http.log (308745), gateA-17-headers.txt, and 110-current.log (970203).
+Direct byte comparison is equal; independent CRC32 541A8F0C for the HTTP body.
+SHA256 c592bf6b49d7b52defab68fda97c4476ad2c33b737191ed99546d839da5dc28e.
+This compares HTTP with SD bytes retrieved over USB, not a physical-card reread.
+
+HTTP headers: 200, application/octet-stream, Content-Disposition attachment filename
+110-1-archive-00000017-308745.log, Content-Length 308745, close/no-store/no-referrer.
+Curl first response 0.080719 s, total 5.926519 s. Device id=1: request 276815,
+reader start 276848, header 276856, first body 276857, last 282657, close 282658,
+release 282659 ms. Request-to-release 5844 ms, maximum progress gap 42 ms,
+terminal gap 2 ms, no cancellation and archive appends unpaused.
+HTTP_GET_END bytes=writer_bytes=308745, both CRCs 541A8F0C, crc_check=match, result=ok.
+HTTP_GET_MEM internal_free=90296, internal_largest=47092, **http_margin=696**.
+Current USB download CRC OK; later size 971377 confirms 1174 bytes append growth,
+logger ready, drops=0, queue=0/16, USB inactive/unpaused, no link loss. The supplied
+capture and current.log contain no mode-off evidence for this case; do not mark exit
+verified. No reset in the supplied boot-110 segment.
+
+696 bytes on the 4096-byte HTTP task is a small measured margin on a normal path,
+not an observed overflow or failure of a pre-agreed stack threshold. Proposed focused
+correction: HTTP task stack 4096 -> 6144 internal bytes, +2048 only while server exists;
+PSRAM lifecycle worker unchanged. Largest internal block was well above 20480 but the
+new allocation still needs hardware remeasurement. Claude quick review before JP rebuild.
+Keep the passed integrity/timing evidence; gate A remains incomplete for stack recheck
+and actual Safari export comparison. Do not issue the Safari portion on this build yet.
+No assistant build/flash. Increment 5 remains unapproved.
+
+
 ## September 22 - gate A archive selected; laptop portion issued
 
 JP supplied Files table: current=964476; archives 21=2097146, 20=2097024, 19=153,
