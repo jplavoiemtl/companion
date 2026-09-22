@@ -1,5 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 22, first HTTP case blocked by address-family defect
+
+Boot 106 shows successful PSRAM-worker server startup and idle teardown, but curl resets
+before headers; first gate remains incomplete. The IPv4-only sockaddr_in admission check
+missed the installed server's IPv4-mapped IPv6 representation. Correction uses full socket
+storage and exact mapped/native IPv4 matching to the STA address; native IPv6 stays refused.
+Admission counters/reason added, 177 host checks pass. [Evidence and review handoff](sd_iphone_log_download_increment3.md).
+No build/flash by Codex. Claude review, then JP rebuild and repeat this same first case.
+No PSRAM worker fallback is warranted by the successful startup/stop evidence.
+
+
 ## Latest handoff - September 22, increment 3 reviewed; first server bench case issued
 
 Claude review d61e921: no blocking defects; 172 host checks independently confirmed.

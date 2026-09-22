@@ -16,6 +16,44 @@ reviewed by Claude; its first hardware entry/exclusion/exit gate passes below. H
 
 ---
 
+## Increment 3 first server case - September 22, 11:13-11:18 - INCOMPLETE / HTTP RESET
+
+Evidence: attachment `0851f9d1-399c-4c56-8385-630ab4d31280/Pasted text.txt`, boot 106,
+plus JP's untimestamped verbose curl transcript in the conversation. Curl established
+TCP to 172.20.10.2:80, sent GET /favicon.ico, then received reset before response headers.
+The curl transcript cannot be aligned precisely to individual mode-status timestamps.
+No iPhone listing result or completed HTTP 204 is evidenced; the whole gate is not passed.
+
+At 11:13:30 mode goes STARTING -> ACTIVE in 4 ms, worker_external=1, tcb_internal=1,
+worker_min=2656. At 11:17:53 mode remains ACTIVE, idle_ms=262655, error=none,
+http_min=0. At 11:18:36 it is OFF/idle_timeout/server=off, worker_min=2304. Same boot,
+no reset in the capture. Thus first httpd_start and stop on the PSRAM worker succeeded;
+there is no reason from this result to invoke the internal-stack fallback. This is not
+proof of all PSRAM/lwIP operations. HTTP minimum staying zero supports failure before a
+successfully admitted session; it is not a recorded rejection reason. Probe minima shown
+remain above the 20480-byte gate. Initial logger status has drops=0 and one historical
+slow flush (113459 us); there is no full post-case logger status or current.log download.
+
+### Code defect and proposed correction, awaiting Claude review
+
+Installed sdkconfig enables CONFIG_LWIP_IPV6. IDF 5.5.5 httpd_server_init therefore uses
+PF_INET6 for its listener, serving IPv4 through mapped addresses. The implementation's
+getsockname buffer was sockaddr_in and admission required AF_INET. This rejects valid
+IPv4-mapped local addresses, consistent with the reset and http_min=0. Runtime family was
+not captured by the old firmware, so this explains a verified code defect rather than
+claiming a directly measured rejection reason for every curl attempt.
+
+Correction uses sockaddr_storage and validates length/family, accepting native IPv4 or
+exact ::ffff:IPv4 only when the final IPv4 bytes equal the hotspot STA address. Native
+IPv6, non-mapped addresses, truncated addresses and other local addresses stay refused.
+Status now retains accepted/rejected counters and last rejection reason per mode entry,
+without emitting per-request SD records. No capability or native-IPv6 service is added.
+Five new source-body checks cover these cases. No firmware build/flash by Codex.
+Claude must review before JP rebuilds. Resume this same first case after review; no
+additional case or increment is approved by this failed attempt.
+
+---
+
 ## Increment 2 accepted - September 22, 2026
 
 JP explicitly accepted increment 2 after gate 11, including the preceding proposal to

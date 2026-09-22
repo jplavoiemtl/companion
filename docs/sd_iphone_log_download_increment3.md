@@ -134,3 +134,19 @@ start on the PSRAM worker. If startup resets/stalls, stop and send the capture; 
 response is an internal worker stack through review/rebuild. A monitor-close restart
 before the case must be identified separately from a restart on log mode on.
 No gate result is recorded yet; increment 4 remains unapproved.
+
+## First hardware attempt and address-family correction - September 22
+
+[Bench evidence](sd_iphone_log_download_bench.md): PSRAM-worker startup and idle teardown
+succeed on boot 106, but favicon curl resets without HTTP headers and http_min remains 0.
+The initial application address check overlooked the installed dual-stack listener.
+Correction in diagnostics_http.cpp accepts only the hotspot IPv4 address, either in
+AF_INET or its exact AF_INET6 mapped representation, with a full sockaddr_storage buffer
+and length checks. Native IPv6 remains excluded. Bounded per-entry admission counters and
+last rejection reason make further diagnosis possible without per-request SD log traffic.
+
+**177 host checks pass**, including 41 HTTP lifecycle checks (five added address cases).
+No C++ build/flash or new hardware measurement. Claude quick review is required before JP
+rebuilds and repeats the still-incomplete first case. The earlier focus on pasted command
+formatting did not explain the verbose curl result; it should not be treated as user error.
+Reference: [IDF 5.5.5 listener construction](https://github.com/espressif/esp-idf/blob/v5.5.5/components/esp_http_server/src/httpd_main.c#L327).

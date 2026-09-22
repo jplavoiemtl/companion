@@ -43,7 +43,7 @@ test('cache cleanup waits for writer and refuses an enabled cache',()=>{const c=
 test('missing cache is explicitly pending and stale cache age is visible',()=>{const c=inventory();assert.equal(c.pin(5011).stale,true);c.valid=false;c.published=-1;const v=c.pin(6000);assert.equal(v.valid,false);assert.equal(v.slot,-1);assert.equal(v.count,0);});
 test('worker owns lifecycle API and retains resources on stop failure',()=>{const b=body(http,'void worker(');assert.match(b,/httpd_start\(&server/);assert.match(b,/while \(snapshot\(\)\.handlers\)/);assert.match(b,/if \(httpd_stop\(server\) != ESP_OK\)[\s\S]*?for \(;;\) ulTaskNotifyTake/);assert(b.indexOf('httpd_stop(server)')<b.indexOf('diaginventory::dispose(generation)'));assert(b.indexOf('diaginventory::dispose(generation)')<b.indexOf('heap_caps_free(page)'));});
 test('lazy persistent worker requests external stack and internal static TCB',()=>{assert.match(http,/static StaticTask_t workerTcb/);assert.match(body(http,'bool start()'),/heap_caps_malloc\(WORKER_STACK,MALLOC_CAP_SPIRAM \| MALLOC_CAP_8BIT\)/);assert.doesNotMatch(http,/vTaskDelete|shutdown\(/);});
-test('accepted sessions restrict interface and attach fresh bounded context',()=>{const b=body(http,'esp_err_t openSession(');assert.match(b,/getsockname/);assert.match(b,/local.sin_family != AF_INET/);assert.match(b,/local.sin_addr.s_addr != uint32_t\(WiFi.localIP\(\)\)/);assert.match(b,/\*io = SessionIo\{\}/);assert.match(b,/httpd_sess_set_transport_ctx\(hd,fd,io,freeSession\)/);assert.match(b,/httpd_sess_set_recv_override/);assert.match(b,/httpd_sess_set_send_override/);assert.doesNotMatch(http,/httpd_sess_set_pending_override\(/);});
+test('accepted sessions restrict interface and attach fresh bounded context',()=>{const b=body(http,'esp_err_t openSession(');assert.match(b,/getsockname/);assert.match(b,/sockaddr_storage local/);assert.match(b,/addressMatches\(local,size,expected\)/);assert.match(b,/\*io = SessionIo\{\}/);assert.match(b,/httpd_sess_set_transport_ctx\(hd,fd,io,freeSession\)/);assert.match(b,/httpd_sess_set_recv_override/);assert.match(b,/httpd_sess_set_send_override/);assert.doesNotMatch(http,/httpd_sess_set_pending_override\(/);});
 test('full listing fits bounded PSRAM allocation and sends nonchunked',()=>{assert(256*112+2048+1<=32768);assert.match(http,/heap_caps_malloc\(PAGE_CAP,MALLOC_CAP_SPIRAM \| MALLOC_CAP_8BIT\)/);assert.match(http,/httpd_resp_send\(req,page,used\)/);assert.doesNotMatch(http,/httpd_resp_send_chunk|char page\[/);});
 test('listing pin is released before handler sends',()=>{const b=body(http,'bool formatPage(');assert.match(b,/diaginventory::pin/);assert.match(b,/diaginventory::unpin\(v\)/);assert.doesNotMatch(b,/httpd_resp_send|send\(/);});
 test('only user views reset activity; HEAD and body-bearing requests do not',()=>{assert.match(body(http,'esp_err_t handle('),/HandlerGuard guard\(io,req->method == HTTP_GET && req->content_len == 0 && \(listing \|\| result\)\)/);assert.match(body(http,'esp_err_t errorHandler('),/,false\)/);});
@@ -99,4 +99,21 @@ test('actual formatter handles 256 maximum-width entries and releases pin on ove
  c.limit=300;c.text='';assert.equal(c.formatPage(false,{value:0}),false);assert.equal(c.pins,0);
 });
 test('open rejection avoids SDK double close and has fail-closed I/O before queueing',()=>{const b=body(http,'esp_err_t openSession(');assert.doesNotMatch(b,/return ESP_FAIL/);assert(b.indexOf('httpd_sess_set_recv_override')<b.indexOf('const Shared s'));assert(b.indexOf('httpd_sess_set_send_override')<b.indexOf('const Shared s'));const r=body(http,'esp_err_t rejectSession(');assert.match(r,/httpd_sess_trigger_close/);assert.match(r,/return ESP_OK/);assert.doesNotMatch(r,/(?<!trigger_)close\(fd\)|shutdown\(/);});
+
+function addressContext(){const c={AF_INET:2,AF_INET6:10};c.memcmp=(a,b,n)=>a.slice(0,n).every((v,i)=>v===b[i])?0:1;vm.createContext(c);
+ let b=body(http,'bool addressMatches(').replace(/sizeof\(sockaddr_in\)/g,'16').replace(/sizeof\(sockaddr_in6\)/g,'28')
+ .replace(/const auto& v4 = reinterpret_cast<const sockaddr_in&>\(local\);/g,'const v4 = local;')
+ .replace(/const auto& v6 = reinterpret_cast<const sockaddr_in6&>\(local\);/g,'const v6 = local;')
+ .replace(/const uint8_t\* bytes =/g,'const bytes =').replace(/unsigned i=/g,'let i=')
+ .replace(/&v4.sin_addr.s_addr/g,'v4.sin_addr.s_addr').replace(/bytes\+12/g,'bytes.slice(12)');
+ vm.runInContext(`function addressMatches(local,length,expected){${b}}`,c);return c;
+}
+const sta=[172,20,10,2];
+function v4(ip=sta){return {ss_family:2,sin_addr:{s_addr:ip}};}
+function mapped(ip=sta){return {ss_family:10,sin6_addr:{s6_addr:[...Array(10).fill(0),255,255,...ip]}};}
+test('native IPv4 local station address is accepted',()=>{const c=addressContext();assert.equal(c.addressMatches(v4(),16,sta),true);});
+test('dual-stack IPv4-mapped station address is accepted',()=>{const c=addressContext();assert.equal(c.addressMatches(mapped(),28,sta),true);});
+test('native and mapped other-interface addresses remain refused',()=>{const c=addressContext();assert.equal(c.addressMatches(v4([192,168,4,1]),16,sta),false);assert.equal(c.addressMatches(mapped([192,168,4,1]),28,sta),false);});
+test('native IPv6 and IPv4-compatible non-mapped addresses remain refused',()=>{const c=addressContext();const native=mapped();native.sin6_addr.s6_addr[0]=0x20;assert.equal(c.addressMatches(native,28,sta),false);const compatible=mapped();compatible.sin6_addr.s6_addr[10]=0;compatible.sin6_addr.s6_addr[11]=0;assert.equal(c.addressMatches(compatible,28,sta),false);});
+test('truncated or unknown socket address fails closed',()=>{const c=addressContext();assert.equal(c.addressMatches(v4(),1,sta),false);assert.equal(c.addressMatches(v4(),15,sta),false);assert.equal(c.addressMatches(mapped(),16,sta),false);assert.equal(c.addressMatches({ss_family:99},28,sta),false);});
 console.log(`${count} HTTP lifecycle checks passed; source simulations and integration assertions only.`);

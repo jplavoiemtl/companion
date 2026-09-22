@@ -335,8 +335,10 @@ require STA mode with no SoftAP/other active data interface before startup; in o
 verify getsockname's local IPv4 address equals the current hotspot STA address before
 installing context/overrides. Reject mismatches and link-down accepts. This restricts
 application service to the hotspot interface, though the component listener uses ANY.
-If another interface becomes enabled, request teardown rather than serve it. Reject
-IPv6 in this version (numeric IPv4 URL). This explicit implementation interpretation of
+If another interface becomes enabled, request teardown rather than serve it. Use sockaddr_storage for getsockname and accept either AF_INET or AF_INET6 with an
+exact IPv4-mapped prefix (::ffff:) and matching STA IPv4 bytes. The installed dual-stack
+listener represents IPv4 connections that way. Reject native IPv6 in this version
+(numeric IPv4 URL); rejecting all AF_INET6 would also reject legitimate IPv4 clients. This explicit implementation interpretation of
 'bound to the hotspot interface' requires review; no custom component patch is proposed.
 
 ## Review and validation gates

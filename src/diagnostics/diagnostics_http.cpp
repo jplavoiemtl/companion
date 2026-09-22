@@ -32,6 +32,8 @@ struct Shared {
   uint64_t generation = 0, userActivity = 0;
   bool cancel = true, ready = false;
   unsigned handlers = 0;
+  uint32_t accepted = 0, rejected = 0;
+  const char* lastReject = "none";
   const char* failure = nullptr;
   const char* stage = "off";
   uint32_t workerMargin = 0, httpMargin = 0;
@@ -119,7 +121,30 @@ int transmit(httpd_handle_t hd, int fd, const char* buf, size_t length, int flag
     nap();
   }
 }
-esp_err_t rejectSession(httpd_handle_t hd, int fd) {
+// IDF's dual-stack listener reports IPv4 peers with AF_INET6 mapped addresses.
+// Compare network-order octets, never reinterpret native IPv6 as a station IPv4.
+bool addressMatches(const sockaddr_storage& local, socklen_t length, const uint8_t expected[4]) {
+  if (length < 2) return false; // lwIP sockaddr starts with length and family bytes.
+  if (local.ss_family == AF_INET) {
+    if (length < sizeof(sockaddr_in)) return false;
+    const auto& v4 = reinterpret_cast<const sockaddr_in&>(local);
+    return memcmp(&v4.sin_addr.s_addr,expected,4) == 0;
+  }
+  if (local.ss_family == AF_INET6) {
+    if (length < sizeof(sockaddr_in6)) return false;
+    const auto& v6 = reinterpret_cast<const sockaddr_in6&>(local);
+    const uint8_t* bytes = v6.sin6_addr.s6_addr;
+    for (unsigned i=0; i<10; ++i) if (bytes[i] != 0) return false;
+    if (bytes[10] != 0xff || bytes[11] != 0xff) return false;
+    return memcmp(bytes+12,expected,4) == 0;
+  }
+  return false;
+}
+esp_err_t rejectSession(httpd_handle_t hd, int fd, const char* reason) {
+  portENTER_CRITICAL(&mux);
+  if (shared.rejected != UINT32_MAX) ++shared.rejected;
+  shared.lastReject = reason;
+  portEXIT_CRITICAL(&mux);
   // IDF 5.5.5 closes twice if open_fn returns failure (sess_new and accept).
   // Keep open_fn successful; close once on the HTTP task through its control queue.
   // Overrides already fail on missing/cancelled context if queueing is unavailable.
@@ -130,22 +155,26 @@ esp_err_t openSession(httpd_handle_t hd, int fd) {
   // Install the fail-closed path before checking interface/readiness or allocating a slot.
   const bool recvSet = httpd_sess_set_recv_override(hd,fd,receive) == ESP_OK;
   const bool sendSet = httpd_sess_set_send_override(hd,fd,transmit) == ESP_OK;
-  if (!recvSet || !sendSet) { setFailure("session_hooks"); return rejectSession(hd,fd); }
+  if (!recvSet || !sendSet) { setFailure("session_hooks"); return rejectSession(hd,fd,"session_hooks"); }
   const Shared s = snapshot();
-  if (s.cancel || !s.ready || !interfaceAllowed() || WiFi.status() != WL_CONNECTED) return rejectSession(hd,fd);
-  sockaddr_in local{}; socklen_t size = sizeof(local);
-  if (getsockname(fd,reinterpret_cast<sockaddr*>(&local),&size) ||
-      local.sin_family != AF_INET || local.sin_addr.s_addr != uint32_t(WiFi.localIP())) return rejectSession(hd,fd);
-  if (connectionSerial == UINT64_MAX) return rejectSession(hd,fd);
+  if (s.cancel || !s.ready) return rejectSession(hd,fd,"not_ready");
+  if (!interfaceAllowed() || WiFi.status() != WL_CONNECTED) return rejectSession(hd,fd,"interface");
+  sockaddr_storage local{}; socklen_t size = sizeof(local);
+  if (getsockname(fd,reinterpret_cast<sockaddr*>(&local),&size)) return rejectSession(hd,fd,"getsockname");
+  const IPAddress ip = WiFi.localIP();
+  const uint8_t expected[4] = {ip[0],ip[1],ip[2],ip[3]};
+  if (!addressMatches(local,size,expected)) return rejectSession(hd,fd,"local_address");
+  if (connectionSerial == UINT64_MAX) return rejectSession(hd,fd,"serial_limit");
   SessionIo* io = nullptr;
   for (auto& candidate : clients) if (!candidate.used) { io = &candidate; break; }
-  if (!io) return rejectSession(hd,fd);
+  if (!io) return rejectSession(hd,fd,"session_limit");
   *io = SessionIo{}; io->used = true; io->fd = fd;
   io->generation = s.generation; io->serial = ++connectionSerial;
   httpd_sess_set_transport_ctx(hd,fd,io,freeSession);
-  if (httpd_sess_get_transport_ctx(hd,fd) != io) { freeSession(io); return rejectSession(hd,fd); }
+  if (httpd_sess_get_transport_ctx(hd,fd) != io) { freeSession(io); return rejectSession(hd,fd,"context"); }
   // Once attached, only component cleanup releases the slot.
   // pending_fn stays null: plain TCP uses select plus parser pending_len.
+  portENTER_CRITICAL(&mux); if (shared.accepted != UINT32_MAX) ++shared.accepted; portEXIT_CRITICAL(&mux);
   sampleHttp(); return ESP_OK;
 }
 struct HandlerGuard {
@@ -316,6 +345,7 @@ bool start() {
   portENTER_CRITICAL(&mux);
   ++shared.generation; shared.phase = Phase::Starting; shared.cancel = false;
   shared.ready = false; shared.failure = nullptr; shared.userActivity = 0; shared.stage = "startup";
+  shared.accepted = shared.rejected = 0; shared.lastReject = "none";
   portEXIT_CRITICAL(&mux);
   xTaskNotifyGive(workerHandle); return true;
 }
@@ -343,8 +373,8 @@ bool idleExpired(uint64_t now, uint64_t panelActivity, uint64_t limit) {
 void report() {
   const Shared s = snapshot();
   const IPAddress ip = WiFi.localIP();
-  USBSerial.printf("[LOG HTTP] server=%s generation=%llu error=%s worker_stack=psram worker_bytes=4096 worker_min=%u worker_external=%u tcb_internal=%u http_min=%u clients=3 url=http://%u.%u.%u.%u/\n",
-    s.stage,(unsigned long long)s.generation,s.failure ? s.failure : "none",unsigned(s.workerMargin),unsigned(s.stackExternal),unsigned(s.tcbInternal),unsigned(s.httpMargin),ip[0],ip[1],ip[2],ip[3]);
+  USBSerial.printf("[LOG HTTP] server=%s generation=%llu error=%s worker_stack=psram worker_bytes=4096 worker_min=%u worker_external=%u tcb_internal=%u http_min=%u accepted=%u rejected=%u last_reject=%s clients=3 url=http://%u.%u.%u.%u/\n",
+    s.stage,(unsigned long long)s.generation,s.failure ? s.failure : "none",unsigned(s.workerMargin),unsigned(s.stackExternal),unsigned(s.tcbInternal),unsigned(s.httpMargin),unsigned(s.accepted),unsigned(s.rejected),s.lastReject,ip[0],ip[1],ip[2],ip[3]);
 }
 void notice(bool stuck) {
   static lv_obj_t* label = nullptr;
