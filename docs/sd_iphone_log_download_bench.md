@@ -1,6 +1,25 @@
 # iPhone log retrieval - bench cases and results
 
 
+## September 22 - gate A archive selected; laptop portion issued
+
+JP supplied Files table: current=964476; archives 21=2097146, 20=2097024, 19=153,
+18=5177, 17=308745, 16=7942, 15=7936, 14=8059 bytes. Select immutable archive 17
+(308745 bytes), enough payload for meaningful first timing while well below 2 MiB.
+Do not use current or the tiny archives as substitutes. No transfer result yet.
+
+Same gate A, first portion: keep USB console DTR=true/RTS=false, PC and companion on
+hotspot, USB powered and media idle. Download archive 17 through USB as reference and
+retain CRC-success capture. Enter download mode, wait ACTIVE, use reported address for
+one laptop curl GET /f/00000017 with headers and body saved separately, 120 s client cap,
+status/size/time summary. Capture mode status and status immediately afterward, exit mode,
+confirm OFF, download current.log over USB for HTTP_GET_END/HTTP_GET_MEM, then log status.
+Send console/curl output, reference archive, HTTP body/headers and current log. Review
+http_margin first, then dual-CRC and byte equality before issuing the Safari save/export
+portion of this same selected-file case. No build/flash or further implementation.
+Gate A is not complete until exported Safari bytes are compared; increment 5 unapproved.
+
+
 ## September 22, 14:16 - increment 4 gate A preflight; archive selection pending
 
 JP supplied the post-build console directly. Boot 110, WiFi/MQTT connected, logger ready,
