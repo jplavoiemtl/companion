@@ -1,6 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 22, increment 4 accepted; increment 5 approved
+
+JP accepts increment 4 and authorizes increment 5. Gate B is a representative 2 MiB
+archive validation on the already-flashed firmware: no code change, rebuild or flash.
+Use archive 21 (last known 2097146 bytes), USB reference then Safari export, collect
+current.log and clean shutdown evidence. [Procedure](sd_iphone_log_download_increment5.md).
+Gate B pending; increment 6 current.log HTTP snapshot remains unapproved.
+
+
 ## Latest handoff - September 22, gate A complete; increment 4 acceptance pending
 
 Boot 112 Safari archive 17 export equals the retained USB reference: 308745 bytes,

@@ -1,6 +1,7 @@
 # Increment 4 - small immutable archive HTTP download
 
-Status: implemented for Claude review, September 22, 2026. JP approved increment 4 after
+Status: accepted by JP after gate A passed, September 22, 2026. Historical implementation
+and review notes follow; the acceptance section supersedes their pending statuses. JP approved increment 4 after
 accepting increment 3 at d2095fa. JP reconfirmed no capability token for actual log bodies
 on his trusted hotspot. No firmware build, flash or hardware measurements performed.
 Increment 5 remains unapproved; historical draft is untouched.
@@ -223,3 +224,11 @@ Boot 112 Safari export is byte-identical to the USB reference, dual CRC match 54
 HTTP margin 2744, internal largest above 20480, zero drops, append continuation and clean
 103 ms mode exit recorded. See bench document for exact evidence and timings. No additional
 build or test needed for gate A. Await JP acceptance; increment 5 still requires approval.
+
+
+## JP acceptance and increment 5 approval
+
+JP explicitly accepted increment 4 and authorized proceeding to increment 5 after the
+Safari gate A result at ffc8375. All required gate A evidence is complete. Increment 5
+is a larger-archive validation on the existing firmware, with no rebuild required.
+See sd_iphone_log_download_increment5.md. Increment 6 remains unapproved.

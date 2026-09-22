@@ -11,8 +11,9 @@ JP approved increment 3 implementation after `d3a8dfe`, including a persistent l
 September 22; hardware startup-failure injection is deferred to increment 7, due before
 car deployment, with host coverage accepted for increment 3. JP explicitly approved
 increment 4 and reconfirmed no token on his trusted hotspot for actual log retrieval.
-Increment 4 implementation is awaiting Claude review, not ready for build/flash.
-Increment 5 and beyond remain unapproved.
+JP accepted increment 4 after gate A passed and approved increment 5 on September 22.
+Increment 5 uses the existing streamed archive implementation for timing gate B; no
+firmware change or rebuild is required. Increment 6 and beyond remain unapproved.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the
 [Codex review](sd_iphone_log_download_review.md) and the
