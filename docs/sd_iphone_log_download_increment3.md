@@ -150,3 +150,26 @@ No C++ build/flash or new hardware measurement. Claude quick review is required 
 rebuilds and repeats the still-incomplete first case. The earlier focus on pasted command
 formatting did not explain the verbose curl result; it should not be treated as user error.
 Reference: [IDF 5.5.5 listener construction](https://github.com/espressif/esp-idf/blob/v5.5.5/components/esp_http_server/src/httpd_main.c#L327).
+
+## Next single case issued - increment 3 repeated server entry/exit
+
+After first gate completion at 5f37113, JP authorized continuing validation. No firmware
+change or rebuild. Use current firmware, USB power, existing hotspot and console
+DTR=true/RTS=false. Keep media idle. Clear console; capture status and log mode status
+(start OFF). Perform three sequential cycles: log mode on; wait for ACTIVE; reload the
+reported listing in iPhone Safari once; log mode status; status; log mode off; wait two
+seconds; log mode status; status. If not yet OFF, query once after three more seconds;
+if still STOPPING or an error/reset occurs, stop and send the capture. Do not start the
+next cycle until OFF. Close Safari after the third cycle; wait ten seconds and capture
+status and log status. No download or deliberate network/power interruption in this case.
+
+Expected: all three listings render, lifecycle generations advance, per-entry admission
+counters reset and show an accepted connection after the reload, each exit reaches OFF
+without stuck release/error/reset; logger stays ready/unpaused with no drops and largest
+internal block remains above 20480 bytes. Compare current internal_largest at equivalent
+ACTIVE/OFF points; historical low-water minima alone are not evidence of a leak. Three
+cycles provide a bounded reuse check, not a long-duration stability proof. Capture stack
+margins and any degradation for review. Send full console plus Safari observations; no
+manual throughput/latency timing required. This feeds increment 3 repeated entry/exit and
+memory checks. No result yet; incomplete-header cancellation and startup-failure rollback
+remain separate checks. Increment 4 is not authorized by this continuation.
