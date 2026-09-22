@@ -467,8 +467,15 @@ Dropping it also removes the serial `log mode url` exception, the redaction disc
 RNG-while-Wi-Fi-active dependency, invalidation on exit and the 403 path.
 
 The structural protections stay and do the practical work: the server exists only during the
-mode, bound to the hotspot interface, managed-file IDs only with no arbitrary paths, no
-upload or delete, no permissive CORS, `Cache-Control: no-store`.
+mode, managed-file IDs only with no arbitrary paths, no upload or delete, no permissive
+CORS, `Cache-Control: no-store`.
+
+**Correction, September 22:** an earlier revision of this paragraph said the server is
+"bound to the hotspot interface". That is not achievable - `esp_http_server` has no
+interface-binding option and listens on all interfaces at `server_port`. Codex identified
+this. The equivalent restriction is operational: the device runs STA-only, and each
+accepted connection's local address is checked against the current hotspot STA address
+before it is served.
 
 **Revisit when file bodies are served (increment 4 or later)**, because the exposure changes
 from a listing of names and sizes to the logs themselves, and by then an entry screen may
