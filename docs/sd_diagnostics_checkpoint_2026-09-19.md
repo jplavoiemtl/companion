@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 22, incomplete-header cancellation passed
+
+Corrected ordering: partial header 11:58:50.468, off TX 11:58:51.954, client EOF
+1517 ms from send, before the five-second deadline. Generation 7 reaches OFF without
+error/stuck release, boot 108 unchanged, zero drops and memory above gate. Timing is
+host-observed, not an instrumented stop bound. PowerShell ran correctly; no repeat.
+[Bench entry](sd_iphone_log_download_bench.md) records evidence and limits. Next resolve
+startup-failure rollback coverage before increment 3 acceptance; no new test issued yet.
+No firmware change/build/flash. Increment 4 remains unapproved.
+
 ## Latest handoff - September 22, cancellation case needs ordering correction
 
 The 11:52 off command precedes the partial-header send by 7.877 seconds; 14 ms EOF

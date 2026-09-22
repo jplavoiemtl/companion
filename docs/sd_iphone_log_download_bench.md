@@ -1,5 +1,31 @@
 # iPhone log retrieval - bench cases and results
 
+## September 22, 11:57-11:59 - incomplete-header cancellation PASSED
+
+Evidence: b384075b-ab28-41be-bf09-e97da29fb3d3/Pasted text.txt and PowerShell output.
+Partial header sent at 11:58:50.468; log mode off TX at 11:58:51.954, STOPPING RX
+11:58:51.955. Client Read=0 at elapsed_ms=1517, before the five-second header deadline.
+Off follows the send by 1.486 seconds; EOF follows at roughly the same point (about
+30 ms after off from host timestamps). That approximation is not an instrumented
+firmware stop latency or a general bound: the stopwatch starts before the write and
+console timestamps reflect host observation. The sequence supports cancellation of
+an incomplete-header connection rather than the natural five-second timeout.
+
+Generation 7, accepted=1/rejected=0, OFF/server=off confirmed at 11:59:12.469,
+error=none/release_stuck=0. Same boot 108, WiFi/MQTT connected, logger ready,
+drops=0/high=7/slow=0, USB inactive/unpaused, queue=0/16. Current grows to 241595.
+Worker/HTTP margins 2304/1688, writer 2920, internal_min=81136 and largest=47092,
+above gate. No reset or new link loss. This completes the cancellation gate; the
+previous successful re-entry evidence is retained separately, not claimed to occur
+following generation 7 in this capture.
+
+PowerShell executed the intended block: timestamp plus Read=0/1517 confirms execution;
+continuation prompts in the pasted transcript are not themselves errors. No practice
+command or repeat needed. No firmware changes/build/flash. Startup-failure rollback
+coverage is the next item to resolve before increment 3 acceptance; no new hardware
+procedure issued in this response. Increment 4 remains unapproved.
+
+
 ## September 22, 11:51-11:54 - incomplete-header cancellation INCONCLUSIVE
 
 Evidence: 484cbc10-63f7-413e-b4a7-ec6f117c13db/Pasted text.txt and JP's PowerShell
