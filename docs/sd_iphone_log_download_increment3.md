@@ -173,3 +173,32 @@ margins and any degradation for review. Send full console plus Safari observatio
 manual throughput/latency timing required. This feeds increment 3 repeated entry/exit and
 memory checks. No result yet; incomplete-header cancellation and startup-failure rollback
 remain separate checks. Increment 4 is not authorized by this continuation.
+## Startup-failure rollback disposition proposed - September 22
+
+After the passed incomplete-header cancellation gate, Codex inspected current startup
+paths and reran HTTP lifecycle (41) plus retrieval mode (29): 70 host checks pass.
+Worker source-body simulations exercise page allocation failure, inventory-start failure,
+httpd_start failure, URI registration failure, cancellation before/during startup,
+handler/cache release ordering and stop failure retaining resources. Mode simulation
+also covers worker creation failure returning to OFF. These use mocked allocation,
+SDK and scheduling calls; they do not prove real SDK partial-allocation cleanup, hardware
+allocation failure, or timing. No firmware compilation or flash was performed.
+
+There is no current HTTP startup fault-injection command/hook. Hotspot-off is admission
+refusal or link loss, not deterministic startup rollback; rapid on/off cannot reliably
+hit the measured 4-5 ms STARTING interval. A laptop listener cannot conflict with the
+board's own port. Do not issue those as substitutes for the planned hardware failure gate.
+
+Recommendation for JP approval: accept host-only startup rollback coverage for increment
+3, explicitly defer deterministic hardware startup-failure injection to increment 7
+failure-path work, due before increment 11/car deployment. A reviewed bounded fixture
+would fail once at a named startup stage, verify OFF/resource cleanup/re-entry, then be
+removed or disabled in the normal build. Details and firmware changes are not approved
+by this proposal. This is an explicit change to the planned bench coverage, not a passed
+hardware result. Until JP agrees, startup-failure hardware coverage remains open and
+increment 3 acceptance is pending. No further user measurements requested now.
+
+If JP accepts this disposition and increment 3, proposed next work is the increment 4
+small immutable archive transfer implementation, only with explicit authorization and
+Claude review before build. Revisit the no-token exposure decision as required before
+serving log bodies; retain timing gate A and one bench case at a time.

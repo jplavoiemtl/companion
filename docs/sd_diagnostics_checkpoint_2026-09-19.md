@@ -1,5 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 22, increment 3 acceptance proposal
+
+Normal server, repeated lifecycle and incomplete-header cancellation hardware gates passed.
+Startup-failure rollback: 70 relevant host checks rerun and passing; no deterministic
+hardware trigger exists in current firmware. Proposed explicit deferral of hardware fault
+injection to increment 7, due before car deployment, with host-only coverage accepted for
+increment 3. JP has not approved this disposition or accepted increment 3 yet. See
+[increment 3 proposal](sd_iphone_log_download_increment3.md). No firmware changes/build/flash.
+Increment 4 remains unapproved; next proposed implementation is small archive retrieval,
+with access-protection decision revisited before log bodies are served.
+
 ## Latest handoff - September 22, incomplete-header cancellation passed
 
 Corrected ordering: partial header 11:58:50.468, off TX 11:58:51.954, client EOF
