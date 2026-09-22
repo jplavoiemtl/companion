@@ -1,5 +1,17 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 22, increment 3 design proposed for Claude review
+
+JP authorized proceeding with design review after accepting increment 2. The
+[increment 3 design proposal](sd_iphone_log_download_increment3_design.md) covers
+HTTP-task-only descriptor ownership, cancellable I/O, a dedicated lifecycle worker,
+startup/stop failure handling, cached listing ownership, provisional socket count and
+capability proposal. Installed headers identify IDF 5.5.5; matching upstream source was
+reviewed. These are proposed choices, not a replacement for the approved spec yet.
+No firmware changes, build or flash. Claude review then JP approval are required before
+increment 3 implementation. No hardware case is issued now.
+
+
 ## Latest decision - September 22, increment 2 accepted by JP
 
 JP explicitly accepted increment 2 following eleven passed issued bench cases, including
