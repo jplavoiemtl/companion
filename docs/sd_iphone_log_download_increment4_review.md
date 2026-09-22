@@ -235,3 +235,79 @@ Cleared. Build and flash, then run timing gate A on one small immutable archive.
 dual CRC in place the reading order is: `http_margin` from `HTTP_GET_MEM`, then
 `crc_check` - `match` means the device agrees with itself end to end, and the exported
 Safari file comparison then extends that agreement across the parts the device cannot see.
+
+---
+
+## Stack headroom change review - `08479cd..c4bbba4`, September 22
+
+**Cleared for JP's rebuild.** The change is one line, correct in direction and affordable.
+Two things to carry into the recheck, one of which affects what the recheck must exercise.
+
+### Gate A's laptop leg is genuinely strong evidence
+
+Worth recording plainly, because it validates the increment's central mechanism on real
+hardware for the first time:
+
+- 308,745 bytes byte-identical to the USB reference, independent CRC32 `541A8F0C`.
+- `HTTP_GET_END` reports `bytes = writer_bytes = 308745`, **both CRCs `541A8F0C`,
+  `crc_check=match`**. The dual comparison added two commits ago did exactly what it was
+  added for, on its first real run: the writer and the transport independently agree on the
+  same 300 KB prefix. That is the strongest statement this design can make about itself.
+- Appends stayed unpaused and grew 1174 bytes afterwards, with `drops=0`, confirming an
+  archive transfer does not disturb logging.
+- Maximum progress gap **42 ms** against the 5 s no-progress clock - roughly two orders of
+  magnitude of margin, so the body deadline is nowhere near binding on a healthy link.
+
+One number worth keeping for later sizing: 308,745 bytes in 5844 ms is about **53 KB/s**,
+far below the 1.2 MB/s local fetch measured in case 1. At that rate a 2 MiB archive takes
+~40 s, which is fine because archives have no overall cap and the no-progress clock is what
+governs. It also means the eventual `current.log` transfer - 964 KB at this rate is ~18 s -
+sits comfortably inside `CURRENT_MS` 120000, which is useful evidence for gate C.
+
+### The stack change is right, and its failure mode is safe
+
+696 bytes remaining on a 4096-byte stack means a peak of about 3400, or 83% consumed. That
+is too thin for a path whose depth varies with client-supplied header count. Raising to 6144
+leaves about 2744 at the same peak.
+
+The cost is bounded and temporary: `task_caps` is internal, and the component allocates the
+task stack at `httpd_start()` and frees it at `httpd_stop()`, so the extra 2 KiB exists only
+while download mode is active. Against the measured `internal_largest=47092` during the
+transfer - more than twice the retained 20480 gate - 2 KiB is comfortable. And if the larger
+contiguous allocation ever could not be satisfied, `httpd_start()` fails, `setFailure
+("server_start")` rolls back to `OFF` and entry is refused. A refused entry, not a crash, is
+the correct failure shape for a memory change.
+
+**208 checks still pass**; no host check referenced the old value.
+
+### The measured 696 is the curl case, not the worst case
+
+This is the point that shapes the recheck. The 696 came from a **curl** request. Safari
+sends materially more and larger request headers - `User-Agent`, `Accept`,
+`Accept-Language`, `Accept-Encoding` and others - and the parse depth scales with them. For
+comparison, the increment 3 listing-only path measured `http_margin=1688`, so the download
+path already costs about 1000 bytes more than listing; header-count variation is a further
+axis that gate A has not yet exercised.
+
+So the recheck should read `http_margin` from **the Safari leg**, not only from another
+curl, and ideally from a listing with the current nine-entry inventory as well. Reading only
+a repeated curl would confirm the arithmetic while leaving the actual worst case unmeasured.
+`uxTaskGetStackHighWaterMark` is a minimum-ever value sampled at the end of `download()`, so
+whichever path runs deepest in a session is what the number reports - which is exactly why
+the deepest path needs to be the one that runs.
+
+### Small note - the configured value is now evidence-based but unpinned
+
+No host check asserts `stack_size`, `max_open_sockets`, `lru_purge_enable` or `task_caps`.
+That was unremarkable when the values were defaults; it is less so now that 6144 exists
+because a measurement demanded it. A one-line source-contract assertion on those four
+constants would keep the reason attached to the number, in the same spirit as the existing
+`CHUNK = 144, SCRATCH = 241` check. Not a blocker, and not worth inserting before this
+rebuild.
+
+### Clearance
+
+Cleared. Rebuild, then complete gate A: re-read `http_margin` on the Safari leg, and finish
+the outstanding exported-Safari-file byte comparison, which remains the only check that
+spans the parts of the path the device cannot observe. The mode-off evidence missing from
+the boot-110 capture should also be captured this time rather than assumed.
