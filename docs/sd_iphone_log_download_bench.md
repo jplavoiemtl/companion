@@ -1,5 +1,30 @@
 # iPhone log retrieval - bench cases and results
 
+## September 22, 11:51-11:54 - incomplete-header cancellation INCONCLUSIVE
+
+Evidence: 484cbc10-63f7-413e-b4a7-ec6f117c13db/Pasted text.txt and JP's PowerShell
+output. JP reports normal operation. Boot 108, generation 5 accepts one connection.
+However, log mode off TX at 11:52:48.885 precedes the PowerShell partial-header send
+at 11:52:56.762 by 7.877 seconds. Client Read=0 after 14 ms is EOF on that connection,
+not evidence of cancellation while an incomplete header is pending or a stop-time bound.
+Second off at 11:52:59.264 reports already_off. Connection creation time was not captured;
+do not attribute the closure specifically to a header timeout.
+
+The original helper connected before its readiness prompt, and the manual sequence was
+ambiguous. Correct the helper: readiness prompt before connect, immediately connect/send,
+then explicit SEND LOG MODE OFF NOW cue and timestamp. JP must send off only after that
+cue and within two seconds, before the five-second header deadline. Repeat only this
+cancellation check with final OFF/status; successful re-entry evidence is already present.
+
+Retained successful evidence: generation 6 starts and accepts two connections, zero
+rejections; subsequent OFF/server=off, error=none/release_stuck=0. Same boot throughout,
+logger ready, drops=0/high=7/slow=0, queue=0/16, USB active=0/paused=0. Current grows
+231103 -> 236691. Worker/HTTP minima 2304/1688, writer 2920; internal_min=81136,
+final internal_largest=47092 above 20480. No new link loss or reset. No firmware defect
+demonstrated, no code change/build/flash. Cancellation gate remains pending, increment 4
+unapproved.
+
+
 ## September 22, 11:44-11:49 - increment 3 repeated entry/exit PASSED
 
 Evidence: b895e915-f629-43b1-ba71-23b32ba82fa5/Pasted text.txt; JP reports test passed.

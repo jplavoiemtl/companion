@@ -1,5 +1,13 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 22, cancellation case needs ordering correction
+
+The 11:52 off command precedes the partial-header send by 7.877 seconds; 14 ms EOF
+cannot pass incomplete-header cancellation. Repeat just cancellation with readiness
+prompt before connect and send off only after the explicit sent cue. Re-entry generation
+6, clean OFF, logging/resource evidence retained; no firmware failure demonstrated.
+See newest bench entry. No rebuild/flash; increment 4 remains unapproved.
+
 ## Latest handoff - September 22, increment 3 repeated lifecycle gate passed
 
 Boot 108, generations 2-4 reuse successfully; no drops/reset/error/stuck release.
