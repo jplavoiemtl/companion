@@ -14,7 +14,8 @@ increment 4 and reconfirmed no token on his trusted hotspot for actual log retri
 JP accepted increment 4 after gate A passed and approved increment 5 on September 22.
 Increment 5 uses the existing streamed archive implementation for timing gate B; no
 firmware change or rebuild is required. JP accepted increment 5 after gate B passed and approved increment 6 on September 22.
-Increment 6 current.log implementation is prepared for Claude review; no build/flash yet.
+Increment 6 current.log implementation cleared by Claude at bb9db3e; JP build and first
+normal gate C case issued, hardware evidence pending.
 Increment 7 and beyond remain unapproved.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the

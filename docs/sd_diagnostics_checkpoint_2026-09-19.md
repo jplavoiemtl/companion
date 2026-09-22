@@ -1,6 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 22, increment 6 cleared for JP build
+
+Claude clearance bb9db3e; 219 checks confirmed. No further code changes. JP may build/flash
+selected 3.3.11 profile; companion.ino unchanged so no generated sketch deletion needed.
+First gate C is one ordinary current.log Safari snapshot, exported file versus later USB
+prefix, measured pause/resume, CRC, stack/memory, drops and append continuation.
+[Exact case](sd_iphone_log_download_increment6.md). Queue-pressure check follows separately.
+Increment 7 unapproved; timestamp usability proposal deferred until increment 6 acceptance.
+
+
 ## Latest handoff - September 22, increment 5 accepted; increment 6 for Claude review
 
 JP accepts increment 5 and approves increment 6. Current.log HTTP snapshot route now uses

@@ -76,3 +76,32 @@ establish pause safety. Slow-client failure work remains later and limits remain
 JP builds/flashes only after Claude clears this diff. No generated companion.ino.cpp
 removal needed because companion.ino was not edited. The date/time filename and listing
 proposal remains deferred for review after increment 6 acceptance, before final UI/car work.
+
+
+## Claude clearance bb9db3e - first gate C case issued
+
+Claude reports no blockers and independently confirms 219 checks. JP may build/flash
+amoled-1-8-core-3-3-11 with logging/PSRAM writer enabled and both test switches zero.
+Actual sketch.yaml profile uses core 3.3.11, PSRAM enabled. No code changes after clearance;
+companion.ino unchanged, so no generated sketch deletion. Assistant does not build/flash.
+
+One normal Safari current.log snapshot, ordinary logging, phone awake/foreground:
+1. USB power, hotspot connected, console DTR=true/RTS=false. Capture status and log status.
+2. log mode on, await ACTIVE. Open reported URL on iPhone Safari; refresh listing and
+   select current.log once. Leave ordinary logging running and avoid other transfers.
+3. After completion, capture Last result and export the actual saved <boot>-<id>-current-
+   <size>.log unchanged to PC Downloads. Keep distinct from the later USB current file.
+4. Capture log mode status and status; log mode off, then log mode status confirming OFF.
+5. Download current.log over USB with CRC OK, wait about 10 seconds, capture log status
+   and log list. Send the console, Safari export, result capture and USB file/local paths.
+
+Read HTTP_GET_CLOSE appends=resumed and paused_ms duration, then END crc_check, MEM
+http_margin and saved bytes against equal-length prefix of the later USB file. pause_ms
+is an absolute monotonic timestamp; paused_ms is the duration. Rotation after resume can
+require a matching archive reference, selected from evidence rather than a whole-file
+comparison against the new current.log. No before-download USB reference is required.
+
+If Safari reports partial/failure, preserve it and capture the same status/USB evidence;
+do not retry or change limits before review. Normal transfer result remains unmeasured.
+Controlled queue-pressure case follows separately, not mixed into this case. No next
+increment or timestamp feature implementation yet; both remain gated as recorded above.
