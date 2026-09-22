@@ -33,6 +33,20 @@ USB download needed on this evidence. Increment 3 gate remains incomplete; incre
 unapproved. No firmware changes or assistant build/flash.
 
 
+### Same-case manual shutdown completion - 11:37, boot 108
+
+JP supplied the follow-up console directly. Exact log mode off at 11:37:12.920
+produces STOPPING/reason=usb_command at 11:37:12.923. The next status at 11:37:22.391
+confirms OFF/server=off, error=none, release_stuck=0, same generation 1 and accepted=3,
+rejected=0. Worker minimum after teardown is 2304 bytes; HTTP minimum remains 1688.
+The 9.47-second observation interval does not measure actual teardown duration and must
+not be reported as stop latency or as proof of a tighter timing bound.
+At 11:37:27 logger remains ready on boot 108, current_size=213763 (continued growth),
+drops=0, queue=0/16, USB active=0/paused=0/result=ok. Probe largest_min=47092 remains
+above the memory gate. Manual shutdown portion passes; no repeat hardware action needed.
+Only the missing Safari listing-name comparison and Last result observation remain for
+this first gate. Increment 4 remains unapproved. No code changes.
+
 Running bench record for the wireless retrieval feature, one case at a time.
 Design: [Codex review](sd_iphone_log_download_review.md) and
 [Claude review](sd_iphone_log_download_review_claude.md). Historical draft:
