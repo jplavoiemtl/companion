@@ -38,6 +38,9 @@ uint64_t& fileSize = state.fileSize;
 uint64_t& sentBytes = state.sentBytes;
 uint64_t& startedAt = state.startedAt;
 uint64_t& lastProgress = state.lastProgress;
+uint64_t& pausedAt = state.pausedAt;
+uint64_t& readerClosedAt = state.readerClosedAt;
+uint64_t& resumedAt = state.resumedAt;
 char (&filename)[24] = state.filename;
 } // namespace
 void init(const Hooks& value) { hooks = value; }
@@ -130,8 +133,13 @@ uint32_t updateCrc(uint32_t value, const uint8_t* data, size_t length) {
 }
 bool closeReaderAndResume(bool recordEnd, const char* result, bool keepEvent) {
   bool ok = true;
-  if (reader >= 0) { ok = ::close(reader) == 0; reader = -1; }
-  if (paused) { paused = false; ok = hooks.resume() && ok; }
+  if (reader >= 0) { ok = ::close(reader) == 0; reader = -1; readerClosedAt = milliseconds(); }
+  if (paused) {
+    paused = false;
+    const bool resumed = hooks.resume();
+    if (resumed) resumedAt = milliseconds();
+    ok = resumed && ok;
+  }
   publish();
   if (begun && recordEnd) hooks.end(filename, sentBytes, milliseconds() - startedAt, result);
   if (!keepEvent) {
@@ -181,9 +189,10 @@ const char* start(const Accepted& accepted, const char* (*transportStop)()) {
   const bool valid = reserved && retainedGeneration == accepted.generation && !invalidated;
   portEXIT_CRITICAL(&sessionMux);
   if (!valid) return "aborted";
-  isCurrent = accepted.request == Request::Current; fileNumber = accepted.number;
+  isCurrent = accepted.request == Request::Current || accepted.request == Request::HttpCurrent; fileNumber = accepted.number;
   startedAt = lastProgress = accepted.at; sentBytes = fileSize = 0; crc = 0xffffffff;
-  begun = paused = false; pendingBytes = 0; publish();
+  begun = paused = false; pendingBytes = 0;
+  pausedAt = readerClosedAt = resumedAt = 0; publish();
   buffers = static_cast<Buffers*>(heap_caps_calloc(1, sizeof(Buffers), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   if (!buffers) return "memory";
   if (const char* reason = stopReason(transportStop)) return reason;
@@ -193,12 +202,12 @@ const char* start(const Accepted& accepted, const char* (*transportStop)()) {
   struct stat st{};
   if (stat(path, &st)) return errno == ENOENT ? "not_found" : "read_failed";
   if (!S_ISREG(st.st_mode) || st.st_size < 0) return "not_found";
-  if (accepted.request != Request::HttpArchive) {
+  if (accepted.request != Request::HttpArchive && accepted.request != Request::HttpCurrent) {
     if (!hooks.begin(filename)) return "logger_failed";
     begun = true;
   }
   if (isCurrent) {
-    paused = true; publish();
+    pausedAt = milliseconds(); paused = true; publish();
     if (!hooks.pause()) return "logger_failed";
   }
   reader = open(path, O_RDONLY);

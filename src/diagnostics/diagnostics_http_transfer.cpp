@@ -25,6 +25,8 @@ void close(const char* reason) {
   const bool ok=diagreader::closeReaderAndResume(false,reason);
   const auto& writerState=diagreader::view();
   portENTER_CRITICAL(&mux);
+  box.pausedAt=writerState.pausedAt; box.readerClosedAt=writerState.readerClosedAt;
+  box.resumedAt=writerState.resumedAt;
   box.writerBytes=writerState.sentBytes; box.writerCrc=writerState.crc ^ 0xffffffff;
   box.closed=true; box.closedAt=nowMs(); box.result=ok ? reason : "logger_failed";
   if (box.released && lastResult.id==box.id) {
@@ -43,11 +45,11 @@ void finishRelease() {
   portENTER_CRITICAL(&mux); box.reserved=false; portEXIT_CRITICAL(&mux);
 }
 }
-uint64_t request(uint32_t number, uint64_t now) {
+uint64_t request(uint32_t number, uint64_t now, bool current) {
   portENTER_CRITICAL(&mux);
   if (!online || box.reserved || nextId==UINT64_MAX) { portEXIT_CRITICAL(&mux); return 0; }
   // Lock order transfer -> reader; writer never holds reader lock while taking transfer lock.
-  if (!diagreader::reserve(diagreader::Request::HttpArchive,number,now)) {
+  if (!diagreader::reserve(current ? diagreader::Request::HttpCurrent : diagreader::Request::HttpArchive,number,now)) {
     portEXIT_CRITICAL(&mux); return 0;
   }
   box=View{}; box.reserved=true; box.id=++nextId; box.started=now;
@@ -83,6 +85,8 @@ void release(uint64_t id, const Result& result) {
 }
 void compareWriter(Result& result, const View& closed) {
   if (!closed.closed || closed.id!=result.id) { result.crcCheck="unavailable"; return; }
+  result.pausedAt=closed.pausedAt; result.readerClosedAt=closed.readerClosedAt; result.resumedAt=closed.resumedAt;
+  result.appends=closed.pausedAt ? (closed.resumedAt ? "resumed" : "resume_failed") : "unpaused";
   result.writerBytes=closed.writerBytes; result.writerCrc=closed.writerCrc;
   // An in-flight send may succeed after writer cancellation invalidates its ack.
   // Unequal prefix lengths are expected in that race, not evidence of corruption.
@@ -137,7 +141,7 @@ void tick() {
   portEXIT_CRITICAL(&mux);
 }
 void stop(const diagreader::Accepted& pending) {
-  if(pending.request==diagreader::Request::HttpArchive) {
+  if(pending.request==diagreader::Request::HttpArchive || pending.request==diagreader::Request::HttpCurrent) {
     readerGeneration=pending.generation;
     cancelAll("shutdown");
     // Initialize state; stop guard prevents SD acquisition.

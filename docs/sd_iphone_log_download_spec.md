@@ -1,6 +1,6 @@
 # iPhone log retrieval - implementation spec
 
-Status: **revision 6.** JP accepted increment 1 and approved increment 2 on September 21.
+Status: **revision 7.** JP accepted increment 1 and approved increment 2 on September 21.
 JP accepted increment 2 on September 22 after eleven issued hardware cases passed; see
 [handoff](sd_iphone_log_download_increment2.md) and [bench evidence](sd_iphone_log_download_bench.md).
 Acceptance includes the proposed deferral of battery-only entry refusal and entry during
@@ -13,7 +13,9 @@ car deployment, with host coverage accepted for increment 3. JP explicitly appro
 increment 4 and reconfirmed no token on his trusted hotspot for actual log retrieval.
 JP accepted increment 4 after gate A passed and approved increment 5 on September 22.
 Increment 5 uses the existing streamed archive implementation for timing gate B; no
-firmware change or rebuild is required. Increment 6 and beyond remain unapproved.
+firmware change or rebuild is required. JP accepted increment 5 after gate B passed and approved increment 6 on September 22.
+Increment 6 current.log implementation is prepared for Claude review; no build/flash yet.
+Increment 7 and beyond remain unapproved.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the
 [Codex review](sd_iphone_log_download_review.md) and the
@@ -284,7 +286,8 @@ one 144-byte chunk; HTTP uses a private copy and posts cumulative accepted-byte 
 The writer alone updates its reader offset/CRC and closes before prune/shutdown. Positive
 body writes reset the body no-progress timer; headers/metadata do not count as progress.
 The shared reader still applies the five-second guard from request acceptance until body
-progress; both current limits remain unchanged. No current.log HTTP route in increment 4.
+progress; both current limits remain unchanged. No current.log HTTP route in increment 4. Increment 6 adds exact /f/current with the
+same writer-owned pause/open/fstat/close/resume lifecycle and unchanged bounds.
 
 A terminal-writer exception is required for a late transport release: after the writer
 has closed the reader and published Parked/Deleted, main's existing offline tick may
@@ -389,9 +392,11 @@ Fields are assigned to the record that can actually carry them:
 | `HTTP_GET_BEGIN` | Transfer ID, managed file ID, started time. **No final size, no CRC, no result** |
 | Metadata (at header emission) | Transfer ID, frozen size |
 | `HTTP_GET_END` and last result | Matching transfer ID, expected bytes, bytes accepted by transport, CRC32 coverage, result |
+| `HTTP_GET_CLOSE` and last result (increment 6) | Matching ID, pause-start, reader-close and successful-resume times, pause duration, append outcome |
 
-- `HTTP_GET_BEGIN` precedes the `current.log` snapshot being frozen, so it cannot contain
-  the final size - and a snapshot cannot contain its own size.
+- `HTTP_GET_BEGIN` records request admission without a frozen size. It is queued by HTTP
+  after reservation; writer dispatch may race it, so BEGIN is not guaranteed to persist
+  inside the frozen snapshot. Metadata supplies the later frozen size.
 - **`HTTP_GET_END` is not always available:** it cannot appear in its own snapshot, and a
   shutdown or SD failure may prevent it persisting. Existing shutdown and end-record absence
   semantics are unchanged.
@@ -405,6 +410,17 @@ Fields are assigned to the record that can actually carry them:
 - `RETRIEVAL_MODE action=enter|exit trigger=... reason=...` for the mode itself. Guard
   refusals reuse `IMAGE_REFUSED`, `LIVE_REQUEST` and the image-notification vocabulary.
 - A per-session capability in the URL, if used, is **never logged**.
+
+Increment 6 moves the earlier literal END fields `resume_ms=0 appends=unpaused` into a
+separate measured `HTTP_GET_CLOSE` record for both archive and current transfers. END
+retains both CRCs and their coverage; each record must fit the 456-byte field buffer.
+`close_ms` in END remains writer cleanup completion. CLOSE's `reader_close_ms` is sampled
+after the reader close attempt, before append reopen. `pause_ms` starts before the pause
+hook (including flush/close time); `resume_ms` is set only after successful reopen.
+`paused_ms` is the difference when resume completed, otherwise zero with explicit
+`appends=unknown` or `resume_failed`; zero is not evidence of a zero-length failed pause.
+An already-closed operation that never paused reports `unpaused`. A late close updates
+last result, not earlier emitted records. Check result as well as timestamps on failures.
 
 ## 9. Configuration
 

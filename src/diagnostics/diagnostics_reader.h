@@ -6,7 +6,7 @@
 namespace diagreader {
 constexpr size_t CHUNK = 144, SCRATCH = 241, MAX_ENTRIES = 256;
 constexpr uint64_t STALL_MS = 5000, CURRENT_MS = 120000;
-enum class Request : uint8_t { None, List, Current, Archive, HttpArchive };
+enum class Request : uint8_t { None, List, Current, Archive, HttpArchive, HttpCurrent };
 struct Status {
   uint64_t boot, uptime, size, cardBytes, freeBytes;
   uint32_t newest, files, drops, queued, capacity;
@@ -31,6 +31,7 @@ struct ReaderState {
   bool isCurrent = false, paused = false, begun = false;
   uint32_t fileNumber = 0, crc = 0xffffffff;
   uint64_t fileSize = 0, sentBytes = 0, startedAt = 0, lastProgress = 0;
+  uint64_t pausedAt = 0, readerClosedAt = 0, resumedAt = 0;
   char filename[24] = {};
 };
 struct Accepted {

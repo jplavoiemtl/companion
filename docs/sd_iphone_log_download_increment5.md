@@ -1,6 +1,6 @@
 # Increment 5 - representative 2 MiB archive
 
-Status: approved by JP on September 22 after accepting increment 4. Timing gate B passed; explicit increment 5 acceptance pending.
+Status: approved by JP on September 22 after accepting increment 4. Timing gate B passed and increment 5 accepted by JP. Increment 6 approved.
 No firmware changes, build or flash required. The accepted 6144-byte HTTP-stack build
 already streams any managed archive with a fixed 144-byte mailbox and uint64 byte counts.
 The handler runs until the frozen expected length; CURRENT_MS applies only to current.log.
@@ -48,3 +48,10 @@ dual CRC match, 41.482 s request-to-release, maximum gap 42 ms. HTTP margin 2524
 internal largest at least 34804, zero drops, appends continuing, clean recorded exit 102 ms.
 See bench record for details and qualifications. No remaining evidence for this case.
 Await explicit increment 5 acceptance and increment 6 implementation approval.
+
+
+## Acceptance
+
+JP explicitly accepts increment 5 and authorizes increment 6 after gate B at 33b992a.
+Pending-approval statements above are historical. Increment 6 handoff is in
+sd_iphone_log_download_increment6.md; subsequent increments remain unapproved.

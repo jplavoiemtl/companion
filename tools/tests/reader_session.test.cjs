@@ -41,9 +41,9 @@ const specs=[['reserve','request,number,at','bool reserve('],['busy','','bool bu
 const code=specs.map(([n,a,s])=>`function ${n}(${a}){${adapt(body(s))}}`).join('\n');
 function context(){
  const c={nextGeneration:0,retainedGeneration:0,reserved:false,invalidated:false,abortRequested:false,
- pending:{request:0,number:0,at:0,generation:0,abort:false},Request:{None:0,List:1,Current:2,Archive:3,HttpArchive:4},diagtransfer:{busy:()=>false},UINT64_MAX:Number.MAX_SAFE_INTEGER,
+ pending:{request:0,number:0,at:0,generation:0,abort:false},Request:{None:0,List:1,Current:2,Archive:3,HttpArchive:4,HttpCurrent:5},diagtransfer:{busy:()=>false},UINT64_MAX:Number.MAX_SAFE_INTEGER,
  now:1000,buffers:null,entries:null,pendingBytes:0,entryCount:0,reader:-1,paused:false,begun:false,isCurrent:false,
- fileNumber:0,fileSize:0,sentBytes:0,crc:0xffffffff,startedAt:0,lastProgress:0,filename:'',snapshot:{bytes:0,paused:false,result:'none'},
+ pausedAt:0,readerClosedAt:0,resumedAt:0,fileNumber:0,fileSize:0,sentBytes:0,crc:0xffffffff,startedAt:0,lastProgress:0,filename:'',snapshot:{bytes:0,paused:false,result:'none'},
  ROOT:'/sdcard/logs/',O_RDONLY:0,ENOENT:2,errno:0,order:[],frees:[],content:Buffer.from('123456789'),position:0,
  allocOk:true,beginOk:true,pauseOk:true,resumeOk:true,closeOk:true,statOk:true,openOk:true,fstatOk:true,regular:true,
  readFailure:false,transportFailure:null,state:{ready:true,closing:false,queued:0,capacity:16},ends:[]};
@@ -146,4 +146,43 @@ check('HTTP partial progress credits each accepted prefix once and keeps unsent 
  c.closeReaderAndResume(false,'ok');assert(c.release(a.generation));
 });
 check('offline abort consumption preserves the queued request and reservation',c=>{c.reserve(2,0,42);c.requestAbort();assert.equal(c.takeAbort(),true);assert.equal(c.takeAbort(),false);assert.ok(c.busy());const a=c.takeRequest();assert.equal(a.request,2);assert.equal(a.at,42);assert.equal(a.abort,false);});
+
+check('HTTP current freezes after pause without USB events and resumes before releasing',c=>{
+ c.hooks.pause=()=>{c.order.push('pause');c.content=Buffer.from('snapshot-after-flush');return true;};
+ c.reserve(c.Request.HttpCurrent,0,c.now);const a=c.takeRequest();assert.equal(c.start(a,c.transportStop),null);
+ assert.equal(c.filename,'current.log');assert.equal(c.fileSize,20);assert(c.paused);assert.equal(c.pausedAt,1000);
+ assert(!c.order.includes('begin'));assert(c.order.indexOf('pause')<c.order.indexOf('open'));
+ c.readChunk();assert(c.progressBytes(a.generation,20,1001));c.now=1100;c.invalidate(a.generation);
+ assert(c.closeReaderAndResume(false,'ok'));assert.equal(c.readerClosedAt,1100);assert.equal(c.resumedAt,1100);
+ assert(c.order.indexOf('close')<c.order.indexOf('resume'));assert.equal(c.ends.length,0);assert(c.release(a.generation));
+});
+check('HTTP current pressure and deadline guards close and resume without network release',c=>{
+ for(const reason of ['logger_busy','stalled','timeout','shutdown']){
+  c.state.queued=0;c.state.closing=false;c.now=2000;
+  c.reserve(c.Request.HttpCurrent,0,c.now);const a=c.takeRequest();assert.equal(c.start(a,c.transportStop),null);
+  if(reason==='logger_busy')c.state.queued=8;
+  if(reason==='stalled')c.now+=5000;
+  if(reason==='timeout'){c.now+=120000;c.lastProgress=c.now;}
+  if(reason==='shutdown')c.state.closing=true;
+  assert.equal(c.stopReason(c.transportStop),reason);c.invalidate(a.generation);
+  assert(c.closeReaderAndResume(false,reason));assert(!c.paused);assert(c.resumedAt);assert(c.busy());
+  assert(c.release(a.generation));
+ }
+});
+check('HTTP current open and pause failures resume; resume failure has no successful timestamp',c=>{
+ for(const field of ['openOk','pauseOk']){
+  c[field]=false;c.reserve(c.Request.HttpCurrent,0,c.now);const a=c.takeRequest();
+  assert(c.start(a,c.transportStop));c.invalidate(a.generation);assert(c.closeReaderAndResume(false,'failed'));
+  assert(c.resumedAt);assert(c.release(a.generation));c[field]=true;
+ }
+ c.reserve(c.Request.HttpCurrent,0,c.now);const a=c.takeRequest();assert.equal(c.start(a,c.transportStop),null);
+ c.resumeOk=false;c.now+=10;assert(!c.closeReaderAndResume(false,'failed'));assert.equal(c.resumedAt,0);
+ assert.equal(c.readerClosedAt,c.now);
+});
+check('cleanup timestamps reset across current and archive reuse',c=>{
+ const g=begin(c);c.now+=25;c.closeReaderAndResume(false,'ok');assert(c.resumedAt);c.release(g);
+ c.reserve(c.Request.HttpArchive,21,c.now);const a=c.takeRequest();assert.equal(c.start(a,c.transportStop),null);
+ assert.equal(c.pausedAt,0);assert.equal(c.readerClosedAt,0);assert.equal(c.resumedAt,0);
+ assert(!c.begun);assert(!c.paused);c.closeReaderAndResume(false,'ok');assert.equal(c.resumedAt,0);
+});
 console.log(`${checks} reader/session checks passed; source simulations only, no firmware build.`);

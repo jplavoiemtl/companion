@@ -221,6 +221,9 @@ bool formatPage(bool resultOnly, size_t& used) {
     (unsigned long long)transfer.expected,(unsigned long)transfer.crc);
   if (transfer.id) ok=ok && append(used,"<p>Writer prefix: %llu bytes; CRC32 %08lX; comparison: %s.</p>",
     (unsigned long long)transfer.writerBytes,(unsigned long)transfer.writerCrc,transfer.crcCheck);
+  if (transfer.id) ok=ok && append(used,"<p>Appends: %s; pause at %llu ms; reader close at %llu ms; resume at %llu ms.</p>",
+    transfer.appends,(unsigned long long)transfer.pausedAt,(unsigned long long)transfer.readerClosedAt,
+    (unsigned long long)transfer.resumedAt);
   if (!resultOnly) {
     const auto v = diaginventory::pin(nowMs());
     const bool busy = diagreader::busy();
@@ -228,11 +231,11 @@ bool formatPage(bool resultOnly, size_t& used) {
       v.valid ? "available" : "pending",(unsigned long long)(v.valid ? nowMs()-v.at : 0),unsigned(v.stale || busy),unsigned(busy),v.error);
     for (size_t i=0; ok && i<v.count; ++i) {
       char name[24]; diagreader::nameFor(v.entries[i],name,sizeof(name));
-      if (v.entries[i].current) ok=append(used,"%s  %llu bytes (USB only)\n",name,(unsigned long long)v.entries[i].size);
+      if (v.entries[i].current) ok=append(used,"<a href='/f/current'>%s</a> %llu bytes (snapshot on download)\n",name,(unsigned long long)v.entries[i].size);
       else ok=append(used,"<a href='/f/%08lu'>%s</a> %llu bytes\n",(unsigned long)v.entries[i].number,name,(unsigned long long)v.entries[i].size);
     }
     diaginventory::unpin(v);
-    ok = ok && append(used,"</pre><p>Archive downloads available; current.log remains USB only.</p>");
+    ok = ok && append(used,"</pre><p>Archive and current.log snapshot downloads available.</p>");
   }
   return ok && append(used,"</body></html>");
 }
@@ -241,7 +244,7 @@ void headers(httpd_req_t* req) {
   httpd_resp_set_hdr(req,"Cache-Control","no-store");
   httpd_resp_set_hdr(req,"Referrer-Policy","no-referrer");
 }
-esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number);
+esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number, bool current);
 // Always return failure after output: documented and binary-verified close path.
 esp_err_t handle(httpd_req_t* req) {
   SessionIo* io = session(req->handle,httpd_req_to_sockfd(req));
@@ -268,11 +271,12 @@ esp_err_t handle(httpd_req_t* req) {
     httpd_resp_set_type(req,"text/html; charset=utf-8");
     httpd_resp_send(req,page,used); return ESP_FAIL;
   }
+  if (!strcmp(req->uri,"/f/current")) return download(req,io,0,true);
   if (!strncmp(req->uri,"/f/",3)) {
     uint32_t number=0;
     // Canonical archive identity only: eight digits, no query or arbitrary path.
     if (strlen(req->uri+3)==8 && diagreader::parseNumber(req->uri+3,number))
-      return download(req,io,number);
+      return download(req,io,number,false);
     httpd_resp_set_status(req,"404 Not Found");
     httpd_resp_send(req,nullptr,0); return ESP_FAIL;
   }
@@ -287,14 +291,14 @@ bool headerPresent(httpd_req_t* req, const char* name) {
   const esp_err_t result=httpd_req_get_hdr_value_str(req,name,value,sizeof(value));
   return result==ESP_OK || result==ESP_ERR_HTTPD_RESULT_TRUNC;
 }
-esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number) {
+esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number, bool current) {
   const auto storage=diagreader::status();
   if (!storage.ready || storage.closing || diagreader::busy()) {
     httpd_resp_set_status(req,"503 Service Unavailable");
     httpd_resp_send(req,"retrieval_busy_or_unavailable",HTTPD_RESP_USE_STRLEN); return ESP_FAIL;
   }
   const uint64_t at=nowMs();
-  const uint64_t id=diagtransfer::request(number,at);
+  const uint64_t id=diagtransfer::request(number,at,current);
   if (!id) {
     httpd_resp_set_status(req,"503 Service Unavailable");
     httpd_resp_send(req,"retrieval_busy",14); return ESP_FAIL;
@@ -305,9 +309,11 @@ esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number) {
   const bool range=headerPresent(req,"Range");
   const bool ifRange=headerPresent(req,"If-Range");
   // BEGIN has no final size/CRC. Records contain managed IDs only, never user header text.
-  snprintf(page,PAGE_CAP,"id=%llu file=%08lu started_ms=%llu range=%u if_range=%u",
-    (unsigned long long)id,(unsigned long)number,(unsigned long long)at,unsigned(range),unsigned(ifRange));
+  char name[24]; diagreader::nameFor({0,number,current},name,sizeof(name));
+  snprintf(page,PAGE_CAP,"id=%llu file=%s started_ms=%llu range=%u if_range=%u",
+    (unsigned long long)id,name,(unsigned long long)at,unsigned(range),unsigned(ifRange));
   diag::record("HTTP_GET_BEGIN",page,true);
+  name[strlen(name)-4]=0; // Attachment stem; managed names always end in .log.
   diagtransfer::Result result;
   result.id=id; result.number=number; result.started=at; result.result="pending";
   uint32_t crc=0xffffffff;
@@ -324,10 +330,10 @@ esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number) {
   if (!strcmp(result.result,"pending")) {
     const int length=snprintf(page,PAGE_CAP,
       "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\n"
-      "Content-Disposition: attachment; filename=\"%llu-%llu-archive-%08lu-%llu.log\"\r\n"
+      "Content-Disposition: attachment; filename=\"%llu-%llu-%s-%llu.log\"\r\n"
       "Content-Length: %llu\r\nConnection: close\r\nCache-Control: no-store\r\n"
       "Referrer-Policy: no-referrer\r\n\r\n",
-      (unsigned long long)storage.boot,(unsigned long long)id,(unsigned long)number,
+      (unsigned long long)storage.boot,(unsigned long long)id,name,
       (unsigned long long)result.expected,(unsigned long long)result.expected);
     io->transfer=id;
     // Header output is bounded independently; only body writes count as progress.
@@ -388,7 +394,7 @@ esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number) {
   diagtransfer::compareWriter(result,finalState);
   result.releasedAt=nowMs();
   diagtransfer::release(id,result);
-  snprintf(page,PAGE_CAP,"id=%llu expected=%llu bytes=%llu crc32=%08lX result=%s first_ms=%llu last_ms=%llu gap_ms=%llu cancel_ms=%llu close_ms=%llu release_ms=%llu terminal_gap_ms=%llu resume_ms=0 appends=unpaused writer_bytes=%llu writer_crc32=%08lX crc_check=%s",
+  snprintf(page,PAGE_CAP,"id=%llu expected=%llu bytes=%llu crc32=%08lX result=%s first_ms=%llu last_ms=%llu gap_ms=%llu cancel_ms=%llu close_ms=%llu release_ms=%llu terminal_gap_ms=%llu writer_bytes=%llu writer_crc32=%08lX crc_check=%s",
     (unsigned long long)id,(unsigned long long)result.expected,(unsigned long long)result.bytes,
     (unsigned long)result.crc,result.result,(unsigned long long)result.firstBody,
     (unsigned long long)result.lastBody,(unsigned long long)result.maxGap,(unsigned long long)result.cancelledAt,
@@ -396,6 +402,12 @@ esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number) {
     (unsigned long long)(result.releasedAt-(result.lastBody ? result.lastBody : at)),
     (unsigned long long)result.writerBytes,(unsigned long)result.writerCrc,result.crcCheck);
   diag::record("HTTP_GET_END",page,true);
+  // Separate record keeps the CRC-bearing END below its fixed field capacity.
+  snprintf(page,PAGE_CAP,"id=%llu pause_ms=%llu reader_close_ms=%llu resume_ms=%llu paused_ms=%llu appends=%s",
+    (unsigned long long)id,(unsigned long long)result.pausedAt,
+    (unsigned long long)result.readerClosedAt,(unsigned long long)result.resumedAt,
+    (unsigned long long)(result.resumedAt ? result.resumedAt-result.pausedAt : 0),result.appends);
+  diag::record("HTTP_GET_CLOSE",page,true);
   sampleHttp();
   snprintf(page,PAGE_CAP,"id=%llu internal_free=%u internal_largest=%u http_margin=%u",
     (unsigned long long)id,unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),

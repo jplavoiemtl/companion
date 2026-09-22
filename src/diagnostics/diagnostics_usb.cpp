@@ -337,7 +337,7 @@ void diagnosticsUsbTick() {
   if (hooks.status().closing) { diagnosticsUsbStop(); return; }
   // Explicit abort is acknowledged only after cleanup, including queued requests.
   const auto accepted = diagreader::takeRequest();
-  if (accepted.request == Request::HttpArchive) {
+  if (accepted.request == Request::HttpArchive || accepted.request == Request::HttpCurrent) {
     diagtransfer::accept(accepted); diagtransfer::tick(); controlTick(); return;
   }
   if (diagtransfer::busy()) {
@@ -428,7 +428,7 @@ void diagnosticsUsbTick() {
 }
 void diagnosticsUsbStop() {
   const auto accepted = diagreader::takeRequest();
-  if (accepted.request == Request::HttpArchive || diagtransfer::busy()) {
+  if (accepted.request == Request::HttpArchive || accepted.request == Request::HttpCurrent || diagtransfer::busy()) {
     diagtransfer::stop(accepted); return;
   }
   if (accepted.request != Request::None) sessionGeneration = accepted.generation;

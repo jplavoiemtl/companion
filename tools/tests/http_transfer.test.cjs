@@ -15,10 +15,10 @@ function adapt(s){return s.replace(/port(?:ENTER|EXIT)_CRITICAL\(&mux\);/g,'')
  .replace(/\{ const reason=([^;]+); if\(reason\) \{ close\(reason\); return; \}/g,'{ const reason=$1; if(reason) { close(reason); return; } }')
  .replace('box.writerCrc=writerState.crc ^ 0xffffffff','box.writerCrc=(writerState.crc ^ 0xffffffff)>>>0')
  .replace(/size_t\(/g,'Number(').replace(/r.buffers->raw/g,'r.buffers.raw').replace(/nullptr/g,'null');}
-const defs=[['compareWriter','result,closed','void compareWriter('],['view','','View view()'],['busy','','bool busy()'],['request','number,now','uint64_t request('],['progress','id,bytes,at','bool progress('],['cancel','id,reason','void cancel('],['cancelAll','reason','void cancelAll('],['release','id,result','void release('],['last','','Result last()'],['transportStop','','const char* transportStop('],['close','reason','void close('],['finishRelease','','void finishRelease()'],['writerOnline','','void writerOnline()'],['writerOffline','','void writerOffline()'],['failure','','const char* failure()'],['accept','request','void accept('],['tick','','void tick()'],['stop','pending','void stop('],['beforePrune','number','void beforePrune('],['offlineTick','','void offlineTick()']];
+const defs=[['compareWriter','result,closed','void compareWriter('],['view','','View view()'],['busy','','bool busy()'],['request','number,now,current=false','uint64_t request('],['progress','id,bytes,at','bool progress('],['cancel','id,reason','void cancel('],['cancelAll','reason','void cancelAll('],['release','id,result','void release('],['last','','Result last()'],['transportStop','','const char* transportStop('],['close','reason','void close('],['finishRelease','','void finishRelease()'],['writerOnline','','void writerOnline()'],['writerOffline','','void writerOffline()'],['failure','','const char* failure()'],['accept','request','void accept('],['tick','','void tick()'],['stop','pending','void stop('],['beforePrune','number','void beforePrune('],['offlineTick','','void offlineTick()']];
 function context(){
- const fresh=()=>({id:0,generation:0,size:0,offset:0,started:0,closedAt:0,cancelledAt:0,readerAt:0,writerBytes:0,writerCrc:0,length:0,reserved:false,metadata:false,closed:false,released:false,result:'none',data:new Uint8Array(144)});
- const c={fresh,structuredClone,box:fresh(),lastResult:{},nextId:0,acknowledged:0,progressAt:0,cancellation:null,readerGeneration:0,started:false,online:true,t:1000,UINT64_MAX:Number.MAX_SAFE_INTEGER,Request:{None:0,HttpArchive:4},calls:[],storageReady:true,releaseOk:true,startError:null,readError:null,stopError:null,g:0,held:false,invalid:false,content:Buffer.from('123456789'),position:0,r:{fileSize:0,sentBytes:0,crc:0xffffffff,pendingBytes:0,buffers:{raw:Buffer.alloc(144)}}};
+ const fresh=()=>({id:0,generation:0,size:0,offset:0,started:0,closedAt:0,cancelledAt:0,readerAt:0,writerBytes:0,writerCrc:0,pausedAt:0,readerClosedAt:0,resumedAt:0,length:0,reserved:false,metadata:false,closed:false,released:false,result:'none',data:new Uint8Array(144)});
+ const c={fresh,structuredClone,box:fresh(),lastResult:{},nextId:0,acknowledged:0,progressAt:0,cancellation:null,readerGeneration:0,started:false,online:true,t:1000,UINT64_MAX:Number.MAX_SAFE_INTEGER,Request:{None:0,HttpArchive:4,HttpCurrent:5},calls:[],storageReady:true,releaseOk:true,startError:null,readError:null,stopError:null,g:0,held:false,invalid:false,content:Buffer.from('123456789'),position:0,r:{pausedAt:0,readerClosedAt:0,resumedAt:0,fileSize:0,sentBytes:0,crc:0xffffffff,pendingBytes:0,buffers:{raw:Buffer.alloc(144)}}};
  c.nowMs=()=>c.t;c.strcmp=(a,b)=>a===b?0:1;c.memcpy=(dst,src,n)=>dst.set(src.subarray(0,n));
  c.inventory={writerPreempt:()=>c.calls.push('preempt')};
  c.reader={reserve:(request,number,at)=>{if(c.held)return false;c.held=true;c.g++;c.pending={request,number,at,generation:c.g,abort:false};return true;},
@@ -44,7 +44,7 @@ test('start/read/queue errors close and preserve reason',()=>{for(const field of
 test('missing or refused release remains retained and escalates after interval',()=>{const c=context();const id=begin(c);c.cancel(id,'aborted');c.tick();c.releaseOk=false;c.release(id,{id,result:'aborted',releasedAt:1000});c.tick();c.t=10999;assert.equal(c.failure(),null);c.t=11000;assert.equal(c.failure(),'reader_release');assert(c.held);c.releaseOk=true;c.tick();assert(!c.held);});
 test('empty file still supplies metadata and error in sending its header is never relabelled success',()=>{const c=context();c.content=Buffer.alloc(0);const id=begin(c);assert(c.box.metadata);assert(c.box.closed);assert.equal(c.box.size,0);c.release(id,{id,result:'header_send_failed',releasedAt:1000});assert.equal(c.lastResult.result,'header_send_failed');});
 test('ordinary shutdown adds no network wait and terminal fallback runs only after writer stops',()=>{assert.doesNotMatch(body(source,'void stop('),/nap|Delay|while|httpd|send\(/);assert.match(body(usb,'void diagnosticsUsbOfflineTick()'),/diagtransfer::offlineTick/);assert.match(sd,/if \(!writerRunning\(readSnapshot\(\)\.writerLifecycle\)\) diagnosticsUsbOfflineTick/);assert(sd.indexOf('diagtransfer::writerOffline();')<sd.indexOf('diagnosticsUsbStop(); // Close reader'));});
-test('HTTP response has fixed length attachment and never chunks or appends error after headers',()=>{const b=body(http,'esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number) {');assert.match(b,/Content-Type: application\/octet-stream/);assert.match(b,/Content-Disposition: attachment/);assert.match(b,/Content-Length: %llu/);assert.doesNotMatch(b,/send_chunk|Transfer-Encoding/);assert.match(b,/if\(!headersSent && !cancelled/);assert.match(b,/updateCrc\(crc,state.data\+offset,size_t\(n\)\)/);assert.match(b,/result.bytes\+=size_t\(n\)/);assert.match(b,/diagtransfer::progress\(id,result.bytes,progressAt\)/);});
+test('HTTP response has fixed length attachment and never chunks or appends error after headers',()=>{const b=body(http,'esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number, bool current) {');assert.match(b,/Content-Type: application\/octet-stream/);assert.match(b,/Content-Disposition: attachment/);assert.match(b,/Content-Length: %llu/);assert.doesNotMatch(b,/send_chunk|Transfer-Encoding/);assert.match(b,/if\(!headersSent && !cancelled/);assert.match(b,/updateCrc\(crc,state.data\+offset,size_t\(n\)\)/);assert.match(b,/result.bytes\+=size_t\(n\)/);assert.match(b,/diagtransfer::progress\(id,result.bytes,progressAt\)/);});
 test('canonical managed archive route and incidental methods never enter download',()=>{const b=body(http,'esp_err_t handle(');assert(b.indexOf('req->method != HTTP_GET')<b.indexOf('return download'));assert.match(b,/strlen\(req->uri\+3\)==8/);assert.match(b,/parseNumber\(req->uri\+3,number\)/);assert.doesNotMatch(b,/Request::Current|opendir|open\(/);});
 test('HTTP task cannot access reader-owned buffers or lifecycle',()=>{assert.doesNotMatch(http,/diagreader::(?:view|start|readChunk|progressBytes|release|invalidate|closeReaderAndResume)\(/);assert.match(body(http,'void worker('),/snapshot\(\)\.handlers \|\| diagtransfer::busy\(\)/);});
 
@@ -58,7 +58,7 @@ function downloadContext(content=Buffer.from('123456789')) {
  c.headerPresent=(r,n)=>n==='Range'?c.range:c.ifRange;
  c.reader={status:()=>({ready:c.ready,closing:false,boot:108}),busy:()=>c.busy,updateCrc:(crc,data,n)=>{for(const b of data.subarray(0,n)){crc^=b;for(let j=0;j<8;j++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}return crc>>>0;}};
  c.transfer={request:()=>{c.reservationAttempts++;return c.requestOk?1:0;},
- view:()=>({id:1,metadata:c.metadata,size:c.content.length,closed:c.closed,result:c.reason,closedAt:c.closed?c.t:0,cancelledAt:c.reason==='ok'?0:c.t,readerAt:1001,writerBytes:c.writerBytesOverride ?? c.accepted,writerCrc:c.writerCrcOverride ?? ((c.reader.updateCrc(0xffffffff,c.content,c.accepted)^0xffffffff)>>>0),offset:0,length:c.content.length,data:c.content}),
+ view:()=>({id:1,metadata:c.metadata,size:c.content.length,closed:c.closed,result:c.reason,closedAt:c.closed?c.t:0,cancelledAt:c.reason==='ok'?0:c.t,readerAt:1001,pausedAt:c.pausedAt||0,readerClosedAt:c.closed?c.t:0,resumedAt:c.resumedAt||0,writerBytes:c.writerBytesOverride ?? c.accepted,writerCrc:c.writerCrcOverride ?? ((c.reader.updateCrc(0xffffffff,c.content,c.accepted)^0xffffffff)>>>0),offset:0,length:c.content.length,data:c.content}),
  progress:(id,bytes,at)=>{assert(bytes>c.accepted);c.accepted=bytes;if(bytes===c.content.length)c.closed=true;return true;},
  cancel:(id,r)=>{c.reason=r;c.closed=true;},release:(id,r)=>{c.released={...r};}};
  c.transfer.compareWriter=(result,closed)=>c.compareWriter(result,closed);
@@ -68,7 +68,7 @@ function downloadContext(content=Buffer.from('123456789')) {
  c.httpd_send=(r,data,len)=>{c.t+=5;if(!c.io.bodyOutput){c.raw+=data.slice(0,len);return len;}
  const n=c.sendSteps.length?c.sendSteps.shift():len;if(n<=0)return n;c.body.push(...data.subarray(0,n));return n;};
  c.setFailure=r=>c.serverFailure=r;c.sampleHttp=()=>{};c.heap_caps_get_free_size=()=>60000;c.heap_caps_get_largest_free_block=()=>40000;c.uxTaskGetStackHighWaterMark=()=>1500;
- let b=body(http,'esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number) {')
+ let b=body(http,'esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number, bool current) {')
  .replace(/port(?:ENTER|EXIT)_CRITICAL\(&mux\);/g,'').replace(/diagreader::/g,'reader.').replace(/diagtransfer::/g,'transfer.').replace(/diag::/g,'diag.')
  .replace(/diagtransfer::Result result;/g,'let result={};').replace(/transfer.Result result;/g,'let result={};')
  .replace(/const (?:auto|bool|uint64_t|size_t|int) /g,'const ').replace(/\b(?:uint32_t|bool|size_t) (\w+)=/g,'let $1=')
@@ -76,17 +76,19 @@ function downloadContext(content=Buffer.from('123456789')) {
  .replace(/io->/g,'io.').replace(/reinterpret_cast<const char\*>\(state.data\+offset\)/g,'state.data.subarray(offset)')
  .replace(/state.data\+offset/g,'state.data.subarray(offset)').replace(/page\+offset/g,'page.value.slice(offset)')
  .replace(/nullptr/g,'null').replace(/"\s*\n\s*"/g,'"+"');
+ b=b.replace('char name[24]; reader.nameFor({0,number,current},name,sizeof(name));', "let name=current?'current.log':`archive-${String(number).padStart(8,'0')}.log`;")
+ .replace('name[strlen(name)-4]=0;', 'name=name.slice(0,-4);');
  // C++ default member initializers.
  b=b.replace('result.crc=crc^0xffffffff','result.crc=(crc^0xffffffff)>>>0');
  b=b.replace('let result={};','let result={bytes:0,expected:0,firstBody:0,lastBody:0,maxGap:0,cancelledAt:0,closedAt:0,releasedAt:0,writerBytes:0,writerCrc:0,crcCheck:"unavailable"};');
- vm.createContext(c);vm.runInContext(`function compareWriter(result,closed){${adapt(body(source,'void compareWriter('))}}`,c);vm.runInContext(`function download(req,io,number){${b}}`,c);return c;
+ vm.createContext(c);vm.runInContext(`function compareWriter(result,closed){${adapt(body(source,'void compareWriter('))}}`,c);vm.runInContext(`function download(req,io,number,current=false){${b}}`,c);return c;
 }
 test('actual HTTP handler sends full fixed-length response and exact partial-send CRC',()=>{
  const c=downloadContext();c.sendSteps=[3,2,4];assert.equal(c.download(c.req,c.io,7),-1);
  assert.match(c.raw,/HTTP\/1.1 200 OK\r\n/);assert.match(c.raw,/Content-Length: 9\r\n/);
  assert.match(c.raw,/filename="108-1-archive-00000007-9.log"/);
  assert.equal(Buffer.from(c.body).toString(),'123456789');assert.equal(c.released.bytes,9);assert.equal(c.released.crc>>>0,0xcbf43926);assert.equal(c.released.result,'ok');
- assert.deepEqual(c.records.map(x=>x.name),['HTTP_GET_BEGIN','HTTP_GET_META','HTTP_GET_END','HTTP_GET_MEM']);
+ assert.deepEqual(c.records.map(x=>x.name),['HTTP_GET_BEGIN','HTTP_GET_META','HTTP_GET_END','HTTP_GET_CLOSE','HTTP_GET_MEM']);
  assert.equal(c.shared.userActivity,1000);
 });
 test('actual handler partial-body failure records only accepted prefix and never appends error',()=>{
@@ -140,5 +142,50 @@ test('dual-CRC END fits the fixed log field capacity at maximum numeric widths',
  const format='id=%llu expected=%llu bytes='+http.split('snprintf(page,PAGE_CAP,"id=%llu expected=%llu bytes=')[1].split('"')[0];
  const worst=format.replace(/%llu/g,'18446744073709551615').replace(/%08lX/g,'FFFFFFFF').replace(/%s/, 'writer_close_pending').replace(/%s/,'unavailable');
  assert(worst.length<capacity,`${worst.length} >= ${capacity}`);
+});
+
+test('current reservation dispatches distinctly including queued shutdown',()=>{
+ const c=context();const id=c.request(0,1000,true);assert.equal(c.pending.request,c.Request.HttpCurrent);
+ c.writerOffline();c.stop(c.pending);assert(c.box.closed);assert.equal(c.box.result,'shutdown');
+ c.release(id,{id,result:'shutdown',releasedAt:1100});c.offlineTick();assert(!c.busy());
+ assert.match(usb,/accepted.request == Request::HttpCurrent/);
+});
+test('current cleanup timing survives release-first and late writer completion',()=>{
+ const c=context();const id=c.request(0,1000,true);c.accept(c.pending);
+ c.release(id,{id,bytes:0,crc:0,result:'writer_close_pending',releasedAt:1050});
+ c.r.pausedAt=1001;c.r.readerClosedAt=1100;c.r.resumedAt=1101;c.close('aborted');
+ assert.equal(c.lastResult.pausedAt,1001);assert.equal(c.lastResult.resumedAt,1101);
+ assert.equal(c.lastResult.readerClosedAt,1100);assert.equal(c.lastResult.appends,'resumed');
+});
+test('actual current response uses frozen size and reports measured cleanup separately',()=>{
+ const c=downloadContext();c.pausedAt=1001;c.resumedAt=1050;
+ c.download(c.req,c.io,0,true);assert.match(c.raw,/filename="108-1-current-9.log"/);
+ assert.match(c.raw,/Content-Length: 9/);assert.match(c.records[0].text,/file=current.log/);
+ const close=c.records.find(x=>x.name==='HTTP_GET_CLOSE').text;
+ assert.match(close,/pause_ms=1001/);assert.match(close,/resume_ms=1050 paused_ms=49 appends=resumed/);
+ assert.equal(c.released.crcCheck,'match');
+});
+test('resume failure and unavailable close never claim successful append resumption',()=>{
+ const c=context();const r={id:1,bytes:0,crc:0,result:'logger_failed',appends:'unknown'};
+ c.compareWriter(r,{id:1,closed:false});assert.equal(r.appends,'unknown');
+ c.compareWriter(r,{id:1,closed:true,pausedAt:1000,resumedAt:0,readerClosedAt:1100,writerBytes:0,writerCrc:0});
+ assert.equal(r.appends,'resume_failed');assert.equal(r.result,'logger_failed');
+});
+test('current route is exact and methods are refused before reserving',()=>{
+ const b=body(http,'esp_err_t handle(');
+ assert.match(b,/!strcmp\(req->uri,"\/f\/current"\)\) return download\(req,io,0,true\)/);
+ assert(b.indexOf('req->method != HTTP_GET')<b.indexOf('"/f/current"'));
+ assert.match(body(http,'bool formatPage('),/href='\/f\/current'/);
+});
+test('cleanup record fits field capacity with maximum timestamps',()=>{
+ const capacity=Number(sd.split('char fields[')[1].split(']')[0]);
+ const format='id=%llu pause_ms='+http.split('snprintf(page,PAGE_CAP,"id=%llu pause_ms=')[1].split('"')[0];
+ const worst=format.replace(/%llu/g,'18446744073709551615').replace('%s','resume_failed');
+ assert(worst.length<capacity);
+});
+test('measured lifecycle configuration remains pinned',()=>{
+ assert.match(http,/config.stack_size = 6144;/);assert.match(http,/config.task_caps = MALLOC_CAP_INTERNAL \| MALLOC_CAP_8BIT;/);
+ assert.match(http,/config.max_open_sockets = CLIENTS;/);assert.match(http,/CLIENTS = 3/);
+ assert.match(http,/config.lru_purge_enable = false;/);
 });
 console.log(`${count} HTTP transfer checks passed; source simulations only.`);

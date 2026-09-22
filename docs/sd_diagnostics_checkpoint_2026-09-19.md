@@ -1,6 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 22, increment 5 accepted; increment 6 for Claude review
+
+JP accepts increment 5 and approves increment 6. Current.log HTTP snapshot route now uses
+writer-owned pause/frozen-size/close/resume; limits and USB protocol unchanged. Cleanup
+measurements are in HTTP_GET_CLOSE to keep dual-CRC END bounded. 219 host checks pass.
+[Review handoff](sd_iphone_log_download_increment6.md). No assistant compile/flash.
+Claude review before JP builds; first future gate C is one normal Safari snapshot plus
+later USB prefix comparison. Increment 7 unapproved. Date/time proposal remains deferred.
+
+
 ## Latest handoff - September 22, gate B passed; increment 5 acceptance pending
 
 Large Safari archive 21 equals USB reference: 2097146 bytes, CRC32 0B301A04, dual match.
