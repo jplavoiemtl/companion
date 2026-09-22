@@ -1,6 +1,6 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
-## Latest handoff - September 22, corrected HTTP admission verified on boot 108
+## Latest handoff - September 22, increment 3 first server gate passed on boot 108
 
 At reviewed checkpoint 767cbbc, accepted=3/rejected=0, HTTP stack margin 1688, worker
 margin 2656; favicon returns HTTP 204 with zero body. USB CRC passes for 210225 bytes,
@@ -9,8 +9,10 @@ then appends grow by 163 bytes; no queue drops, memory above gate. See the newes
 Manual shutdown now confirmed by JP's 11:37 follow-up: OFF/server=off, no error or
 stuck release, same boot 108, continued append growth to 213763 bytes and zero drops.
 Worker margin after teardown 2304 bytes. Status was sampled 9.47 seconds after the
-command; this is not a stop-latency measurement. Only Safari listing-name comparison
-and Last result observation remain; no rebuild or repeat USB download required.
+command; this is not a stop-latency measurement. JP now confirms the Safari listing
+matches USB and Last result displays No HTTP transfer yet. All evidence for this first
+server gate is complete: PASSED. No more results required for this case; remaining
+increment 3 validation is separate.
 Increment 4 remains unapproved. No firmware changes.
 
 

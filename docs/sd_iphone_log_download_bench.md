@@ -1,6 +1,15 @@
 # iPhone log retrieval - bench cases and results
 
-## September 22, 11:31 - increment 3 corrected admission passes; first case completion pending
+## September 22, 11:31 - increment 3 first server gate PASSED (boot 108)
+
+Final confirmation: JP confirms the iPhone listing matches the USB file list and the
+Last result page displays "No HTTP transfer yet". Together with the recorded startup,
+admission, favicon 204, manual OFF/server=off, memory, zero drops, USB CRC and append
+growth, this completes the issued normal server start/list/favicon/stop gate. No further
+capture, screenshot, downloaded file or measurement is required for this case. USB CRC
+is evidenced by the console, not an independent file inspection. Earlier pending notes
+below describe the sequence and are superseded by this confirmation. This passes the
+first gate only, not all increment 3 validation; increment 4 remains unapproved.
 
 Reviewed checkpoint 767cbbc; JP reports the test passed. Evidence: console attachment
 265f1cd4-4897-4190-9b44-89cca49a461e/Pasted text.txt and pasted laptop curl output.
