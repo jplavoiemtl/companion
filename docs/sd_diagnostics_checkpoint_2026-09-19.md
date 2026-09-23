@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 23, 6A unknown-start bench case passed
+
+Claude cleared build at 337cdc9. Boot 118 archive 17 Safari/USB equality confirmed,
+308745 bytes / CRC32 541A8F0C. Unknown opening time and dated last endpoint match
+actual file records; start-unknown filename correct. HTTP margin 2656, writer 3208,
+zero drops, memory above gate, mode OFF. See latest bench entry for evidence limits.
+Synced filename gate still pending: next single case uses archive 21 on same firmware.
+No rebuild needed. 6A not yet accepted; increment 7 unapproved.
+
+
 
 ## Latest handoff - September 23, 6A implemented for Claude review
 

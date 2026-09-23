@@ -1,5 +1,43 @@
 # iPhone log retrieval - bench cases and results
 
+## September 23 - 6A first hardware run, boot 118: unknown-start archive passed
+
+Firmware reviewed at 337cdc9; JP reports test ran fine. Console attachment
+24f0c364-375c-435c-8f7b-1320337fc541, plus Downloads/listing-1.PNG,
+listing-2.PNG, last-result.PNG, start-unknown_118-1-archive-00000017-308745.log,
+118-archive-00000017.log and 118-current.log inspected.
+
+Safari and USB archive 17 are byte-identical: 308745 bytes, CRC32 541A8F0C,
+SHA256 c592bf6b49d7b52defab68fda97c4476ad2c33b737191ed99546d839da5dc28e.
+Opening record is local=unknown time=unknown, boot=38 seq=53, FILE_OPEN generation=17.
+Final complete record is local=2026-09-19T09:29:59.274-04:00, synced, boot=69 seq=8.
+First dated record is CLOCK_SYNC on 2026-09-17T11:01:36.509-04:00, boot=39;
+it is not evidence of the file creation time. Both listing screenshots correctly show
+opened unavailable (clock unknown) and last 2026-09-19 09:29:59 -04:00.
+The start-unknown filename is correct. This validates unknown-start fallback, not
+synced-date filename generation: archive 17 did not satisfy that selection condition.
+
+HTTP id=1 END reports result=ok, both prefixes 308745 and CRCs 541A8F0C,
+crc_check=match, gap_ms=42. Appends unpaused. HTTP margin=2656 bytes;
+writer stack_min=3208 at post-download status, worker minimum=2304 after stop.
+Lowest captured probe largest_min=34804, HTTP internal_largest=42996, post-download
+status internal_largest=36852: above 20480 gate. No drops, errors or boot change.
+Current grew from USB snapshot 1564764 to 1565275 after transfer. Mode OFF confirmed
+at 08:59:37; no stuck release. Separate listing-only stack snapshot was not captured.
+
+Both listing screenshots have no pending rows, sorted archives 14..21 then current.
+Cold pending-clear duration was not reported and cannot be inferred from screenshots.
+Current row advanced from size 1560061 / last-written 08:56:09 to size 1562102 /
+last-written 08:57:11, retaining opened 2026-09-22 10:36:43 -04:00.
+last-result.PNG is blank; listing-2 nevertheless captures the full successful result.
+
+Next single case: same firmware, archive 21 (2097146 bytes), whose listing has synced
+opened 2026-09-20 19:30:38 -04:00 and last 2026-09-22 10:35:50 -04:00.
+Verify its actual header/tail and Safari dated filename and compare with USB bytes.
+Repeat cold-list observation and separate listing/transfer status captures in this case.
+6A acceptance remains pending; no new implementation or increment 7 authorization.
+
+
 
 ## September 23, 07:53-07:56 - gate C controlled queue-pressure abort passes
 
