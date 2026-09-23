@@ -18,13 +18,13 @@ before case and unchanged. No reset or stuck release. Post-USB growth1646157 to
 1646324 (+167 bytes). Listing confirms resumed appends and recovered inventory
 (stale0/busy0), current1644616 last-written10:04:20, retaining opening timestamp.
 
-Separate last-result.PNG is entirely blank. Listing contains the complete correct
-id5 result; cancellation gate passes independently. Blank capture does not establish
-whether Safari page was actually blank or screenshot was taken during loading; a
-similar blank screenshot appeared in the earlier archive17 case, while other result
-screenshots rendered successfully. Next single focused check: ACTIVE mode, open
-Last result, wait a few seconds and capture actual visible page; if blank, reload
-once and report behavior. No firmware change until reproducible evidence.
+Correction after JP challenged the preview: original last-result.PNG re-rendered as
+PNG at higher resolution clearly contains transfer5 mode_exit,643680/1642899,
+CRC555AAE7E matching writer, appends resumed and the correct cleanup timestamps.
+The earlier blank-page claim was an assistant image-preview interpretation error,
+not evidence of a Safari/device failure. Withdraw the proposed page-reload check.
+Earlier blank-image observations from the same preview workflow are unverified and
+must not be used as evidence of a recurring UI defect. No firmware fix warranted.
 6A natural rotation and overall increment7 acceptance remain pending.
 
 

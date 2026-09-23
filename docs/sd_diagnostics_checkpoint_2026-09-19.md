@@ -1,5 +1,14 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest correction - September23, result screenshot verified
+
+JP correctly challenged the blank-image claim. Re-rendering original last-result.PNG
+confirms complete current-cancellation result, matching CRCs and appends resumed.
+Withdraw the blank-page follow-up: assistant preview error, no established UI defect.
+Current cancellation gate remains passed. Continue increment7 failure cases without
+an extra page test; 6A natural rotation still pending.
+
+
 ## Latest handoff - September23, current cancellation passed; verify blank result page
 
 HTTP id5 current mode_exit at643680/1642899; both CRC555AAE7E independently match
