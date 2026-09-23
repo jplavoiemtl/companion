@@ -1,5 +1,30 @@
 # iPhone log retrieval - bench cases and results
 
+## September23 - increment7 background-app archive case passed, boot118
+
+JP ran issued Safari-background/unlocked60-second case and reports file downloaded.
+App-switch instants are not instrumented. Console attachment
+37f3c6a4-5d74-4a62-b555-e2e1e95606de, Downloads/118-current (1).log (1936646 bytes,
+USB CRC OK), latest-result.PNG and
+2026-09-20T193038-0400_118-7-archive-00000021-2097146.log inspected.
+Export2097146 bytes CRC0B301A04 SHA256
+8f9aa99aa6b8bbc73518531469f0bb0c2762d27f651f786a8e8987f1e84b6433 matches
+previously verified USB archive21. Screenshot shows id7 ok, full prefixes,
+matching CRCs, appends unpaused.
+
+END id7 result ok, cancel0, first8419147 last8461537:42.390 s body duration.
+Max progress gap1241 ms, terminal gap2 ms, close8461538/release8461539.
+HTTP MEM internal_largest47092, margin2584; writer2920, retained http_min2576,
+internal_largest31732; drops0/truncated0/no error/reset/stuck release. Slow-write
+counters unchanged from pre-case. Exit records show109 ms stop-to-OFF (no final
+mode-status command in console). Post-USB append growth1936646 ->1937851 (+1205).
+Successful background behavior does not exercise stalled-client cancellation.
+No timeout change or firmware fix indicated. 6A rotation still pending newest21.
+Next single increment7 case: archive21 transfer interrupted by hotspot off30 seconds,
+then on; verify link-down media exclusion, bounded transfer termination and recovery.
+Keep USB power; no rebuild. Overall increment7 acceptance remains pending.
+
+
 ## September23 - increment7 phone-lock archive case passed, boot118
 
 JP ran issued lock-after-about5-seconds / remain-locked60-seconds case and reports

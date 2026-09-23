@@ -1,5 +1,14 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September23, background-app archive transfer passed
+
+HTTP id7 archive21 saved fully; SHA256 matches USB reference, CRC0B301A04.
+Body42.390 s, max gap1241 ms, drops0, healthy memory/stack, OFF109 ms, logging grows.
+Next one case: hotspot loss during archive21 transfer, off30 seconds then reconnect,
+existing firmware. 6A natural rotation still pending current1937851/newest21.
+No code change or timeout tuning; overall increment7 acceptance remains pending.
+
+
 ## Latest handoff - September23, phone-lock archive transfer passed
 
 HTTP id6 archive21 completed and exported2097146-byte file matches known USB SHA256
