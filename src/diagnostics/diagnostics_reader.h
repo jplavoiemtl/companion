@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
+#include "diagnostics_log_time.h"
 
 // Main submits; only the SD writer starts/reads/cleans up. No transport calls here.
 namespace diagreader {
@@ -32,6 +33,7 @@ struct ReaderState {
   uint32_t fileNumber = 0, crc = 0xffffffff;
   uint64_t fileSize = 0, sentBytes = 0, startedAt = 0, lastProgress = 0;
   uint64_t pausedAt = 0, readerClosedAt = 0, resumedAt = 0;
+  diagtime::Time opened;
   char filename[24] = {};
 };
 struct Accepted {

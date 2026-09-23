@@ -1,3 +1,4 @@
+#include "diagnostics_log_time.h"
 #include "diagnostics_http_transfer.h"
 #include "diagnostics_inventory.h"
 #include "diagnostics_retrieval.h"
@@ -604,7 +605,9 @@ bool direct(const diag::Stamp& when, const char* level, const char* event, const
   size_t length = formatLine(when, level, event, fields);
   if (!length) return false;
   ++sequence;
-  return rawWrite(line, length);
+  const bool ok = rawWrite(line, length);
+  if (ok) diagtime::written(line,length,!strcmp(event,"FILE_OPEN"),sizeBytes,generation);
+  return ok;
 }
 bool writeRecord(const diag::Stamp& when, const char* level, const char* event, const char* fields);
 bool writeBoot(const diag::Stamp& when, const char* context) {
@@ -686,7 +689,9 @@ bool writeRecord(const diag::Stamp& when, const char* level, const char* event, 
   // Space check once per bounded batch, plus rotation; each record still enforces size.
   if (!length) return false;
   ++sequence;
-  return rawWrite(line, length);
+  const bool ok = rawWrite(line, length);
+  if (ok) diagtime::written(line,length,!strcmp(event,"FILE_OPEN"),sizeBytes,generation);
+  return ok;
 }
 bool headerToken(const char*& cursor, const char* key, char* output, size_t capacity) {
   const size_t keyLength = strlen(key);
@@ -768,7 +773,10 @@ bool openStorage() {
     if (readOk) {
       line[length] = 0;
       char* end = static_cast<char*>(memchr(line, '\n', length));
-      if (end) { end[1] = 0; valid = headerGeneration(line, saved); }
+      if (end) {
+        end[1] = 0; valid = headerGeneration(line, saved);
+        if (valid) diagtime::restoreCurrent(line,size_t(end-line)+1,uint64_t(info.st_size),saved);
+      }
       if (lseek(reader, -1, SEEK_END) < 0 || read(reader, &tail, 1) != 1) readOk = false;
       incomplete = tail != '\n';
     }
@@ -1285,6 +1293,10 @@ void writerTask(void*) {
 #endif
 }
 } // namespace
+
+bool diagnosticsHeaderValid(const char* line, uint32_t& generation) {
+  return headerGeneration(line,generation); // Recovery acceptance is unchanged.
+}
 
 namespace diag {
 bool record(const char* event, const char* fields, bool important) {

@@ -76,6 +76,7 @@ function downloadContext(content=Buffer.from('123456789')) {
  .replace(/io->/g,'io.').replace(/reinterpret_cast<const char\*>\(state.data\+offset\)/g,'state.data.subarray(offset)')
  .replace(/state.data\+offset/g,'state.data.subarray(offset)').replace(/page\+offset/g,'page.value.slice(offset)')
  .replace(/nullptr/g,'null').replace(/"\s*\n\s*"/g,'"+"');
+ b=b.replace('char dated[32]; diagtime::prefix(result.opened,dated,sizeof(dated));', "const dated='start-unknown';");
  b=b.replace('char name[24]; reader.nameFor({0,number,current},name,sizeof(name));', "let name=current?'current.log':`archive-${String(number).padStart(8,'0')}.log`;")
  .replace('name[strlen(name)-4]=0;', 'name=name.slice(0,-4);');
  // C++ default member initializers.
@@ -86,7 +87,7 @@ function downloadContext(content=Buffer.from('123456789')) {
 test('actual HTTP handler sends full fixed-length response and exact partial-send CRC',()=>{
  const c=downloadContext();c.sendSteps=[3,2,4];assert.equal(c.download(c.req,c.io,7),-1);
  assert.match(c.raw,/HTTP\/1.1 200 OK\r\n/);assert.match(c.raw,/Content-Length: 9\r\n/);
- assert.match(c.raw,/filename="108-1-archive-00000007-9.log"/);
+ assert.match(c.raw,/filename="start-unknown_108-1-archive-00000007-9.log"/);
  assert.equal(Buffer.from(c.body).toString(),'123456789');assert.equal(c.released.bytes,9);assert.equal(c.released.crc>>>0,0xcbf43926);assert.equal(c.released.result,'ok');
  assert.deepEqual(c.records.map(x=>x.name),['HTTP_GET_BEGIN','HTTP_GET_META','HTTP_GET_END','HTTP_GET_CLOSE','HTTP_GET_MEM']);
  assert.equal(c.shared.userActivity,1000);
@@ -159,7 +160,7 @@ test('current cleanup timing survives release-first and late writer completion',
 });
 test('actual current response uses frozen size and reports measured cleanup separately',()=>{
  const c=downloadContext();c.pausedAt=1001;c.resumedAt=1050;
- c.download(c.req,c.io,0,true);assert.match(c.raw,/filename="108-1-current-9.log"/);
+ c.download(c.req,c.io,0,true);assert.match(c.raw,/filename="start-unknown_108-1-current-9.log"/);
  assert.match(c.raw,/Content-Length: 9/);assert.match(c.records[0].text,/file=current.log/);
  const close=c.records.find(x=>x.name==='HTTP_GET_CLOSE').text;
  assert.match(close,/pause_ms=1001/);assert.match(close,/resume_ms=1050 paused_ms=49 appends=resumed/);

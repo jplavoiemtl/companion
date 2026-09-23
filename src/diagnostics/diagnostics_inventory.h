@@ -1,8 +1,10 @@
 #pragma once
 #include "diagnostics_reader.h"
 namespace diaginventory {
+struct Entry { diagreader::FileEntry file; diagtime::Ends times; uint64_t retryAt=0; };
+static_assert(sizeof(Entry)<=64,"inventory entry budget");
 struct View {
-  const diagreader::FileEntry* entries = nullptr;
+  const Entry* entries = nullptr;
   size_t count = 0;
   uint64_t at = 0;
   bool valid = false, stale = true;

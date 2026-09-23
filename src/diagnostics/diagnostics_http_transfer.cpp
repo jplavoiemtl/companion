@@ -117,7 +117,7 @@ void accept(const diagreader::Accepted& request) {
   if (const char* reason=diagreader::start(request,transportStop)) { close(reason); return; }
   started=true;
   const auto& r=diagreader::view();
-  portENTER_CRITICAL(&mux); box.size=r.fileSize; box.metadata=true; portEXIT_CRITICAL(&mux);
+  portENTER_CRITICAL(&mux); box.size=r.fileSize; box.opened=r.opened; box.metadata=true; portEXIT_CRITICAL(&mux);
 }
 void tick() {
   const View s=view();

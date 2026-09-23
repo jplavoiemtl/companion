@@ -220,3 +220,11 @@ single-page64 KiB PSRAM layout, archive-number ordering, test-clock labels, expl
 restore and bounded View. Qualified tail plausibility for header-only files and its limited
 ability to detect stale data. No firmware implementation has started. JP may approve6A
 implementation; code will go to Claude before JP builds, then one bench case at a time.
+
+
+## Implementation approval and handoff - September 23
+
+JP approved6A implementation after revision2 at1517de0. Implementation is now in
+[6A handoff](sd_iphone_log_download_increment6a.md), awaiting Claude code review before
+JP builds. Earlier pending implementation statuses are historical. No firmware build/flash
+by Codex; increment7 remains unapproved.

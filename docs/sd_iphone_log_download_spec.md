@@ -15,7 +15,9 @@ JP accepted increment 4 after gate A passed and approved increment 5 on Septembe
 Increment 5 uses the existing streamed archive implementation for timing gate B; no
 firmware change or rebuild is required. JP accepted increment 5 after gate B passed and approved increment 6 on September 22.
 JP accepted increment 6 on September 23 after normal and queue-pressure gate C cases passed.
-Event-time discovery design is now proposed for Claude review; implementation unapproved.
+JP approved6A event-time discovery implementation after design revision2.
+[6A implementation](sd_iphone_log_download_increment6a.md) is awaiting Claude code review;
+no build/flash or hardware results yet.
 Increment 7 and beyond remain unapproved.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the
@@ -489,7 +491,7 @@ time, append resumption time and transport release time.
 **September 23:** increment 6 accepted. Proposal advanced to
 [design revision 2](sd_iphone_log_download_time_design.md) resolves Claude review229a344;
 writer-memory current endpoints, one-turn archive reads, unchanged recovery validation,
-single-page64 KiB PSRAM layout. Await JP6A implementation approval.
+single-page64 KiB PSRAM layout. JP approved6A; implementation now awaits Claude code review.
 
 Recorded September 22 at JP's request during increment 5. In the car, JP needs to find
 which file contains a strange event without knowing its archive number. JP proposed

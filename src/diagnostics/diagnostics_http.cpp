@@ -24,9 +24,11 @@ extern HWCDC USBSerial;
 
 namespace diaghttp {
 namespace {
-constexpr size_t WORKER_STACK = 4096, PAGE_CAP = 32768, CLIENTS = 3;
+constexpr size_t WORKER_STACK = 4096, PAGE_CAP = 65536, CLIENTS = 3;
 constexpr uint64_t IO_MS = 5000;
-static_assert(256*112+2048+1 <= PAGE_CAP,"bounded listing fits PSRAM page");
+constexpr size_t ROW_NAME_MAX=112, ROW_OPEN_MAX=44, ROW_LAST_MAX=60, ROW_BUDGET=224;
+static_assert(ROW_NAME_MAX+ROW_OPEN_MAX+ROW_LAST_MAX<=ROW_BUDGET,"row budget");
+static_assert(256*ROW_BUDGET+2048+1 <= PAGE_CAP,"bounded listing fits PSRAM page");
 portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 enum class Phase : uint8_t { Off, Starting, Listening, Active, Stopping, Failed };
 struct Shared {
@@ -213,7 +215,7 @@ bool append(size_t& used, const char* format, ...) {
 // One fixed page, no stack-sized inventory or page. Pin ends before network output.
 bool formatPage(bool resultOnly, size_t& used) {
   used = 0;
-  bool ok = append(used,"<!doctype html><html><head><meta name=viewport content='width=device-width'><title>Companion logs</title></head><body><h1>Companion logs</h1><a href='/'>Logs</a> <a href='/result'>Last result</a>");
+  bool ok = append(used,"<!doctype html><html><head><meta name=viewport content='width=device-width'><title>Companion logs</title><style>pre{white-space:pre-wrap;overflow-wrap:anywhere}body{font-family:system-ui}</style></head><body><h1>Companion logs</h1><a href='/'>Logs</a> <a href='/result'>Last result</a>");
   const auto transfer=diagtransfer::last();
   if (!transfer.id) ok=ok && append(used,"<p>No HTTP transfer yet.</p>");
   else ok=ok && append(used,"<p>Transfer %llu: %s; transport accepted %llu / %llu bytes; prefix CRC32 %08lX. Device send result, not phone save verification.</p>",
@@ -230,12 +232,17 @@ bool formatPage(bool resultOnly, size_t& used) {
     ok = ok && append(used,"<p>Inventory: %s; age %llu ms; stale=%u; busy=%u; status=%s. Sizes are advisory.</p><pre>",
       v.valid ? "available" : "pending",(unsigned long long)(v.valid ? nowMs()-v.at : 0),unsigned(v.stale || busy),unsigned(busy),v.error);
     for (size_t i=0; ok && i<v.count; ++i) {
-      char name[24]; diagreader::nameFor(v.entries[i],name,sizeof(name));
-      if (v.entries[i].current) ok=append(used,"<a href='/f/current'>%s</a> %llu bytes (snapshot on download)\n",name,(unsigned long long)v.entries[i].size);
-      else ok=append(used,"<a href='/f/%08lu'>%s</a> %llu bytes\n",(unsigned long)v.entries[i].number,name,(unsigned long long)v.entries[i].size);
+      char name[24]; diagreader::nameFor(v.entries[i].file,name,sizeof(name));
+      if (v.entries[i].file.current) ok=append(used,"<a href='/f/current'>%s</a> %llu bytes (growing; snapshot on download)\n",name,(unsigned long long)v.entries[i].file.size);
+      else ok=append(used,"<a href='/f/%08lu'>%s</a> %llu bytes\n",(unsigned long)v.entries[i].file.number,name,(unsigned long long)v.entries[i].file.size);
+      char opened[48], last[48];
+      diagtime::format(v.entries[i].times.opened,opened,sizeof(opened));
+      diagtime::format(v.entries[i].times.last,last,sizeof(last));
+      ok=ok && append(used,"  opened %s\n  last %s%s%s\n",opened,
+        v.entries[i].file.current ? "written " : "",last,v.entries[i].times.fragment ? " (tail fragment)" : "");
     }
     diaginventory::unpin(v);
-    ok = ok && append(used,"</pre><p>Archive and current.log snapshot downloads available.</p>");
+    ok = ok && append(used,"</pre><p>Times are record endpoints, not complete coverage; offsets are from each record. Current may span boots. Filename boot is the download boot; its date is file-open time.</p>");
   }
   return ok && append(used,"</body></html>");
 }
@@ -320,7 +327,7 @@ esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number, bool curren
   bool headersSent=false;
   for (;;) {
     const auto state=diagtransfer::view();
-    if (state.metadata && (!state.closed || !strcmp(state.result,"ok"))) { result.expected=state.size; break; }
+    if (state.metadata && (!state.closed || !strcmp(state.result,"ok"))) { result.expected=state.size; result.opened=state.opened; break; }
     if (state.closed) { result.result=state.result; result.closedAt=state.closedAt; break; }
     if (cancelled(io->generation) || nowMs()-at>=IO_MS) {
       result.result=cancelled(io->generation) ? "mode_exit" : "metadata_timeout"; break;
@@ -328,12 +335,13 @@ esp_err_t download(httpd_req_t* req, SessionIo* io, uint32_t number, bool curren
     nap();
   }
   if (!strcmp(result.result,"pending")) {
+    char dated[32]; diagtime::prefix(result.opened,dated,sizeof(dated));
     const int length=snprintf(page,PAGE_CAP,
       "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\n"
-      "Content-Disposition: attachment; filename=\"%llu-%llu-%s-%llu.log\"\r\n"
+      "Content-Disposition: attachment; filename=\"%s_%llu-%llu-%s-%llu.log\"\r\n"
       "Content-Length: %llu\r\nConnection: close\r\nCache-Control: no-store\r\n"
       "Referrer-Policy: no-referrer\r\n\r\n",
-      (unsigned long long)storage.boot,(unsigned long long)id,name,
+      dated,(unsigned long long)storage.boot,(unsigned long long)id,name,
       (unsigned long long)result.expected,(unsigned long long)result.expected);
     io->transfer=id;
     // Header output is bounded independently; only body writes count as progress.

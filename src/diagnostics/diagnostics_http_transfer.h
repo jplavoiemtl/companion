@@ -4,6 +4,7 @@
 namespace diagtransfer {
 struct View {
   uint64_t id=0, generation=0, size=0, offset=0, started=0, closedAt=0, cancelledAt=0, readerAt=0;
+  diagtime::Time opened;
   uint64_t writerBytes=0;
   uint64_t pausedAt=0, readerClosedAt=0, resumedAt=0;
   uint32_t writerCrc=0;
@@ -15,6 +16,7 @@ struct View {
 struct Result {
   uint64_t id=0, expected=0, bytes=0, started=0, firstBody=0, lastBody=0;
   uint64_t maxGap=0, cancelledAt=0, closedAt=0, releasedAt=0;
+  diagtime::Time opened;
   uint64_t writerBytes=0;
   uint64_t pausedAt=0, readerClosedAt=0, resumedAt=0;
   uint32_t number=0, crc=0, writerCrc=0;

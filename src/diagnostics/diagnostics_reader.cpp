@@ -192,7 +192,7 @@ const char* start(const Accepted& accepted, const char* (*transportStop)()) {
   isCurrent = accepted.request == Request::Current || accepted.request == Request::HttpCurrent; fileNumber = accepted.number;
   startedAt = lastProgress = accepted.at; sentBytes = fileSize = 0; crc = 0xffffffff;
   begun = paused = false; pendingBytes = 0;
-  pausedAt = readerClosedAt = resumedAt = 0; publish();
+  pausedAt = readerClosedAt = resumedAt = 0; state.opened = {}; publish();
   buffers = static_cast<Buffers*>(heap_caps_calloc(1, sizeof(Buffers), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   if (!buffers) return "memory";
   if (const char* reason = stopReason(transportStop)) return reason;
@@ -213,7 +213,12 @@ const char* start(const Accepted& accepted, const char* (*transportStop)()) {
   reader = open(path, O_RDONLY);
   if (reader < 0) return "read_failed";
   if (fstat(reader, &st) || st.st_size < 0) return "read_failed";
-  fileSize = st.st_size; return nullptr;
+  fileSize = st.st_size;
+  if (accepted.request == Request::HttpArchive || accepted.request == Request::HttpCurrent) {
+    if (const char* reason = diagtime::readStart(reader,state.opened)) return reason;
+    if (const char* reason = stopReason(transportStop)) return reason;
+  }
+  return nullptr;
 }
 const char* readChunk() {
   portENTER_CRITICAL(&sessionMux);

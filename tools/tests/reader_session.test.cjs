@@ -7,6 +7,7 @@ const header=fs.readFileSync(path.join(base,'diagnostics_reader.h'),'utf8');
 const usb=fs.readFileSync(path.join(base,'diagnostics_usb.cpp'),'utf8');
 function body(sig){const i=source.indexOf(sig);assert.ok(i>=0,sig);const a=source.indexOf('{',i);let n=a+1,d=1;while(d){if(source[n]==='{')++d;if(source[n]==='}')--d;++n;}return source.slice(a+1,n-1);}
 function adapt(s){return s
+ .replace('if (const char* reason = diagtime::readStart(reader,state.opened)) return reason;', 'const metadataReason=readStart(reader,state.opened); if(metadataReason)return metadataReason;')
  .replace(/port(?:ENTER|EXIT)_CRITICAL\(&sessionMux\);/g,'')
  .replace(/const (?:bool|size_t|auto) /g,'const ')
  .replace(/\bbool ok =/g,'let ok =')
@@ -40,7 +41,7 @@ function adapt(s){return s
 const specs=[['reserve','request,number,at','bool reserve('],['busy','','bool busy()'],['requestAbort','','void requestAbort()'],['abortPending','','bool abortPending()'],['takeAbort','','bool takeAbort()'],['takeRequest','','Accepted takeRequest()'],['invalidate','generation','void invalidate('],['release','generation','bool release('],['publish','','void publish()'],['published','','Published published()'],['start','accepted,transportStop','const char* start('],['stopReason','transportStop','const char* stopReason('],['readChunk','','const char* readChunk()'],['progress','generation,body','bool progress('],['progressBytes','generation,bytes,at','bool progressBytes('],['terminalClock','','void terminalClock()'],['closeReaderAndResume','recordEnd,result,keepEvent=false','bool closeReaderAndResume('],['beforePrune','number','bool beforePrune('],['updateCrc','value,data,length','uint32_t updateCrc(']];
 const code=specs.map(([n,a,s])=>`function ${n}(${a}){${adapt(body(s))}}`).join('\n');
 function context(){
- const c={nextGeneration:0,retainedGeneration:0,reserved:false,invalidated:false,abortRequested:false,
+ const c={readStart:()=>null,nextGeneration:0,retainedGeneration:0,reserved:false,invalidated:false,abortRequested:false,
  pending:{request:0,number:0,at:0,generation:0,abort:false},Request:{None:0,List:1,Current:2,Archive:3,HttpArchive:4,HttpCurrent:5},diagtransfer:{busy:()=>false},UINT64_MAX:Number.MAX_SAFE_INTEGER,
  now:1000,buffers:null,entries:null,pendingBytes:0,entryCount:0,reader:-1,paused:false,begun:false,isCurrent:false,
  pausedAt:0,readerClosedAt:0,resumedAt:0,fileNumber:0,fileSize:0,sentBytes:0,crc:0xffffffff,startedAt:0,lastProgress:0,filename:'',snapshot:{bytes:0,paused:false,result:'none'},
@@ -184,5 +185,18 @@ check('cleanup timestamps reset across current and archive reuse',c=>{
  c.reserve(c.Request.HttpArchive,21,c.now);const a=c.takeRequest();assert.equal(c.start(a,c.transportStop),null);
  assert.equal(c.pausedAt,0);assert.equal(c.readerClosedAt,0);assert.equal(c.resumedAt,0);
  assert(!c.begun);assert(!c.paused);c.closeReaderAndResume(false,'ok');assert.equal(c.resumedAt,0);
+});
+
+check('HTTP metadata restore failure closes current reader and resumes before release',c=>{
+ c.readStart=()=> 'metadata_seek';c.reserve(c.Request.HttpCurrent,0,c.now);const a=c.takeRequest();
+ assert.equal(c.start(a,c.transportStop),'metadata_seek');assert(c.paused);assert.equal(c.sentBytes,0);
+ c.invalidate(a.generation);assert(c.closeReaderAndResume(false,'metadata_seek'));assert(!c.paused);
+ assert(c.release(a.generation));assert(!c.order.includes('read'));
+});
+check('USB never invokes metadata head reads; HTTP metadata work does not credit progress',c=>{
+ let metadataCalls=0;c.readStart=()=>{metadataCalls++;return null;};const g=begin(c);assert.equal(metadataCalls,0);
+ c.closeReaderAndResume(false,'ok');c.release(g);c.reserve(c.Request.HttpArchive,21,c.now);const a=c.takeRequest();
+ assert.equal(c.start(a,c.transportStop),null);assert.equal(metadataCalls,1);assert.equal(c.sentBytes,0);
+ assert.equal(c.lastProgress,a.at);assert.equal(c.pendingBytes,0);
 });
 console.log(`${checks} reader/session checks passed; source simulations only, no firmware build.`);

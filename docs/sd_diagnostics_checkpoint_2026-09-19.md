@@ -1,6 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 23, 6A implemented for Claude review
+
+JP approved6A. Writer-memory current endpoints, bounded same-turn archive metadata reads,
+strict separate parser, unchanged recovery validator, cached sorted listing, dated download
+names with explicit reader-offset restore implemented. Page64 KiB PSRAM, existing stacks
+and deadlines unchanged.241 host checks pass. [Handoff](sd_iphone_log_download_increment6a.md).
+Claude review before JP build; no assistant compile/flash. Increment7 unapproved.
+
+
 ## Latest handoff - September 23, time-discovery design revised for JP approval
 
 [Revision 2](sd_iphone_log_download_time_design.md) resolves Claude229a344 B1-B3:
