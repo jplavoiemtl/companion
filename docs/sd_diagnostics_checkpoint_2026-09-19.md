@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 23, 6A current-file gate passed
+
+New USB118-current.log (1607658 bytes) matches Safari snapshot's1598639-byte
+prefix exactly, CRC45E93E67. END both CRCs match; appends resumed, MEM largest49140,
+HTTP margin2660; exit110 ms. Missing-reference issue resolved. Archive unknown/
+synced and current growth/snapshot gates pass. Remaining hardware check: natural
+rotation metadata transition; no test hooks/build changes. Await newest22 and
+listing before selecting next reference downloads. 6A acceptance pending.
+
+
 ## Latest handoff - September 23, 6A current snapshot awaiting USB reference
 
 Boot118 current listing grows with stable opening date and advancing last-written.

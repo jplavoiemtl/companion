@@ -1,5 +1,27 @@
 # iPhone log retrieval - bench cases and results
 
+## September 23 - 6A current snapshot reference supplied: gate passed
+
+JP downloaded current again. Downloads/118-current.log is1607658 bytes, same
+file generation22. Its first1598639 bytes are byte-identical to Safari snapshot
+2026-09-22T103643-0400_118-3-current-1598639.log, CRC32 45E93E67.
+HTTP id3 END confirms both prefixes1598639, both CRCs45E93E67, crc_check=match,
+result=ok, gap_ms=42. CLOSE reports paused_ms31464, appends=resumed, 6 ms
+reader-close to resume. MEM internal_largest49140, http_margin2660 for this
+transfer (console retains lower lifetime http_min2576). Exit completed110 ms
+after stopping record. Current-file growth, naming, snapshot bytes and cleanup
+checks pass; previous missing-reference limitation is resolved.
+
+Remaining 6A hardware coverage: actual rotation metadata transition. Production
+configuration has test hooks disabled; do not force rotation with test commands
+or change firmware just to accelerate it. Allow normal logging to reach the2 MiB
+limit, then inspect archive22 and newly opened current file. Latest reference
+1607658 bytes is489494 bytes below2097152; elapsed time depends on event rate.
+Next evidence before choosing downloads: log status/log list and refreshed Safari
+listing once newest advances from21 to22. No build required, no gate waived;
+6A acceptance and increment7 remain pending.
+
+
 ## September 23 - 6A current growth/snapshot, boot 118: USB reference pending
 
 JP reports test ran fine. Console attachment207e34f3-27fa-4602-b0e5-8b0ad85c7c38,
