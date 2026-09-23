@@ -7,9 +7,10 @@ log mode off about13.4 s into body. Safari removed the progress box without an
 explicit error message; do not generalize prior visible-error expectations to Safari.
 Console attachment f0c58d4f-f58f-4ef4-b0df-bfd14a2bf539 and
 Downloads/118-current (1).log (1629527 bytes, console USB CRC OK) inspected.
-JP mentioned listing.png after re-entry, but it was not present at inspection;
-console admitted2 new connections and JP reports refreshing the page. Screenshot
-contents are not independently verified and are not required for timing evidence.
+JP subsequently supplied listing.PNG. Inspected: recovered listing is available,
+stale=0/busy=0, age190 ms, current1627849 bytes / last-written09:52:16. It retains
+id4 mode_exit,675216/2097146 bytes, CRC1EB9E912 matching writer and appends unpaused.
+This independently confirms the refreshed Safari page after re-entry.
 
 HTTP id4 expected2097146, accepted675216, result=mode_exit. Writer length675216,
 both CRC32 1EB9E912, crc_check=match. This was cancellation during active body,
