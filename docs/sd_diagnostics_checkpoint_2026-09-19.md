@@ -1,5 +1,19 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September23, JP accepted 6A; next non-reading client
+
+JP explicitly accepted6A and requested continuation. Increment7 proceeds on existing
+firmware. Next one case uses tools/bench_http_nonreading.ps1 from a PC connected to
+iPhone hotspot: archive21, small receive buffer, headers-only then15 seconds without
+body reads, bounded drain afterward. Socket/OS buffering means a stopped application
+read is not proof of immediate TCP backpressure; confirm partial accepted prefix and
+stalled END with device clock. No firmware build/flash or timeout changes.
+Script syntax checked only, not executed against device by Codex. JP captures script
+output, status/mode status, recovered Safari listing and USB current.log. Expect cleanup
+without link loss, successful later listing, zero drops and memory above gate. If complete
+or other abort, do not claim stalled-client gate. Acceptance of increment7 remains open.
+
+
 ## Latest handoff - September23, 6A ready for acceptance
 
 Natural rotation gate passed: archive22 retained September22 opening timestamp,
