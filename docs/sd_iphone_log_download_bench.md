@@ -1,5 +1,37 @@
 # iPhone log retrieval - bench cases and results
 
+## September23 - increment7 hotspot-loss archive case passed; natural rotation occurred
+
+Console attachmentc5a91a9f-6a8c-4ba7-9cc3-29e67d08a768, Downloads/118-current.log
+(417257 bytes, USB CRC OK) and last-result.PNG inspected. Boot118, mode generation10,
+HTTP id8 archive21. Expected2097146, accepted369200, writer369200, both CRC4E67678F,
+crc_check=match, result=stalled. Screenshot agrees. No partial phone export supplied;
+CRC agreement here is device-side, not an independent partial-file byte comparison.
+
+Last progress17855223, cancel17860223: exactly5000 ms stall threshold. Reader close
+17860223 (same measured millisecond as cancel), release17860243 (+20 ms), terminal
+gap5020 ms. Appends unpaused. Link-down recorded17863832, after transfer had already
+timed out: loss of body progress preceded WiFi's reported disconnect. Do not time
+stall from the later WiFi-disconnect event. Link-up17883384,19.552 s after recorded
+down. Mode remains ACTIVE/link=down during outage, ACTIVE/up after WiFi/MQTT recovery;
+no new mode entry required. Recovered result screenshot and accepted connections4->6
+confirm HTTP usable after reconnect; only one HTTP_GET_BEGIN for this case, no logged
+automatic file retry. Final exit105 ms in records (no final mode-status command).
+
+HTTP MEM largest38900/margin2572. Writer stack2920; retained internal_largest24564
+still above20480. Lower boot memory minima and high8 were already present BEFORE
+this case and unchanged after; do not attribute them to hotspot loss. Drops0,
+truncated0/no logger error/reset/stuck release. Current417257 ->417424 (+167 bytes).
+Slow counters/maxima unchanged from pre-case. MQTT reconnect with server allocated
+also supplies evidence for increment8, not full acceptance of that increment.
+
+Natural rotation occurred while waiting: rotations1/newest22/generation23 before
+case. New current header FILE_OPEN reason=size at2026-09-23T12:02:48.770-04:00,
+boot118 seq1951. Need refreshed listing plus archive22 endpoints and new current
+Safari filename/prefix to complete remaining6A rotation metadata gate. Next single
+case is that rotation verification; no rebuild. Increment7 other failure gates remain.
+
+
 ## September23 - increment7 background-app archive case passed, boot118
 
 JP ran issued Safari-background/unlocked60-second case and reports file downloaded.

@@ -1,5 +1,16 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September23, hotspot loss passed; finish 6A rotation now
+
+HTTP id8 archive21 stalled at369200 bytes, matching CRC4E67678F. Exactly5000 ms
+no-progress -> cancel/reader close, release20 ms later. Mode stayed ACTIVE through
+link down/up; WiFi/MQTT and HTTP recovered, drops0, memory above gate, final OFF105 ms.
+Natural rotation happened12:02:48.770: newest22/current generation23, same boot118.
+Next single case: listing archive22/current, USB archive22 plus dated Safari current
+and later USB current prefix. No rebuild. 6A acceptance still pending this verification;
+other increment7 failure gates remain open. See bench record for evidence limits.
+
+
 ## Latest handoff - September23, background-app archive transfer passed
 
 HTTP id7 archive21 saved fully; SHA256 matches USB reference, CRC0B301A04.
