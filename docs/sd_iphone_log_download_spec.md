@@ -487,7 +487,9 @@ time, append resumption time and transport release time.
 ### Deferred usability proposal - finding logs by event time
 
 **September 23:** increment 6 accepted. Proposal advanced to
-[design review](sd_iphone_log_download_time_design.md); no firmware implementation approval.
+[design revision 2](sd_iphone_log_download_time_design.md) resolves Claude review229a344;
+writer-memory current endpoints, one-turn archive reads, unchanged recovery validation,
+single-page64 KiB PSRAM layout. Await JP6A implementation approval.
 
 Recorded September 22 at JP's request during increment 5. In the car, JP needs to find
 which file contains a strange event without knowing its archive number. JP proposed

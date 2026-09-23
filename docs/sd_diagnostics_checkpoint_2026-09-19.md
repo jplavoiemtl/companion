@@ -1,6 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 23, time-discovery design revised for JP approval
+
+[Revision 2](sd_iphone_log_download_time_design.md) resolves Claude229a344 B1-B3:
+current endpoints from writer memory, archive descriptors closed in same tick, recovery
+headerGeneration unchanged. Adopted sorted single-page64 KiB PSRAM layout, explicit seek
+restore/test-clock labels; qualified tail counter heuristic and header-only exception.
+Await JP6A implementation approval. No firmware/build/flash changes; increment7 unapproved.
+
+
 ## Latest handoff - September 23, increment 6 accepted; time discovery design for review
 
 JP accepts increment6 after gate C. [Event-time discovery design](sd_iphone_log_download_time_design.md)
