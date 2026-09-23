@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September23, 6A ready for acceptance
+
+Natural rotation gate passed: archive22 retained September22 opening timestamp,
+new current generation23 starts September23 12:02:48.770; listing and exported
+filename correct. Safari425219 bytes equals later USB prefix, CRC5EEABD49.
+Appends resumed, zero drops, memory/stack healthy, OFF107 ms. All issued6A bench
+cases passed; ask JP for explicit6A acceptance. Increment7 already authorized and
+partly tested; remaining failure cases continue afterward. No new build or firmware.
+
+
 ## Latest handoff - September23, hotspot loss passed; finish 6A rotation now
 
 HTTP id8 archive21 stalled at369200 bytes, matching CRC4E67678F. Exactly5000 ms

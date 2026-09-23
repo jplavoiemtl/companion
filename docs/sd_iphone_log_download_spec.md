@@ -18,7 +18,8 @@ JP accepted increment 6 on September 23 after normal and queue-pressure gate C c
 JP approved6A event-time discovery implementation after design revision2.
 [6A implementation](sd_iphone_log_download_increment6a.md) cleared review at337cdc9.
 Unknown/synced archives and current-file growth/snapshot checks passed on hardware.
-Natural rotation metadata validation and explicit 6A acceptance remain pending.
+Natural rotation metadata validation passed on September23; all issued 6A bench
+cases passed. Explicit JP acceptance of 6A remains pending.
 September23: JP authorized continuing next steps while rotation accumulates naturally.
 Proceed with increment7 failure-path bench validation on existing reviewed firmware,
 one case at a time; this does not waive the pending6A gate or authorize later increments.

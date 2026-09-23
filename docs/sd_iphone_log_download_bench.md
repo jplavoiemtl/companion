@@ -1,5 +1,35 @@
 # iPhone log retrieval - bench cases and results
 
+## September23 - 6A natural rotation gate passed; ready for JP acceptance
+
+Console attachment060cb39a-14b8-4364-a120-a8d8bca584d0 and Downloads/listing.PNG,
+118-archive-00000022.log (2096933 bytes, USB CRC OK),118-current (1).log (429211,
+USB CRC OK),2026-09-23T120248-0400_118-9-current-425219.log inspected.
+Archive22 first FILE_OPEN is2026-09-22T10:36:43.102-04:00 boot105 seq36;
+last complete WIFI_DISCONNECT is2026-09-23T12:02:48.687-04:00 boot118 seq1950.
+New current FILE_OPEN generation23 reason=size is12:02:48.770 same day/offset,
+boot118 seq1951. Listing exactly matches both files' endpoints at displayed second
+precision: archive retains old start, current starts12:02:48 and last-written14:01:26.
+Both endpoints display12:02:48 at rotation because milliseconds are omitted; actual
+records differ by83 ms. Archive is2096933 bytes, below cap because rotation precedes
+writing a record that would exceed cap. Metadata transition is correct.
+
+Safari snapshot425219 bytes exactly equals first425219 of later USB429211.
+CRC5EEABD49, SHA256f7d8c7fcb9af46e778add767abd39f0a10d4c63d47be6d9dc42acacc80a22efd.
+Dated filename matches new header, truncating .770. HTTP id9 expected/bytes/writer_bytes
+425219, both CRC5EEABD49, result ok / crc_check match. Paused8456 ms, appends resumed,
+reader_close18413391 -> resume18413395 (4 ms); release18413396, terminal gap5 ms.
+HTTP MEM largest45044, margin2572; writer2920, retained largest24564 (>20480).
+Drops0/truncated0/error none/reset none. Exit records confirm107 ms stop-to-OFF.
+USB snapshot429211 ->429378 (+167 bytes) after transfer; logging continues.
+
+6A hardware coverage now includes unknown-start fallback, synced immutable archive,
+current growth/dated snapshot, natural rotation and post-rotation endpoints/filename.
+All issued6A cases pass; explicit JP acceptance pending. Deferred non-blocking parser/
+label notes remain in Claude's337cdc9 review; no firmware change in this bench work.
+After acceptance continue already-authorized increment7 remaining failure cases.
+
+
 ## September23 - increment7 hotspot-loss archive case passed; natural rotation occurred
 
 Console attachmentc5a91a9f-6a8c-4ba7-9cc3-29e67d08a768, Downloads/118-current.log
