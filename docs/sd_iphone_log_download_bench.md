@@ -1,5 +1,36 @@
 # iPhone log retrieval - bench cases and results
 
+## September 23 - 6A current growth/snapshot, boot 118: USB reference pending
+
+JP reports test ran fine. Console attachment207e34f3-27fa-4602-b0e5-8b0ad85c7c38,
+Downloads/listing-1.PNG, listing-2.PNG, latest-result.PNG and
+2026-09-22T103643-0400_118-3-current-1598639.log inspected.
+Listing current row grows1596424 ->1597446 (+1022); last-written advances
+09:26:57 ->09:27:18 on September23. Opened stays September22 10:36:43 -04:00.
+Actual header is synced FILE_OPEN 2026-09-22T10:36:43.102-04:00, generation22,
+boot105 seq36. Filename correctly truncates milliseconds and uses opening time,
+not download date. Listing observations agree with writer-memory endpoint behavior.
+
+Exported Safari snapshot is1598639 bytes, independently computed CRC32 45E93E67.
+Last-result screenshot reports id3 ok, both lengths1598639, both CRCs45E93E67,
+comparison match, appends resumed. Pause1997319, close2028777, resume2028783:
+31464 ms paused, 6 ms close-to-resume. Screenshot is device telemetry; exported
+file CRC independently matches. Snapshot ends with HTTP_GET_BEGIN id3, as expected;
+END/CLOSE/MEM records occur after frozen snapshot and require later USB reference.
+
+Post-transfer console: writer stack_min2920, retained http_min2576, internal_largest
+31732 (>20480), logger ready, high7, drops0, truncated0, no error/reset. Mode OFF
+confirmed09:30:34. USB current transfer reports1600849 bytes / CRC OK; subsequent
+current_size1602387 confirms growth. Brief4-5 ms USB link loss, no pending loss/failure.
+
+Later USB file is absent from Downloads at inspection (only Safari log and three PNGs).
+Therefore equal-length prefix comparison and HTTP_GET_MEM/END/CLOSE inspection remain
+pending; do not mark current-file gate complete. Ask JP to restore the1600849-byte USB
+file or supply its location. No rebuild or Safari repeat needed. If unavailable, another
+USB current download may supply the reference while generation22 remains current.
+Rotation transition and 6A acceptance remain pending; increment7 unapproved.
+
+
 ## September 23 - 6A synced-date archive gate passed, boot 118 generation 2
 
 JP reports no noticeable delay or pending message. Console attachment

@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 23, 6A current snapshot awaiting USB reference
+
+Boot118 current listing grows with stable opening date and advancing last-written.
+Safari snapshot1598639 bytes / CRC45E93E67 matches both device CRCs; filename correct,
+appends resumed, drops0, memory above gate, OFF. Later USB1600849-byte file downloaded
+successfully per console but absent from Downloads. Need that file/location to verify
+prefix equality and completion records before closing this case. No rebuild or Safari
+repeat. Rotation validation and 6A acceptance remain pending; increment7 unapproved.
+
+
 ## Latest handoff - September 23, 6A synced archive passed
 
 Boot118 archive21 Safari and USB equal: 2097146 bytes / CRC32 0B301A04.
