@@ -1,6 +1,17 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 23, gate C complete; increment 6 acceptance pending
+
+Pressure repeat boot116: paused snapshot confirmed, logger_busy, appends resumed after
+12116 ms, drops0. HTTP612288/writer612144 prefix CRCs both independently correct;
+one144-byte in-flight chunk difference is expected prefix_diff, not corruption.
+HTTP margin2416, internal largest36852 or above; mode exit110 ms, later USB CRC OK.
+[Evidence](sd_iphone_log_download_bench.md). Normal plus pressure legs complete gate C.
+Await JP acceptance of increment6; no further measurements/build needed. Then revisit
+timestamp usability proposal for design review, before new implementation authorization.
+
+
 ## Latest handoff - September 23, pressure case repeat needed
 
 Boot116 attempt healthy but did not exercise HTTP: accepted=0, http_min=0, no HTTP_GET

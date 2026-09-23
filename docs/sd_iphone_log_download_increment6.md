@@ -114,3 +114,14 @@ dual match, pause28230 ms, appends=resumed, HTTP margin2420, zero drops, clean10
 See bench record. Next single case uses paced on-device Latest refusals during the paused
 HTTP current transfer, at most ten taps one second apart, expecting logger_busy and resume.
 No firmware change/build/flash. Gate C and increment 6 acceptance await this pressure evidence.
+
+
+## Gate C complete - explicit acceptance pending
+
+September23 boot116 controlled pressure repeat produced logger_busy, resumed appends after
+12116 ms, zero drops, valid independently checked HTTP/writer prefix CRCs with one-chunk
+prefix_diff, HTTP margin2416 and clean110 ms mode exit. See bench record for exact evidence
+and the observed tap-count deviation. Combined with normal boot114 Safari prefix equality,
+gate C passes. No further gate C results or rebuild needed. Await JP's explicit increment6
+acceptance. Event-time discovery proposal is next for design review after acceptance;
+implementation and increment7 remain unapproved. Timeout/stall bounds unchanged.

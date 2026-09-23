@@ -1,6 +1,55 @@
 # iPhone log retrieval - bench cases and results
 
 
+## September 23, 07:53-07:56 - gate C controlled queue-pressure abort passes
+
+Console attachment 80cebdf5-9bfb-4234-813d-c88567b372ea/Pasted text.txt and Downloads/
+116-current (1).log (1482958 bytes, USB CRC OK) inspected. Same boot116, generation2;
+HTTP transfer id1/current.log expected1477034. At 07:54:19 console confirms active=1,
+paused=1, writer bytes217008, queue1/16. Latest refusals and ordinary motion records
+then accumulated. Result is logger_busy, not a stalled/mode-exit abort.
+
+HTTP request=401150, reader=401183, pause=401185, header=401192, first=401193,
+last=413294, reader close=413294, resume/cleanup close/cancel publication=413301,
+transport release=413302 (monotonic ms). Pause12116 ms, appends=resumed, terminal gap8 ms,
+maximum progress gap43 ms. Reader close to successful reopen7 ms. Cancel timestamp is
+publication during writer cleanup, not a separately sampled threshold-detection time;
+do not infer pressure-detection latency from it.
+
+HTTP accepted612288 bytes CRC0188C8D9; writer credited612144 CRC424AD70D. Independent
+CRC32 over each corresponding prefix of the later USB log matches exactly. Difference144
+bytes equals one mailbox chunk: compatible with positive in-flight send after writer
+invalidation, correctly labelled crc_check=prefix_diff rather than mismatch. No partial
+Safari export supplied or needed for this intentional-abort gate; this verifies source
+prefix integrity and device accounting, not the phone's saved partial bytes.
+
+Five Latest refusal records occur before END along with META and two ordinary motion
+records; further taps occur after resume. Console contains12 taps rather than maximum10,
+approximately0.6-0.9 seconds apart. The guard still fired and no overflow occurred; this
+is bounded paced UI pressure with ordinary motion contribution, not an exact injected
+queue-count experiment. Queue high-water rose6->11/16, drops=0/truncated=0. Eleven is
+consistent with queued events plus END/CLOSE/MEM after cleanup; it is not proof the abort
+threshold became11. The unchanged reader guard checks >=8/16. Logger remains ready,
+error=none, slow=0, same boot. Subsequent status active=0/paused=0/queue=0 and log growth
+1477034->1481117->1481284 confirms resume; after USB snapshot, current1483124 (+166).
+
+HTTP_GET_MEM internal_free88052, internal_largest45044, http_margin2416. Post-case status
+internal_min78200, internal_largest36852 (>20480), writer margin2936, worker2304.
+Server error=none/release_stuck=0, accepted6/rejected0. Mode exit471702->471812 =110 ms;
+successful exit record confirms OFF and stopped server despite no final mode-status line.
+Later USB current.log succeeds with CRC OK and final loss counters0; the previously
+recorded1 ms link loss predates this HTTP case. No reset or stuck reservation evidenced.
+
+Disposition: controlled pressure leg passes. Together with boot114 normal snapshot and
+exported prefix comparison, gate C required evidence is complete. Present increment6 for
+JP's explicit acceptance. No more files, rebuild or bench measurements needed for gate C.
+120000 ms current limit and5000 ms stall bound unchanged; slow-client/full-bound and
+other failure cases remain future work, not claimed passed here. After acceptance revisit
+recorded event-time listing/download-name proposal for design review; implementation and
+increment7 require authorization. No firmware changes in this result recording.
+
+
+
 ## September 23, 07:47-07:50 - pressure attempt did not exercise HTTP transfer
 
 JP reports pass; console d432db1b-998c-4eb8-8581-fe2a9868efd8/Pasted text.txt and
