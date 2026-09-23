@@ -1,5 +1,33 @@
 # iPhone log retrieval - bench cases and results
 
+## September23 - increment7 phone-lock archive case passed, boot118
+
+JP ran issued lock-after-about5-seconds / remain-locked60-seconds case and reports
+apparent completion. Exact lock/unlock instants are user actions, not instrumented.
+Console attachment404a8f55-dbc6-4b2c-9b24-51711e31c817; Downloads/118-current.log
+(1923928 bytes, USB CRC OK), last-result.PNG, and
+2026-09-20T193038-0400_118-6-archive-00000021-2097146.log inspected.
+Exported file2097146 bytes, CRC0B301A04, SHA256
+8f9aa99aa6b8bbc73518531469f0bb0c2762d27f651f786a8e8987f1e84b6433 matches
+previously verified full USB archive21 fingerprint. Phone saved a complete file.
+Screenshot confirms id6 ok, both full prefixes and CRCs matching, appends unpaused.
+
+BEGIN7802355, first7802398, last7849296:46.898 seconds of body progress.
+END ok, cancel0, close7849298, release7849299, terminal gap3 ms.
+Maximum progress gap4020 ms is substantially above earlier ordinary-transfer gaps,
+but below unchanged5000 ms stall bound by980 ms. Do not infer lock caused that gap
+without instrumented lock timing; this is one successful run, not proof all lock
+conditions succeed or justification for reducing stall timeout.
+HTTP MEM internal_largest42996, http_margin2584; retained console http_min2576,
+writer2920, internal_largest31732, drops0/truncated0/no errors/reset/stuck release.
+Slow count2 and150889 us maximum already present before case, unchanged afterward.
+Mode OFF after101 ms recorded teardown. Later USB snapshot1923928 ->1925133,
++1205 bytes append growth. No cancellation/stall-abort exercised in this successful case.
+Natural rotation still pending newest21; current1925133, about172019 bytes below2 MiB.
+Next single case: Safari backgrounded via another app while phone stays unlocked;
+keep hotspot and USB power unchanged, archive21, no firmware changes.
+
+
 ## September23 - increment7 current cancellation/resumption passed, boot118
 
 Console attachment5ef70ee5-ccdd-4bf6-b5b6-e3a01ed90c9c, Downloads/118-current.log

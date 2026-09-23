@@ -1,5 +1,14 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September23, phone-lock archive transfer passed
+
+HTTP id6 archive21 completed and exported2097146-byte file matches known USB SHA256
+and CRC0B301A04. Body46.898 s, longest progress gap4020 ms (<5000 stall bound).
+No timeout tuning: one success with limited margin, lock timing not instrumented.
+Drops0, logging continued, memory/stack healthy, OFF101 ms. Next single increment7
+case: background Safari while unlocked. 6A rotation pending; current1925133/newest21.
+
+
 ## Latest correction - September23, result screenshot verified
 
 JP correctly challenged the blank-image claim. Re-rendering original last-result.PNG
