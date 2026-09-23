@@ -14,8 +14,8 @@ increment 4 and reconfirmed no token on his trusted hotspot for actual log retri
 JP accepted increment 4 after gate A passed and approved increment 5 on September 22.
 Increment 5 uses the existing streamed archive implementation for timing gate B; no
 firmware change or rebuild is required. JP accepted increment 5 after gate B passed and approved increment 6 on September 22.
-Increment 6 current.log implementation cleared by Claude at bb9db3e; JP build and first
-normal gate C case issued, hardware evidence pending.
+JP accepted increment 6 on September 23 after normal and queue-pressure gate C cases passed.
+Event-time discovery design is now proposed for Claude review; implementation unapproved.
 Increment 7 and beyond remain unapproved.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the
@@ -485,6 +485,9 @@ time, append resumption time and transport release time.
 120 s and 5 s pending that data.
 
 ### Deferred usability proposal - finding logs by event time
+
+**September 23:** increment 6 accepted. Proposal advanced to
+[design review](sd_iphone_log_download_time_design.md); no firmware implementation approval.
 
 Recorded September 22 at JP's request during increment 5. In the car, JP needs to find
 which file contains a strange event without knowing its archive number. JP proposed

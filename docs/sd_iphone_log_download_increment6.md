@@ -125,3 +125,10 @@ and the observed tap-count deviation. Combined with normal boot114 Safari prefix
 gate C passes. No further gate C results or rebuild needed. Await JP's explicit increment6
 acceptance. Event-time discovery proposal is next for design review after acceptance;
 implementation and increment7 remain unapproved. Timeout/stall bounds unchanged.
+
+
+## JP acceptance - September 23
+
+JP explicitly accepts increment 6 after gate C evidence at 2d3ff16. Earlier pending statuses
+are historical. Next authorized work is the recorded event-time discovery design review:
+sd_iphone_log_download_time_design.md. No new implementation or increment 7 approval inferred.

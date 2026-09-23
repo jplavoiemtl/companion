@@ -1,6 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 23, increment 6 accepted; time discovery design for review
+
+JP accepts increment6 after gate C. [Event-time discovery design](sd_iphone_log_download_time_design.md)
+proposes bounded cached head/tail timestamps and validated dated attachment names, preserving
+SD identities and unknown-time fallbacks. Endpoints are navigation hints, not full coverage.
+Claude review and JP implementation approval next. No firmware/build/flash/test changes.
+Increment7 remains unapproved; historical draft unchanged.
+
+
 ## Latest handoff - September 23, gate C complete; increment 6 acceptance pending
 
 Pressure repeat boot116: paused snapshot confirmed, logger_busy, appends resumed after
