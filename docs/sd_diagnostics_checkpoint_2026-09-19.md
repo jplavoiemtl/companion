@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 23, increment7 archive cancellation passed
+
+HTTP id4 cancelled active archive21 at675216/2097146 bytes, mode_exit, both CRCs
+1EB9E912. Reader close25 ms, transport release26 ms, OFF165 ms after cancellation.
+Re-entry/listing requests recovered; append growth1195 bytes, drops0, memory/stack
+healthy. Safari simply removed progress display. Bench document records evidence.
+Next one case: current.log cancellation and append resumption, same firmware.
+6A natural rotation remains pending; no full increment7 acceptance or new code.
+
+
 ## Latest handoff - September 23, proceed with increment7 while 6A rotation waits
 
 JP authorized continuing next steps rather than waiting hours for natural rotation.

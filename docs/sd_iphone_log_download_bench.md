@@ -1,5 +1,36 @@
 # iPhone log retrieval - bench cases and results
 
+## September 23 - increment7 archive cancellation and re-entry passed
+
+Boot118, HTTP id4, mode generation4 then5. JP interrupted Safari archive21 using
+log mode off about13.4 s into body. Safari removed the progress box without an
+explicit error message; do not generalize prior visible-error expectations to Safari.
+Console attachment f0c58d4f-f58f-4ef4-b0df-bfd14a2bf539 and
+Downloads/118-current (1).log (1629527 bytes, console USB CRC OK) inspected.
+JP mentioned listing.png after re-entry, but it was not present at inspection;
+console admitted2 new connections and JP reports refreshing the page. Screenshot
+contents are not independently verified and are not required for timing evidence.
+
+HTTP id4 expected2097146, accepted675216, result=mode_exit. Writer length675216,
+both CRC32 1EB9E912, crc_check=match. This was cancellation during active body,
+not after successful completion. Cancel3389399, reader close3389424, release3389425:
+25 ms to close, 26 ms to release. Last progress3389397, terminal gap28 ms,
+max progress gap62 ms. Archive appends remain unpaused throughout. Exit ok3389564:
+165 ms from stopping to OFF. Re-entry succeeds in4 ms; subsequent exit103 ms.
+Partial phone bytes were not supplied; CRC agreement here is device-side only.
+
+HTTP_GET_MEM internal_largest49140, margin2660; retained console http_min2576,
+writer stack_min2920, internal_largest31732, all unchanged/above gate. Drops0,
+truncated0, no logger error/reset or stuck release. Slow write count1 /124355 us
+already present in pre-case status, unchanged after: not attributed to cancellation.
+Later USB current snapshot1629527 grows to1630722 (+1195), confirming appends.
+Mode OFF, boot118 unchanged; natural rotation still pending (newest21).
+
+Next single increment7 case: cancel current.log body with log mode off, confirm
+append resumption and cleanup before re-entry. Existing firmware, no rebuild.
+6A rotation and overall increment7 acceptance remain pending.
+
+
 ## September 23 - 6A current snapshot reference supplied: gate passed
 
 JP downloaded current again. Downloads/118-current.log is1607658 bytes, same
