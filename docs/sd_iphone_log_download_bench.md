@@ -1,5 +1,31 @@
 # iPhone log retrieval - bench cases and results
 
+## September23 - increment7 non-reading archive client passed, boot118
+
+Console attachment1cf89447-1d4c-44b5-a18d-242d1d5e15bc; Downloads/118-current.log
+(445763 bytes, USB CRC OK), last-result.PNG and JP PowerShell output inspected.
+Helper received HTTP200/octet-stream/attachment/Content-Length2097146, socket buffer1024.
+Headers14:15:06.772, no application body reads until14:15:21.788; drain8288 bytes,
+COMPLETE=False, peer_closed. Device id10 expected2097146, accepted=writer_bytes8288,
+both CRCFF08FC0B, crc_check match, result stalled. Client receive count agrees with
+accepted prefix. Helper did not save body or compute CRC: not a client CRC proof.
+
+Last progress19201414, cancellation19206414: exactly5000 ms. Reader closes same
+measured millisecond, release19206434 (+20 ms), terminal gap5020 ms. Close occurred
+before helper resumed reads. Appends unpaused. WiFi/MQTT remain connected, mode
+ACTIVE/link up, server usable afterward as verified by last-result screenshot.
+HTTP MEM largest40948, margin2780; retained minimum2572, writer2920, internal_largest
+24564, drops0/truncated0/no errors/reset/stuck release. Existing high8 and slow5/maxima
+unchanged. Final mode exit109 ms recorded; USB445763 ->445930 (+167) growth.
+
+Non-reading-client archive stall and deliberately incomplete response observed.
+This does not validate paused current-file stall or any missing synthetic failure
+coverage. Next single case uses same helper with -Current to verify pause/resume on
+stall while WiFi stays up. Helper's harmless VoidTaskResult print is suppressed;
+added -Current selector changes only PC request route, no firmware changes. Syntax
+checked, not executed against device by Codex. 6A accepted; increment7 still pending.
+
+
 ## September23 - 6A natural rotation gate passed; ready for JP acceptance
 
 Console attachment060cb39a-14b8-4364-a120-a8d8bca584d0 and Downloads/listing.PNG,

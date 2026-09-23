@@ -1,5 +1,14 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September23, non-reading archive client passed
+
+HTTP id10 stalled after exactly5000 ms no progress,8288/2097146 accepted and client
+received8288 then EOF. Both device CRCFF08FC0B, reader close at cancellation,
+release20 ms later. WiFi connected, recovered result page, drops0, memory healthy,
+mode OFF109 ms. Next single case: PC helper -Current, same non-reading interval,
+verify paused logging resumes on stall. No firmware/build change;6A accepted.
+
+
 ## Latest handoff - September23, JP accepted 6A; next non-reading client
 
 JP explicitly accepted6A and requested continuation. Increment7 proceeds on existing

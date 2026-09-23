@@ -2,7 +2,8 @@
 # Reads HTTP headers only, then deliberately does not read the response body for 15 s.
 param(
     [string]$DeviceIp = '172.20.10.2',
-    [ValidateRange(1, 4294967295)][long]$Archive = 21
+    [ValidateRange(1, 4294967295)][long]$Archive = 21,
+    [switch]$Current
 )
 $ErrorActionPreference = 'Stop'
 $client = [Net.Sockets.TcpClient]::new()
@@ -10,11 +11,11 @@ try {
     $client.ReceiveBufferSize = 1024
     $connect = $client.ConnectAsync($DeviceIp, 80)
     if (-not $connect.Wait(5000)) { throw 'Connection timed out; check hotspot and ACTIVE mode.' }
-    $connect.GetAwaiter().GetResult()
+    [void]$connect.GetAwaiter().GetResult()
     $stream = $client.GetStream()
     $stream.ReadTimeout = 10000
     $stream.WriteTimeout = 5000
-    $route = '/f/{0:D8}' -f $Archive
+    $route = if ($Current) { '/f/current' } else { '/f/{0:D8}' -f $Archive }
     $request = [Text.Encoding]::ASCII.GetBytes("GET $route HTTP/1.1`r`nHost: $DeviceIp`r`nConnection: close`r`n`r`n")
     $stream.Write($request, 0, $request.Length)
     $timer = [Diagnostics.Stopwatch]::StartNew()
