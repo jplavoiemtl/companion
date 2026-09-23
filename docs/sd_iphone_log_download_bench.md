@@ -1,5 +1,38 @@
 # iPhone log retrieval - bench cases and results
 
+## September 23 - 6A synced-date archive gate passed, boot 118 generation 2
+
+JP reports no noticeable delay or pending message. Console attachment
+1e3877f8-0d2c-46b9-b706-446253dbec41 and Downloads/listing-3.PNG inspected.
+Safari 2026-09-20T193038-0400_118-2-archive-00000021-2097146.log equals
+118-archive-00000021.log byte-for-byte: 2097146 bytes, CRC32 0B301A04,
+SHA256 8f9aa99aa6b8bbc73518531469f0bb0c2762d27f651f786a8e8987f1e84b6433.
+Header FILE_OPEN is 2026-09-20T19:30:38.993-04:00, synced, boot 92 seq 365;
+filename correctly omits milliseconds without rounding 38.993 to 39.
+Tail is 2026-09-22T10:35:50.794-04:00, synced, boot 105 seq 35.
+Both listing endpoints match those bytes, including offset. Listing has no pending
+rows; user observation is qualitative, not a measured cold-cache completion time.
+
+118-current (1).log contains HTTP id=2: result=ok, bytes=writer_bytes=2097146,
+CRC32=writer CRC32=0B301A04, crc_check=match, gap_ms=121. First accepted byte
+1205795 to last 1247492 = 41697 ms. Appends unpaused; no cancellation.
+HTTP_GET_MEM internal_largest=47092 and http_margin=2576. Before transfer,
+writer stack_min=2920 and retained http_min=2656; after, writer remains2920,
+http_min=2576. HTTP minimum is retained across mode entries and is not an isolated
+listing-only measurement. Lowest captured internal_largest=31732 (>20480).
+Drops=0, truncated=0, no logger error/reset, mode OFF confirmed 09:17:30.
+USB reference/current downloads both CRC OK. One 5 ms USB link loss at final status,
+within 1000 ms grace, no pending loss or failed transfer. Current grew from snapshot
+1584721 to1586258 after transfer. No SD maximum latency increase (67459 us).
+
+Listing-3 is before this transfer and correctly retains previous successful id=1;
+new id=2 result is verified in the downloaded current log. Current row shows same
+opened 2026-09-22 10:36:43 and last-written advanced to September23 09:14:21.
+Unknown-start and synced-archive gates now pass. Next single case is current.log
+listing growth plus dated Safari snapshot and equal-length later USB prefix.
+Rotation transition not yet exercised on hardware; do not claim full 6A acceptance.
+
+
 ## September 23 - 6A first hardware run, boot 118: unknown-start archive passed
 
 Firmware reviewed at 337cdc9; JP reports test ran fine. Console attachment

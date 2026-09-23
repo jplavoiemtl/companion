@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 23, 6A synced archive passed
+
+Boot118 archive21 Safari and USB equal: 2097146 bytes / CRC32 0B301A04.
+Dated filename and listing match header/tail, correctly truncating .993 seconds.
+No visible pending/delay reported. HTTP margin2576, writer2920, smallest captured
+internal largest block31732, drops0, OFF confirmed. Full evidence in bench document.
+Next one case: current listing growth and dated HTTP snapshot versus later USB prefix.
+No rebuild. 6A acceptance pending; increment7 remains unapproved.
+
+
 ## Latest handoff - September 23, 6A unknown-start bench case passed
 
 Claude cleared build at 337cdc9. Boot 118 archive 17 Safari/USB equality confirmed,
