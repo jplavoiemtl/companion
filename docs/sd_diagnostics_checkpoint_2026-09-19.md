@@ -1,5 +1,17 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September 23, proceed with increment7 while 6A rotation waits
+
+JP authorized continuing next steps rather than waiting hours for natural rotation.
+6A rotation gate and explicit acceptance remain open. Normal logging continues; no
+forced rotation or test-hook firmware. Proceed with existing reviewed firmware's
+increment7 failure-path checks one at a time. First case: cancel archive21 Safari
+transfer via log mode off while body active; confirm OFF and re-entry/listing, then
+collect current.log for cancellation/reader-close/release telemetry and append growth.
+Interrupted download is expected; no successful full-file requirement for this case.
+No build/flash or source changes. Future fixes require Claude review before JP build.
+
+
 ## Latest handoff - September 23, 6A current-file gate passed
 
 New USB118-current.log (1607658 bytes) matches Safari snapshot's1598639-byte

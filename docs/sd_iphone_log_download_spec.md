@@ -16,9 +16,13 @@ Increment 5 uses the existing streamed archive implementation for timing gate B;
 firmware change or rebuild is required. JP accepted increment 5 after gate B passed and approved increment 6 on September 22.
 JP accepted increment 6 on September 23 after normal and queue-pressure gate C cases passed.
 JP approved6A event-time discovery implementation after design revision2.
-[6A implementation](sd_iphone_log_download_increment6a.md) is awaiting Claude code review;
-no build/flash or hardware results yet.
-Increment 7 and beyond remain unapproved.
+[6A implementation](sd_iphone_log_download_increment6a.md) cleared review at337cdc9.
+Unknown/synced archives and current-file growth/snapshot checks passed on hardware.
+Natural rotation metadata validation and explicit 6A acceptance remain pending.
+September23: JP authorized continuing next steps while rotation accumulates naturally.
+Proceed with increment7 failure-path bench validation on existing reviewed firmware,
+one case at a time; this does not waive the pending6A gate or authorize later increments.
+Any firmware fixes still go to Claude before JP builds/flashes. Increment8 onward unapproved.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the
 [Codex review](sd_iphone_log_download_review.md) and the
