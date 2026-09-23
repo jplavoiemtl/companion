@@ -1,5 +1,14 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September23, current cancellation passed; verify blank result page
+
+HTTP id5 current mode_exit at643680/1642899; both CRC555AAE7E independently match
+later USB prefix. Reader close1 ms, append resume/release4 ms, OFF161 ms. Recovery
+listing valid; zero drops, memory above gate. Separate last-result screenshot blank:
+next focused check establishes whether actual page remains blank after load/reload.
+No code change or build. 6A rotation and increment7 acceptance remain pending.
+
+
 ## Latest handoff - September 23, increment7 archive cancellation passed
 
 HTTP id4 cancelled active archive21 at675216/2097146 bytes, mode_exit, both CRCs

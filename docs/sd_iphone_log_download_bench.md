@@ -1,5 +1,33 @@
 # iPhone log retrieval - bench cases and results
 
+## September23 - increment7 current cancellation/resumption passed, boot118
+
+Console attachment5ef70ee5-ccdd-4bf6-b5b6-e3a01ed90c9c, Downloads/118-current.log
+(1646157 bytes, USB CRC OK), listing.PNG and last-result.PNG inspected.
+HTTP id5 current expected1642899; cancelled after643680 bytes, result=mode_exit,
+writer bytes643680, both CRC555AAE7E, crc_check=match. Independently computed CRC
+of first643680 bytes of later USB file is555AAE7E. No phone partial file supplied.
+Cancel4123177 -> reader close4123178 (1 ms), append resume4123181 (4 ms),
+transport release4123181 (4 ms). Total paused12547 ms; terminal gap4 ms,
+max progress gap41 ms. Mode OFF4123338,161 ms after cancellation. Re-entry5 ms;
+second exit107 ms, confirmed by record despite no final mode-status command.
+
+HTTP_GET_MEM largest42996, margin2576; writer minimum2920, retained internal
+largest31732, drops0/truncated0/errors none. Slow-write counter1 already present
+before case and unchanged. No reset or stuck release. Post-USB growth1646157 to
+1646324 (+167 bytes). Listing confirms resumed appends and recovered inventory
+(stale0/busy0), current1644616 last-written10:04:20, retaining opening timestamp.
+
+Separate last-result.PNG is entirely blank. Listing contains the complete correct
+id5 result; cancellation gate passes independently. Blank capture does not establish
+whether Safari page was actually blank or screenshot was taken during loading; a
+similar blank screenshot appeared in the earlier archive17 case, while other result
+screenshots rendered successfully. Next single focused check: ACTIVE mode, open
+Last result, wait a few seconds and capture actual visible page; if blank, reload
+once and report behavior. No firmware change until reproducible evidence.
+6A natural rotation and overall increment7 acceptance remain pending.
+
+
 ## September 23 - increment7 archive cancellation and re-entry passed
 
 Boot118, HTTP id4, mode generation4 then5. JP interrupted Safari archive21 using
