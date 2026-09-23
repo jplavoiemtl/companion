@@ -1,6 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
 
+## Latest handoff - September 23, pressure case repeat needed
+
+Boot116 attempt healthy but did not exercise HTTP: accepted=0, http_min=0, no HTTP_GET
+records and no paused snapshot. Twelve Latest refusals drained normally; drops0.
+[Evidence](sd_iphone_log_download_bench.md). Normal gate C pass retained. Repeat pressure
+case on unchanged firmware: Safari current download must be running and log status must
+show paused=1 BEFORE paced Latest taps. If not paused, stop and report. Increment6 pending.
+
+
 ## Latest handoff - September 22, normal gate C passes; pressure case next
 
 Boot114 Safari snapshot equals USB prefix:1444367 bytes, CRC06AD67A4, dual match.

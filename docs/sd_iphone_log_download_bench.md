@@ -1,6 +1,34 @@
 # iPhone log retrieval - bench cases and results
 
 
+## September 23, 07:47-07:50 - pressure attempt did not exercise HTTP transfer
+
+JP reports pass; console d432db1b-998c-4eb8-8581-fe2a9868efd8/Pasted text.txt and
+Downloads/116-current.log (1471707 bytes, USB CRC OK) inspected. Boot116, server generation1.
+Server entered ACTIVE, but final active status has accepted=0, rejected=0, http_min=0.
+All sampled transfer states before the later USB retrieval show active=0, paused=0,
+bytes=0, result=none. Boot116 log contains zero HTTP_GET records. Thus no HTTP download
+reached this server; no evidence establishes why (no assumption about Safari/user action).
+
+Twelve Latest clicks generated twelve IMAGE_REFUSED trigger=latest reason=download_mode
+records. With appends unpaused these drained normally; queue high stayed6/16, drops and
+truncated remained0. Logger ready/error none, continued growth and no reset. Mode exit
+163654->163768 ms, 114 ms, confirmed in log. USB retrieval succeeded; final size1472880,
+1173 bytes beyond snapshot. One1 ms USB link loss after retrieval, no pending loss/failure.
+
+Disposition: healthy refusal/logging behavior, NOT a pressure-abort pass. Prior normal
+gate C pass remains valid; pressure leg and increment6 acceptance remain pending. No
+firmware change or rebuild. Repeat the same single case with an explicit prerequisite:
+start current.log from the iPhone Safari listing, accept Safari's Download prompt if shown,
+then while it is transferring issue log status and require paused=1 before touching Latest.
+If paused=0, stop and send status plus what Safari shows; do not continue button presses.
+Once paused=1, tap Latest once/second, maximum10, stop on transfer failure. Capture Last
+result, status/log status/log mode status, exit and confirm OFF, retrieve current.log via
+USB, wait10 seconds and log status. Expect logger_busy, resumed appends and zero drops;
+no successful phone file is required for the intentional abort. No later work authorized.
+
+
+
 ## September 22, 16:40-16:43 - gate C normal current snapshot passes
 
 JP reports pass; console attachment dff28b32-b1b2-4951-be17-07788f0f6e36/Pasted text.txt.
