@@ -1,4 +1,5 @@
 #include "src/diagnostics/diagnostics_retrieval.h"
+#include "src/diagnostics/diagnostics_retrieval_ui.h"
 #include "calibration.h"
 #if defined(__has_include) && __has_include("secrets_private.h")
 #include "secrets_private.h"
@@ -707,6 +708,7 @@ void runBackgroundTick() {
   }
 
   logRetrievalTick(); // Also service idle/link exits inside Wi-Fi recovery keep-alive.
+  logRetrievalUiTick();
   lv_timer_handler();
 }
 
@@ -1721,6 +1723,7 @@ void activity_event_handler(lv_event_t * e) {
 
 //***************************************************************************************************
 void goToDeepSleep() {
+  logRetrievalUiPowerDown();
   diagnet::event("POWER_DECISION", "action=sleep moving=%u usb=%u idle_ms=%lu", g_isCurrentlyMoving, vbusPresent, millis()-lastActivityTime);
   USBSerial.println("Preparing to enter Deep Sleep...");
 
@@ -1763,6 +1766,7 @@ void goToDeepSleep() {
 
 //***************************************************************************************************
 void goToShutdown() {
+  logRetrievalUiPowerDown();
   diagnet::event("POWER_DECISION", "action=shutdown moving=%u usb=%u idle_ms=%lu", g_isCurrentlyMoving, vbusPresent, millis()-lastActivityTime);
   USBSerial.println("Preparing to shut down...");
 
@@ -2035,7 +2039,8 @@ void initUIHandlers() {
     lv_obj_add_event_cb(ui_Button3, diagnosticNavigationEvent, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_Button4, diagnosticNavigationEvent, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(ui_Button5, diagnosticNavigationEvent, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(ui_Button6, diagnosticNavigationEvent, LV_EVENT_CLICKED, NULL);
+    lv_obj_remove_event_cb(ui_Button6, ui_event_Button6);
+    lv_obj_add_event_cb(ui_Button6, logRetrievalUiEntryEvent, LV_EVENT_ALL, NULL);
 
     // Button event handlers are intentionally NOT registered here.
     //
@@ -2424,6 +2429,7 @@ void setup() {
 
   finalizeSetup();
   diagnosticsSetupComplete();
+  logRetrievalUiInit(); // Build once and arm panel entry only after setup.
 }
 
 

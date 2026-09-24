@@ -3,16 +3,16 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const source=fs.readFileSync('src/diagnostics/diagnostics_retrieval.cpp','utf8');
 function body(s,sig){let i=s.indexOf(sig);assert(i>=0,sig);i=s.indexOf('{',i);let a=++i,d=1;while(d){if(s[i]=='{')d++;if(s[i]=='}')d--;i++;}return s.slice(a,i-1);}
-function adapt(s){return s.replace(/Mode::/g,'Mode.').replace(/diagnet::event/g,'event').replace(/diaghttp::/g,'http.').replace(/const bool /g,'const ').replace(/nullptr/g,'null').replace(/if \(const char\* reason = entryRefusal\(\)\) \{/,'const reason=entryRefusal(); if(reason) {');}
-const defs=[['entryRefusal','','const char* entryRefusal()'],['enter','','void enter()'],['logRetrievalActive','','bool logRetrievalActive()'],['logRetrievalExit','reason','void logRetrievalExit('],['logRetrievalTouch','','void logRetrievalTouch()'],['logRetrievalTick','','void logRetrievalTick()'],['logRetrievalCommand','command','bool logRetrievalCommand(']];
-function context(){const c={Mode:{Off:0,Starting:1,Active:2,Stopping:3},mode:0,IDLE_MS:300000,activityAt:0,stoppingAt:0,releaseWarned:false,RELEASE_WARN_MS:Number(source.match(/RELEASE_WARN_MS = (\d+)/)[1]),linkUp:false,lastReason:'boot',exitReason:'none',t:100,vbusPresent:true,ready:true,closing:false,wifi:true,image:false,live:false,busy:false,pending:false,events:[],reports:[],aborts:0,WL_CONNECTED:1};
+function adapt(s){return s.replace(/RetrievalOrigin::/g,'RetrievalOrigin.').replace('return {false, reason};','return {accepted:false, reason};').replace('return {false, lastReason};','return {accepted:false, reason:lastReason};').replace('return {true, lastReason};','return {accepted:true, reason:lastReason};').replace('return {mode, linkUp, lastReason, releaseWarned};','return {phase:mode, linkUp, reason:lastReason, releaseStuck:releaseWarned};').replace(/Mode::/g,'Mode.').replace(/diagnet::event/g,'event').replace(/diaghttp::/g,'http.').replace(/const bool /g,'const ').replace(/nullptr/g,'null').replace(/if \(const char\* reason = entryRefusal\(\)\) \{/,'const reason=entryRefusal(); if(reason) {');}
+const defs=[['entryRefusal','','const char* entryRefusal()'],['originName','origin','const char* originName('],['logRetrievalEnter','origin','RetrievalEntry logRetrievalEnter('],['logRetrievalView','','RetrievalView logRetrievalView()'],['logRetrievalActive','','bool logRetrievalActive()'],['logRetrievalExit','reason','void logRetrievalExit('],['logRetrievalTouch','','void logRetrievalTouch()'],['logRetrievalTick','','void logRetrievalTick()'],['logRetrievalCommand','command','bool logRetrievalCommand(']];
+function context(){const c={RetrievalOrigin:{Usb:0,Panel:1},entryOrigin:0,Mode:{Off:0,Starting:1,Active:2,Stopping:3},mode:0,IDLE_MS:300000,activityAt:0,stoppingAt:0,releaseWarned:false,RELEASE_WARN_MS:Number(source.match(/RELEASE_WARN_MS = (\d+)/)[1]),linkUp:false,lastReason:'boot',exitReason:'none',t:100,vbusPresent:true,ready:true,closing:false,wifi:true,image:false,live:false,busy:false,pending:false,events:[],reports:[],aborts:0,WL_CONNECTED:1};
 c.http={canStart:true,canActivate:true,isStopped:false,err:null,at:0,allowed:true,notices:[],
 interfaceAllowed:()=>c.http.allowed,start:()=>{c.http.isStopped=false;return c.http.canStart;},
 stop:()=>{c.http.isStopped=true;},activate:()=>c.http.canActivate,
 stopped:()=>c.http.isStopped,failure:()=>c.http.err,stage:()=> 'server_stop',
 activity:()=>c.http.at,idleExpired:(t,a,l)=>t-Math.max(a,c.http.at)>=l,
 notice:x=>c.http.notices.push(x)};
-c.nowMs=()=>c.t;c.report=r=>c.reports.push({result:r,reason:c.lastReason,state:c.mode});c.event=(...a)=>c.events.push(a);c.WiFi={status:()=>c.wifi?1:0};c.diagnosticsStorageClosing=()=>c.closing;c.diagnosticsStorageReady=()=>c.ready;c.imageFetcherIsBusy=()=>c.image;c.videoStreamActive=()=>c.live;c.diagnosticsUsbBusy=()=>c.busy;c.imageFetcherHasPendingDisplay=()=>c.pending;c.diagnosticsUsbCommand=s=>{assert.equal(s,'log abort');c.aborts++;};c.strcmp=(a,b)=>a===b?0:1;c.strncmp=(a,b,n)=>a.slice(0,n)===b.slice(0,n)?0:1;vm.createContext(c);vm.runInContext(defs.map(([n,a,s])=>`function ${n}(${a}){${adapt(body(source,s))}}`).join('\n'),c);return c;}
+c.nowMs=()=>c.t;c.report=r=>c.reports.push({result:r,reason:c.lastReason,state:c.mode});c.event=(...a)=>c.events.push(a);c.WiFi={status:()=>c.wifi?1:0};c.diagnosticsStorageClosing=()=>c.closing;c.diagnosticsStorageReady=()=>c.ready;c.imageFetcherIsBusy=()=>c.image;c.videoStreamActive=()=>c.live;c.diagnosticsUsbBusy=()=>c.busy;c.imageFetcherHasPendingDisplay=()=>c.pending;c.diagnosticsUsbCommand=s=>{assert.equal(s,'log abort');c.aborts++;};c.strcmp=(a,b)=>a===b?0:1;c.strncmp=(a,b,n)=>a.slice(0,n)===b.slice(0,n)?0:1;vm.createContext(c);vm.runInContext(defs.map(([n,a,s])=>`function ${n}(${a}){${adapt(body(source,s))}}`).join('\n'),c);c.enter=()=>c.logRetrievalEnter(c.RetrievalOrigin.Usb);return c;}
 let count=0;function test(n,f){f(context());count++;console.log('PASS '+n);}
 for(const [field,value,reason] of [['vbusPresent',false,'usb_power_required'],['closing',true,'logger_closing'],['ready',false,'logger_unavailable'],['wifi',false,'wifi_offline'],['image',true,'image_busy'],['live',true,'live_busy'],['busy',true,'retrieval_busy'],['pending',true,'display_pending']])test('entry refuses '+reason,c=>{c[field]=value;c.logRetrievalCommand('log mode on');assert.equal(c.mode,0);assert.equal(c.lastReason,reason);assert.equal(c.aborts,0);});
 test('entry, repeated on, off and repeated off have explicit results',c=>{c.logRetrievalCommand('log mode on');assert.equal(c.mode,1);c.logRetrievalTick();assert.equal(c.mode,2);c.t++;c.logRetrievalCommand('log mode on');assert.equal(c.lastReason,'not_off');assert.equal(c.activityAt,100);c.logRetrievalCommand('log mode off');assert.equal(c.mode,3);assert.ok(c.logRetrievalActive());c.logRetrievalCommand('log mode off');assert.equal(c.reports.at(-1).result,'already_stopping');c.logRetrievalTick();assert.equal(c.mode,0);c.logRetrievalCommand('log mode off');assert.equal(c.reports.at(-1).result,'already_off');});
@@ -54,4 +54,37 @@ test('server release is independent of USB release',c=>{c.enter();c.logRetrieval
 test('HTTP user activity postpones expiry but late activity cannot revive STOPPING',c=>{c.enter();c.logRetrievalTick();c.t=300101;c.http.at=300000;c.logRetrievalTick();assert.equal(c.mode,2);c.logRetrievalExit('usb_command');c.http.isStopped=false;c.http.at=900000;c.t=900001;c.logRetrievalTick();assert.equal(c.mode,3);});
 test('server failure escalates before ten seconds without forced free',c=>{c.enter();c.logRetrievalTick();c.http.stop=()=>{};c.http.err='server_stop';c.logRetrievalTick();assert.equal(c.mode,3);assert.ok(c.releaseWarned);assert.equal(c.http.notices.at(-1),true);c.http.isStopped=true;c.logRetrievalTick();assert.equal(c.mode,0);assert.equal(c.http.notices.at(-1),false);});
 test('interface change exits but link loss alone does not',c=>{c.enter();c.logRetrievalTick();c.http.allowed=false;c.logRetrievalTick();assert.equal(c.lastReason,'interface_changed');});
+for(const [field,value,reason] of [['vbusPresent',false,'usb_power_required'],['closing',true,'logger_closing'],['ready',false,'logger_unavailable'],['wifi',false,'wifi_offline'],['image',true,'image_busy'],['live',true,'live_busy'],['busy',true,'retrieval_busy'],['pending',true,'display_pending']])test('panel shares admission '+reason,c=>{
+ c[field]=value;const r=c.logRetrievalEnter(c.RetrievalOrigin.Panel);assert.equal(r.accepted,false);assert.equal(r.reason,reason);assert.equal(c.entryOrigin,0);assert.equal(c.events.at(-1)[2],'panel');
+});
+test('refused caller origin never overwrites accepted async origin in either direction',c=>{
+ for(const origin of [0,1]){
+  c.mode=0;c.http.canActivate=false;c.events=[];
+  assert.ok(c.logRetrievalEnter(origin).accepted);assert.equal(c.entryOrigin,origin);
+  const other=1-origin;assert.equal(c.logRetrievalEnter(other).reason,'not_off');
+  assert.equal(c.entryOrigin,origin);assert.equal(c.events.at(-1)[2],other?'panel':'usb');
+  c.http.canActivate=true;c.logRetrievalTick();assert.equal(c.events.at(-1)[2],origin?'panel':'usb');
+ }
+});
+test('USB event payloads retain exact text and worker failure uses accepted origin',c=>{
+ const fmt=require('node:util').format;
+ c.logRetrievalCommand('log mode on');c.logRetrievalTick();
+ assert.equal(fmt(...c.events[0].slice(1)),'action=enter trigger=usb reason=requested result=starting');
+ assert.equal(fmt(...c.events[1].slice(1)),'action=enter trigger=usb reason=requested result=ok');
+ c.logRetrievalCommand('log mode on');assert.equal(fmt(...c.events.at(-1).slice(1)),'action=enter trigger=usb reason=not_off result=refused');
+ c.mode=0;c.http.canStart=false;c.logRetrievalEnter(c.RetrievalOrigin.Panel);
+ assert.equal(fmt(...c.events.at(-1).slice(1)),'action=enter trigger=panel reason=worker_start result=failed');
+});
+test('snapshot is value-only and never ticks or refreshes activity',c=>{
+ c.enter();const before=c.activityAt;c.t=400000;
+ const view=c.logRetrievalView();assert.equal(view.phase,1);assert.equal(c.mode,1);
+ view.phase=3;assert.equal(c.mode,1);assert.equal(c.activityAt,before);
+ assert.doesNotMatch(body(source,'RetrievalView logRetrievalView()'),/Tick|Touch|activityAt\s*=/);
+});
+test('panel stop followed by USB exit remains a single nonwaiting stop',c=>{
+ c.logRetrievalEnter(c.RetrievalOrigin.Panel);c.logRetrievalTick();c.busy=true;
+ c.logRetrievalExit('panel_stop');c.logRetrievalCommand('log mode off');
+ assert.equal(c.aborts,1);assert.equal(c.exitReason,'panel_stop');
+ c.busy=false;c.logRetrievalTick();assert.equal(c.mode,0);
+});
 console.log(`${count} retrieval mode checks passed; source simulations only.`);

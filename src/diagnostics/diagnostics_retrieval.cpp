@@ -13,7 +13,9 @@ extern HWCDC USBSerial;
 extern bool vbusPresent;
 
 namespace {
-enum class Mode : uint8_t { Off, Starting, Active, Stopping };
+using Mode = RetrievalPhase;
+RetrievalOrigin entryOrigin = RetrievalOrigin::Usb;
+const char* originName(RetrievalOrigin origin) { return origin == RetrievalOrigin::Panel ? "panel" : "usb"; }
 Mode mode = Mode::Off;
 constexpr uint64_t IDLE_MS = 300000;
 // Observation threshold, not permission to free a buffer or a close deadline.
@@ -52,23 +54,27 @@ const char* entryRefusal() {
   if (imageFetcherHasPendingDisplay()) return "display_pending";
   return nullptr;
 }
-void enter() {
+} // namespace
+RetrievalEntry logRetrievalEnter(RetrievalOrigin origin) {
+  logRetrievalTick();
   if (const char* reason = entryRefusal()) {
     lastReason = reason;
-    diagnet::event("RETRIEVAL_MODE", "action=enter trigger=usb reason=%s result=refused", reason);
-    report("refused"); return;
+    diagnet::event("RETRIEVAL_MODE", "action=enter trigger=%s reason=%s result=refused", originName(origin), reason);
+    report("refused"); return {false, reason};
   }
+  entryOrigin = origin;
   mode = Mode::Starting;
   activityAt = nowMs(); linkUp = true; lastReason = "requested"; releaseWarned = false;
   if (!diaghttp::start()) {
     mode = Mode::Off; lastReason = "worker_start";
-    diagnet::event("RETRIEVAL_MODE", "action=enter trigger=usb reason=worker_start result=failed");
-    report("failed"); return;
+    diagnet::event("RETRIEVAL_MODE", "action=enter trigger=%s reason=worker_start result=failed", originName(entryOrigin));
+    report("failed"); return {false, lastReason};
   }
-  diagnet::event("RETRIEVAL_MODE", "action=enter trigger=usb reason=requested result=starting");
+  diagnet::event("RETRIEVAL_MODE", "action=enter trigger=%s reason=requested result=starting", originName(entryOrigin));
   report("starting");
+  return {true, lastReason};
 }
-} // namespace
+RetrievalView logRetrievalView() { return {mode, linkUp, lastReason, releaseWarned}; }
 bool logRetrievalActive() { return mode != Mode::Off; }
 void logRetrievalExit(const char* reason) {
   if (mode == Mode::Off || mode == Mode::Stopping) return;
@@ -95,7 +101,7 @@ void logRetrievalTick() {
     else if (diaghttp::idleExpired(nowMs(),activityAt,IDLE_MS)) logRetrievalExit("idle_timeout");
     if (mode == Mode::Starting && diaghttp::activate()) {
       mode = Mode::Active;
-      diagnet::event("RETRIEVAL_MODE", "action=enter trigger=usb reason=requested result=ok");
+      diagnet::event("RETRIEVAL_MODE", "action=enter trigger=%s reason=requested result=ok", originName(entryOrigin));
       report("ok");
     }
     const bool connected = WiFi.status() == WL_CONNECTED;
@@ -119,7 +125,7 @@ void logRetrievalTick() {
   diaghttp::notice(releaseWarned);
 }
 bool logRetrievalCommand(const char* command) {
-  if (!strcmp(command,"log mode on")) { logRetrievalTick(); enter(); return true; }
+  if (!strcmp(command,"log mode on")) { logRetrievalEnter(RetrievalOrigin::Usb); return true; }
   if (!strcmp(command,"log mode off")) {
     const bool alreadyOff = mode == Mode::Off;
     const bool alreadyStopping = mode == Mode::Stopping;
