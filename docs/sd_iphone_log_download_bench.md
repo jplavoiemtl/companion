@@ -1,5 +1,43 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 15:18-15:22 - increment9 USB-during-HTTP repeat PASSED
+
+Evidence: dbece1cb-83df-4945-909c-444324b2300a/Pasted text.txt;
+Downloads/119-current (1).log (252343 bytes, USB CRC OK) and exported Safari
+2026-09-20T193038-0400_119-9-archive-00000021-2097146.log.
+JP reports the test ran fine. Console fix48796b5, cleared by Claude, exercised on hardware.
+
+USB log get17 at15:19:11.488 received busy at15:19:11.500; local Device: busy
+settled without TX log abort or disconnect. Capture continues past15:22. HTTP id9
+started15:19:04.912 and ended15:19:48.032, so refusal was during the active body.
+All2097146 bytes accepted; writer and HTTP CRC0B301A04, crc_check=match, result=ok.
+Independently computed Safari CRC0B301A04 and SHA256
+8f9aa99aa6b8bbc73518531469f0bb0c2762d27f651f786a8e8987f1e84b6433.
+Body first-to-last43057 ms, max gap62 ms; appends=unpaused. HTTP internal free87916,
+largest42996 above20480, stack margin2584. Writer2920/worker2304 retained margins.
+
+Same boot119, mode generation10. Exit stopping-to-ok114 ms on device; explicit OFF
+observed. Drops/truncated0, loggerready, unchanged pre-existing slow3/high8.
+Final snapshot252343 ->252649 confirms later append growth. Motion MQTT messages
+occurred during the case without disrupting transfer. No firmware changes/rebuild.
+First direction passed; increment9 overall remains pending reverse direction.
+
+### Next single case - HTTP request during USB
+
+Existing firmware and corrected console, DTR=true/RTS=false, no PC hotspot requirement.
+Capture status; enter mode and confirm ACTIVE. Load the Safari listing before starting
+USB. Send log get21 over USB; about three seconds into its visible transfer, tap
+archive17 on the already-loaded Safari listing. Expected HTTP503 with
+retrieval_busy_or_unavailable (or retrieval_busy), possibly presented as a download
+failure by Safari; no valid archive17 download at that point. Capture the phone message
+or screenshot and console timing. Do not abort. USB archive21 must finish CRC OK.
+After USB finishes, retry archive17 once in Safari to verify normal recovery. Then mode
+off, confirm OFF, USB current.log, status/log status. Send console, final current.log,
+USB archive21 and phone refusal observation/screenshot. No additional exported Safari
+file comparison required for this direction. If the USB transfer has already completed
+before the tap, report that; contention was not exercised. No further case in parallel.
+
+
 ## September24 15:07-15:11 - increment9 USB-during-HTTP exposed console defect
 
 Evidence: c3c595e4-d6e6-46b5-b296-5d5b886eb36b/Pasted text.txt and
