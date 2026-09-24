@@ -544,59 +544,59 @@ void increase_lvgl_tick(void *arg) {
 
 
 //***************************************************************************************************
+// Interrupts wake an idle pointer; contact state comes from the controller, not IRQ cadence.
+static bool touchContactActive = false;
+static bool touchAwaitingRelease = false;
+static uint32_t touchRecoveryAt = 0;
+static void cancelTouchContact() {
+  touchContactActive = false;
+  touchAwaitingRelease = true;
+  touchRecoveryAt = millis();
+  // Discard the uncertain gesture instead of turning a failed read into CLICKED.
+  // LVGL 8.4 processes this reset immediately after read_cb, before pointer events.
+  lv_indev_t* input = lv_indev_get_act();
+  if (input) lv_indev_reset(input, nullptr);
+}
 /*Read the touchpad*/
 void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
-  
-  // 1. DEFAULT STATE: No touch
   data->state = LV_INDEV_STATE_REL;
-
-  // Safety Check: If the hardware pin is stuck LOW (Active), force the flag to TRUE.
-  // This un-sticks the touch controller if a previous I2C read failed/timed-out.
-  if (digitalRead(TP_INT) == LOW) {
-    FT3168->IIC_Interrupt_Flag = true;
+  if (!FT3168) return;
+  // After a failed sample, wait for a verified lift. Throttle recovery even if IRQ stays low.
+  if (touchAwaitingRelease && uint32_t(millis()-touchRecoveryAt) < 50) return;
+  if (digitalRead(TP_INT) == LOW) FT3168->IIC_Interrupt_Flag = true;
+  if (!touchContactActive && !touchAwaitingRelease && !FT3168->IIC_Interrupt_Flag) return;
+  if (!i2c_mutex || xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) != pdTRUE) {
+    cancelTouchContact(); return;
   }
-  
-  // 2. CHECK INTERRUPT FIRST - Don't use I2C bus unless hardware signaled a touch
-  if (FT3168->IIC_Interrupt_Flag == true) {
-    
-    // START MUTEX PROTECTION
-    if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-
-      // Ask the chip: "How many fingers are actually on the screen?"
-      int32_t touchPoints = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_FINGER_NUMBER);
-
-      // If the interrupt fired (noise) but the chip sees 0 fingers...
-      if (touchPoints == 0) {
-          // ...It was a ghost! Clear the flag and ignore it.
-          FT3168->IIC_Interrupt_Flag = false;
-          xSemaphoreGiveRecursive(i2c_mutex);
-          data->state = LV_INDEV_STATE_REL;
-          return; 
-      }
-
-      // 3. READ COORDINATES ONLY NOW - Prevents I2C collisions with IMU/PMIC
-      int32_t touchX = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_X);
-      int32_t touchY = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_Y);
-      
-      // 4. CLEAR FLAG AFTER READING - Prevents missing events during I2C reads
-      FT3168->IIC_Interrupt_Flag = false;
-
-      xSemaphoreGiveRecursive(i2c_mutex);
-        
-      // 5. Filter B: Reject out-of-bounds - garbage data often exceeds screen dimensions
-      if (touchX < 0 || touchX >= screenWidth || touchY < 0 || touchY >= screenHeight) {
-        return;
-      }
-      
-      // 6. VALID TOUCH - All filters passed
-      logRetrievalTouch();
-      data->state = LV_INDEV_STATE_PR;
-      data->point.x = touchX;
-      data->point.y = touchY;
-
-    } // END MUTEX PROTECTION
-
+  // Consume the observed signal BEFORE reading, so a new IRQ during I2C remains pending.
+  FT3168->IIC_Interrupt_Flag = false;
+  const int32_t touchPoints = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_FINGER_NUMBER);
+  if (touchPoints == 0) {
+    xSemaphoreGiveRecursive(i2c_mutex);
+    touchContactActive = false;
+    touchAwaitingRelease = false;
+    return; // A verified lift is the ordinary release/click path.
   }
+  if (touchPoints < 0 || touchPoints > 2) {
+    xSemaphoreGiveRecursive(i2c_mutex);
+    cancelTouchContact(); return;
+  }
+  if (touchAwaitingRelease) {
+    xSemaphoreGiveRecursive(i2c_mutex);
+    touchRecoveryAt = millis();
+    return; // Do not acquire another screen/button until that same finger has lifted.
+  }
+  const int32_t touchX = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_X);
+  const int32_t touchY = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_Y);
+  xSemaphoreGiveRecursive(i2c_mutex);
+  if (touchX < 0 || touchX >= screenWidth || touchY < 0 || touchY >= screenHeight) {
+    cancelTouchContact(); return;
+  }
+  touchContactActive = true;
+  logRetrievalTouch();
+  data->state = LV_INDEV_STATE_PR;
+  data->point.x = touchX;
+  data->point.y = touchY;
 }
 
 

@@ -1,5 +1,16 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 - increment11 first panel hold failed; touch fix for review
+
+JP reports short tap returns home correctly but stationary hold cycles home then G-meter,
+never entering retrieval. No new console/file evidence supplied. First UI hardware gate
+failed at entry. Source shows no-IRQ samples falsely reported as released even after a
+valid contact. Old callback reproduces this with mocked count1; physical IRQ behaviour
+is still unmeasured. Proposed callback correction and installed-driver/LVGL evidence are
+in sd_iphone_log_download_increment11_touch_fix.md.281 host checks pass; no build/flash.
+Pause hardware testing for Claude code review; no new test case issued here.
+
+
 ## September24 - increment10 accepted; increment11 design prepared
 
 JP explicitly accepted increment10. All approved reduced gates through10 are accepted.

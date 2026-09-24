@@ -98,3 +98,10 @@ send console plus the observed behaviour; investigate touch acquisition before c
 hold timing or asking for repetitions. Do not assume host gesture simulations establish
 this hardware property. If entry works, continue the same case with address/current-file
 retrieval/Stop and logging continuation. Capture LVGL before/after pool records.
+
+## First hardware outcome
+
+JP's stationary hold failed after17cfb41, while short tap worked. See
+sd_iphone_log_download_increment11_touch_fix.md for the touch-acquisition correction
+awaiting Claude review.281 host checks pass; no new firmware build/flash performed.
+The first gate is not passed; previous build clearance does not cover this new fix.
