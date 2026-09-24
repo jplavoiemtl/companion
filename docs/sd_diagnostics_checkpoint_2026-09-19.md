@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September24, idle attempt2 stalled; PC link suspect
+
+New USB600814-byte log confirms id4 stalled at135912 bytes;5.001 s no progress,
+safe cleanup/no drops. JP suspects PC hotspot disconnection. Windows WLAN records
+driver disconnect08:29:29.734, after observed stall/helper exit. Possible PC-path
+instability, not proven cause; companion stayed connected. Clarify whether JP manually
+disconnected after script ended. Pause further helper/firmware changes pending this;
+idle gate open,6A accepted. Bench doc contains exact timestamps and limitations.
+
+
 ## Latest handoff - September24, pause idle helper retries pending id4 evidence
 
 V2 helper received135912 bytes then EOF at39.32 seconds, not idle expiry. Need newest

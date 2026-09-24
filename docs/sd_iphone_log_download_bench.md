@@ -1,5 +1,28 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 - idle attempt2 device evidence and PC Wi-Fi disconnect investigation
+
+JP supplied console08:30:46 onward and Downloads/119-current (2).log600814 bytes
+(USB CRC OK). Boot119 HTTP id4 archive21: accepted/writer135912, CRC91E4BC72 both,
+result stalled, last1388933 ->cancel/reader close1393934 (5001 ms), release1393953
+(+19 ms), terminal gap5020 ms. Earlier progress gap2901 ms. Appends unpaused,
+HTTP memory largest42996/margin2788. Mode ACTIVE at idle_ms148797, then clean OFF
+on command. Drops0/no logger error/stuck release/reset. This confirms stall, not
+idle expiry. No third helper variant or firmware change justified yet.
+
+JP suspects PC disconnecting from iPhone hotspot. Read local Windows WLAN-AutoConfig
+Operational log for08:22-08:32 (no settings changed). Connected event8001 at
+08:23:06.905; security stopped11004 at08:29:25.475; disconnected8003 at08:29:29.734,
+reason "The network is disconnected by the driver", ReasonCode0, manual-profile
+connection mode. No disconnect event during attempt1, and attempt2's event is later
+than device END local08:28:50.364 / PC helper completion roughly08:29:00. Device and
+PC clocks have observed offsets; event timing alone is not packet-delivery timing.
+PC instability is plausible but causation not established, and no evidence rules out
+receive-window effects. Companion log has no WiFi/retrieval-link disconnect for this
+interval. Ask JP whether PC Wi-Fi was deliberately disconnected after the helper ended.
+Do not waive idle gate, tune firmware timeouts or issue another blind pacing retry.
+
+
 ## September24 - idle-transfer attempt2 ended early; device evidence needed
 
 JP v2 PowerShell output: boot119 id4 archive21, HTTP200, Content-Length2097146,
