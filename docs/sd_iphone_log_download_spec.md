@@ -27,7 +27,9 @@ check passed on September24 (three transfers, boot119); JP explicitly accepted i
 and authorized proceeding to increment9.
 Both increment9 competition directions passed and JP explicitly accepted increment9
 on September24. Increment10 server-off normal-use check passed September24;
-JP acceptance is pending. On-device controls remain at design/review stage;
+JP explicitly accepted increment10. On-device controls are proposed in
+[the increment11 design](sd_iphone_log_download_increment11_design.md), pending Claude
+review and JP implementation approval;
 results are reviewed one case at a time. UI implementation still requires a reviewed design
 and implementation approval. Any firmware fixes go to Claude before JP builds/flashes.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the

@@ -1,5 +1,16 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 - increment10 accepted; increment11 design prepared
+
+JP explicitly accepted increment10. All approved reduced gates through10 are accepted.
+The on-device controls proposal is in sd_iphone_log_download_increment11_design.md.
+It reuses the retrieval owner and proposes panel entry/status/exit with temporary-screen
+persistence. Gesture and precise unexpected-screen handling need review; pending-handover
+hardware waiver is proposed, not accepted. Battery-only refusal remains a short UI check.
+No firmware changes, builds or flashes. Next action is Claude design review, followed by
+JP's implementation approval. Historical plan unchanged; no new bench case issued now.
+
+
 ## September24 15:32-15:35 - increment10 server-off normal-use gate PASSED
 
 Evidence: 6cfc12a5-2660-4674-97b4-ba2a6806107b/Pasted text.txt and
