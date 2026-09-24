@@ -1,5 +1,34 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 15:25-15:27 - increment9 HTTP-during-USB PASSED
+
+Evidence: ba046f37-447e-48dd-bbdb-6bda79b14d64/Pasted text.txt;
+Downloads/119-archive-00000021.log (2097146 bytes) and119-current.log (263005 bytes).
+JP explicitly observed busy/unavailable on iPhone and reports test ran fine. The refusal
+is a user-observed response, not a captured HTTP status/timestamp; no additional screenshot
+needed. Firmware's known pre-reservation refusal path returns503. Do not claim an
+instrumented rejection time. Combined with uninterrupted USB completion and later HTTP
+recovery, this satisfies the reduced competition gate.
+
+USB archive21 completes15:26:52.798,20.69s,CRC OK. Independent file CRC0B301A04,
+SHA2568f9aa99aa6b8bbc73518531469f0bb0c2762d27f651f786a8e8987f1e84b6433,
+matching the previously exported Safari archive from the other competition direction.
+Later HTTP archive17 retry id10 starts15:27:10.387, completes15:27:16.674:
+308745 bytes, both CRC541A8F0C,crc_check=match,result=ok,appends=unpaused,maxgap41ms.
+HTTP internal free90140,largest47092 above20480,stackmargin2584; writer2920,worker2304.
+
+Mode generation11, same boot119. Console omitted final mode-status/OFF query, but device
+RETRIEVAL_MODE exit stopping26517175 ->ok26517281 confirms completion in106ms.
+No repeat needed solely for that query. Loggerready,drops/truncated0,unchanged slow3/high8;
+WiFi/MQTT connected and no USB link loss. Final USB current CRC OK; snapshot263005
+->264354 bytes in later status proves append continuation.
+
+Both increment9 directions now passed, including the reviewed console fix hardware
+repeat. Increment9 ready for JP's explicit acceptance. No rebuild/flash or code changes.
+After acceptance, issue one final server-off normal-use Latest/Live check for increment10;
+retain the accepted IMU-rate decision. On-device controls remain the next proposed feature.
+
+
 ## September24 15:18-15:22 - increment9 USB-during-HTTP repeat PASSED
 
 Evidence: dbece1cb-83df-4945-909c-444324b2300a/Pasted text.txt;
