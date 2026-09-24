@@ -1,32 +1,71 @@
-# Increment11 - on-device download controls, design for review
+# Increment11 - on-device download controls, design revision 2
 
 September24,2026. JP accepted increment10 after the final normal-use case passed.
 Increments1-10 (including6A) are accepted under the September24 reduced bench scope.
-This document proposes the next implementation; it is NOT implementation approval.
-No firmware edits, builds or flashes accompany this design. Historical plan stays verbatim.
+Revision 2 records JP's entry/exit decisions and the resolutions from Claude's review of
+0e573dd against current source. JP granted the pending-handover waiver and handed
+implementation to Codex (see the end). No firmware edits, builds or flashes accompany
+this document.
+Historical plan stays verbatim.
 
-## Intended workflow and proposed entry gesture
+## Decisions (JP, September24)
 
-On the dashboard, press and hold the connection-status text for about one second to
-request download mode. Proposed target: ui_labelConnectionStatus; add clickability and
-one LONG_PRESSED callback from custom code after initUIHandlers(), without changing
-SquareLine files. Use the existing LVGL long-press threshold unless inspection during
-implementation requires a local one-second timer; do not change the global input timing.
-The exact threshold is a review item, not a promise of one second with today's default.
-No repeat handler, no action on the release click, and no overlap with media buttons.
-This gesture is a proposal requiring JP's agreement with the design. It avoids placing
-another button over the crowded dashboard. A visible Logs button is an alternative if
-JP prefers discoverability over retaining the current layout.
+1. **Entry is on the IMU calibration screen, not the dashboard.** Reached from the
+   inclinometer by swiping left. A **hold of about one second on the top band** of that
+   screen requests download mode. A short tap there still returns to Screen1 exactly as
+   today. The dashboard layout and its connection-status label are unchanged.
+2. **Exit returns to Screen1.** Stop, idle expiry, USB-power loss and every other path to
+   OFF return to the dashboard, not to the calibration screen.
+3. **The download screen has its own Stop button**, built in custom code. No SquareLine or
+   generated-file work is needed from JP.
 
-One deliberate hold requests entry directly; no second confirmation is needed. Before
-changing the active screen, use the same authoritative admission path as USB. If refused,
-keep the current screen and show a short readable reason (USB power required, reconnect
-hotspot, logger unavailable, or wait for image/video). Never cancel a pending handover
-or media operation to obtain entry. A hold on the dashboard does not stop logging.
-When accepted, display a temporary screen, sized using the current LVGL display resolution
-(the dashboard uses landscape448x368; do not assume portrait368x448 or rotate the display).
+## Entry gesture - calibration screen top band
 
-Suggested content, large text and wrapping, no horizontal scrolling:
+The visible title `ui_calibLabel` ("IMU Calibration", y -154) cannot take the press:
+`ui_Button6`, an invisible (bg_opa0) 442x142 button created after it
+(ui_calibrationScreen.c:111-120, y -185 to -43), covers the whole top band. Its generated
+handler `ui_event_Button6` goes to Screen1 on CLICKED, and LVGL still sends CLICKED on the
+release that follows a long press. Adding only a long-press callback would enter the mode
+and then immediately navigate to Screen1 on release.
+
+Use the existing Back-button override pattern (companion.ino, `initUIHandlers()`); the
+generated files are untouched:
+
+- `lv_obj_remove_event_cb(ui_Button6, ui_event_Button6)` and add one custom handler.
+- Local one-second threshold: record the tick on PRESSED, fire once on PRESSING when
+  1000 ms have elapsed, reset on RELEASED and PRESS_LOST. The installed config leaves
+  `LV_INDEV_DEF_LONG_PRESS_TIME` at LVGL's 400 ms default; global input timing is not changed.
+- A fired hold requests entry and marks the press consumed. CLICKED on a consumed press
+  does nothing. Any other CLICKED performs exactly the generated action:
+  `_ui_screen_change(&ui_Screen1, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Screen1_screen_init)`.
+- `diagnosticNavigationEvent` is also registered on `ui_Button6` CLICKED (companion.ino:2038).
+  Move that navigation record into the custom handler so it is written only when a
+  navigation actually happens, not after a hold.
+- The 442x142 target needs no extended click area. No repeat handler.
+
+**Armed only after setup.** Screen memory can restore the inclinometer before `initWiFi()`,
+and LVGL runs inside the Wi-Fi and MQTT setup loops (`runBackgroundTick()` at
+companion.ino:2193 and :2235), so the calibration screen is reachable before setup ends.
+USB entry never was (commands are parsed only in `loop()`). The override must exist from
+boot because it owns navigation home, so it carries a flag set after
+`diagnosticsSetupComplete()`. Until then a hold does nothing and the tap goes home as today.
+
+**Calibration in progress.** Refuse panel entry while `calibGetState()` is
+CALIB_GRAVITY_SAMPLING, CALIB_FORWARD_SAMPLING or CALIB_READY_TO_COMPUTE: leaving the screen
+would hide the result `updateCalibration()` reports there. This is a panel-only check, so
+USB entry behaviour is unchanged.
+
+One deliberate hold requests entry directly; no second confirmation. Admission uses the
+same authoritative path as USB. If refused, stay on the calibration screen and show a short
+readable reason (USB power required, reconnect hotspot, logger unavailable, wait for
+image/video, calibration running). Never cancel a pending handover or media operation to
+obtain entry. A hold does not stop logging.
+
+## Download screen
+
+Suggested content, large text and wrapping, no horizontal scrolling, laid out with the
+current LVGL display resolution (landscape 448x368 through `lv_disp_get_hor_res()`; do
+not assume portrait 368x448 or rotate the display):
 
     Download logs
     Starting... / Ready / Hotspot disconnected / Stopping...
@@ -36,121 +75,144 @@ Suggested content, large text and wrapping, no horizontal scrolling:
     Closes after 5 minutes without activity.
     [ Stop and return ]
 
-The address is the current station address, never a hardcoded172.20.10.2. Hide it while
-starting or disconnected; update it after reconnect. Use the existing trusted-hotspot,
-no-token decision; no DNS, QR dependency, AP fallback, upload/delete, or server endpoints
-are added. The phone listing remains the place to select files and inspect last result.
-USB power means a powered cable/car supply, not a PC or serial connection.
+- **Stop and return** is a large button at the bottom. Enabled in STARTING and ACTIVE.
+  One press calls exit once and shows Stopping...; further presses do nothing. An
+  in-progress download is cancelled cleanly by the existing stop ordering.
+- Keep the top ~64 px free of anything essential: `diaghttp::notice` places an opaque,
+  non-clickable two-line warning at the top of `lv_layer_top` (diagnostics_http.cpp:555-562).
+  It passes touches through but covers what is under it.
+- The address is the current station address, never a hardcoded 172.20.10.2. Hide it while
+  starting or disconnected; update it after reconnect. Build it in a bounded 32-byte buffer
+  and set it with `lv_label_set_text` (LVGL copies it), not the `_static` variant.
+- Existing trusted-hotspot, no-token decision. No DNS, QR, AP fallback, upload/delete or
+  new server endpoints. The phone listing remains the place to select files and inspect
+  the last result. USB power means a powered cable/car supply, not a PC connection.
+- Register `activity_event_handler` for CLICKED on this screen, as the generated screens
+  do, so touches here count for the power inactivity timer (this matters in TEST_POWER
+  builds, where that timer ignores VBUS). `logRetrievalTouch()` from `read_touch` remains
+  the only mode-idle refresh.
+
+## Screen lifetime and memory
+
+**Build the download screen once, after setup, and keep it for the boot**, like every
+SquareLine screen. Reason: `lv_conf.h` sets `LV_USE_ASSERT_MALLOC 1` with
+`LV_ASSERT_HANDLER while(1);`, so a failed LVGL allocation halts the main task rather than
+returning NULL. A construct-on-demand path with failure cleanup cannot exist in this
+configuration. Building once removes, from revision 1: construction-failure handling,
+off-screen preparation and re-admission, deferred deletion and the delete-inside-callback
+hazard, the per-entry leak check, and remembering the invoking screen.
+
+LVGL objects come from LVGL's fixed 48 KB internal pool (`LV_MEM_CUSTOM 0`), not the
+system heap, so the 20480-byte internal largest-block gate does not measure UI cost. Log
+`lv_mem_monitor()` (free, largest free block, fragmentation) before and after building
+the screen; the first bench case records it. No images, canvas, task or stack allocation.
+
+## Navigation and persistence
+
+- The download screen is loaded only by the user's hold. Nothing loads it automatically.
+- A hold in any non-OFF phase (STARTING, ACTIVE, STOPPING), including a serial-entered
+  mode, reopens the same screen without re-entering or resetting the mode. Stop therefore
+  stays reachable if anything else was loaded meanwhile. Serial entry itself does not
+  force the screen.
+- **On observed OFF:** if the download screen is active, load `ui_Screen1` without
+  animation. If it is not active, do nothing; do not pull the user back from another screen.
+- Register `screenMemoryEventHandler` for SCREEN_LOADED once. The screen maps to
+  `SCREEN_ID_NONE`, so the preference timer pauses. Do not repurpose `ui_previous_screen`.
+  No new NVS key; a reboot always starts retrieval OFF.
+- **Accepted side effect of returning to Screen1:** as with today's top-band tap, Screen1
+  becomes the saved boot screen if it stays active for 30 s. JP accepted this.
+- Stay on the screen through STOPPING, including active-download cleanup. Automatic idle,
+  USB-power loss, logger/interface failure and startup rollback use the same OFF rule, and
+  show the exit reason briefly on Screen1.
+- Transient notices (refusal on the calibration screen, exit reason on Screen1) use one
+  custom non-clickable label per screen, created once, hidden after about 3 s. Do not use
+  `ui_calibStatusLabel` (calibration code writes it) or `ui_labelConnectionStatus`
+  (rewritten every second). Never cover the stuck notice.
+- Hotspot loss keeps ACTIVE and shows reconnect guidance; it does not close the screen.
+- If release is stuck, keep the screen and exclusion, show waiting/restart guidance, and
+  do not force OFF, free shared buffers, auto-reboot or call `httpd_stop` on main.
+
+**Power-down hook.** There is no separate shutdown screen: `goToShutdown()` and
+`goToDeepSleep()` write "Shutdown..." / "Sleeping..." into `ui_labelConnectionStatus` on
+Screen1 (companion.ino:1770, :1728). Reachable case: USB lost, mode STOPPING with a slow or
+stuck release, then 30 s grace plus 60 s without touch. At the top of both functions, if
+the download screen is active, load `ui_Screen1` without animation before the message is
+written. Delete nothing and do not change the mode; `diagnosticsClose()` still owns
+teardown. The resulting SCREEN_LOADED is harmless because `screenMemoryUpdate()` does not
+run again after shutdown begins.
 
 ## Single owner and API boundary
 
-Create custom diagnostics_retrieval_ui.h/.cpp under src/diagnostics; generated ui files
-are untouched. All LVGL work and mode requests stay on main. Worker, HTTP and writer
-never call UI code. Refresh only changed text/state, at most4Hz, from the existing main
-background path. UI ticks must not recurse into lv_timer_handler or block on network/SD.
+Create custom `diagnostics_retrieval_ui.h/.cpp` under src/diagnostics; generated ui files
+are untouched. All LVGL work and mode requests stay on main. Worker, HTTP and writer never
+call UI code. Refresh only changed text, at most 4 Hz, from the existing main background
+path. No recursion into `lv_timer_handler`, no blocking on network or SD.
 
-Refactor the existing private enter() into a typed common main-task entry API, e.g.
-logRetrievalEnter(Origin::Usb/Panel), returning accepted/refused plus a stable reason.
-USB command parsing remains a wrapper and preserves existing serial reply behaviour.
-Persist the accepted origin across STARTING so enter result=ok and any startup failure
-are recorded with trigger=panel or usb consistently. Do not hardcode trigger=usb for
-panel entry. Exit uses existing non-waiting logRetrievalExit("panel") and existing stop
-ordering. No UI calls through the text command parser and no dependency on a USB reader.
+Refactor the private `enter()` into a common main-task entry, e.g.
+`logRetrievalEnter(Origin::Usb/Panel)`, returning accepted/refused plus the existing
+stable reason codes from `entryRefusal()`:
 
-Expose a small value snapshot: phase OFF/STARTING/ACTIVE/STOPPING, connected state,
-last reason, release-stuck flag, and idle age/remaining time if displayed. Snapshot reads
-must not reset activity. Keep all decisions in diagnostics_retrieval.cpp; do not clone
-entry predicates in UI. A disabled/hidden UI control is never the security/admission guard.
-Current connection address is obtained on main only when needed and copied into a bounded
-IPv4 URL buffer (32 bytes is sufficient); strings shown to LVGL have valid owned lifetime.
+- Move the pre-entry `logRetrievalTick()` from the `log mode on` wrapper into the common
+  entry, so a panel entry also lets STOPPING settle first. USB keeps the identical sequence.
+- Keep the origin in a static set on acceptance. `trigger=usb` is currently hardcoded in
+  the refused, worker_start-failed and starting events in `enter()` and in the `result=ok`
+  event in `logRetrievalTick()`; all four use the stored origin. USB output is unchanged.
+- Panel Stop calls `logRetrievalExit("panel_stop")`, alongside the existing `usb_command`.
+  It keeps the existing `diagnosticsUsbCommand("log abort")` for an in-flight USB transfer.
+- `not_off` from the entry path means reopen the existing screen.
+- The UI maps reason codes to readable text; it does not clone admission predicates. A
+  hidden or disabled control is never the admission guard.
+
+Expose a read-only value snapshot: phase OFF/STARTING/ACTIVE/STOPPING, link state, last
+reason, release-stuck flag, and idle remaining if displayed. Reads never change `activityAt`.
 
 Retain all existing entry checks: OFF, VBUS, logger ready/not closing, STA/interface,
 WiFi connected, no reader reservation, no image/live/pending-display/handover.
-STARTING/STOPPING continue media exclusion exactly as before. The main-task snapshot
-and panel entry API get source-level host tests alongside the existing USB wrapper tests.
+STARTING/STOPPING continue media exclusion exactly as before.
 
-## UI allocation, navigation and persistence
+## Bounded validation
 
-Prepare the temporary UI off-screen on first panel request before accepting mode entry;
-if construction fails, clean up and remain on the original screen, with no server start.
-Check allocations; never show a half-built screen or enter without a usable Stop control.
-Re-evaluate authoritative admission after preparation immediately before accepting. On
-refusal dispose the unused screen and keep navigation unchanged. On accepted STARTING
-load it without animation, remembering the invoking dashboard pointer. No media or
-network calls in construction. No images, large canvas, or new task/stack allocation.
-Measure UI memory in the first bench case; keep the existing20480 largest-block gate.
+Host checks, alongside the existing 48 console/USB checks and the relevant
+retrieval/lifecycle/media checks, without weakening any assertion:
 
-Register screenMemoryEventHandler for this screen's SCREEN_LOADED event. It maps to
-SCREEN_ID_NONE, pausing pending preference timing. Returning to the existing dashboard
-uses its existing registered handler; no new NVS key, saved screen ID or debounce change.
-Do not repurpose ui_previous_screen, which belongs to media navigation. The UI must not
-become the remembered boot screen. A reboot always starts retrieval OFF.
+- common USB/panel admission, including battery-only and pending handover
+- origin preserved across async startup; USB event text unchanged
+- snapshot does not refresh activity
+- hold armed only after setup; short tap still navigates; consumed hold does not navigate
+- panel refusal during calibration sampling
+- reopen in every non-OFF phase; OFF-only return to Screen1; no return when not active
+- power-down hook loads Screen1 only when the download screen is active
+- USB-enter/panel-open and panel-enter/USB-exit
+- repeated entry/stop with the persistent screen
 
-Stop is enabled in STARTING and ACTIVE. Pressing it calls exit once and changes to
-Stopping; further presses cannot start another request. Stay on the screen through
-STOPPING, including active-download cleanup. Only observed OFF permits automatic return
-to the saved dashboard and cleanup of the custom screen. Perform deletion from a later
-UI tick after the screen is no longer active; never free the event target inside its own
-callback. Clear all widget pointers. No retained page allocation or per-entry LVGL leak.
+Revision 1's construction-failure and deferred-deletion tests are dropped; that code no
+longer exists.
 
-Automatic idle, USB-power loss, logger/interface failure and startup rollback use the
-same OFF return rule; show the exit/failure reason briefly on the restored dashboard.
-Use one bounded transient notice owned by the UI, not one allocation per repeated event.
-Do not let a notice intercept unrelated input. Existing diaghttp::notice on lv_layer_top
-remains authoritative for stuck teardown and survives screen loads; never cover it with
-an opaque top-layer overlay. If release is stuck, show waiting/restart guidance and keep
-exclusion; do not force OFF, free shared buffers, auto-reboot or call httpd_stop on main.
-Late completion clears the existing warning and allows the normal return/delete path.
+**First hardware case**, after code review and JP build: enter by holding the calibration
+top band with USB power and hotspot, read the address, save current.log in Safari, Stop,
+confirm return to Screen1 and that logging resumes. Capture UI appearance, transfer/result,
+`lv_mem_monitor()` before/after screen build, internal memory and writer/HTTP stack. Where
+feasible use a power-only supply for the operation, reconnecting USB afterwards for
+evidence, accounting for the known serial-monitor transition limitation. No PC-hotspot
+requirement. Steps issued one case at a time when ready.
 
-Serial-entered modes retain current navigation (no forced new screen). A panel hold while
-already ACTIVE may open the controls for the existing mode without re-entering it or
-resetting it except for the actual physical touch. USB exit must also close a visible
-panel screen through observed OFF. During other non-OFF phases do not create duplicate
-screens. Already-visible panel requests are no-ops. UI creation failure while a serial
-mode exists leaves that mode unchanged and preserves serial exit. Revalidate current
-mode after UI construction in all paths.
+Retain one short battery-only panel refusal check. Reuse existing HTTP cancellation,
+power, idle and network evidence; a focused stop/return check covers only the new UI.
+After panel acceptance, prepare the agreed CAR build, blank FAT32 card and parked-car
+retrieval workflow; JP performs all builds and flashes.
 
-Existing read_touch calls logRetrievalTouch for valid touches. Reuse that path; never
-refresh idle on rendering, polling, countdown updates, entry-status reads or link recovery.
-Hotspot loss keeps ACTIVE and displays reconnect guidance; it does not close the panel.
-Other app screen changes must not bypass retrieval exclusion; if an unexpected screen
-load occurs, maintain state/Stop accessibility without forcibly fighting power shutdown
-screens. Review this interaction with the current shutdown path before implementation.
+## Pending-handover waiver - GRANTED by JP, September24
 
-## Bounded validation and outstanding admission gaps
+JP granted the waiver of precision-timed hardware reproduction of the pending-handover
+refusal. Panel and USB share one `entryRefusal()`, so the panel adds no admission logic.
+The handover state (`imageDisplayTimeoutActive || motionTriggered`) exists only while a
+fetch is running, which `imageFetcherIsBusy()` already refuses, or while Screen2 is
+displayed, when the calibration screen cannot be touched. Host predicate tests remain
+required. Previously waived increment7 cases stay closed.
 
-Host checks: common USB/panel admission including battery-only and pending handover;
-origin across async startup; snapshot does not refresh activity; repeated entry/stop;
-OFF-only return and deferred deletion; temporary-screen persistence; failure construction
-cleanup; USB-enter/panel-open and panel-enter/USB-exit. Keep existing48 console/USB and
-relevant retrieval/lifecycle/media checks; do not weaken existing assertions.
+## Status and handoff
 
-First hardware case, after code review and JP build: enter by panel with USB power and
-hotspot, read address, save current.log in Safari, Stop, return and prove logging resumes.
-Capture UI appearance, transfer/result, memory and writer/HTTP stack. Where feasible use
-a power-only supply for the operation, reconnecting USB only afterwards for evidence;
-account explicitly for the known serial-monitor transition limitation. No PC-hotspot
-requirement. Issue precise steps only when ready, one case at a time.
-
-Retain one short battery-only panel refusal check now that entry no longer needs serial.
-Pending-handover timing is still a hardware gap. Recommend retaining host predicate tests
-and requesting an explicit waiver of precision-timed hardware reproduction with JP's
-implementation approval, rather than adding fault-injection firmware. That waiver is
-PROPOSED here, not granted. Do not reopen previously waived increment7 cases.
-
-A focused UI stop/return and persistence check follows only for unproven new UI behaviour;
-reuse existing HTTP cancellation/power/idle/network evidence. Keep this to essential new
-controls, not the full earlier suite. After panel acceptance, prepare the agreed CAR build,
-blank FAT32 card, and parked-car retrieval workflow; JP performs all builds/flashes.
-
-## Review questions / decisions before implementation
-
-1. JP: is holding the dashboard connection-status text acceptable, or prefer a visible
-   Logs button? Verify actual hit area and long-press timing in the installed LVGL config.
-2. Claude: verify screen lifetime, screen-memory callback and power-screen interaction;
-   settle a precise unexpected-screen-load policy rather than introduce navigation loops.
-3. Claude: check the minimal typed snapshot/entry refactor preserves serial behaviour and
-   async origin; confirm no hidden dependencies on current generated UI callbacks.
-4. JP: approve or decline the proposed pending-handover hardware waiver. Battery-only
-   refusal stays in the short UI validation. Implementation requires explicit approval
-   after review; no code is changed by this document.
+JP approved the decisions and waiver above and hands implementation to Codex. Codex
+reviews this revision against current source first and raises any disagreement before
+coding. Implementation stays within this document; JP performs all builds and flashes,
+and the first hardware case is issued only after Claude code review.
