@@ -1,5 +1,34 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 15:07-15:11 - increment9 USB-during-HTTP exposed console defect
+
+Evidence: c3c595e4-d6e6-46b5-b296-5d5b886eb36b/Pasted text.txt and
+Downloads/119-current.log (239954 bytes, final USB CRC OK). JP saw Safari's download
+progress disappear and the USB web console disconnect. This case is NOT passed.
+
+At15:08:09.335 USB log get17 was sent during HTTP archive21; firmware correctly replied
+@@ERR reason=busy at15:08:09.339. The same capture shows TX log abort immediately at
+15:08:09.339. sd_log_browser.html protocolLine called cancelTransfer on a pre-BEGIN busy
+refusal; that sent the global abort and started an8-second abort-confirmation timeout.
+At15:08:17.355 the console timed out and disconnected itself. This is the console's
+automatic action, not evidence that JP manually sent abort or of a board/PC Wi-Fi reset.
+
+HTTP id8: expected2097146, accepted324576, result=aborted, CRC2313CA6E;
+writer accepted324432, CRC735EE1CB, crc_check=prefix_diff. Unequal cancelled prefixes
+are permitted by the reviewed contract, not an equal-length CRC mismatch. Cancel/reader
+close25353563 ms, release25353564 ms; appends=unpaused. Internal free85000,
+largest42996, HTTP margin2584. Same boot119 before/after; drops0, loggerready,
+no stuck release, and successful later USB current download/append growth.
+
+Console-only correction prepared for Claude review: settle the refused USB request
+locally on pre-BEGIN busy, without log abort or disconnect timer. Preserve busy after
+BEGIN, explicit cancellation and damaged-transfer cleanup behaviour. New regression
+failed on the old page and passes on the fix; browser20, connection/pacing16 and logger
+gate12 checks pass (48 total, source/browser simulations, no build or hardware access).
+See sd_iphone_log_download_increment9_console_fix.md. After review, reload the local
+console page and repeat only the same competition case. No firmware rebuild/flash.
+
+
 ## September24 - increment8 accepted; increment9 first direction issued
 
 JP explicitly accepted increment8 and requested proceeding. No firmware changes/rebuild.

@@ -100,7 +100,7 @@ function page(autoReadTimers=false) {
     globalThis.api={receive,downloadFile,cancelTransfer,refreshFiles,controls,consoleText,readLoop,
       setBounded:()=>{current.boundedReads=true},
       job:()=>download,files:()=>files,partial:()=>partial,disconnected:()=>current===null};`,context);
-  return {api:context.api,node,sent,saved,waits,advance:ms=>{now+=ms;intervals.forEach(f=>f())}};
+  return {api:context.api,node,sent,saved,waits,timers,advance:ms=>{now+=ms;intervals.forEach(f=>f())}};
 }
 async function main() {
   let p=page();
@@ -125,6 +125,24 @@ async function main() {
   const retry=p.api.downloadFile('current.log');wire(Buffer.from('123456789')).forEach(l=>p.api.receive('\n'+l+'\n'));
   assert.equal(await retry,true);++checks;
   console.log('PASS damaged-line rejection, abort barrier and successful retry');
+
+  p=page();const refused=p.api.downloadFile('archive-00000017.log');
+  // HTTP owns the reader: USB is refused before BEGIN and must not abort that owner.
+  await Promise.resolve();await Promise.resolve();
+  p.api.receive('\n@@ERR reason=busy\n');
+  assert.equal(p.api.job(),null);
+  assert.equal(await refused,false);
+  await Promise.resolve();await Promise.resolve();
+  assert.deepEqual(p.sent,['log get 17\r\n']);
+  assert.equal(p.saved.length,0);assert.equal(p.api.disconnected(),false);
+  assert.match(p.node('progress').textContent,/Device: busy/);
+  assert.equal([...p.timers.values()].some(t=>t.ms===8000),false); // No abort timer.
+  p.advance(16000);assert.equal(p.api.disconnected(),false);
+  const afterBusy=p.api.downloadFile('current.log');
+  wire(Buffer.from('123456789')).forEach(l=>p.api.receive('\n'+l+'\n'));
+  assert.equal(await afterBusy,true);
+  assert.equal(p.sent.some(line=>line==='log abort\r\n'),false);
+  ++checks;console.log('PASS pre-BEGIN busy settles only the refused USB request without abort and permits retry');
 
   p=page();const busy=p.api.downloadFile('current.log');
   p.api.receive('\n@@D 99 QQ==\n');assert.equal(p.api.job().cancelling,false);

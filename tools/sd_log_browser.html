@@ -426,7 +426,9 @@ function protocolLine(text,truncated) {
       if (download.cancelling) {
         if (reason==="aborted") settleDownload(false,download.failure+"; abort confirmed");
       } else if (reason!=="busy") settleDownload(false,"Device: "+reason);
-      else if (!download.receiver.name) void cancelTransfer("Device busy");
+      // Before BEGIN, busy rejects our request; the reservation belongs to another
+      // transport. A global abort here would cancel that owner's HTTP download.
+      else if (!download.receiver.name) settleDownload(false,"Device: busy");
       // A rejected extra command must not cancel an already-started transfer.
     }
     if (listPending) { listPending=false; controls(); }
