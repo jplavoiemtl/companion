@@ -154,9 +154,12 @@ stable reason codes from `entryRefusal()`:
 
 - Move the pre-entry `logRetrievalTick()` from the `log mode on` wrapper into the common
   entry, so a panel entry also lets STOPPING settle first. USB keeps the identical sequence.
-- Keep the origin in a static set on acceptance. `trigger=usb` is currently hardcoded in
-  the refused, worker_start-failed and starting events in `enter()` and in the `result=ok`
-  event in `logRetrievalTick()`; all four use the stored origin. USB output is unchanged.
+- `trigger=usb` is currently hardcoded in the refused, worker_start-failed and starting
+  events in `enter()` and in the `result=ok` event in `logRetrievalTick()`. The refused
+  event uses the **requesting caller's** origin. The origin is stored in a static only when
+  admission succeeds, and the stored value is used for worker_start-failed, starting and the
+  asynchronous `result=ok`. A refused request, including `not_off` during an active session,
+  never overwrites the stored origin. USB output is unchanged. (Correction raised by Codex.)
 - Panel Stop calls `logRetrievalExit("panel_stop")`, alongside the existing `usb_command`.
   It keeps the existing `diagnosticsUsbCommand("log abort")` for an in-flight USB transfer.
 - `not_off` from the entry path means reopen the existing screen.
@@ -176,7 +179,8 @@ Host checks, alongside the existing 48 console/USB checks and the relevant
 retrieval/lifecycle/media checks, without weakening any assertion:
 
 - common USB/panel admission, including battery-only and pending handover
-- origin preserved across async startup; USB event text unchanged
+- refused events use the caller origin and never overwrite an active session origin;
+  stored origin preserved across async startup; USB event text unchanged
 - snapshot does not refresh activity
 - hold armed only after setup; short tap still navigates; consumed hold does not navigate
 - panel refusal during calibration sampling
