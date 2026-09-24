@@ -23,7 +23,8 @@ cases passed. JP explicitly accepted 6A on September23.
 September23: JP authorized continuing next steps while rotation accumulates naturally.
 September24: JP explicitly approved the reduced validation scope in section 11 and
 accepted increment7 with its documented hardware gaps. The short increment8 repeated-use
-check passed on September24 (three transfers, boot119); JP acceptance is pending.
+check passed on September24 (three transfers, boot119); JP explicitly accepted increment8
+and authorized proceeding to increment9.
 Increments9 and10 remain in the agreed sequence;
 results are reviewed one case at a time. UI implementation still requires a reviewed design
 and implementation approval. Any firmware fixes go to Claude before JP builds/flashes.
@@ -521,7 +522,7 @@ for relevant symptoms or code changes, not automatically as prerequisites. Timeo
 20480-byte largest-block gate, CRC integrity and zero-drop requirements are unchanged.
 No firmware changes, builds or flashes accompany this scope decision.
 
-### Increment8 short repeated use - passed September24, acceptance pending
+### Increment8 short repeated use - passed and accepted September24
 
 Existing normal 3.3.11 firmware; USB console DTR=true, RTS=false. PC need not join
 hotspot. Keep phone hotspot and board USB power on; avoid deliberate network changes.

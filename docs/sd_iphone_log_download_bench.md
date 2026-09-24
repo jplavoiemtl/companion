@@ -1,5 +1,22 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 - increment8 accepted; increment9 first direction issued
+
+JP explicitly accepted increment8 and requested proceeding. No firmware changes/rebuild.
+Next single case: USB request while HTTP owns the shared reader. Keep USB power and
+phone hotspot on, console DTR=true/RTS=false; PC hotspot association unnecessary.
+Capture status, enter mode and confirm ACTIVE. Download archive21 (2097146 bytes) in
+Safari; while its download progress is visible, about five seconds into the body, send
+`log get 17` once via USB. Expected `@@ERR reason=busy`, no USB archive download, and
+uninterrupted successful Safari completion. Do not send log abort. If HTTP has already
+finished, this does not exercise contention; report the timing rather than call it passed.
+Then log mode off, wait two seconds, confirm OFF, download current.log via USB and
+capture status/log status. Send console and final USB file plus phone completion/error
+observation. No new exported Safari byte comparison required; inspect HTTP completion,
+CRC match, cleanup and continued logging in the final log. If archive21 is absent, send
+the listing before substituting. Reverse competition direction is a separate next case.
+
+
 ## September24 14:59-15:02 - reduced increment8 repeated-use gate PASSED
 
 Evidence: console attachment 5775b290-2452-429b-9f29-46deed4064dd/Pasted text.txt;
