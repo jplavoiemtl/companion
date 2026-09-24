@@ -1,5 +1,13 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September24, pause idle helper retries pending id4 evidence
+
+V2 helper received135912 bytes then EOF at39.32 seconds, not idle expiry. Need newest
+USB current and console to inspect boot119 HTTP id4 reason/gaps/cleanup. Existing
+Downloads log is older id3. No third pacing change or firmware edit yet. Collect
+mode/status, mode off, then current over USB. 6A accepted; increment7 idle gate open.
+
+
 ## Latest handoff - September24, idle gate retry with revised PC pacing
 
 First slow-transfer attempt ended after26736 bytes with stalled, exactly5 seconds

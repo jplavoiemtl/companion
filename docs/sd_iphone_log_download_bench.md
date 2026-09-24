@@ -1,5 +1,18 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 - idle-transfer attempt2 ended early; device evidence needed
+
+JP v2 PowerShell output: boot119 id4 archive21, HTTP200, Content-Length2097146,
+receive_buffer16384, block8192/period2000; headers08:28:20.850,122880 bytes at30182 ms,
+135912 bytes then peer_closed at39320 ms. Not a five-minute idle-expiry pass.
+Device END/CLOSE records have not yet been supplied; latest Downloads/119-current.log
+still ends at previous id3 case. Do not assume stalled or blame receive-window pacing
+without this attempt's reason/timing. Source review confirms transmit refreshes output
+clock on positive body sends; no change proposed from client elapsed time alone.
+Pause helper retries. Ask JP for mode/status, then mode off and latest USB current
+with full console. Diagnose before another pacing change or firmware proposal.
+
+
 ## September24 - idle-transfer attempt1 exercised stall, not idle expiry
 
 Console attachment8472eb78-b674-4423-a33b-765ece6c8d9e, Downloads/119-current.log
