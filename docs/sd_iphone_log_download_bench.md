@@ -1,5 +1,51 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 18:37-18:45 - increment11 panel workflow PASSED
+
+JP reports test worked fine after touch corrections73806ba. Evidence: inline console
+18:44:08-18:45:50 and Downloads/123-current.log (677412 bytes, USB CRC OK), plus
+2026-09-24T134225-0400_123-2-current-674418.log exported from iPhone.
+Phone bytes674418 independently CRC EEE6B788, SHA256
+67fe7fc567f5729f8925eb7470d6132117d81b87f1851c588211ce2a4cb19cfc;
+exactly equal to the first674418 bytes of USB file, whose SHA256 is
+f8b94d7246a457f65029c1972304e2ca8ee380163baad58f1d2667c2e6d6768e.
+
+Boot123 log records four panel-origin entries and four successful panel_stop exits;
+last exit413144 ->413250ms =106ms. USB status confirms OFF/serveroff,release_stuck0.
+Two current HTTP transfers resultok with matching CRCs. Exported transferid2:
+expected=bytes=writer_bytes674418,bothCRC EEE6B788,crc_checkmatch,maxgap42ms;
+reader close387882,resume387885ms,appendsresumed,paused10491ms. HTTP completion
+internalfree90304,largest47092,httpmargin2584. Writer minimum3096,worker2304;
+retained internal largest34804 above20480. Zero drops/truncated,loggerready,slow0.
+USB snapshot677412 ->677888 confirms later append growth. One3ms USB link loss at
+finalstatus stayed inside the existing grace; no failed transfer. Same boot through
+reported case. Prior boots are not evidence of a reset during this case.
+
+LVGL pool before34968 free/largest34788/fragmentation1%; after32620/32620/0%.
+Persistent UI cost2348 bytes in the existing48KiB pool, not additional system heap.
+No TOUCH_CANCEL records in boot123's supplied snapshot. Final full normal probe
+60008ms reports45.34Hz IMU average; no further rate investigation warranted.
+No screen photograph was present; visual fit was not independently inspected. JP's
+successful use and the file/state evidence suffice for this functional gate; no repeat
+requested for the missing photo. This does not claim all touch-controller failures tested.
+
+Panel workflow gate passes. Increment11 acceptance still pending the retained battery-only
+entry-refusal check. No code/config changes or rebuild for that next single case.
+
+### Next single case - battery-only panel refusal
+
+With charged bench battery and hotspot on, confirm modeOFF in USB console. Disconnect
+console cleanly and unplug USB power; wait2 seconds for the normal power update. Navigate
+to calibration and hold the top band once. Expect Connect USB power to download logs,
+remaining on calibration without entering the download screen. Note/photo the notice.
+Reconnect USB promptly, reconnect web console DTRtrue/RTSfalse, capture log mode status
+and status, download current.log overUSB, then log status. Send console/current file and
+observed notice; inspect triggerpanel reasonusb_power_required resultrefused, no server
+entry and no unwanted navigation. If unplug powers the unit off, report that instead:
+battery-only refusal was not exercised. No PC hotspot association required. No other
+new case issued in parallel. After this gate and JP acceptance, prepare car deployment.
+
+
 ## September24 - increment11 first panel hold failed; touch fix for review
 
 JP reports short tap returns home correctly but stationary hold cycles home then G-meter,

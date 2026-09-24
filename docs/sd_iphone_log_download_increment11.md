@@ -112,3 +112,11 @@ Claude's requested wait-release cleanup and coordinate grace corrections are app
 see the touch-fix document's final section.288 host checks pass. Conditional review
 clearance is fulfilled; no build or flash performed by Codex. Repeat only the existing
 entry-first case after JP rebuilds; do not mark increment11 accepted yet.
+
+## September24 panel hardware result
+
+The corrected stationary hold and panel download/Stop workflow passed on boot123.
+Exported phone snapshot matches the later USB prefix, CRC EEE6B788. UI pool cost2348
+bytes leaves32620 free; logger healthy and append growth confirmed. See latest bench
+entry for evidence. Only the retained battery-only panel refusal remains before asking
+JP for increment11 acceptance. No new firmware change or rebuild required.
