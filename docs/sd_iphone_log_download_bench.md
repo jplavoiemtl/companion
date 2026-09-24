@@ -1,5 +1,37 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 15:32-15:35 - increment10 server-off normal-use gate PASSED
+
+Evidence: 6cfc12a5-2660-4674-97b4-ba2a6806107b/Pasted text.txt and
+Downloads/119-current (1).log,276384 bytes,USB CRC OK,SHA256
+075d50748be3542ace04f69830bcf5cd4aed0776e4f1a5af809a5d2d2d77ac0c.
+JP reports test and video looked fine and normal. Same boot119. Retrieval OFF/serveroff
+confirmed before and after; no new HTTP entry. Existing reviewed firmware unchanged.
+
+Latest id1: HTTP200,28102/28102 bytes,displayed,resultok,total1517ms in IMAGE_END
+(console UI timing1515ms). Live id2:170 frames/60.482s =2.81075fps,reason=duration,
+failure=none,http_code200,firstframe1.289s,maxgap1.027s,gap_suppressed0. Both recorded
+Live connections succeeded. No fresh paired logging baseline: this descriptive rate is
+not a regression claim against older-day values. No extra performance test required.
+
+Full normal PROBE windows before/after:60001/60007ms,IMU averages43.20/42.76Hz.
+The after window includes the return transition and minimum7.70Hz; do not call the
+minimum a sustained rate. Live PROBE reports timeron,6048 samples over60484ms,
+max sampling gap10965us; it does not report a Live IMU frequency. No reopening of the
+accepted IMU investigation absent symptoms. Main-loop OP_HEALTH1133ms/3gap cumulative
+values remain unchanged across pre-Live/live/post-Live records; not a new Live stall.
+
+Worst internal largest24564 bytes,4084 above unchanged20480 gate; internal low-water
+34764. Post-Live HEALTH internal free102856/largest55284, versus pre-Live after Latest
+102848/55284. Writer stack minimum2920 unchanged. Loggerready,zero drops/truncated,
+slow3/high8 unchanged; WiFi/MQTT connected, no reset or USB loss. Current snapshot
+276384 ->276551 confirms later append growth. Natural return to previous screen.
+
+The approved reduced increment10 check passed; JP explicit acceptance pending. No more
+bench evidence needed for this gate. After acceptance prepare on-device download-controls
+design for Claude review and JP implementation approval; no UI firmware changes yet.
+
+
 ## September24 - increment9 accepted; final increment10 case issued
 
 JP explicitly accepted increment9 after both competition directions passed. No firmware
