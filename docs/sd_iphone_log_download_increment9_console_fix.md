@@ -28,3 +28,23 @@ After Claude clears the diff, JP disconnects/reloads the corrected local USB con
 reconnects with DTR=true/RTS=false, and repeats only increment9 USB-during-HTTP.
 Expected busy must leave HTTP running and the console connected. No board rebuild or
 flash. Reverse-direction case remains pending; no later feature implementation here.
+
+## September24 - Claude review cleared, supplied by JP
+
+No blocking issues; ready for the single bench repeat. Claude independently reports
+48 passing checks and confirms the new regression fails with the old page. Ownership,
+post-BEGIN busy, explicit cancellation and all existing error/abort-barrier paths were
+reviewed as preserved. Keep the separate commented busy branch for clarity.
+
+Deferred protocol note: errors carry no request ID. A delayed busy reply from an earlier
+command could theoretically settle a newer pre-BEGIN request. No practical reproduction
+identified in this review; pre-existing, not worsened by the fix. Revisit on a future
+protocol change, not an additional bench gate now.
+
+Repeat only USB-during-HTTP after disconnecting/reloading/reconnecting the local console.
+Require busy refusal, no automatic TX log abort, console connected beyond8 seconds,
+and normal HTTP completion. Export this repeat's Safari archive21 to PC Downloads as
+well as the later USB current.log so the reported HTTP CRC can be checked against the
+actual saved phone bytes, as requested by the review. Previous procedure did not require
+this export; this clarification adds evidence to the same repeat, not another test.
+Increment9 remains pending; no firmware rebuild/flash.
