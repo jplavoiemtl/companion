@@ -1,6 +1,6 @@
 # iPhone log retrieval - implementation spec
 
-Status: **revision 7.** JP accepted increment 1 and approved increment 2 on September 21.
+Status: **revision 8.** JP accepted increment 1 and approved increment 2 on September 21.
 JP accepted increment 2 on September 22 after eleven issued hardware cases passed; see
 [handoff](sd_iphone_log_download_increment2.md) and [bench evidence](sd_iphone_log_download_bench.md).
 Acceptance includes the proposed deferral of battery-only entry refusal and entry during
@@ -8,8 +8,8 @@ the brief pending-handover gap to controlled hardware checks before car deployme
 These two checks are not hardware passes; host coverage is retained.
 JP approved increment 3 implementation after `d3a8dfe`, including a persistent lazy
 4096-byte PSRAM lifecycle worker with internal static TCB. JP accepted increment 3 on
-September 22; hardware startup-failure injection is deferred to increment 7, due before
-car deployment, with host coverage accepted for increment 3. JP explicitly approved
+September 22; hardware startup-failure injection was deferred to increment 7, then waived by JP
+on September24 under the reduced scope below; retained host coverage is not a hardware pass. JP explicitly approved
 increment 4 and reconfirmed no token on his trusted hotspot for actual log retrieval.
 JP accepted increment 4 after gate A passed and approved increment 5 on September 22.
 Increment 5 uses the existing streamed archive implementation for timing gate B; no
@@ -21,9 +21,11 @@ Unknown/synced archives and current-file growth/snapshot checks passed on hardwa
 Natural rotation metadata validation passed on September23; all issued 6A bench
 cases passed. JP explicitly accepted 6A on September23.
 September23: JP authorized continuing next steps while rotation accumulates naturally.
-Proceed with increment7 failure-path bench validation on existing reviewed firmware,
-one case at a time; 6A is now accepted, and later increments are not authorized.
-Any firmware fixes still go to Claude before JP builds/flashes. Increment8 onward unapproved.
+September24: JP explicitly approved the reduced validation scope in section 11 and
+accepted increment7 with its documented hardware gaps. The short increment8 repeated-use
+check is authorized on existing firmware. Increments9 and10 remain in the agreed sequence;
+results are reviewed one case at a time. UI implementation still requires a reviewed design
+and implementation approval. Any firmware fixes go to Claude before JP builds/flashes.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the
 [Codex review](sd_iphone_log_download_review.md) and the
@@ -481,7 +483,60 @@ five-minute expiry during ongoing HTTP body progress has not been observed on ha
 Two slow-PC attempts triggered stalls instead, with unresolved PC-hotspot connectivity
 as a possible confounder. No timeout changes. No automatic requirement to repeat this case
 before increment 7 acceptance; revisit if relevant field symptoms or idle-path changes arise.
-Other increment 7 gates remain unchanged.
+The subsequent approved reduced scope below supersedes the remaining increment7 hardware requirements.
+
+### September 24 approved reduced validation scope
+
+JP confirmed approval of the proposed reduced scope and closure of increment7.
+The original increment table above preserves the full planned coverage; this section
+controls the remaining required bench work. Waived cases are not hardware passes.
+
+- **Increment7 accepted:** reuse exact-byte/CRC checks, current append resumption,
+  queue-pressure protection, archive/current cancellation and stalled-client cleanup,
+  hotspot loss, USB-power removal, phone lock/background and re-entry evidence.
+- **Waive further hardware injection:** startup-failure rollback, prune conflict,
+  stale completion and shutdown during an active HTTP transfer. Retain existing host
+  checks and prior shared-reader/USB evidence without claiming these HTTP combinations
+  were physically exercised. No fault-injection firmware solely for these cases.
+  Existing interrupted responses provide truncation evidence; no separate synthetic
+  truncation case. USB-power removal is not proof of abrupt total-power-loss recovery.
+  Combined idle/body expiry remains waived as recorded above.
+- **Increment8 reduced:** one short three-cycle normal Safari download/re-entry check
+  for obvious accumulating resource loss, using existing transfer memory/stack records.
+  Reuse MQTT reconnect and stack evidence. Waive artificial maximum-client stress.
+  This is a bounded repeated-use check, not proof against long-duration leaks.
+- **Increment9 retained:** USB during HTTP and HTTP during USB, one case at a time.
+- **Increment10 retained:** final same-sitting server-off Latest/Live check, observing
+  IMU health without reopening the accepted sampling-rate investigation.
+- **Increment11 retained:** reviewed on-device controls, then actual iPhone workflow
+  and controlled car use with a blank FAT32 card. The earlier battery-only entry and
+  pending-handover admission gaps remain visible; address their disposition in the
+  UI workflow review rather than silently treating them as passes.
+
+Residual risk accepted: rare untested combinations may interrupt a download, require a
+restart, or expose an untested storage-cleanup defect. Existing successful cases and host
+checks reduce that risk but do not establish every hardware path. Revisit waived cases
+for relevant symptoms or code changes, not automatically as prerequisites. Timeouts,
+20480-byte largest-block gate, CRC integrity and zero-drop requirements are unchanged.
+No firmware changes, builds or flashes accompany this scope decision.
+
+### Next single case: increment8 short repeated use
+
+Existing normal 3.3.11 firmware; USB console DTR=true, RTS=false. PC need not join
+hotspot. Keep phone hotspot and board USB power on; avoid deliberate network changes.
+Capture initial status. Repeat three times: log mode on; confirm ACTIVE with log mode
+status; refresh Safari listing and download archive17 (308745 bytes); wait for completion;
+capture log mode status; log mode off; wait two seconds and confirm OFF; capture status.
+If archive17 is absent, stop and provide the listing rather than choose a large archive.
+After the third cycle, download current.log over USB and capture log status. Send the
+whole console, final USB file and any phone errors; no three-file export or fresh byte
+comparison is required for this resource-only case.
+
+Read HTTP_GET_MEM free/largest and HTTP stack margin at comparable transfer completions,
+alongside writer stack, zero drops, successful OFF/re-entry and continued appends. The
+status minima are historical low-water values, not current recovered memory. Investigate
+an accumulating decline; do not call one fluctuating sample a leak. Retain the 20480-byte
+largest-block gate. Request additional evidence only if these results expose a concern.
 
 ### Timing gates
 

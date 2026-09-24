@@ -1,5 +1,22 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 - JP accepts increment7 and reduced remaining validation
+
+JP explicitly confirmed approval of the reduced scope: close increment7 using existing
+passed evidence and accept the unexercised hardware combinations as documented risks.
+This is acceptance with exceptions, not new test evidence. See spec section11 revision8
+for the authoritative waiver list and the next single increment8 repeated-use case.
+No additional startup/prune/stale-completion/active-shutdown fault-injection firmware;
+no further slow-PC idle attempts or artificial maximum-client stress. Existing host
+checks remain. USB/HTTP competition, final normal-use regression and the on-device/car
+workflow remain required. Earlier battery-only/pending-handover entry gaps stay visible
+for disposition in the UI review. No firmware or configuration changes, builds or flashes.
+
+The next case is three ordinary small-archive Safari downloads across mode entries,
+followed by one USB current.log evidence capture. Compare live transfer memory records,
+not historical status minima, for obvious accumulating loss. Increment8 is not yet passed.
+
+
 ## September24 - JP requests skipping combined idle-download hardware case
 
 Accepted as an explicit bench exception, not a pass. Previous idle-without-transfer
