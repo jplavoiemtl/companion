@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September24, USB-power cancellation passed
+
+Boot119 id2 current mode_exit due usb_power_lost;301536/576794 bytes CRCBD7BF5AE
+matches later USB prefix. Reader close4 ms, resume8 ms, release9 ms, OFF160 ms after
+cancellation. Battery kept same boot; reconnect/re-entry and logging healthy/drops0.
+Next one case: slow-reading archive21 across five-minute idle expiry with PC helper
+bench_http_idle_transfer.ps1; no other HTTP requests or panel touches. No rebuild.
+6A accepted; remaining increment7 failure gates and overall acceptance pending.
+
+
 ## Latest handoff - September24, non-reading current stall passed
 
 Boot119 HTTP id1 current566391 expected,5744 accepted, matching CRC02F4CB91 and

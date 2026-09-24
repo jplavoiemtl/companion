@@ -1,5 +1,32 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 - increment7 USB power loss during current transfer passed
+
+Boot119 throughout. Console attachment360689f1-9098-4684-bdc2-239596dc6969,
+Downloads/119-current (1).log (581948 bytes USB CRC OK), last-result.PNG inspected.
+HTTP id2 expected576794, accepted/writer301536, CRCBD7BF5AE both, result mode_exit.
+Independent CRC of later USB first301536 bytes isBD7BF5AE. Screenshot agrees.
+Cancellation cause is retrieval usb_power_lost, not a USB-transport disconnect:
+HTTP current was active. Cancel601178 ->reader_close601182 (+4 ms), resume601186
+(+8 ms), release601187 (+9 ms), OFF601338 (+160 ms). Paused9107 ms. Max progress
+gap1921 ms; terminal gap10 ms. Physical VBUS-to-detection time is not measured.
+POWER_USB absent601202/present606280, roughly5.1 seconds; these records are emitted
+after power handling and do not define the exact physical edge. Same boot/uptime,
+no sleep/reset. Re-entry4 ms and successful result page, final exit102 ms.
+
+HTTP MEM largest49140/margin2580; writer2920; post-status largest38900, drops0,
+truncated0/error none/stuck release0. Queue high5->7, no loss. USB581948 ->582112
+(+164) verifies later appends. This is battery-backed USB removal, not complete
+power loss or shutdown-during-transfer. Safari partial-save behavior not supplied.
+
+Next single case: five-minute idle expiry during deliberately slow archive21 stream.
+New tools/bench_http_idle_transfer.ps1 sets receive buffer1024 and reads<=512 bytes
+per250 ms, capped360 seconds plus bounded read. Syntax checked, not run by Codex.
+No panel touches/Safari requests during run. Verify device idle_timeout while body
+still progressing, cleanup and OFF; do not count stalled/early-complete as idle pass.
+No firmware/build or timeout changes. 6A accepted; increment7 remains pending.
+
+
 ## September24 - increment7 non-reading current client passed, boot119
 
 Console attachment195aa39f-9b86-4acb-923d-483271091cfb, Downloads/119-current.log
