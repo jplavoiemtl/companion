@@ -105,3 +105,10 @@ JP's stationary hold failed after17cfb41, while short tap worked. See
 sd_iphone_log_download_increment11_touch_fix.md for the touch-acquisition correction
 awaiting Claude review.281 host checks pass; no new firmware build/flash performed.
 The first gate is not passed; previous build clearance does not cover this new fix.
+
+## Touch follow-up cleared for JP rebuild
+
+Claude's requested wait-release cleanup and coordinate grace corrections are applied;
+see the touch-fix document's final section.288 host checks pass. Conditional review
+clearance is fulfilled; no build or flash performed by Codex. Repeat only the existing
+entry-first case after JP rebuilds; do not mark increment11 accepted yet.

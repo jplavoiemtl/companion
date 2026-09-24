@@ -1,4 +1,4 @@
-# Increment11 stationary-hold correction - for Claude review
+# Increment11 stationary-hold correction - reviewed corrections applied
 
 September24,2026. JP flashed17cfb41: short tap on calibration top band returned home;
 a stationary long press did not enter download mode, instead cycling home then G-meter.
@@ -61,3 +61,30 @@ and repeats the entry-first case only; do not issue another case now. The select
 profile's generated sketch must be absent before that rebuild (removed with this fix).
 If entry works, the previously planned screen/current-download/Stop observations follow
 in the same case. The previous code's stationary-hold failure is not a user gesture error.
+
+## September24 - Claude follow-up review and corrections before rebuild
+
+Claude independently ran281 checks and approved the contact-polling diagnosis. Two
+requested corrections are now applied, superseding the initial reset/error description
+above:
+
+1. Use lv_indev_wait_release(active) with this read returning REL. Verified installed
+   LVGL8.4 indev_proc_release sends PRESS_LOST and clears the active object before the
+   ordinary release/click path; unlike reset, the object and handler receive cancellation.
+   Driver suppression until a verified physical lift remains unchanged.
+2. On an active contact, tolerate up to5 consecutive bad coordinate samples, capped also
+   at50ms since the last valid point. Return the last point as PR without refreshing
+   retrieval activity. A valid sample resets the streak; confirmed count0 releases
+   normally even during grace. Bad initial coordinates are ignored with REL, no cancel
+   or suppression. Invalid count or mutex failure still cancels immediately.
+3. Optional diagnostics added: queued TOUCH_CANCEL and console [TOUCH CANCEL] with
+   reason=count/coordinates/mutex, globally limited to one report per5000ms. All logging
+   happens outside the I2C mutex. Repeated unknown input does not flood the SD queue.
+
+All288 host checks pass across13 suites: prior269 plus19 touch checks. Added checks cover
+coordinate recovery/streak/age bounds, valid lift during grace, ignored first bad point,
+count-error precedence, rate limiting and use of wait_release rather than reset.
+No firmware build/flash/hardware access. Generated selected-profile sketch is removed or
+confirmed absent before handoff. Claude's conditional build clearance is fulfilled by
+these corrections. Ready for JP rebuild and the same entry-first case; hardware remains
+unproven. No additional broad bench suite or IMU-rate investigation.

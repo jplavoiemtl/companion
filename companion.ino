@@ -548,14 +548,25 @@ void increase_lvgl_tick(void *arg) {
 static bool touchContactActive = false;
 static bool touchAwaitingRelease = false;
 static uint32_t touchRecoveryAt = 0;
-static void cancelTouchContact() {
+static uint8_t touchBadCoordinates = 0;
+static int32_t touchLastX = 0, touchLastY = 0;
+static uint32_t touchLastGoodAt = 0;
+static bool touchCancelReported = false;
+static uint32_t touchCancelReportAt = 0;
+static void cancelTouchContact(const char* reason) {
   touchContactActive = false;
   touchAwaitingRelease = true;
   touchRecoveryAt = millis();
-  // Discard the uncertain gesture instead of turning a failed read into CLICKED.
-  // LVGL 8.4 processes this reset immediately after read_cb, before pointer events.
+  touchBadCoordinates = 0;
+  // Returning REL with wait_release sends PRESS_LOST, clearing the pressed style
+  // and informing the handler, without RELEASED/CLICKED. A reset would skip that.
   lv_indev_t* input = lv_indev_get_act();
-  if (input) lv_indev_reset(input, nullptr);
+  if (input) lv_indev_wait_release(input);
+  if (!touchCancelReported || uint32_t(millis()-touchCancelReportAt) >= 5000) {
+    touchCancelReported = true; touchCancelReportAt = millis();
+    diagnet::event("TOUCH_CANCEL", "reason=%s", reason);
+    USBSerial.printf("[TOUCH CANCEL] reason=%s\n", reason);
+  }
 }
 /*Read the touchpad*/
 void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
@@ -566,7 +577,7 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
   if (digitalRead(TP_INT) == LOW) FT3168->IIC_Interrupt_Flag = true;
   if (!touchContactActive && !touchAwaitingRelease && !FT3168->IIC_Interrupt_Flag) return;
   if (!i2c_mutex || xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) != pdTRUE) {
-    cancelTouchContact(); return;
+    cancelTouchContact("mutex"); return;
   }
   // Consume the observed signal BEFORE reading, so a new IRQ during I2C remains pending.
   FT3168->IIC_Interrupt_Flag = false;
@@ -575,11 +586,12 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
     xSemaphoreGiveRecursive(i2c_mutex);
     touchContactActive = false;
     touchAwaitingRelease = false;
+    touchBadCoordinates = 0;
     return; // A verified lift is the ordinary release/click path.
   }
   if (touchPoints < 0 || touchPoints > 2) {
     xSemaphoreGiveRecursive(i2c_mutex);
-    cancelTouchContact(); return;
+    cancelTouchContact("count"); return;
   }
   if (touchAwaitingRelease) {
     xSemaphoreGiveRecursive(i2c_mutex);
@@ -590,8 +602,19 @@ void my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data) {
   const int32_t touchY = FT3168->IIC_Read_Device_Value(FT3168->Arduino_IIC_Touch::Value_Information::TOUCH_COORDINATE_Y);
   xSemaphoreGiveRecursive(i2c_mutex);
   if (touchX < 0 || touchX >= screenWidth || touchY < 0 || touchY >= screenHeight) {
-    cancelTouchContact(); return;
+    if (!touchContactActive) return; // Ignore a bad first point; no gesture was acquired.
+    // Bridge brief coordinate noise only while the count still confirms contact.
+    // Bound both the number of samples and their age; never extend a stale point forever.
+    if (++touchBadCoordinates <= 5 && uint32_t(millis()-touchLastGoodAt) <= 50) {
+      data->state = LV_INDEV_STATE_PR;
+      data->point.x = touchLastX;
+      data->point.y = touchLastY;
+      return;
+    }
+    cancelTouchContact("coordinates"); return;
   }
+  touchBadCoordinates = 0;
+  touchLastX = touchX; touchLastY = touchY; touchLastGoodAt = millis();
   touchContactActive = true;
   logRetrievalTouch();
   data->state = LV_INDEV_STATE_PR;
