@@ -77,3 +77,24 @@ Diagnostics enabled, writerPSRAM1, test hooks0, USB fixture0. No config changes.
 companion.ino changed: its stale generated build/build_amoled-1-8-core-3-3-11/sketch/
 companion.ino.cpp was removed after implementation, ready for JP's eventual rebuild. No build or flash is authorized by this
 handoff; wait for Claude code-review clearance. No bench instructions issued here.
+
+## September24 - Claude review cleared with include correction applied
+
+JP supplied Claude's review: no logic blockers;269 checks independently passed.
+Changed the UI include to sketch-root ui.h and calibration include to calibration.h,
+matching existing modules. The ignored ui/ copy is no longer a compilation dependency.
+No generated files edited. Cosmetic exit fallback wording and temporary notice overlap
+are deferred until actual screen inspection; no behaviour change for either minor note.
+
+Claude verified installed LVGL8.4 press-lock/release ordering, setup/calibration gating,
+origin/output preservation, persistent lifetime and conditional OFF/power navigation.
+Clear for JP's build after the include fix. Existing generated sketch was removed after
+companion.ino edits; check it remains absent before the rebuild. JP builds/flashes only.
+
+First hardware case must start with a stationary1-second hold on calibration Button6.
+The current touch path only reports pressed on interrupt-marked reads; stationary-finger
+interrupt behaviour is unmeasured. If the hold instead returns home, stop that case and
+send console plus the observed behaviour; investigate touch acquisition before changing
+hold timing or asking for repetitions. Do not assume host gesture simulations establish
+this hardware property. If entry works, continue the same case with address/current-file
+retrieval/Stop and logging continuation. Capture LVGL before/after pool records.

@@ -2,8 +2,8 @@
 #include "diagnostics_retrieval.h"
 #include "diagnostics_network.h"
 #include "../screen_memory/screen_memory.h"
-#include "../../ui/ui.h"
-#include "../../calibration.h"
+#include "ui.h"
+#include "calibration.h"
 #include <WiFi.h>
 #include "HWCDC.h"
 #include <stdio.h>
