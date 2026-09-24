@@ -1,5 +1,41 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 14:59-15:02 - reduced increment8 repeated-use gate PASSED
+
+Evidence: console attachment 5775b290-2452-429b-9f29-46deed4064dd/Pasted text.txt;
+Downloads/119-current (3).log, 228334 bytes, USB CRC OK, SHA256
+F5C7461F94501FA0BD63ED9ED12678DBAE4DEA38CECD8B2108C18FC156829A71.
+JP reports the test ran fine. Same boot119; mode generations6/7/8, HTTP IDs5/6/7.
+
+| Cycle | Accepted bytes | CRC / writer CRC | Internal free | Largest block | HTTP stack margin | Mode exit ms |
+|---|---:|---|---:|---:|---:|---:|
+| 1 | 308745 | 541A8F0C / 541A8F0C | 88408 | 47092 | 2584 | 107 |
+| 2 | 308745 | 541A8F0C / 541A8F0C | 88816 | 45044 | 2668 | 105 |
+| 3 | 308745 | 541A8F0C / 541A8F0C | 87528 | 45044 | 2584 | 101 |
+
+All three archive17 transfers result=ok, crc_check=match, appends=unpaused.
+Maximum progress gaps42/43/43 ms. Memory samples are HTTP_GET_MEM transfer-completion
+values; free memory fluctuates by1288 bytes across the samples, not a successive decline.
+Largest block settles at45044, above20480. This passes the approved bounded check for
+obvious accumulating resource loss, not proof of leak-free operation over long durations
+or identical post-teardown free memory. Existing retained minima are not recovery samples.
+
+Each cycle has explicit OFF/server=off confirmation, no release_stuck or server error;
+exit durations above use device RETRIEVAL_MODE stopping-to-ok records. Entries each take
+4 ms in device records. Writer stack minimum2920 and worker2304 unchanged; retained
+HTTP minimum2580 unchanged. Logger stays ready, drops=0, truncated=0; slow-write count3
+and queue high8 both predate this case and remain unchanged. WiFi/MQTT connected at
+status samples, no boot change or new USB loss. Current size219504 ->228168 before
+final USB retrieval; snapshot228334 ->228501 afterwards confirms later append growth.
+
+The missing first-cycle full status and second-cycle pre-download mode-status command
+do not require repetition: all three transfer records and explicit exits are present.
+No fresh exported Safari-byte comparison requested for this resource-only gate; prior
+integrity evidence is reused. Reduced increment8 gate passed; JP acceptance pending.
+No firmware/build/flash changes. After acceptance, increment9 first direction is a USB
+request during an active HTTP transfer; issue that single case separately.
+
+
 ## September24 - JP accepts increment7 and reduced remaining validation
 
 JP explicitly confirmed approval of the reduced scope: close increment7 using existing
