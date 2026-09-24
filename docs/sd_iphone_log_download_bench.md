@@ -1,5 +1,28 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 - idle-transfer attempt1 exercised stall, not idle expiry
+
+Console attachment8472eb78-b674-4423-a33b-765ece6c8d9e, Downloads/119-current.log
+592114 bytes (USB CRC OK), JP PowerShell output inspected. Mode generation4,
+HTTP id3 archive21 expected2097146. Client received26736 then peer_closed at29001 ms.
+END accepted=writer26736, CRC4949CC41 both, result stalled. Last progress1108908,
+cancel/close1113908 exactly5000 ms later; release1113909, terminal gap5001 ms.
+Earlier maximum progress gap4840 ms. Appends unpaused, memory largest42996/
+HTTP margin2788; writer2920, drops0, no error/reset/stuck release. Mode remains
+ACTIVE at idle_ms61973. USB592114 ->592279 (+165). This is NOT idle-expiry pass.
+
+Revision1 helper (receive buffer1024/read512 every250 ms) did not produce adequately
+continuous device send progress. Tiny-window/ACK pacing is a plausible cause, not
+proved without packet capture; do not report a firmware defect or alter stall limit.
+Revised helper v2 requests16 KiB receive buffer and reads up to8 KiB every2 seconds,
+about4 KiB/s maximum. A2 MiB archive remains incomplete at five minutes even with
+socket buffering; larger drains are intended to reopen receive window more regularly.
+Prints actual receive buffer/pacing and refuses archives smaller than1800000 bytes.
+Syntax checked only, not device-validated. Repeat only this same idle gate after
+explicit mode off/status/on, no Safari requests or panel touches during the run.
+If another stall occurs, diagnose rather than count it as idle expiry. 6A accepted.
+
+
 ## September24 - increment7 USB power loss during current transfer passed
 
 Boot119 throughout. Console attachment360689f1-9098-4684-bdc2-239596dc6969,

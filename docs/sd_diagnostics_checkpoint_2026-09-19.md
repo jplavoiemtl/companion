@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September24, idle gate retry with revised PC pacing
+
+First slow-transfer attempt ended after26736 bytes with stalled, exactly5 seconds
+without progress; mode stayed ACTIVE. Safe cleanup but not idle-expiry evidence.
+PC helper v2 uses16 KiB receive buffer /8 KiB reads every2 seconds, retaining firmware
+5 s stall and5 min idle limits. JP repeats same idle case, first mode off then on;
+no other requests/touches. No rebuild. If still stalls investigate pacing further.
+6A accepted; increment7 remains pending.
+
+
 ## Latest handoff - September24, USB-power cancellation passed
 
 Boot119 id2 current mode_exit due usb_power_lost;301536/576794 bytes CRCBD7BF5AE
