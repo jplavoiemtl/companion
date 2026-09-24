@@ -1,5 +1,31 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 - increment9 accepted; final increment10 case issued
+
+JP explicitly accepted increment9 after both competition directions passed. No firmware
+change, build or flash. Next single case is the approved reduced server-off normal-use
+regression, on the existing profile/build in the same sitting.
+
+Keep USB power, iPhone hotspot, console DTR=true/RTS=false. Clear console and send
+log mode status: require OFF/server=off (if active, mode off and confirm after2 seconds).
+Send status. Leave normal dashboard idle until one new full normal PROBE window near
+60000ms is captured. Request Latest once using the usual device control; confirm the
+image displays. Return to dashboard and start one ordinary Live cycle using the camera
+button; allow it to finish naturally, without log downloads or network changes. Note
+visual quality, responsiveness and any freeze/reset. Preserve the full Live summary.
+Afterwards capture status and log mode status; leave idle until a new full normal PROBE
+window near60000ms is captured. Then download current.log via USB and send log status.
+Send complete console and USB file with visual observations.
+
+Assess successful Latest and full Live, frame-count/duration FPS as descriptive evidence,
+continued IMU service, loggerready/zero new drops, no new reset/stall, and largest-block
+gate20480. Reuse prior accepted performance evidence: this is not a fresh logging A/B
+or a comparison with another day's FPS, and does not reopen the accepted IMU-rate issue.
+If unexpected remote media interrupts the intended flow, report it before interpreting
+that window. Increment10 acceptance pending results; after acceptance prepare the
+on-device download-controls design for Claude review and JP implementation approval.
+
+
 ## September24 15:25-15:27 - increment9 HTTP-during-USB PASSED
 
 Evidence: ba046f37-447e-48dd-bbdb-6bda79b14d64/Pasted text.txt;

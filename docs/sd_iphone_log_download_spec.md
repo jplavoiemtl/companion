@@ -25,8 +25,8 @@ September24: JP explicitly approved the reduced validation scope in section 11 a
 accepted increment7 with its documented hardware gaps. The short increment8 repeated-use
 check passed on September24 (three transfers, boot119); JP explicitly accepted increment8
 and authorized proceeding to increment9.
-Both increment9 competition directions passed on September24; JP acceptance is pending.
-Increment10 remains in the agreed sequence;
+Both increment9 competition directions passed and JP explicitly accepted increment9
+on September24. Proceed with the agreed single increment10 server-off normal-use check;
 results are reviewed one case at a time. UI implementation still requires a reviewed design
 and implementation approval. Any firmware fixes go to Claude before JP builds/flashes.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
