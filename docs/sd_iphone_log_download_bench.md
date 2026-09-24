@@ -1,5 +1,20 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 - JP requests skipping combined idle-download hardware case
+
+Accepted as an explicit bench exception, not a pass. Previous idle-without-transfer
+hardware measured300009 ms; active transfer cancellation, power exit and stalled
+current resume passed independently. Re-ran29 retrieval-mode and43 HTTP-lifecycle
+host checks: all72 pass, including active-transfer expiry and atomic activity/expiry.
+Shared logRetrievalExit routes idle/command/power exits through the same stop path.
+Residual gap: production five-minute deadline expiring during ongoing body progress
+has not been directly measured on hardware. Two PC slow tests ended in stalled, and
+PC-hotspot connection reliability remains unresolved; exact cause not established.
+Skip further slow-helper attempts and do not block increment7 acceptance on this
+specific combined case. No firmware or timeout changes; other failure gates remain.
+Spec section11 records exception; supersedes earlier mandatory wording for this case.
+
+
 ## September24 - idle attempt2 device evidence and PC Wi-Fi disconnect investigation
 
 JP supplied console08:30:46 onward and Downloads/119-current (2).log600814 bytes

@@ -468,6 +468,21 @@ last result, not earlier emitted records. Check result as well as timestamps on 
 | 10 | Server-off regression | Same-sitting Latest/Live/IMU, no new stalls or resets |
 | 11 | LVGL entry screen, then the car | CAR build, accepted profile, blank FAT32, retrieval with the car running |
 
+### September 24 bench exception: idle expiry during an HTTP transfer
+
+At JP's request, skip the remaining combined hardware case for increment 7. It is
+**waived from the required bench sequence, not recorded as a hardware pass**.
+Earlier no-transfer idle expiry measured 300009 ms (increment 2); active archive/current
+cancellation, power-triggered exit, stall cleanup and append resumption passed on hardware.
+Host checks cover expiry while a transfer is active and atomic HTTP-activity/cancel ordering;
+29 retrieval and 43 lifecycle checks re-run successfully September 24. These are source
+simulations, not proof of the combined on-device timing. The residual gap is that exact
+five-minute expiry during ongoing HTTP body progress has not been observed on hardware.
+Two slow-PC attempts triggered stalls instead, with unresolved PC-hotspot connectivity
+as a possible confounder. No timeout changes. No automatic requirement to repeat this case
+before increment 7 acceptance; revisit if relevant field symptoms or idle-path changes arise.
+Other increment 7 gates remain unchanged.
+
 ### Timing gates
 
 **Gate A - first small immutable archive.** Exact bytes; request, start and end monotonic

@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September24, combined idle-download bench case waived
+
+At JP's request skip further idle-during-HTTP hardware attempts. Explicit exception,
+not measured pass: no-transfer idle300009 ms and separate hardware cancellation/
+stall cleanup plus72 passing retrieval/lifecycle host checks support proceeding.
+Spec records residual combined timing gap; no automatic retest requirement before
+increment7 acceptance. No timeout/firmware changes. Continue remaining distinct
+increment7 gates;6A accepted. PC Wi-Fi issue still unresolved, not assumed fixed.
+
+
 ## Latest handoff - September24, idle attempt2 stalled; PC link suspect
 
 New USB600814-byte log confirms id4 stalled at135912 bytes;5.001 s no progress,
