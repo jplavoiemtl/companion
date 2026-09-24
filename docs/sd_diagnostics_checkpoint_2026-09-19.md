@@ -1,5 +1,15 @@
 # SD diagnostics checkpoint - 2026-09-19, end of day
 
+## Latest handoff - September24, non-reading current stall passed
+
+Boot119 HTTP id1 current566391 expected,5744 accepted, matching CRC02F4CB91 and
+independent later USB prefix. Reader closes5000 ms after progress; appends resume7 ms
+later, total pause5128 ms, release20 ms after close. PC drain0/read exception does
+not imply zero device socket acceptance. Healthy memory/stack, drops0, OFF102 ms.
+Next one case: current HTTP transfer interrupted by USB power removal5 seconds,
+battery present, reconnect before30-second sleep. No rebuild. 6A accepted;7 pending.
+
+
 ## Latest handoff - September23, non-reading archive client passed
 
 HTTP id10 stalled after exactly5000 ms no progress,8288/2097146 accepted and client

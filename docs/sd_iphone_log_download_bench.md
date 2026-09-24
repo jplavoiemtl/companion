@@ -1,5 +1,34 @@
 # iPhone log retrieval - bench cases and results
 
+## September24 - increment7 non-reading current client passed, boot119
+
+Console attachment195aa39f-9b86-4acb-923d-483271091cfb, Downloads/119-current.log
+(568905 bytes, USB CRC OK), latest-result.PNG and JP PowerShell output inspected.
+Helper got200/Content-Length566391; no body reads08:07:07.641 to08:07:22.649.
+Drain returned0 counted body bytes plus transport read exception, not clean EOF.
+Device id1 expected566391, accepted=writer_bytes5744, both CRC02F4CB91,
+crc_check match, result stalled. Independently computed CRC of later USB file's
+first5744 bytes is02F4CB91. Device socket acceptance is not proof of PC delivery;
+0 drained does not contradict5744 accepted. Exact transport-error cause not proven;
+no packet trace. This case validates cleanup, not client partial-file integrity.
+
+Last accepted progress90949 -> reader_close95949:5000 ms. Resume95956 (+7 ms),
+pause90828 ->resume95956 =5128 ms. cancel_ms95956 is publication after writer
+cleanup in this path; do not interpret reader-close7 ms before it as a timing defect.
+Release95969:20 ms after reader close, terminal gap5020 ms. Screenshot confirms
+appends resumed and matching device prefixes. Mode stays ACTIVE/link up, WiFi/MQTT
+connected, subsequent result page usable. Final stop-to-OFF102 ms from records.
+
+HTTP MEM internal_largest42996, http_margin2788, post-case writer stack_min3096;
+post-status largest38900, later probe36852, all above20480. Drops0/high5/truncated0,
+no errors/stuck release/reset during case. Boot119 already present before case;
+not attributed to test. USB snapshot568905 ->569068 (+163) shows logging continues.
+No timeout change or firmware defect indicated. 6A accepted.
+Next one case: USB power removal during Safari current transfer, battery-equipped
+bench unit, reconnect after5 seconds before normal30-second sleep. Tests automatic
+power-triggered cancellation/resumption; separate from total power loss/shutdown.
+
+
 ## September23 - increment7 non-reading archive client passed, boot118
 
 Console attachment1cf89447-1d4c-44b5-a18d-242d1d5e15bc; Downloads/118-current.log
