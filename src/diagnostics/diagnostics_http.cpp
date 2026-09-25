@@ -215,7 +215,7 @@ bool append(size_t& used, const char* format, ...) {
 // One fixed page, no stack-sized inventory or page. Pin ends before network output.
 bool formatPage(bool resultOnly, size_t& used) {
   used = 0;
-  bool ok = append(used,"<!doctype html><html><head><meta name=viewport content='width=device-width'><title>Companion logs</title><style>pre{white-space:pre-wrap;overflow-wrap:anywhere}body{font-family:system-ui}</style></head><body><h1>Companion logs</h1><a href='/'>Logs</a> <a href='/result'>Last result</a>");
+  bool ok = append(used,"<!doctype html><html><head><meta name=viewport content='width=device-width'><title>Companion logs</title><style>:root{color-scheme:dark}body{font-family:system-ui;background:#121212;color:#ededed}a{color:#8ab4f8}a:visited{color:#c6a7f2}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><h1>Companion logs</h1><a href='/'>Logs</a> <a href='/result'>Last result</a>");
   const auto transfer=diagtransfer::last();
   if (!transfer.id) ok=ok && append(used,"<p>No HTTP transfer yet.</p>");
   else ok=ok && append(used,"<p>Transfer %llu: %s; transport accepted %llu / %llu bytes; prefix CRC32 %08lX. Device send result, not phone save verification.</p>",
