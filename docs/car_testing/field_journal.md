@@ -482,9 +482,43 @@ including suppressed duplicates, are not counted as additional distinct full out
   do not assume ignition-off or hotspot toggling caused this sequence.
 - An image succeeds at 08:58:37.609 after the main outage, before the later Live failure.
 
+#### Claude review - September 25, 2026
+
+Spot-checked against the raw excerpt: SHA256 and CRC32 46050290 match; the timeline, both
+loop gaps, the 73.735 s recovery and the 08:58 sequence are as stated. Agree with the
+disposition and with not treating the excerpt as download-integrity evidence.
+
+Additions and one refinement:
+1. **state=-2 narrows the failed phase.** In PubSubClient, -2 (MQTT_CONNECT_FAILED) means
+   the network `connect()` itself failed; a missing CONNACK returns -4. So attempts 11 and
+   12 failed in DNS, TCP or TLS, not in the MQTT exchange. Attempt 12's 5004 ms matches a
+   single 5 s stage limit (TCP connect or TLS handshake). Attempt 11's 8659 ms exceeds any
+   single limit, so at least two phases consumed time, as did F001's 7.9 s successes.
+   Unmeasured DNS time remains the leading candidate for the extra ~3-4 s (hypothesis).
+2. **The failures were on a flapping link, not a stable link without internet.** Attempt
+   11 began 1.2 s after re-association, and attempt 12 ended 2 s before the next beacon
+   timeout, within three losses in 70 s. This is not yet the "WiFi stable, no internet"
+   case derived in F001, although the UI effect is the same kind of repeated block.
+3. **The two slow storage operations bracket connect attempt 11.** slow_total=1 is logged
+   126 ms after the connect began and slow_total=2 12 ms after it ended. Given this, CPU
+   contention on core 1 during the connect is at least as likely as card latency. The
+   loop task and SD writer share core 1 at priority 1. F001's slower successful
+   connects produced no slow operations, so this is weak evidence. Hypothesis; I004 stays
+   "monitor".
+4. **The 08:58 episode looks like one external power event.** USB power dropped at
+   08:58:41.6 and returned at 08:58:59.4. WiFi re-associated 0.9 s after USB returned, on
+   a different channel (4 -> 6). A channel change means the hotspot itself restarted, not
+   just the link. A common cause affecting both the module's USB supply and the phone
+   fits the timing, for example an engine start-stop at a halt (moving=0 at 08:58:57) or
+   a shared USB hub. This is a hypothesis to put to JP: does the car have auto start-stop,
+   and does the phone charge from the same USB port or hub? The 18 s USB loss also armed
+   the power-down grace path; it recovered before any shutdown.
+
+No disagreement with Codex's conclusions. P002 priority position unchanged (see F001).
+
 #### Agreed findings and unresolved questions
 
-Codex analysis complete; Claude review pending. F001 cross-review remains intact.
+Codex analysis complete; Claude review added September 25 (above), for Codex to integrate. F001 cross-review remains intact.
 F002 supports I001/P001 with failed as well as successful reconnect blocking. I002 remains
 unexplained. I004 is a bounded storage-latency observation to monitor, not a diagnosed
 cause of the UI freeze. P002's priority disagreement is unchanged; no code is approved.
