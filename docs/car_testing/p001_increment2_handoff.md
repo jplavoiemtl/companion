@@ -247,3 +247,57 @@ cancelled=1 unchanged from case 1, all drop/failure-to-publish counters zero.
 
 Next and final retained bench case: one hotspot down/up while a connection is pending,
 then normal recovery. No new firmware or repeat failure case is indicated by this result.
+
+
+## Retained case 3 and bench closeout — September 25, 2026, Codex
+
+**PASS; all three retained cases complete. JP acceptance / car rollout approval pending.**
+JP reports the G-meter stayed responsive. Same boot 132 and reviewed source checkpoint
+a83c96a. No intervening firmware change. Evidence preserved under
+`evidence/2026-09-25-p001-case3/` (ignored by Git); original Downloads export retained.
+- `132-current (2).log`: 153702 bytes; SHA-256 `484f7d5f6a208603a2906228ee6afab0ff176413b8b624ea6231c4ada29744b5`; CRC32 `88A1B6C8`.
+- `console.txt`: 6749 bytes; SHA-256 `39e764c6a41d228be687c0178442fda42ec565777d9ea65549295afbc9e68519`; CRC32 `921D5DC2`.
+
+USB export 153702 bytes, 1.49 s, CRC OK. The full log contains the preceding cases;
+this case uses attempts 7–9 and the intervening driver link events.
+
+- Attempt 7 started at up_ms=783624. Driver WIFI_DISCONNECT occurred at 785205
+  (reason=2/auth_expired, during JP's deliberate hotspot-off action). END at 785207
+  reports cancelled, epoch=18, TCP setup 1580 ms, total 1584 ms. SERVICE window 1588 ms,
+  UI/IMU/loop max gaps 16/17/17 ms, call maxima 10/4/17 ms, all over100 counts zero.
+  This directly establishes that link loss overlapped a pending attempt. It does not
+  establish the cause of earlier unprompted field WiFi losses.
+- While hotspot was absent, the driver reported no_ap_found/sta_leaving with bounded
+  suppression. Reassociation at 807091 and GOT_IP at 808795 returned **172.20.10.2,
+  changed=0**. No replacement attempt began before IP readiness in this capture.
+- Bench target remained test until JP sent on. Attempt 8 (epoch=40) started after GOT_IP;
+  serial restore invalidated it at 813118. It completed cancelled at 813815, TCP setup
+  5003 ms, total 5013 ms. SERVICE window 5015 ms; UI/IMU/loop gaps 21/20/20 ms, calls
+  16/5/20 ms, zero over100 intervals. This is expected extra cancellation, not a fault.
+- Real attempt 9 began only afterward at 813827, epoch=43, and succeeded in 613 ms:
+  DNS 1, TCP setup 85, TLS 452, MQTT exchange 52 ms. SERVICE window 619 ms;
+  UI/IMU/loop gaps 16/18/18 ms, call maxima 12/8/18 ms, zero over100 intervals.
+  Only this final epoch reports MQTT_CONNECTED. Subscriptions were accepted and green
+  UI followed. No stale cancelled epoch became connected in the retained evidence.
+- Worker stack minimum 7228 >=2048, external stack/internal TCB confirmed. Recovery
+  internal/DMA largest minima 51188 >=20480; cancelled attempts had 53236. Retained
+  logger largest minimum 24564 still exceeds the gate. Final connected=1, lease=0,
+  stuck=0, cancelled=3 (two added here); all owner drops and packet drops remain zero.
+  Logger ready, drops=0, truncated=0, error=none. No reset during case 3.
+
+### Retained scope conclusion
+
+Case 1 established responsive successful recovery after Live and working subsequent
+Latest. Case 2 established two uninterrupted five-second TCP failures, 15-second backoff,
+USB retrieval refusal while leased, and successful real recovery. Case 3 established
+pending-attempt WiFi loss, same-IP reassociation, epoch cancellation and clean recovery.
+Across these reconnect windows the measured maximum UI gap was 27 ms and IMU/loop gap
+26 ms, with no over100 intervals. JP observed no G-meter freeze in all three cases.
+
+No code correction or additional bench case is justified by this evidence. Present
+increment 2 / retained bench acceptance to JP, then propose the reviewed firmware for
+one ordinary car ride with a full untrimmed log export. Increment 3 has no corrective
+implementation needed at this point. Long DNS/TLS/CONNACK failure modes and rare races
+remain covered by source checks/review rather than a new hardware matrix. A normal
+ride without an outage is not proof of field reconnect responsiveness. The known
+monitor-close reset limitation and the unexplained source of field WiFi loss remain.

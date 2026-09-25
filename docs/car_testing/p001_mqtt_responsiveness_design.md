@@ -631,3 +631,13 @@ main-context attribution, DMA-largest minimum and normal phase/age/backoff snaps
 See [increment 2 handoff](p001_increment2_handoff.md) for measurement semantics and review.
 355 checks / 15 host suites pass. Claude review pending; no build/flash or new hardware
 case issued. The 20–30 minute bench estimate assumes passing cases, not unexpected defects.
+
+
+### Retained bench completion — September 25, 2026
+
+Claude cleared increment 2 at 061ed9a; a83c96a fixes only the phase-label capacity before
+JP's build. The three retained cases all pass on boot 132: successful post-Live reconnect,
+two five-second TCP failures/backoff/recovery, and hotspot loss during an attempt with
+same-IP recovery. See [bench closeout](p001_increment2_handoff.md) for exact evidence and
+limitations. JP acceptance / car rollout approval pending. No increment 3 correction is
+indicated; no expanded test matrix is proposed. Field validation remains outstanding.

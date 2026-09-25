@@ -17,7 +17,8 @@ Last updated: September 25, 2026.
 - Field observation continues. JP approved P001 revision 2 and increment 1 on September 25;
   Claude cleared c9629df and the first worker TLS/CONNACK bench gate has technically
   passed on boot 130. JP accepted increment 1 and authorized increment 2; telemetry
-  implementation is now awaiting Claude review.
+  implementation was cleared by Claude and all three retained bench cases now pass.
+  JP acceptance / car rollout approval is pending.
   The car firmware has not been changed by this work. One successful ride is not long-term
   reliability proof.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
@@ -643,3 +644,20 @@ Worker stack 7228 and attempt largest minimum 51188 passed; no new reset, cancel
 drops or stuck worker. Full evidence/hashes are in the [increment 2 handoff](p001_increment2_handoff.md)
 and `evidence/2026-09-25-p001-case2/`. Only the retained hotspot-flap case remains; no
 controlled failure endpoint or extra failure tests are needed from this result.
+
+
+### P001 retained case 3 / bench closeout — September 25, 2026, Codex
+
+PASS: JP observed responsive G-meter. Driver WiFi loss at up_ms=785205 overlapped attempt
+7; that epoch ended cancelled. Same-IP GOT_IP (172.20.10.2, changed=0) preceded the next
+attempt. A further test attempt was cancelled by serial restore; real epoch 43 then
+connected in 613 ms with UI/IMU/loop gaps 16/18/18 ms. No stale epoch reported connected,
+no reset/drops/stuck worker; stack and memory gates passed. Full results/hashes are in
+[increment 2 handoff](p001_increment2_handoff.md); evidence is retained under
+`evidence/2026-09-25-p001-case3/`.
+
+All three agreed essential cases pass. Maximum measured reconnect UI gap 27 ms,
+IMU/loop gap 26 ms, no over100 intervals. No additional firmware correction or bench
+case is proposed. JP acceptance and approval for car rollout are pending. Next evidence
+would be one ordinary car ride with full export; field WiFi-loss causes remain open,
+and no-outage driving alone cannot validate field reconnection behavior.
