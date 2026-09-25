@@ -121,7 +121,7 @@ Review the newest field session following the field journal workflow.
 |---|---|---|---|
 | I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Open: P001. Repeated failed attempts while associated now observed; internet outage itself not established |
 | I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Observe; underlying cause unknown. Later power-associated interruption tracked separately |
-| I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap and later Live connection_closed during a power-associated outage | Monitor separately from MQTT stalls |
+| I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Monitor separately from MQTT stalls |
 | I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor; no evidence these explain multi-second UI freezes |
 
 Do not count retry no_ap_found/sta_leaving records as separate full outages without
@@ -132,7 +132,8 @@ failure. Health snapshots can be stale while the main loop is blocked.
 
 ### P001 - Keep UI and IMU responsive during MQTT reconnection
 
-Status: proposed; not approved or implemented. F002 strengthens the need to cover failed
+Status: design requested by JP; [revision 1](p001_mqtt_responsiveness_design.md) written
+by Codex for Claude review and JP approval. Implementation is not approved. F002 strengthens the need to cover failed
 reconnects and UI animation as well as successful recovery; no architecture selected.
 Priority: first proposed improvement, linked to I001. Goal: reconnect without freezing
 the G-meter or other main-loop UI work. The current synchronous call is measured to
@@ -154,9 +155,10 @@ Claude reviews the code before JP builds/flashes. No new case is issued by this 
 
 ### P002 - Add targeted timing detail only if needed
 
-Status: conditional proposal; not approved or implemented.
-Claude (September 25): disputes the priority, recommending bounded DNS/connect-phase
-timing before the P001 design is chosen. See F001 agreed findings; JP decides.
+Status: included in the P001 design at JP's explicit request on September 25; no code
+authorized yet. Historical priority disagreement below is retained for provenance.
+The new design includes bounded DNS, TCP setup, TLS handshake and MQTT-exchange timing;
+no separate instrumentation-only flash is proposed.
 
 F002 update (Codex, September 25): failed connect durations vary (8659 and 5004 ms),
 then recovery takes 870 ms. A universal fixed 7.9-second wait is not supported across
@@ -517,7 +519,13 @@ No disagreement with Codex's conclusions. P002 priority position unchanged (see 
 
 #### Agreed findings and unresolved questions
 
-Codex analysis complete; Claude review added September 25 (above), for Codex to integrate. F001 cross-review remains intact.
+Codex integrated Claude's review September 25 while preparing P001. F001 cross-review
+remains intact. Accepted refinements: F002 state=-2 excludes the CONNACK phase; failure
+was during a flapping link, not demonstrated stable WiFi without internet. The 08:58
+power/hotspot sequence was JP's confirmed intervention and is excluded from field-fault
+counts. SD scheduling contention remains a hypothesis, not a card-latency diagnosis.
+A 5004 ms duration is consistent with a five-second transport limit, but wall duration
+alone does not prove how many phases consumed time; requested phase timing will resolve it.
 F002 supports I001/P001 with failed as well as successful reconnect blocking. I002 remains
 unexplained. I004 is a bounded storage-latency observation to monitor, not a diagnosed
 cause of the UI freeze. P002's priority disagreement is unchanged; no code is approved.
@@ -529,3 +537,15 @@ excerpt's integrity limits. Append one concise Claude review per workflow, not a
 full analysis. Next field input can be another normal ride log; no extra bench case,
 build or flash requested. Keep original untrimmed exports in future if available, and
 label any excerpts separately, so phone-download CRC verification remains possible.
+
+## September 25 - P001 design handoff
+
+JP requested the design now, covering successful/failed recovery, F002 link flapping,
+TLS memory and the 20480-byte gate, with bounded DNS separate from TCP/TLS/CONNACK timing.
+Codex authored [P001 revision 1](p001_mqtt_responsiveness_design.md). It recommends an
+exclusive MQTT worker, fixed cross-task messaging, split measured connection phases,
+absolute MQTT packet deadlines and resource admission. Main-thread UI/IMU responsiveness
+is measured independently from worker duration. Several behavior trade-offs are explicit
+approval items. Claude reviews this design before JP approves implementation. No firmware
+changes, tests, builds or flashes accompany this documentation. Historical analyses above
+retain their original uncertainty; the integrated corrections and latest status govern.
