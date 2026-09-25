@@ -505,14 +505,13 @@ Additions and one refinement:
    loop task and SD writer share core 1 at priority 1. F001's slower successful
    connects produced no slow operations, so this is weak evidence. Hypothesis; I004 stays
    "monitor".
-4. **The 08:58 episode looks like one external power event.** USB power dropped at
-   08:58:41.6 and returned at 08:58:59.4. WiFi re-associated 0.9 s after USB returned, on
-   a different channel (4 -> 6). A channel change means the hotspot itself restarted, not
-   just the link. A common cause affecting both the module's USB supply and the phone
-   fits the timing, for example an engine start-stop at a halt (moving=0 at 08:58:57) or
-   a shared USB hub. This is a hypothesis to put to JP: does the car have auto start-stop,
-   and does the phone charge from the same USB port or hub? The 18 s USB loss also armed
-   the power-down grace path; it recovered before any shutdown.
+4. **The 08:58 episode was JP's own intervention** (correction, September 25, after JP
+   confirmed it). JP switched the hotspot off manually and turned the car off by mistake,
+   then restarted it to download the log. That explains the USB loss (08:58:41.6 to
+   08:58:59.4), the auth_expired disconnect and the channel change (4 -> 6) when the
+   hotspot came back. My earlier start-stop / shared-USB hypothesis is withdrawn. This
+   episode is not a field fault and should not count toward I002 or I003. The Live
+   connection_closed and the 1 ms failed MQTT attempt are expected consequences of it.
 
 No disagreement with Codex's conclusions. P002 priority position unchanged (see F001).
 
