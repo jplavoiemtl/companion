@@ -120,3 +120,12 @@ Exported phone snapshot matches the later USB prefix, CRC EEE6B788. UI pool cost
 bytes leaves32620 free; logger healthy and append growth confirmed. See latest bench
 entry for evidence. Only the retained battery-only panel refusal remains before asking
 JP for increment11 acceptance. No new firmware change or rebuild required.
+## September 24 battery-only result and bench completion
+
+The retained battery-only panel check passed: POWER_USB present=0 precedes two
+trigger=panel / usb_power_required / refused records, with no new server generation.
+After reconnection, logger is ready, zero drops, USB CRC OK and append growth confirmed.
+See the latest bench entry for exact evidence and the offline-WiFi limitation.
+All retained increment 11 bench gates are complete; explicit JP acceptance is pending.
+No additional build, flash or bench measurement requested. Car deployment remains the
+next phase after acceptance, subject to configuration review and JP's build/flash.

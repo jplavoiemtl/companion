@@ -5,7 +5,9 @@ JP accepted increment 2 on September 22 after eleven issued hardware cases passe
 [handoff](sd_iphone_log_download_increment2.md) and [bench evidence](sd_iphone_log_download_bench.md).
 Acceptance includes the proposed deferral of battery-only entry refusal and entry during
 the brief pending-handover gap to controlled hardware checks before car deployment.
-These two checks are not hardware passes; host coverage is retained.
+Battery-only panel refusal subsequently passed on September 24 (boot 123). The
+pending-handover hardware check was waived in approved increment 11 design revision 2;
+its host coverage is retained and is not a hardware pass.
 JP approved increment 3 implementation after `d3a8dfe`, including a persistent lazy
 4096-byte PSRAM lifecycle worker with internal static TCB. JP accepted increment 3 on
 September 22; hardware startup-failure injection was deferred to increment 7, then waived by JP
@@ -29,9 +31,11 @@ Both increment9 competition directions passed and JP explicitly accepted increme
 on September24. Increment10 server-off normal-use check passed September24;
 JP explicitly accepted increment10 and approved increment11 design revision2 with the
 origin correction dd8c6cd. [Increment11 implementation](sd_iphone_log_download_increment11.md)
-is ready for Claude code review; no build, flash or hardware test yet;
-results are reviewed one case at a time. UI implementation still requires a reviewed design
-and implementation approval. Any firmware fixes go to Claude before JP builds/flashes.
+and its touch-acquisition correction cleared Claude review and were built/flashed by JP.
+Panel entry/download/Stop and battery-only refusal passed on September 24, completing
+all retained increment 11 bench gates. Explicit JP acceptance remains pending; real car
+deployment is not yet tested. No further bench case is requested before acceptance.
+Any future firmware fixes go to Claude before JP builds/flashes.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the
 [Codex review](sd_iphone_log_download_review.md) and the

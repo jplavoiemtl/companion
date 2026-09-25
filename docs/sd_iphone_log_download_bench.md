@@ -1,5 +1,30 @@
 # iPhone log retrieval - bench cases and results
 
+## September 24 20:16-20:17 - increment 11 battery-only panel refusal PASSED
+
+JP reports no download mode when USB power was disconnected. Evidence: supplied
+20:17 console and Downloads/123-current (1).log, 900519 bytes, USB CRC OK;
+SHA256 47d46718bf73c275c3b5f671f0a5f336f85e840062e9147ac14db67bbf729ca3.
+On boot 123, POWER_USB present=0 at 20:16:26.050 is followed by two panel
+entry refusals at 20:16:34.915 and 20:16:41.502, both
+RETRIEVAL_MODE action=enter trigger=panel reason=usb_power_required result=refused.
+Power returns at 20:16:51.100. Subsequent status confirms OFF/server=off,
+generation=4 unchanged and release_stuck=0. No successful new server entry.
+
+Logger remains ready on the same boot, zero drops/truncated, queue empty after
+retrieval. USB snapshot 900519 -> later current_size 902313 demonstrates 1794 bytes
+of append growth. Writer margin 2920, worker 2304, HTTP retained margin 2584;
+internal largest 26612 remains above the 20480-byte gate. WiFi was offline during
+this case; the explicit power-first refusal verifies the power guard independently
+of network availability. OFF-mode link=up is retained state, not proof of connectivity;
+URL 0.0.0.0 is not an active endpoint. No network-recovery claim is made.
+
+All retained increment 11 bench gates now pass. JP's explicit increment 11 acceptance
+is pending. Previously approved hardware waivers remain waivers, and real car rollout
+is still pending. No additional bench case, firmware change, build or flash is required
+for this result. After acceptance, prepare the car deployment and first parked-car
+retrieval procedure with JP.
+
 ## September24 18:37-18:45 - increment11 panel workflow PASSED
 
 JP reports test worked fine after touch corrections73806ba. Evidence: inline console
