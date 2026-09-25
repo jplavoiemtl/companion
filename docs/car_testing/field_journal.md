@@ -14,13 +14,16 @@ Last updated: September 25, 2026.
   Both reconnects succeeded. The initiating WiFi loss remains unexplained.
 - F002 repeats the UI stall with failed MQTT attempts (8.771 s and 5.115 s loop gaps),
   then automatic recovery. Two ~0.12 s storage operations were also recorded without loss.
-- Field observation continues. JP approved P001 revision 2 and increment 1 on September 25;
-  Claude cleared c9629df and the first worker TLS/CONNACK bench gate has technically
-  passed on boot 130. JP accepted increment 1 and authorized increment 2; telemetry
-  implementation was cleared by Claude and all three retained bench cases now pass.
-  JP acceptance / car rollout approval is pending.
-  The car firmware has not been changed by this work. One successful ride is not long-term
-  reliability proof.
+- **MQTT responsiveness issue I001 addressed by P001:** owned MQTT worker and bounded
+  timing/service telemetry implemented, reviewed and bench-validated. JP accepted
+  increment 2 and all three retained cases on September 25. Car testing is next;
+  installation of this new firmware in the car has not yet been reported.
+- The accepted bench covers successful reconnect, two five-second TCP failures and
+  recovery, and hotspot loss during a pending attempt with same-IP recovery. G-meter
+  remained responsive; maximum reconnect UI gap 27 ms, IMU/loop gap 26 ms, no drops
+  or resets during the cases. Stack and 20480-byte memory gates passed.
+- Field confirmation is pending. **The cause of WiFi loss (I002) remains open**; P001
+  addresses the UI/IMU blocking during MQTT recovery, not hotspot reliability.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
   [retrieval spec](../sd_iphone_log_download_spec.md),
   [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
@@ -124,7 +127,7 @@ Review the newest field session following the field journal workflow.
 
 | ID | Finding | Evidence / confidence | Status |
 |---|---|---|---|
-| I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Open: P001. Repeated failed attempts while associated now observed; internet outage itself not established |
+| I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Addressed by P001; reviewed implementation and three bench cases passed, accepted by JP September 25. Field confirmation pending; see bench closeout |
 | I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Observe; underlying cause unknown. Later power-associated interruption tracked separately |
 | I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Monitor separately from MQTT stalls |
 | I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor; no evidence these explain multi-second UI freezes |
@@ -137,31 +140,38 @@ failure. Health snapshots can be stale while the main loop is blocked.
 
 ### P001 - Keep UI and IMU responsive during MQTT reconnection
 
-Status: JP approved [revision 2](p001_mqtt_responsiveness_design.md) and increment 1
-after Claude focused check e3ae528. Codex implemented the owned worker on
-`codex/car-improvements-p001`; [code review is pending](p001_increment1_handoff.md).
-F002 requires failed reconnects and UI animation as well as successful recovery.
-Priority: first proposed improvement, linked to I001. Goal: reconnect without freezing
-the G-meter or other main-loop UI work. The current synchronous call is measured to
-block for about eight seconds; reducing the normal IMU rate is not the issue.
+Status: **implemented, reviewed, bench-validated and accepted by JP on September 25.**
+Increment 1 and increment 2 are accepted. [Increment 2 closeout](p001_increment2_handoff.md)
+records the three retained passes. Source checkpoint a83c96a is the bench-tested firmware;
+subsequent commits through acceptance contain documentation only. Development branch:
+`codex/car-improvements-p001`. No additional corrective implementation or bench matrix
+is indicated. JP will deploy/test in the car and report evidence; do not infer deployment
+has occurred from this acceptance.
 
-The reviewed design selects permanent worker ownership of the MQTT client and transports,
-with bounded snapshots/queues at the main-task boundary. A connect-only handoff or
-sharing the old client across tasks is not used.
-Simply lowering timeouts could trade successful recovery for repeated failures and is
-not an established solution. Existing per-stage timeouts do not bound total connect time.
+The owned worker keeps MQTT connection waits off the UI/IMU main task. Failed, cancelled
+and successful attempts preserve cleanup, epoch checks, subscriptions and resource
+admission. Separate DNS/TCP/TLS/MQTT timing and per-attempt UI/IMU/loop service measurements
+now make field validation possible. Existing main-loop gap records remain in place.
 
-The design must cover MQTT callbacks/subscriptions, WiFi changes, image/Live interaction,
-cancellation/power-down, bounded memory and the existing 20480-byte memory gate.
-Set a measurable UI responsiveness target during design review. Keep validation focused:
-one controlled bench reconnect case at a time, then ordinary car observation. Preserve
-successful recovery, subscriptions, logging and image readiness. JP approves implementation;
-Claude reviews the code before JP builds/flashes. No new case is issued by this proposal.
+Measured bench result: maximum UI service gap 27 ms, IMU/loop gap 26 ms across retained
+reconnect windows, no intervals over 100 ms; JP saw no G-meter freezes. Worker stack
+minimum 7228 bytes, recovery internal-largest minimum 51188 bytes; retained media/logger
+largest minimum 24564, all above the gates. Subsequent Latest and USB export worked.
+These observations address I001 on the bench; they do not prove all future field behavior
+or explain WiFi losses. The earlier field firmware's synchronous MQTT call produced the
+multi-second stalls in F001/F002.
+
+Next: one ordinary car ride, full untrimmed export, approximate local times for any
+symptoms and whether a reconnect occurred. No outage means normal-use evidence only.
+Increment 3 is evidence-justified corrections if needed and field rollout; no code change
+is proposed now. The known VS Code monitor-close reset limitation remains separate.
 
 ### P002 - Add targeted timing detail only if needed
 
-Status: included in the P001 design and authorized increment 1 at JP's explicit request
-on September 25; phase timing implemented, hardware measurements pending. Historical priority disagreement below is retained for provenance.
+Status: delivered with P001 and accepted by JP September 25. Split phase timing and
+service telemetry were exercised in the three retained bench cases; field measurements
+on the new car firmware remain pending. Historical priority disagreement below is retained
+for provenance.
 The new design includes bounded DNS, TCP setup, TLS handshake and MQTT-exchange timing;
 no separate instrumentation-only flash is proposed.
 
@@ -170,8 +180,8 @@ then recovery takes 870 ms. A universal fixed 7.9-second wait is not supported a
 rides. Phase attribution remains unknown; this neither proves nor rules out DNS waits.
 The existing P002 priority disagreement is preserved pending review/JP decision.
 
-The current log already identifies the blocking MQTT span. DNS/TCP/TLS/CONNACK timing is
-not separated. Consider bounded phase timing only if it is needed to choose or validate
+Historical pre-P001 rationale: the field log identified the blocking MQTT span but did
+not separate DNS/TCP/TLS/CONNACK timing. Consider bounded phase timing only if needed to validate
 P001; avoid high-volume per-frame or per-sample records. Do not claim such measurements
 exist today. A second useful measure could be UI/IMU service gaps, with a defined metric
 and bounded reporting, if loop gaps alone cannot validate the selected design.
@@ -661,3 +671,14 @@ IMU/loop gap 26 ms, no over100 intervals. No additional firmware correction or b
 case is proposed. JP acceptance and approval for car rollout are pending. Next evidence
 would be one ordinary car ride with full export; field WiFi-loss causes remain open,
 and no-outage driving alone cannot validate field reconnection behavior.
+
+
+### JP acceptance and car-testing handoff — September 25, 2026, Codex
+
+JP explicitly accepted increment 2 and will conduct car testing and report findings.
+I001 is now **addressed: implemented, reviewed, bench-validated and accepted**, with field
+confirmation pending. P001/P002 current statuses above are updated; dated prior entries
+remain as historical checkpoints. All three retained cases passed; no further bench
+case or code change is requested. The next evidence is a full ride export with symptom
+and reconnect times if observed. I002 WiFi-loss cause remains unresolved. No claim is
+made that the car has already been flashed with P001.

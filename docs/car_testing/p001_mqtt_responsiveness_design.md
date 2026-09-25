@@ -641,3 +641,12 @@ two five-second TCP failures/backoff/recovery, and hotspot loss during an attemp
 same-IP recovery. See [bench closeout](p001_increment2_handoff.md) for exact evidence and
 limitations. JP acceptance / car rollout approval pending. No increment 3 correction is
 indicated; no expanded test matrix is proposed. Field validation remains outstanding.
+
+
+### JP acceptance — September 25, 2026
+
+JP accepted increment 2 and the retained bench scope, and will proceed with car testing.
+No additional corrective code or bench test is indicated. Field confirmation remains
+pending; car deployment has not yet been reported. Current I001/P001 status is recorded
+in [the field journal](field_journal.md). Earlier pending-acceptance notes above are
+historical and superseded by this entry.

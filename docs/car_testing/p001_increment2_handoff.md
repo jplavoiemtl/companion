@@ -301,3 +301,12 @@ implementation needed at this point. Long DNS/TLS/CONNACK failure modes and rare
 remain covered by source checks/review rather than a new hardware matrix. A normal
 ride without an outage is not proof of field reconnect responsiveness. The known
 monitor-close reset limitation and the unexplained source of field WiFi loss remain.
+
+
+### JP acceptance — September 25, 2026
+
+JP accepted increment 2 and the retained bench scope, and will proceed with car testing.
+No additional corrective code or bench test is indicated. Field confirmation remains
+pending; car deployment has not yet been reported. Current I001/P001 status is recorded
+in [the field journal](field_journal.md). Earlier pending-acceptance notes above are
+historical and superseded by this entry.
