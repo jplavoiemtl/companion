@@ -12,7 +12,7 @@ stop:()=>{c.http.isStopped=true;},activate:()=>c.http.canActivate,
 stopped:()=>c.http.isStopped,failure:()=>c.http.err,stage:()=> 'server_stop',
 activity:()=>c.http.at,idleExpired:(t,a,l)=>t-Math.max(a,c.http.at)>=l,
 notice:x=>c.http.notices.push(x)};
-c.nowMs=()=>c.t;c.report=r=>c.reports.push({result:r,reason:c.lastReason,state:c.mode});c.event=(...a)=>c.events.push(a);c.WiFi={status:()=>c.wifi?1:0};c.diagnosticsStorageClosing=()=>c.closing;c.diagnosticsStorageReady=()=>c.ready;c.imageFetcherIsBusy=()=>c.image;c.videoStreamActive=()=>c.live;c.diagnosticsUsbBusy=()=>c.busy;c.imageFetcherHasPendingDisplay=()=>c.pending;c.diagnosticsUsbCommand=s=>{assert.equal(s,'log abort');c.aborts++;};c.strcmp=(a,b)=>a===b?0:1;c.strncmp=(a,b,n)=>a.slice(0,n)===b.slice(0,n)?0:1;vm.createContext(c);vm.runInContext(defs.map(([n,a,s])=>`function ${n}(${a}){${adapt(body(source,s))}}`).join('\n'),c);c.enter=()=>c.logRetrievalEnter(c.RetrievalOrigin.Usb);return c;}
+c.nowMs=()=>c.t;c.report=r=>c.reports.push({result:r,reason:c.lastReason,state:c.mode});c.event=(...a)=>c.events.push(a);c.WiFi={status:()=>c.wifi?1:0};c.diagnosticsStorageClosing=()=>c.closing;c.diagnosticsStorageReady=()=>c.ready;c.imageFetcherIsBusy=()=>c.image;c.videoStreamActive=()=>c.live;c.diagnosticsUsbBusy=()=>c.busy;c.imageFetcherHasPendingDisplay=()=>c.pending;c.diagnosticsUsbCommand=s=>{assert.equal(s,'log abort');c.aborts++;};c.strcmp=(a,b)=>a===b?0:1;c.strncmp=(a,b,n)=>a.slice(0,n)===b.slice(0,n)?0:1;(c.netMqttLeaseHeld ??= (()=>false), c.netShowReconnectNotice ??= (()=>{}), vm.createContext(c));vm.runInContext(defs.map(([n,a,s])=>`function ${n}(${a}){${adapt(body(source,s))}}`).join('\n'),c);c.enter=()=>c.logRetrievalEnter(c.RetrievalOrigin.Usb);return c;}
 let count=0;function test(n,f){f(context());count++;console.log('PASS '+n);}
 for(const [field,value,reason] of [['vbusPresent',false,'usb_power_required'],['closing',true,'logger_closing'],['ready',false,'logger_unavailable'],['wifi',false,'wifi_offline'],['image',true,'image_busy'],['live',true,'live_busy'],['busy',true,'retrieval_busy'],['pending',true,'display_pending']])test('entry refuses '+reason,c=>{c[field]=value;c.logRetrievalCommand('log mode on');assert.equal(c.mode,0);assert.equal(c.lastReason,reason);assert.equal(c.aborts,0);});
 test('entry, repeated on, off and repeated off have explicit results',c=>{c.logRetrievalCommand('log mode on');assert.equal(c.mode,1);c.logRetrievalTick();assert.equal(c.mode,2);c.t++;c.logRetrievalCommand('log mode on');assert.equal(c.lastReason,'not_off');assert.equal(c.activityAt,100);c.logRetrievalCommand('log mode off');assert.equal(c.mode,3);assert.ok(c.logRetrievalActive());c.logRetrievalCommand('log mode off');assert.equal(c.reports.at(-1).result,'already_stopping');c.logRetrievalTick();assert.equal(c.mode,0);c.logRetrievalCommand('log mode off');assert.equal(c.reports.at(-1).result,'already_off');});
@@ -86,5 +86,11 @@ test('panel stop followed by USB exit remains a single nonwaiting stop',c=>{
  c.logRetrievalExit('panel_stop');c.logRetrievalCommand('log mode off');
  assert.equal(c.aborts,1);assert.equal(c.exitReason,'panel_stop');
  c.busy=false;c.logRetrievalTick();assert.equal(c.mode,0);
+});
+test('panel and USB both refuse MQTT lease before allocating and preserve origin',c=>{
+ c.netMqttLeaseHeld=()=>true;
+ c.logRetrievalCommand('log mode on');assert.equal(c.mode,0);assert.equal(c.lastReason,'mqtt_reconnecting');
+ const r=c.logRetrievalEnter(c.RetrievalOrigin.Panel);assert.equal(r.accepted,false);assert.equal(r.reason,'mqtt_reconnecting');assert.equal(c.entryOrigin,0);
+ c.netMqttLeaseHeld=()=>false;c.enter();assert.equal(c.mode,1);
 });
 console.log(`${count} retrieval mode checks passed; source simulations only.`);

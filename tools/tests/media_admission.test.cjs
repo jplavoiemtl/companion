@@ -6,7 +6,7 @@ const image=read('src/image/image_fetcher.cpp'),video=read('src/video/video_stre
 const strip=s=>s.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\/[^\n]*|\/\*[\s\S]*?\*\//g,m=>m.startsWith('//')||m.startsWith('/*')?' ':m);
 function body(s,sig){let i=s.indexOf(sig);assert(i>=0,sig);i=s.indexOf('{',i);let a=++i,d=1;while(d){if(s[i]=='{')d++;if(s[i]=='}')d--;i++;}return s.slice(a,i-1);}
 function adapt(s){return s.replace(/diagnet::event/g,'event').replace(/diagnet::imageNotification/g,'notification').replace(/const unsigned long /g,'const ').replace(/lv_obj_t\* /g,'let ').replace(/lv_disp_t\* /g,'let ').replace(/\bNULL\b/g,'null');}
-function context(){const c={blocked:true,pendingEndpoint:null,motionTriggered:false,imageDisplayTimeoutActive:false,requestInProgress:false,screen2TimeoutActive:false,lastImageLoadedTime:0,NOTIFICATION_ECHO_WINDOW_MS:2000,screen:1,ui_previous_screen:null,cfg:{screen1:1,screen2:2,screen3:3,inclinometerScreen:4},events:[],notes:[],begins:0,ends:0,mutations:0,active:false,WL_CONNECTED:1,LV_EVENT_CLICKED:1,LV_DISP_ROT_90:1};c.logRetrievalActive=()=>c.blocked;c.event=(...x)=>c.events.push(x);c.notification=x=>c.notes.push(x);c.videoStreamActive=()=>c.active;c.millis=()=>10000;c.lv_scr_act=()=>c.screen;c.imageBegin=()=>c.begins++;c.imageEnd=()=>c.ends++;c.USBSerial={println:()=>{},printf:()=>{}};c.lv_event_get_code=e=>e;c.cleanupImageRequest=()=>{c.mutations++;};c.lv_disp_load_scr=s=>{c.screen=s;c.mutations++;};c.lv_disp_get_default=()=>1;c.lv_disp_set_rotation=()=>c.mutations++;c.lv_refr_now=()=>c.mutations++;c.WiFi={status:()=>1};vm.createContext(c);
+function context(){const c={blocked:true,pendingEndpoint:null,motionTriggered:false,imageDisplayTimeoutActive:false,requestInProgress:false,screen2TimeoutActive:false,lastImageLoadedTime:0,NOTIFICATION_ECHO_WINDOW_MS:2000,screen:1,ui_previous_screen:null,cfg:{screen1:1,screen2:2,screen3:3,inclinometerScreen:4},events:[],notes:[],begins:0,ends:0,mutations:0,active:false,WL_CONNECTED:1,LV_EVENT_CLICKED:1,LV_DISP_ROT_90:1};c.logRetrievalActive=()=>c.blocked;c.event=(...x)=>c.events.push(x);c.notification=x=>c.notes.push(x);c.videoStreamActive=()=>c.active;c.millis=()=>10000;c.lv_scr_act=()=>c.screen;c.imageBegin=()=>c.begins++;c.imageEnd=()=>c.ends++;c.USBSerial={println:()=>{},printf:()=>{}};c.lv_event_get_code=e=>e;c.cleanupImageRequest=()=>{c.mutations++;};c.lv_disp_load_scr=s=>{c.screen=s;c.mutations++;};c.lv_disp_get_default=()=>1;c.lv_disp_set_rotation=()=>c.mutations++;c.lv_refr_now=()=>c.mutations++;c.WiFi={status:()=>1};(c.netMqttLeaseHeld ??= (()=>false), c.netShowReconnectNotice ??= (()=>{}), vm.createContext(c));
 const defs=[['buttonLatest_event_handler','e','void buttonLatest_event_handler('],['prepareForRequest','','static bool prepareForRequest() {'],['requestLatestImage','fromNotification=false','bool requestLatestImage('],['buttonBack_event_handler','e','void buttonBack_event_handler('],['imageFetcherHasPendingDisplay','','bool imageFetcherHasPendingDisplay()']];vm.runInContext(defs.map(([n,a,s])=>`function ${n}(${a}){${adapt(body(image,s))}}`).join('\n'),c);
 // Execute the actual Live admission prefix; allowed allocation/rendering is outside this harness.
 vm.runInContext(`function videoStreamStart(trigger='button'){${adapt(body(video,'bool videoStreamStart(').split('  diagnosticsProbeBegin(')[0])}return 'admitted';}`,c);return c;}
@@ -60,5 +60,13 @@ test('Latest button records processed only when admission succeeds',c=>{
  assert.equal(c.events.filter(e=>e[0]=='IMAGE_REFUSED').length,1);
  c.blocked=false;c.buttonLatest_event_handler(1);
  assert.equal(c.events.filter(e=>e[0]=='UI_ACTION').length,1);assert.equal(c.begins,1);
+});
+test('MQTT lease refuses every media entry before mutation, then permits after release',c=>{
+ c.blocked=false;c.netMqttLeaseHeld=()=>true;
+ assert.equal(c.requestLatestImage(true),false);assert.equal(c.notes.at(-1),'ignored_mqtt_reconnecting');
+ assert.equal(c.requestLatestImage(false),false);c.buttonBack_event_handler(1);
+ assert.equal(c.videoStreamStart('button'),false);assert.equal(c.videoStreamStart('motion_handover'),false);
+ assert.equal(c.begins,0);assert.equal(c.mutations,0);
+ c.netMqttLeaseHeld=()=>false;assert.equal(c.requestLatestImage(false),true);
 });
 console.log(`${count} media admission checks passed; source simulations only.`);

@@ -1,12 +1,13 @@
 #include "net_module.h"
+#include "net_worker.h"
+#include "../image/image_fetcher.h"
+#include "../video/video_stream.h"
+#include "../diagnostics/diagnostics_retrieval.h"
+#include <lvgl.h>
+#include <esp_timer.h>
 #include "../diagnostics/diagnostics_probes.h"
 #include "../diagnostics/sd_diagnostics.h"
 #include "../diagnostics/diagnostics_network.h"
-#if defined(__has_include) && __has_include("secrets_private.h")
-#include "secrets_private.h"
-#else
-#include "secrets.h"
-#endif
 #include "calibration.h"
 #include "HWCDC.h"
 #include <WiFi.h>
@@ -37,7 +38,7 @@ constexpr bool MQTT_BENCH_ENABLED = true;
 constexpr unsigned long BENCH_FIRST_ATTEMPT_MS = 5000;
 // RFC 5737 documentation address, not a production service. The network may
 // reject it quickly instead of silently dropping it; measure every attempt.
-const IPAddress BENCH_ADDRESS(192, 0, 2, 1);
+
 enum class BenchPhase { Idle, Outage, Restoring };
 BenchPhase benchPhase = BenchPhase::Idle;
 unsigned long benchStarted = 0;
@@ -47,26 +48,22 @@ char benchCommand[24] = {};
 size_t benchCommandLength = 0;
 bool benchCommandOverflow = false;
 bool observedConnected = false;
+bool benchFirstPending=false,restorePending=false;
 bool mediaDeferred = false;
 int observedAssociation = -1;
 
 bool isSecurePort(uint16_t port);
+uint32_t attemptId=0;
+bool initialized=false;
+lv_obj_t* reconnectNotice=nullptr;
+uint32_t noticeAt=0;
+bool faultReported=false,allocReported=false;
+const char* lastResult="none";
 
-bool observeMqtt() {
-  const bool connected = cfg.mqttClient && cfg.mqttClient->connected();
-  if (observedConnected && !connected) {
-    // PubSubClient may set LOST/TIMEOUT in loop()/connected(); capture before cleanup.
-    diagnet::mqttLoss(cfg.mqttClient->state(), benchPhase == BenchPhase::Outage ? "test" : "real",
-                      configuredConnection, activePort, isSecurePort(activePort) ? cfg.secureClient : nullptr);
-  }
-  observedConnected = connected;
-  return connected;
-}
+bool observeMqtt() { return mqttowner::view().connected; }
 void intentionalDisconnect(const char* reason) {
-  observeMqtt(); // Preserve a real loss already visible before this requested cleanup.
-  diagnet::event("MQTT_DISCONNECT", "reason=%s state_before=%d", reason, cfg.mqttClient->state());
-  cfg.mqttClient->disconnect();
-  observedConnected = false;
+  diagnet::event("MQTT_DISCONNECT", "reason=%s state_before=%d",reason,netMqttState());
+  mqttowner::invalidate(); observedConnected=false;
 }
 
 void printBenchStatus() {
@@ -77,11 +74,20 @@ void printBenchStatus() {
                    phase, WiFi.status() == WL_CONNECTED ? "CONNECTED" : "OFFLINE",
                    observeMqtt() ? "CONNECTED" : "DISCONNECTED",
                    elapsed, millis());
+  const auto state=mqttowner::view();
+  USBSerial.printf("[MQTT OWNER] phase=%s epoch=%lu attempt_epoch=%lu id=%lu age_ms=%llu lease=%u connected=%u stack_min=%lu stack_external=%u tcb_internal=%u internal_min=%lu largest_min=%lu dma_min=%lu rx_drops=%lu tx_drops=%lu completion_drops=%lu lease_timeouts=%lu cancelled=%lu stuck=%lu tx_size=%lu tx_ok=%lu tx_failed=%lu packet_drops=%lu result=%s\n",
+    mqttowner::phaseName(state.phase),(unsigned long)state.epoch,(unsigned long)state.attemptEpoch,(unsigned long)state.id,
+    (unsigned long long)(state.busy ? esp_timer_get_time()/1000-state.started : 0),state.lease,state.connected,
+    (unsigned long)state.stackMin,state.stackExternal,state.tcbInternal,(unsigned long)state.internalMin,
+    (unsigned long)state.largestMin,(unsigned long)state.dmaMin,(unsigned long)state.rxDrops,
+    (unsigned long)state.txDrops,(unsigned long)state.completionDrops,(unsigned long)state.leaseTimeouts,
+    (unsigned long)state.cancelled,(unsigned long)state.stuck,(unsigned long)state.txOversize,
+    (unsigned long)state.txAccepted,(unsigned long)state.txRejected,(unsigned long)state.rxPacketDrops,lastResult);
 }
 
 void restoreBenchMqtt(const char* reason) {
   if (benchPhase != BenchPhase::Outage) return;
-  benchPhase = BenchPhase::Restoring;
+  benchPhase = BenchPhase::Restoring; restorePending=true; benchFirstPending=false;
   intentionalDisconnect("bench_restore");
   netConfigureMqttClient(configuredConnection);
   diagnet::event("BENCH_APPLIED", "command=on target=real reason=%s",
@@ -126,17 +132,17 @@ void handleBenchCommand(char* command) {
       USBSerial.println("[TEST] Restoring; wait for the real broker to reconnect before another off.");
       return;
     }
-    if (!configuredConnection || !cfg.mqttClient || WiFi.status() != WL_CONNECTED ||
+    if (!configuredConnection || WiFi.status() != WL_CONNECTED ||
         !observeMqtt()) {
       diagnet::event("BENCH_APPLIED", "command=off result=refused reason=not_connected");
       USBSerial.println("[TEST] Not started: wait for WiFi and the real MQTT broker to connect.");
       return;
     }
     intentionalDisconnect("bench_off");
-    benchPhase = BenchPhase::Outage;
+    benchPhase = BenchPhase::Outage; benchFirstPending=true;
     benchStarted = millis();
     benchAttempt = 0;
-    cfg.mqttClient->setServer(BENCH_ADDRESS, activePort);
+
     diagnet::event("BENCH_APPLIED", "command=off target=test port=%u", activePort);
     // Leave time to see orange status and prepare a button press before the first attempt.
     lastMqttAttempt = millis() - MQTT_RECONNECT_INTERVAL + BENCH_FIRST_ATTEMPT_MS;
@@ -144,7 +150,7 @@ void handleBenchCommand(char* command) {
                      activePort);
     USBSerial.printf("[TEST] First attempt in %lu ms; later attempts use the existing 15-second retry interval.\n",
                      BENCH_FIRST_ATTEMPT_MS);
-    USBSerial.println("[TEST] No automatic restore. Commands wait while a connection attempt blocks.");
+    USBSerial.println("[TEST] No automatic restore. Commands remain responsive during reconnection.");
   } else {
     USBSerial.println("[TEST] Unknown command. Use: off, on, status (then Enter).");
   }
@@ -158,154 +164,156 @@ bool isSecurePort(uint16_t port) {
 }  // namespace
 
 void netInit(const NetConfig& c) {
-  cfg = c;
-  if (cfg.mqttClient) {
-    // mqttClient is owned by the sketch; we just configure it here.
-    cfg.mqttClient->setBufferSize(512);
-    if (cfg.mqttCallback) {
-      cfg.mqttClient->setCallback(cfg.mqttCallback);
+  cfg=c; mqttowner::init(c); initialized=true;
+  WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t) {
+    switch(event) {
+      case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+      case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+      case ARDUINO_EVENT_WIFI_STA_STOP: netLinkEvent(false); break;
+      case ARDUINO_EVENT_WIFI_STA_GOT_IP: netLinkEvent(true); break;
+      default: break;
     }
-  }
+  });
 }
-
+void netLinkEvent(bool up) { mqttowner::linkEvent(up); }
 void netConfigureMqttClient(int connection) {
-  if (!cfg.mqttClient || !cfg.wifiClient || !cfg.secureClient) return;
-
-  configuredConnection = connection;
-
-  if (connection == 1) {
-    activePort = cfg.serverPort1;
-                     
-    if (isSecurePort(cfg.serverPort1)) {
-      cfg.secureClient->setCACert(cfg.caCert);
-      cfg.mqttClient->setClient(*cfg.secureClient);
-    } else {
-      cfg.mqttClient->setClient(*cfg.wifiClient);
-    }
-    cfg.mqttClient->setServer(cfg.server1, cfg.serverPort1);
-  } else {
-    activePort = cfg.serverPort2;
-
-    if (isSecurePort(cfg.serverPort2)) {
-      cfg.secureClient->setCACert(cfg.caCert);
-      cfg.mqttClient->setClient(*cfg.secureClient);
-    } else {
-      cfg.mqttClient->setClient(*cfg.wifiClient);
-    }
-    cfg.mqttClient->setServer(cfg.server2, cfg.serverPort2);
-  }
-  if (benchPhase == BenchPhase::Outage) {
-    cfg.mqttClient->setServer(BENCH_ADDRESS, activePort);
-  }
+  configuredConnection=connection;
+  activePort=connection==1 ? cfg.serverPort1 : cfg.serverPort2;
+  mqttowner::invalidate();
   diagnet::event("MQTT_CONFIG", "connection=%d target=%s port=%u tls=%u",
-                 configuredConnection, benchPhase == BenchPhase::Outage ? "test" : "real",
-                 activePort, isSecurePort(activePort));
+    connection,benchPhase==BenchPhase::Outage ? "test" : "real",activePort,isSecurePort(activePort));
 }
-
 void netCheckMqtt(bool bypassRateLimit) {
-  if (!cfg.mqttClient) return;
-  if (giveUp) return;
-
-  if (!observeMqtt()) {
-    unsigned long currentTime = millis();
-    if (!bypassRateLimit && currentTime - lastMqttAttempt < MQTT_RECONNECT_INTERVAL) {
-      return;
-    }
-
-    cfg.mqttClient->disconnect();  // clean stale state (loss captured above)
-    delay(100);
-
-    // Bound TCP and TLS separately; connection attempts are still synchronous.
-    // In ESP32 core 3.1.3, setTimeout() affects Stream reads, while
-    // setConnectionTimeout() sets the TCP timeout used by connect().
-    if (cfg.secureClient) {
-      cfg.secureClient->setConnectionTimeout(5000); // TCP connect, ms
-      cfg.secureClient->setHandshakeTimeout(5); // TLS handshake, seconds
-    }
-    if (cfg.wifiClient) {
-      cfg.wifiClient->setConnectionTimeout(5000);   // TCP connect, ms
-    }
-    cfg.mqttClient->setSocketTimeout(5);        // CONNACK wait, seconds
-
-    const bool testAttempt = benchPhase == BenchPhase::Outage;
-    const bool logAttempt = benchPhase != BenchPhase::Idle;
-    const unsigned long attemptStarted = millis();
-    if (logAttempt) {
-      USBSerial.printf("[TEST] MQTT attempt %u BEGIN -> %s | uptime=%lu ms\n",
-                       ++benchAttempt, testAttempt ? "TEST endpoint" : "REAL broker", attemptStarted);
-    }
-    // Never send production credentials or the production client ID to the test address.
-    char context[144];
-    snprintf(context, sizeof(context), "target=%s connection=%d wifi_connection=%d port=%u tls=%u",
-             testAttempt ? "test" : "real", configuredConnection,
-             diagnet::associatedConnection(), activePort, isSecurePort(activePort));
-    diagnet::Span attempt("mqtt_connect", diag::Phase::MqttConnect, context);
-    diagnosticsProbeBegin(ProbeWindow::MqttConnect);
-    bool ok = testAttempt ? cfg.mqttClient->connect("companion-bench-test")
-                          : cfg.mqttClient->connect(CLIENT_ID, USERNAME, KEY);
-    // Snapshot state and TLS error before probes, subscriptions or cleanup can reuse them.
-    attempt.end(ok, cfg.mqttClient->state(), isSecurePort(activePort) ? cfg.secureClient : nullptr);
-    observedConnected = ok;
+  if(!initialized || !configuredConnection || giveUp || netIsMqttConnected() || netMqttBusy()) return;
+  if(!bypassRateLimit && millis()-lastMqttAttempt<MQTT_RECONNECT_INTERVAL) return;
+  const bool testAttempt=benchPhase==BenchPhase::Outage;
+  if(!mqttowner::request(attemptId+1,configuredConnection,testAttempt)) return;
+  ++attemptId; benchFirstPending=false; restorePending=false;
+  diagnosticsProbeBegin(ProbeWindow::MqttConnect);
+  diagnet::event("MQTT_CONNECT_BEGIN", "execution=worker id=%lu target=%s connection=%d wifi_connection=%d port=%u tls=%u",
+    (unsigned long)attemptId,testAttempt ? "test" : "real",configuredConnection,
+    diagnet::associatedConnection(),activePort,isSecurePort(activePort));
+  if(benchPhase!=BenchPhase::Idle) USBSerial.printf("[TEST] MQTT attempt %u BEGIN -> %s | uptime=%lu ms\n",
+    ++benchAttempt,testAttempt ? "TEST endpoint" : "REAL broker",millis());
+}
+bool netIsMqttConnected() { return observeMqtt(); }
+int netMqttState() { return mqttowner::view().state; }
+bool netMqttBusy() { const auto state=mqttowner::view(); return state.busy || state.lease; }
+bool netMqttFaulted() { return mqttowner::view().phase==mqttowner::Phase::Fault; }
+bool netMqttLeaseHeld() { return mqttowner::view().lease; }
+void netShutdown() { mqttowner::invalidate(true); }
+bool netPublish(const char* topic,const char* payload,const char* category,const char* trigger) {
+  if(!topic) return false;
+  int which=-1;
+  if(cfg.motionTopic && !strcmp(topic,cfg.motionTopic)) which=0;
+  else if(cfg.imuTopic && !strcmp(topic,cfg.imuTopic)) which=1;
+  else if(!strcmp(topic,"companion/calibration")) which=2;
+  return which>=0 && mqttowner::publish(which,payload,category,trigger);
+}
+void netShowReconnectNotice() {
+  if(!reconnectNotice) {
+    reconnectNotice=lv_label_create(lv_layer_top()); LV_ASSERT_MALLOC(reconnectNotice);
+    lv_obj_clear_flag(reconnectNotice,LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_width(reconnectNotice,320); lv_obj_align(reconnectNotice,LV_ALIGN_TOP_MID,0,66);
+    lv_obj_set_style_text_color(reconnectNotice,lv_color_white(),0);
+    lv_obj_set_style_bg_color(reconnectNotice,lv_color_black(),0);
+    lv_obj_set_style_bg_opa(reconnectNotice,LV_OPA_COVER,0);
+  }
+  lv_label_set_text(reconnectNotice,"Reconnecting. Try again.");
+  lv_obj_clear_flag(reconnectNotice,LV_OBJ_FLAG_HIDDEN); noticeAt=millis();
+}
+void netMainTick() {
+  if(!initialized) return;
+  static bool inTick=false;
+  if(inTick) return; inTick=true;
+  mqttowner::arbitrate(!imageFetcherIsBusy() && !videoStreamActive() &&
+    !imageFetcherHasPendingDisplay() && !logRetrievalActive());
+  static uint32_t sampledAt=0;
+  if(millis()-sampledAt>=20) { mqttowner::sample(); sampledAt=millis(); }
+  auto state=mqttowner::view();
+  if(state.phase==mqttowner::Phase::Fault && !faultReported) {
+    faultReported=true;
+    diagnet::event("MQTT_WORKER_FAULT","result=worker_stuck id=%lu lease=%u recovery=late_cleanup_or_restart",(unsigned long)state.id,state.lease);
+    netShowReconnectNotice(); lv_label_set_text(reconnectNotice,"MQTT stalled. Wait or restart.");
+  } else if(state.phase!=mqttowner::Phase::Fault && faultReported) {
+    faultReported=false; diagnet::event("MQTT_WORKER_FAULT","result=late_cleanup");
+    if(reconnectNotice) lv_obj_add_flag(reconnectNotice,LV_OBJ_FLAG_HIDDEN);
+  }
+  if(state.allocationFailed && !allocReported) {
+    allocReported=true; lastResult="worker_alloc"; diagnet::event("MQTT_WORKER_FAULT","result=worker_alloc");
+  }
+  if(reconnectNotice && !faultReported && millis()-noticeAt>=3000) lv_obj_add_flag(reconnectNotice,LV_OBJ_FLAG_HIDDEN);
+  mqttowner::Result result{};
+  if(mqttowner::takeResult(result)) {
+    // Original completion stamp, not delayed main-task delivery time.
+    const bool stale=result.epoch!=mqttowner::view().epoch;
+    if(stale) { result.ok=false; result.counted=false; result.reason="cancelled"; }
+    lastResult=result.reason;
+    char fields[456];
+    snprintf(fields,sizeof(fields),"execution=worker id=%lu epoch=%lu target=%s result=%s valid=%u dns_ms=%lu tcp_setup_ms=%lu tls_ms=%lu mqtt_exchange_ms=%lu total_ms=%llu failed_phase=%s state=%d error=%d error_fresh=%u dns=%s cancelled=%u",
+      (unsigned long)result.id,(unsigned long)result.epoch,result.test ? "test" : "real",result.reason,result.valid,
+      (unsigned long)result.dnsMs,(unsigned long)result.tcpMs,(unsigned long)result.tlsMs,(unsigned long)result.mqttMs,
+      (unsigned long long)(result.ended-result.started),result.ok ? "none" : mqttowner::phaseName(result.failedPhase),result.state,
+      result.error,result.errorFresh,result.dnsResult,!strcmp(result.reason,"cancelled"));
+    diag::recordAt(result.when,"MQTT_CONNECT_END",fields,true);
+    diagnet::event("MQTT_CONNECT_MEM","id=%lu stack_min=%lu stack_external=%u tcb_internal=%u internal_min=%lu largest_min=%lu dma_min=%lu",
+      (unsigned long)result.id,(unsigned long)state.stackMin,state.stackExternal,state.tcbInternal,
+      (unsigned long)state.internalMin,(unsigned long)state.largestMin,(unsigned long)state.dmaMin);
     diagnosticsProbeEnd(ProbeWindow::MqttConnect);
-    if (logAttempt) {
-      USBSerial.printf("[TEST] MQTT attempt %u END -> %s | %s | elapsed=%lu ms | state=%d\n",
-                       benchAttempt, testAttempt ? "TEST endpoint" : "REAL broker",
-                       ok ? "CONNECTED" : "FAILED", millis() - attemptStarted, cfg.mqttClient->state());
-    }
-
-    // Stamp the attempt time AFTER it returns. If we stamped before, a
-    // long-blocking attempt would already have exceeded MQTT_RECONNECT_INTERVAL
-    // by the time it failed, defeating the rate limit and starving LVGL.
+    // Backoff begins after owner completion, never at dispatch or repeated WiFi events.
     lastMqttAttempt = millis();
-
-    if (testAttempt) {
-      // A simulated failure must not consume the production initial-failure budget.
-      if (ok) {
-        USBSerial.println("[TEST] Unexpected test connection; aborting test and restoring real broker.");
-        restoreBenchMqtt("unexpected test connection");
+    if(restorePending) lastMqttAttempt-=MQTT_RECONNECT_INTERVAL;
+    if(benchPhase!=BenchPhase::Idle) USBSerial.printf("[TEST] MQTT attempt %u END -> %s | %s | elapsed=%llu ms | state=%d\n",
+      benchAttempt,result.test ? "TEST endpoint" : "REAL broker",result.ok ? "CONNECTED" : "FAILED",
+      (unsigned long long)(result.ended-result.started),result.state);
+    if(result.ok) {
+      mqttowner::acknowledgeReady(result.epoch);
+      if(result.test) restoreBenchMqtt("unexpected test connection");
+      else if(netIsMqttConnected()) {
+        diagnet::event("MQTT_CONNECTED","recovery=%u target=real connection=%d port=%u state=%d",everConnected || benchPhase==BenchPhase::Restoring,configuredConnection,activePort,result.state);
+        everConnected=true; failureCount=0; observedConnected=true;
+        const char* categories[]={"image","power","energy"};
+        for(unsigned i=0;i<3;++i) diagnet::event("MQTT_SUBSCRIBE","category=%s qos=1 accepted=%u ack=unobserved",categories[i],(result.subscriptions>>i)&1);
+        calibReportStatus(); // main only, enqueues publication
+        if(benchPhase==BenchPhase::Restoring) { benchPhase=BenchPhase::Idle; USBSerial.println("[TEST] Real broker connected. Ready for another off."); }
       }
-      return;
-    }
-
-    if (ok) {
-      diagnet::event("MQTT_CONNECTED", "recovery=%u target=real connection=%d port=%u state=%d",
-                     everConnected || benchPhase == BenchPhase::Restoring,
-                     configuredConnection, activePort, cfg.mqttClient->state());
-      everConnected = true;
-      failureCount = 0;
-      // Subscriptions
-      if (cfg.topics.image) {
-        const bool accepted = cfg.mqttClient->subscribe(cfg.topics.image, 1);
-        diagnet::event("MQTT_SUBSCRIBE", "category=image qos=1 accepted=%u ack=unobserved", accepted);
-      }
-      if (cfg.topics.power) {
-        const bool accepted = cfg.mqttClient->subscribe(cfg.topics.power, 1);
-        diagnet::event("MQTT_SUBSCRIBE", "category=power qos=1 accepted=%u ack=unobserved", accepted);
-      }
-      if (cfg.topics.energy) {
-        const bool accepted = cfg.mqttClient->subscribe(cfg.topics.energy, 1);
-        diagnet::event("MQTT_SUBSCRIBE", "category=energy qos=1 accepted=%u ack=unobserved", accepted);
-      }
-      calibReportStatus();
-      if (benchPhase == BenchPhase::Restoring) {
-        benchPhase = BenchPhase::Idle;
-        USBSerial.println("[TEST] Real broker connected. Ready for another off.");
-      }
-    } else {
-      failureCount++;
-      if (!everConnected && failureCount >= MAX_INITIAL_FAILURES) {
-        giveUp = true;
-        diagnet::event("MQTT_BUDGET", "result=exhausted failures=%u retry=until_reboot", failureCount);
-        USBSerial.println("MQTT unreachable after initial attempts; giving up until next reboot.");
+    } else if(result.counted && !result.test) {
+      ++failureCount;
+      if(!everConnected && failureCount>=MAX_INITIAL_FAILURES) {
+        giveUp=true; diagnet::event("MQTT_BUDGET","result=exhausted failures=%u retry=until_reboot",failureCount);
       }
     }
   }
+  int lostState;
+  if(mqttowner::takeLoss(lostState)) {
+    lastMqttAttempt = millis();
+    if(benchFirstPending) lastMqttAttempt-=MQTT_RECONNECT_INTERVAL-BENCH_FIRST_ATTEMPT_MS;
+    if(restorePending) lastMqttAttempt-=MQTT_RECONNECT_INTERVAL;
+    if(observedConnected) diagnet::mqttLoss(lostState,benchPhase==BenchPhase::Outage ? "test" : "real",configuredConnection,activePort,nullptr);
+    else diagnet::event("MQTT_CLEANUP","execution=worker state=%d result=closed",lostState);
+    observedConnected=false;
+  }
+  mqttowner::Sent completion{};
+  for(unsigned i=0;i<4 && mqttowner::takeSent(completion);++i) {
+    // Preserve the old quiet IMU telemetry policy; owner totals still count it.
+    if(!strcmp(completion.category,"imu")) continue;
+    char fields[144];
+    snprintf(fields,sizeof(fields),"category=%s trigger=%s accepted=%u ack=unobserved epoch=%lu",
+      completion.category,completion.trigger,completion.accepted,(unsigned long)completion.epoch);
+    diag::recordAt(completion.when,"MQTT_PUBLISH",fields,false);
+  }
+  const uint64_t dispatchAt=esp_timer_get_time();
+  mqttowner::Rx message{};
+  for(unsigned i=0;i<2 && esp_timer_get_time()-dispatchAt<2000 && mqttowner::takeRx(message);++i) {
+    const char* names[]={cfg.topics.image,cfg.topics.power,cfg.topics.energy};
+    if(cfg.mqttCallback && message.topic<3 && names[message.topic]) {
+      // Application callback never mutates its topic. Bounded payload lives through call.
+      cfg.mqttCallback(const_cast<char*>(names[message.topic]),reinterpret_cast<byte*>(message.payload),message.length);
+    }
+  }
+  inTick=false;
 }
-
-bool netIsMqttConnected() {
-  return observeMqtt();
-}
-
 
 void netObserveRetryPolicy(bool mediaBusy) {
 #if DIAG_ENABLED
@@ -317,13 +325,13 @@ void netObserveRetryPolicy(bool mediaBusy) {
                      association, configuredConnection, association != configuredConnection);
     observedAssociation = association;
   }
-  const bool deferred = cfg.mqttClient && !connected && !giveUp &&
+  const bool deferred = initialized && !connected && !giveUp &&
                         WiFi.status() == WL_CONNECTED && mediaBusy;
   if (deferred != mediaDeferred) {
     diagnet::event("MQTT_RETRY_POLICY", "result=%s reason=%s state=%d",
                    deferred ? "deferred" : "released",
                    deferred ? "media" : connected ? "connected" : WiFi.status() != WL_CONNECTED ? "wifi_offline" : "media_clear",
-                   cfg.mqttClient ? cfg.mqttClient->state() : -1);
+                   netMqttState());
     mediaDeferred = deferred;
   }
 #endif

@@ -1,3 +1,4 @@
+#include "../net/net_module.h"
 #include "../diagnostics/diagnostics_retrieval.h"
 #include "../diagnostics/diagnostics_operation.h"
 #include "../diagnostics/diagnostics_network.h"
@@ -235,6 +236,7 @@ bool imageFetcherIsBusy() {
 bool imageFetcherHasPendingDisplay() { return imageDisplayTimeoutActive || motionTriggered; }
 
 static bool prepareForRequest() {
+  if (netMqttLeaseHeld()) { imageEnd("cancelled","mqtt_reconnecting"); return false; }
   // Backstop only: callers must admit before imageBegin or any UI mutation.
   if (logRetrievalActive()) {
     diagnet::event("IMAGE_REFUSED", "trigger=prepare reason=download_mode path=late");
@@ -622,6 +624,11 @@ static void processHTTPResponse() {
 
 //***************************************************************************************************
 bool requestLatestImage(bool fromNotification) {
+  if (netMqttLeaseHeld()) {
+    if (fromNotification) diagnet::imageNotification("ignored_mqtt_reconnecting");
+    else { diagnet::event("IMAGE_REFUSED","trigger=latest reason=mqtt_reconnecting"); netShowReconnectNotice(); }
+    return false;
+  }
   if (logRetrievalActive()) {
     if (fromNotification) diagnet::imageNotification("ignored_download_mode");
     else diagnet::event("IMAGE_REFUSED", "trigger=latest reason=download_mode");
@@ -702,6 +709,7 @@ void buttonNew_event_handler(lv_event_t* e) {
 //***************************************************************************************************
 void buttonBack_event_handler(lv_event_t* e) {
   if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+    if (netMqttLeaseHeld()) { netShowReconnectNotice(); diagnet::event("IMAGE_REFUSED","trigger=back reason=mqtt_reconnecting"); return; }
     if (logRetrievalActive()) {
       diagnet::event("IMAGE_REFUSED", "trigger=history_back reason=download_mode");
       USBSerial.println("Back refused: download mode");

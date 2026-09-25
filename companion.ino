@@ -25,7 +25,7 @@
 #endif
 #include "HWCDC.h"
 #include "XPowersLib.h"
-#include <PubSubClient.h>
+
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include "src/image/image_fetcher.h"
@@ -84,11 +84,7 @@ int secondaryNetworkNum;
 
 // Certificate for secure MQTT is in secrets.h
 
-// Client instances for MQTT and HTTP/S
-WiFiClient espClient;
-WiFiClientSecure secureClient; // For secure MQTT
-PubSubClient mqttClient; // Single shared client; transport/server set by netConfigureMqttClient()
-
+// MQTT clients are private to the network owner task.
 // --- MQTT Reconnection Management ---
 
 
@@ -686,6 +682,7 @@ void callbackMqtt(char* topic, byte* payload, unsigned int length) {
 // once loop() takes over.
 //***************************************************************************************************
 void runBackgroundTick() {
+  netMainTick();
   if (diagnosticsHealthDue()) {
     DiagnosticsHealth health;
     health.wifi = WiFi.status() == WL_CONNECTED;
@@ -1646,7 +1643,7 @@ void updateConnectionStatusUI() {
 
     // Get the current status
     int current_wifi_status = WiFi.status();
-    bool current_mqtt_status = mqttClient.connected();
+    bool current_mqtt_status = netIsMqttConnected();
 
     // Exit early if nothing has changed
     if (current_wifi_status == prev_wifi_status && current_mqtt_status == prev_mqtt_status) {
@@ -1747,6 +1744,7 @@ void activity_event_handler(lv_event_t * e) {
 //***************************************************************************************************
 void goToDeepSleep() {
   logRetrievalUiPowerDown();
+  netShutdown();
   diagnet::event("POWER_DECISION", "action=sleep moving=%u usb=%u idle_ms=%lu", g_isCurrentlyMoving, vbusPresent, millis()-lastActivityTime);
   USBSerial.println("Preparing to enter Deep Sleep...");
 
@@ -1790,6 +1788,7 @@ void goToDeepSleep() {
 //***************************************************************************************************
 void goToShutdown() {
   logRetrievalUiPowerDown();
+  netShutdown();
   diagnet::event("POWER_DECISION", "action=shutdown moving=%u usb=%u idle_ms=%lu", g_isCurrentlyMoving, vbusPresent, millis()-lastActivityTime);
   USBSerial.println("Preparing to shut down...");
 
@@ -1878,10 +1877,9 @@ void goToShutdown() {
 // =============================================================
 void myCalibMqttSender(const char* topic, const char* payload) {
   // Only send if we have an active connection
-  if (mqttClient.connected()) {
-    const bool accepted = mqttClient.publish(topic, payload);
-    diagnet::publish("calibration", "report", accepted);
-    USBSerial.print("[MQTT] Calibration sent: ");
+  if (netIsMqttConnected()) {
+    const bool queued = netPublish(topic,payload,"calibration","report");
+    USBSerial.print(queued ? "[MQTT] Calibration queued: " : "[MQTT] Calibration queue refused: ");
     USBSerial.println(payload);
   } else {
     diagnet::event("MQTT_PUBLISH", "category=calibration result=skipped reason=not_connected");
@@ -2238,18 +2236,24 @@ void initMQTT() {
     
     if (WiFi.status() != WL_CONNECTED) {
         USBSerial.println("WARNING: Cannot initialize MQTT - WiFi not connected");
-        mqttSetup.end(false, mqttClient.state());
+        mqttSetup.end(false, netMqttState());
         return;  // Exit early - no point trying MQTT without WiFi
     }
     
     USBSerial.println("Attempting initial MQTT connection...");
     
     for (int i = 0; i < 3; i++) {
-        netCheckMqtt(true);  // Bypass rate limiting during setup
+        netCheckMqtt(true);  // Dispatch; all network work stays on the owner.
+        while (netMqttBusy()) {
+            runBackgroundTick(); delay(10);
+            // Never hold setup forever waiting for a stuck native worker operation.
+            if (netMqttFaulted()) break;
+        }
+        netMainTick(); // Adopt a completion that arrived between busy checks.
         
         if (netIsMqttConnected()) {
             USBSerial.println("Initial MQTT connection successful!");
-            mqttSetup.end(true, mqttClient.state());
+            mqttSetup.end(true, netMqttState());
             return;  // Exit function immediately on success
         }
         
@@ -2259,14 +2263,14 @@ void initMQTT() {
         
         if (i < 2) {  // Don't delay after last attempt
             // 3 second delay between attempts
-            for (int j = 0; j < 15; j++) {
+            for (int j = 0; j < 300; j++) {
                 runBackgroundTick();
-                delay(200);
+                delay(10);
             }
         }
     }
     
-    mqttSetup.end(false, mqttClient.state());
+    mqttSetup.end(false, netMqttState());
     USBSerial.println("Initial MQTT connection failed - will retry in loop");
 }
 
@@ -2403,18 +2407,17 @@ void setup() {
     HILO_POWER,
     HILO_ENERGY
   };
-  // Pass the single shared mqttClient instance to the net module (module does not own it).
+  // Immutable configuration; MQTT transports and client are private to the worker.
   NetConfig netCfg{
     SERVER1,
     SERVERPORT1,
     SERVER2,
     SERVERPORT2,
     ca_cert,
-    &mqttClient,
-    &espClient,
-    &secureClient,
     callbackMqtt,
-    netTopics
+    netTopics,
+    MOTION_TOPIC,
+    IMU_TOPIC
   };
   netInit(netCfg);
 
@@ -2514,7 +2517,7 @@ void loop() {
   // --- Task 2a: WiFi came up AFTER a failed boot - configure MQTT once ---
   // netConfigureMqttClient() is normally called from connectToWiFi() on a
   // successful initial connect. If WiFi was down at boot we never ran that path,
-  // so the mqttClient has no server set. Detect the late WiFi-up transition and
+  // so the MQTT owner has no selected broker profile. Detect the late WiFi-up transition and
   // configure MQTT exactly once; the existing rate-limited retry in netCheckMqtt
   // takes over from there.
   if (!g_wifiUpAtBoot && !g_mqttConfiguredLate && WiFi.status() == WL_CONNECTED) {
@@ -2526,12 +2529,9 @@ void loop() {
 
   // --- Task 2: Handle MQTT communications if connected ---
   if (WiFi.status() == WL_CONNECTED) {
-    { diagop::Block span("mqtt_loop"); mqttClient.loop(); }  // Always call loop() to maintain connection
     netObserveRetryPolicy(imageFetcherIsBusy() || videoStreamActive());
 
-    // Defer reconnection while either a still image or live video is active.
-    // Failed MQTT connects can block long enough to expire the video response
-    // deadline even when its server is reachable. Retry after the feed ends.
+    // DNS runs on the worker; the main-task lease arbitrates TLS against media.
     if (!imageFetcherIsBusy() && !videoStreamActive()) {
       netCheckMqtt();   // Attempt reconnection (rate-limited to every 15s)
     }
@@ -2549,12 +2549,11 @@ void loop() {
   { diagop::Block span("screen_nvs"); screenMemoryUpdate(); }
 
   // --- Task 8: Transmit motion MQTT if connected ---
-  if (ENABLE_MOTION_MQTT && g_isCurrentlyMoving && mqttClient.connected()) {
+  if (ENABLE_MOTION_MQTT && g_isCurrentlyMoving && netIsMqttConnected()) {
     if (millis() - lastMotionTXTime > MOTION_TIMEOUT) {
-      const bool accepted = mqttClient.publish(MOTION_TOPIC, "1");
-      diagnet::publish("motion", "periodic", accepted);
+      netPublish(MOTION_TOPIC,"1","motion","periodic");
       lastMotionTXTime = millis();
-      USBSerial.println("TX motion MQTT: Moving (periodic)");
+      USBSerial.println("Queue motion MQTT: Moving (periodic)");
     }
   }
 

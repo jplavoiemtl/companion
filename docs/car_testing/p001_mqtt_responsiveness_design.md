@@ -1,8 +1,9 @@
 # P001 - Responsive UI and IMU during MQTT recovery
 
-Revision 2, September 25, 2026. Author: Codex. Status: DESIGN FOR CLAUDE REVIEW AND
-JP APPROVAL. No firmware edits, build, flash or hardware case is authorized by this
-text. Source baseline is the current iphone-log-retrieval checkout. Related evidence:
+Revision 2, September 25, 2026. Author: Codex. Status: APPROVED BY JP; increment 1
+implementation authorized after Claude focused review e3ae528. Code review must clear
+before JP builds/flashes. Source baseline: iphone-log-retrieval at e3ae528; implementation
+branch: codex/car-improvements-p001. Related evidence:
 [field journal](field_journal.md), F001/F002 and I001; bounded phase timing requested
 by JP is part of this design, resolving the need to choose whether to include P002.
 
@@ -363,7 +364,11 @@ operation running concurrently is identified, so unrelated image latency is not 
 
 ## 10. Implementation increments and focused review gates
 
-No implementation yet. After the focused review and JP approval, use three increments:
+JP approved revision 2 and increment 1 implementation on September 25, 2026, after
+Claude's focused review e3ae528. All four section-11 decisions are approved.
+Implementation proceeds on `codex/car-improvements-p001`, branched at e3ae528 at JP's
+request; `iphone-log-retrieval` retains that return point. No build or flash is authorized
+until Claude clears the code review. The three increments are:
 1. A safe end-to-end worker path: ownership facade, fixed queues, event snapshots and
    lifecycle; migrate every direct MQTT access and callback/thread boundary. The local
    PubSubClient delay/deadline patch MUST ship here. Include all prerequisites needed
@@ -430,10 +435,10 @@ split secure API, bounded local PubSub patch, DNS context lifetime, TLS concurre
 mailbox thread safety and media admission coverage. Append a dated review below or link
 a review document; Codex integrates revisions before JP approval.
 
-### Decisions still requiring JP approval
+### Decisions approved by JP — September 25, 2026
 
-JP has directed the revision-2 corrections; the following wider choices are still
-recommendations, not implementation authorization:
+JP explicitly approved all four choices below and authorized increment 1. The original
+recommendations are retained to show what was approved:
 
 1. **Worker and memory:** persistent 12288-byte PSRAM stack, internal static TCB, core 0
    priority 1, exclusive MQTT ownership and bounded queues. Failure stays offline;
@@ -448,10 +453,9 @@ recommendations, not implementation authorization:
    >=20480 internal-largest gate, >=2048 worker-stack margin, first single handshake then
    cases A/B/C one at a time. Recommend approve the focused sequence, not an expanded suite.
 
-DNS=15 s, attempt=35 s and stuck=40 s are revision-2 proposed concrete values implementing
-JP's direction to raise the bounds. Phase timing is mandatory; no instrumentation-only
-flash. No WiFi-loss cure is promised. JP's approval of revision 2 must explicitly authorize
-increment 1 implementation; approving this documentation edit does not do so.
+DNS=15 s, attempt=35 s and stuck=40 s are the approved revision-2 values. Phase timing
+is mandatory; no instrumentation-only flash. No WiFi-loss cure is promised. JP explicitly
+authorized increment 1; subsequent increments remain subject to the recorded gates.
 
 ### Revision 2 integration and review status
 
@@ -461,7 +465,7 @@ lease only before TCP; explicit DNS lifetime/ERR_MEM paths; no 3.1.3 capability 
 first hardware check is worker TLS/CONNACK; panel and USB refusal both specified.
 The historical revision-1 review below is preserved unchanged. Its quoted old values
 are not revision-2 requirements. Claude requested only a focused B1/B2 integration check,
-not another full architecture review. JP implementation approval remains pending.
+not another full architecture review. JP subsequently approved revision 2 and increment 1 as recorded above.
 
 ### Claude review - September 25, 2026 (revision 1, commit 16cda62)
 
@@ -588,3 +592,9 @@ Non-blocking notes for implementation and field reading:
 - The 100 ms lease wait can expire during an unrelated main-loop stall. That is a cheap,
   uncounted deferral, but count it in status so field logs can distinguish it from media
   contention.
+
+### Increment 1 code handoff — September 25, 2026
+
+Codex implemented increment 1 on `codex/car-improvements-p001`. See
+[the code-review handoff](p001_increment1_handoff.md) for changed ownership boundaries,
+host coverage, validation limits and the review request. No firmware build or flash.

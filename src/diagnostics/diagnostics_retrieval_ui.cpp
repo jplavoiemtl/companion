@@ -22,6 +22,7 @@ uint32_t pressedAt = 0, refreshedAt = 0, noticeAt = 0;
 lv_obj_t* visibleNotice = nullptr;
 
 const char* readable(const char* reason) {
+  if (!strcmp(reason,"mqtt_reconnecting")) return "Reconnecting. Try again.";
   if (!strcmp(reason,"usb_power_required")) return "Connect USB power to download logs.";
   if (!strcmp(reason,"wifi_offline")) return "Connect your iPhone hotspot first.";
   if (!strcmp(reason,"image_busy") || !strcmp(reason,"live_busy") || !strcmp(reason,"display_pending")) return "Wait for the image or video to finish.";

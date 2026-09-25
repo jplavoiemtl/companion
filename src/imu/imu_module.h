@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include <PubSubClient.h>
+#include "../net/net_module.h"
 #include "SensorQMI8658.hpp"
 #include "calibration.h"
 
@@ -25,7 +25,6 @@ float imuGetAccelInertialHoriz();
 
 // External dependencies provided by companion.ino
 extern SensorQMI8658 qmi;
-extern PubSubClient mqttClient;
 extern HWCDC USBSerial;
 extern SemaphoreHandle_t i2c_mutex;
 extern const char MOTION_TOPIC[];

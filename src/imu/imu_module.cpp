@@ -301,8 +301,8 @@ void readImuData() {
     );
 
     // Publish to IMU topic
-    if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
-      mqttClient.publish(IMU_TOPIC, payload);
+    if (ENABLE_MOTION_MQTT && netIsMqttConnected()) {
+      netPublish(IMU_TOPIC,payload,"imu","periodic");
     }
      
     // USBSerial.println(payload);
@@ -495,11 +495,10 @@ void updateMotionState() {
           USBSerial.printf("Movement Detected! (Accel: %.2f, Gyro: %.2f)\n", accelChange, gyroChange);
           g_isCurrentlyMoving = true;
 
-          if (ENABLE_MOTION_MQTT && mqttClient.connected()) {
-            const bool accepted = mqttClient.publish(MOTION_TOPIC, "1");
-            diagnet::publish("motion", "immediate", accepted);
+          if (ENABLE_MOTION_MQTT && netIsMqttConnected()) {
+            netPublish(MOTION_TOPIC,"1","motion","immediate");
             lastMotionTXTime = millis();
-            USBSerial.println("TX motion MQTT: Moving (immediate)");
+            USBSerial.println("Queue motion MQTT: Moving (immediate)");
           }
         }
         lastMotionTime = currentTime;

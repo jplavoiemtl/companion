@@ -7,6 +7,7 @@ const assert = require('assert/strict');
 const read = p => fs.readFileSync(p, 'utf8').replace(/\r/g, '');
 const baseline = p => cp.execFileSync('git', ['show', `f899e3c:${p}`], {encoding:'utf8'}).replace(/\r/g, '');
 const net = read('src/net/net_module.cpp');
+const owner = read('src/net/net_worker.cpp');
 const sketch = read('companion.ino');
 const observer = read('src/diagnostics/diagnostics_network.cpp');
 const image = read('src/image/image_fetcher.cpp');
@@ -38,16 +39,24 @@ test('WiFi scan/begin/disconnect policy calls unchanged from accepted checkpoint
  assert.deepEqual(calls(sketch,'WiFi','begin|scanNetworks|scanDelete|disconnect|setSleep|mode'),
                   calls(baseline('companion.ino'),'WiFi','begin|scanNetworks|scanDelete|disconnect|setSleep|mode'));
 });
-test('MQTT endpoint, credentials, subscription and timeout calls unchanged',()=>{
- for(const [receiver,methods] of [['cfg.mqttClient','connect|setServer|subscribe|setSocketTimeout'],
- ['cfg.secureClient','setCACert|setConnectionTimeout|setHandshakeTimeout'],['cfg.wifiClient','setConnectionTimeout']])
- assert.deepEqual(calls(net,receiver,methods),calls(baseline('src/net/net_module.cpp'),receiver,methods));
+test('MQTT endpoints, credentials, subscriptions and fixed timeouts migrate to sole owner',()=>{
+ assert(owner.includes('cmd.connection==1 ? config.server1 : config.server2'));
+ assert(owner.includes('cmd.connection==1 ? config.serverPort1 : config.serverPort2'));
+ assert(owner.includes('cmd.test ? "192.0.2.1"'));
+ assert.deepEqual(calls(owner,'client','connect'),['connect("companion-bench-test")','connect(CLIENT_ID,USERNAME,KEY)']);
+ assert.deepEqual(calls(owner,'client','setSocketTimeout'),['setSocketTimeout(5)']);
+ assert.deepEqual(calls(owner,'secure','setConnectionTimeout|setHandshakeTimeout'),['setConnectionTimeout(5000)','setHandshakeTimeout(5)']);
+ assert.deepEqual(calls(owner,'plain','setConnectionTimeout'),['setConnectionTimeout(5000)']);
+ assert(owner.includes('secure.connect(address,port,host,config.caCert,nullptr,nullptr)'));
+ assert(owner.includes('config.topics.image,config.topics.power,config.topics.energy'));
+ assert(owner.includes('client.subscribe(topics[i],1)'));
+ assert(!net.includes('cfg.mqttClient'));
 });
 test('retry budgets, pacing and media guard remain at accepted values',()=>{
  for(const pattern of [/MQTT_RECONNECT_INTERVAL\s*=\s*15000/,/MAX_INITIAL_FAILURES\s*=\s*5/,/BENCH_FIRST_ATTEMPT_MS\s*=\s*5000/]) assert(pattern.test(net));
  assert(/WIFI_RETRY_INTERVAL_MS\s*=\s*30000/.test(sketch));
  assert(sketch.includes('if (!imageFetcherIsBusy() && !videoStreamActive()) {\n      netCheckMqtt();'));
- assert(net.indexOf('lastMqttAttempt = millis();',net.indexOf('void netCheckMqtt')) > net.indexOf('attempt.end(ok'));
+ assert(net.indexOf('lastMqttAttempt = millis();',net.indexOf('void netMainTick')) > net.indexOf('mqttowner::takeResult(result)'));
 });
 test('media hostname TLS and HTTP transport calls are unchanged',()=>{
  assert.deepEqual(calls(video,'vidClient','connect|setCACert|setConnectionTimeout|setHandshakeTimeout|stop'),
@@ -55,13 +64,16 @@ test('media hostname TLS and HTTP transport calls are unchanged',()=>{
  assert.deepEqual(calls(image,'httpClient','begin|GET|end|setTimeout|setConnectTimeout'),
                   calls(baseline('src/image/image_fetcher.cpp'),'httpClient','begin|GET|end|setTimeout|setConnectTimeout'));
 });
-test('every real/test MQTT attempt is bracketed before subscription and retry cleanup',()=>{
- const attempt=between(net,'diagnet::Span attempt(', 'lastMqttAttempt = millis();');
- assert(attempt.indexOf('cfg.mqttClient->connect(') < attempt.indexOf('attempt.end(ok'));
- assert(attempt.indexOf('attempt.end(ok') < attempt.indexOf('diagnosticsProbeEnd('));
- const body=between(net,'void netCheckMqtt(', 'bool netIsMqttConnected');
- assert(body.indexOf('observeMqtt()') < body.indexOf('cfg.mqttClient->disconnect()'));
- assert(body.indexOf('attempt.end(ok') < body.indexOf('cfg.mqttClient->subscribe('));
+test('every real/test MQTT attempt is bracketed through worker result adoption',()=>{
+ const request=between(net,'void netCheckMqtt(', 'bool netIsMqttConnected');
+ assert(request.indexOf('mqttowner::request(')<request.indexOf('"MQTT_CONNECT_BEGIN"'));
+ assert(request.includes('execution=worker'));
+ const adopt=between(net,'if(mqttowner::takeResult(result))', 'int lostState;');
+ assert(adopt.indexOf('"MQTT_CONNECT_END"')<adopt.indexOf('diagnosticsProbeEnd('));
+ assert(adopt.indexOf('diagnosticsProbeEnd(')<adopt.indexOf('lastMqttAttempt = millis();'));
+ assert(owner.indexOf('client.connect(CLIENT_ID')<owner.indexOf('client.subscribe('));
+ assert(owner.indexOf('client.subscribe(')<owner.indexOf('finalResult=result; resultReady=true;'));
+ assert(!net.includes('diagnet::Span attempt(')); // Worker latency is not main blocking.
 });
 test('HTTP and Live error snapshots precede application teardown',()=>{
  const request=between(image,'int httpCode = httpClient.GET();', 'int contentLength =');
@@ -69,7 +81,8 @@ test('HTTP and Live error snapshots precede application teardown',()=>{
  assert(request.includes('isSecureConnection ? &httpsClient : nullptr'));
  const connect=between(video,'const bool connected = vidClient->connect(', '// The single teardown.');
  assert(connect.indexOf('connect.end(') < connect.indexOf('return false;'));
- assert(net.includes('isSecurePort(activePort) ? cfg.secureClient : nullptr'));
+ assert(owner.indexOf('secure.lastError(')<owner.indexOf('phase(Phase::Cleanup); facade.stop(); plain.stop(); secure.stop(); online=false;'));
+ assert(owner.includes('startTLS does not refresh lastError'));
 });
 test('driver callback has no SD, serial, UI, NVS or driver-query calls',()=>{
  const callback=clean(between(observer,'void wifiEvent(', '\n#endif\n}'));

@@ -1300,8 +1300,11 @@ bool diagnosticsHeaderValid(const char* line, uint32_t& generation) {
 
 namespace diag {
 bool record(const char* event, const char* fields, bool important) {
+  return recordAt(stamp(),event,fields,important);
+}
+bool recordAt(const Stamp& when, const char* event, const char* fields, bool important) {
   Event item{};
-  item.when = stamp(); item.important = important;
+  item.when = when; item.important = important;
   if (strlen(event) >= sizeof(item.event) || strlen(fields) >= sizeof(item.fields)) {
     portENTER_CRITICAL(&mux); ++snapshot.truncated; ++snapshot.drops; portEXIT_CRITICAL(&mux);
     return false; // refuse a malformed/truncated diagnostic record

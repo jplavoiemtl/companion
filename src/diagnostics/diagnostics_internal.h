@@ -39,6 +39,7 @@ const char* phaseName(uint32_t phase);
 const char* resetName(int reason);
 void clockPoll(); // writer, detects unannounced clock changes
 int64_t syncAgeMs();
+bool recordAt(const Stamp& when, const char* event, const char* fields, bool important = false);
 bool record(const char* event, const char* fields, bool important = false);
 #if DIAG_TEST_HOOKS
 bool clockTest(const char* command);

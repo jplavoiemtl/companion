@@ -1,3 +1,4 @@
+#include "../net/net_module.h"
 #include "diagnostics_http.h"
 #include "diagnostics_retrieval.h"
 #include "sd_diagnostics.h"
@@ -43,6 +44,7 @@ void report(const char* result) {
 }
 const char* entryRefusal() {
   if (mode != Mode::Off) return "not_off";
+  if (netMqttLeaseHeld()) return "mqtt_reconnecting";
   if (!vbusPresent) return "usb_power_required";
   if (diagnosticsStorageClosing()) return "logger_closing";
   if (!diagnosticsStorageReady()) return "logger_unavailable";

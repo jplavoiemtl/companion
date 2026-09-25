@@ -14,8 +14,10 @@ Last updated: September 25, 2026.
   Both reconnects succeeded. The initiating WiFi loss remains unexplained.
 - F002 repeats the UI stall with failed MQTT attempts (8.771 s and 5.115 s loop gaps),
   then automatic recovery. Two ~0.12 s storage operations were also recorded without loss.
-- Field observation continues. No firmware improvement is approved or implemented by
-  this journal. Do not treat one successful ride as long-term reliability proof.
+- Field observation continues. JP approved P001 revision 2 and increment 1 on September 25;
+  its implementation is awaiting Claude code review on `codex/car-improvements-p001`.
+  The car firmware has not been changed by this work. One successful ride is not long-term
+  reliability proof.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
   [retrieval spec](../sd_iphone_log_download_spec.md),
   [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
@@ -132,17 +134,17 @@ failure. Health snapshots can be stale while the main loop is blocked.
 
 ### P001 - Keep UI and IMU responsive during MQTT reconnection
 
-Status: design requested by JP; [revision 2](p001_mqtt_responsiveness_design.md) written
-by Codex for Claude review and JP approval. Implementation is not approved. F002 strengthens the need to cover failed
-reconnects and UI animation as well as successful recovery; no architecture selected.
+Status: JP approved [revision 2](p001_mqtt_responsiveness_design.md) and increment 1
+after Claude focused check e3ae528. Codex implemented the owned worker on
+`codex/car-improvements-p001`; [code review is pending](p001_increment1_handoff.md).
+F002 requires failed reconnects and UI animation as well as successful recovery.
 Priority: first proposed improvement, linked to I001. Goal: reconnect without freezing
 the G-meter or other main-loop UI work. The current synchronous call is measured to
 block for about eight seconds; reducing the normal IMU rate is not the issue.
 
-Before code, review connection ownership and call paths with Claude. Compare a genuinely
-nonblocking connection approach with an isolated connection worker only if client/TLS
-ownership and handoff can be made explicit. No architecture is selected here. Moving
-the existing shared client to another task without an ownership design is not acceptable.
+The reviewed design selects permanent worker ownership of the MQTT client and transports,
+with bounded snapshots/queues at the main-task boundary. A connect-only handoff or
+sharing the old client across tasks is not used.
 Simply lowering timeouts could trade successful recovery for repeated failures and is
 not an established solution. Existing per-stage timeouts do not bound total connect time.
 
@@ -155,8 +157,8 @@ Claude reviews the code before JP builds/flashes. No new case is issued by this 
 
 ### P002 - Add targeted timing detail only if needed
 
-Status: included in the P001 design at JP's explicit request on September 25; no code
-authorized yet. Historical priority disagreement below is retained for provenance.
+Status: included in the P001 design and authorized increment 1 at JP's explicit request
+on September 25; phase timing implemented, hardware measurements pending. Historical priority disagreement below is retained for provenance.
 The new design includes bounded DNS, TCP setup, TLS handshake and MQTT-exchange timing;
 no separate instrumentation-only flash is proposed.
 
@@ -561,3 +563,18 @@ The first hardware check after increment 1 is one TLS handshake/CONNACK on the w
 The obsolete 3.1.3 capability branch is removed. Remaining JP decisions are enumerated
 in design section 11. Design only; focused B1/B2 check and implementation approval remain
 pending. No code, build, flash or host execution accompanied this documentation change.
+
+### P001 increment 1 — September 25, 2026, Codex
+
+JP approved all four revision-2 decisions and increment 1 following Claude focused
+review e3ae528. At JP's request, development moved to `codex/car-improvements-p001`,
+branched at that checkpoint. `iphone-log-retrieval` stays at the return point.
+
+Implemented the permanent MQTT owner, local PubSubClient polling/deadline patch,
+bounded DNS, split hostname-verified TLS, post-DNS lease, cancellation/cleanup,
+main-only callback dispatch and minimal phase/memory/stack reporting. See
+[handoff](p001_increment1_handoff.md). All 14 host suites pass: 329 checks. These are
+source-body simulations and integration assertions, not compiled firmware or hardware
+validation. No build, flash, card access or field-evidence change. Claude code review
+is next; the first hardware gate remains one worker TLS handshake/CONNACK. Increment 2
+service-gap telemetry and failure/flap validation have not been implemented.

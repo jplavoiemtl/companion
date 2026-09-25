@@ -1,9 +1,6 @@
 #pragma once
 
 #include <Arduino.h>
-#include <PubSubClient.h>
-#include <WiFiClient.h>
-#include <WiFiClientSecure.h>
 
 struct NetTopics {
   const char* image;
@@ -12,25 +9,21 @@ struct NetTopics {
 };
 
 struct NetConfig {
-  // NOTE: mqttClient is supplied by the sketch (companion.ino). We keep only a
-  // pointer here so the module operates on the single shared instance created
-  // in the sketch; we do not create or own another client.
   const char* server1;
   uint16_t serverPort1;
   const char* server2;
   uint16_t serverPort2;
   const char* caCert;
-  PubSubClient* mqttClient;
-  WiFiClient* wifiClient;
-  WiFiClientSecure* secureClient;
   void (*mqttCallback)(char*, byte*, unsigned int);
   NetTopics topics;
+  const char* motionTopic;
+  const char* imuTopic;
 };
 
-// Initialize module with static configuration (servers, clients, topics)
+// Initialize once with immutable configuration (servers and fixed topics)
 void netInit(const NetConfig& cfg);
 
-// Configure MQTT client transport/server based on connection index (1 or 2)
+// Select desired profile (1 or 2), invalidate previous epoch; no client access.
 void netConfigureMqttClient(int connection);
 
 // MQTT reconnect handler; respects internal rate limiting unless bypassRateLimit=true
@@ -42,5 +35,16 @@ uint16_t netGetActivePort();
 
 // Temporary serial-controlled MQTT outage test; call once per main-loop iteration.
 void netBenchLoop();
-// Observe only; the sketch retains its existing reconnect guard and timing.
+// Main-only policy diagnostic; reads snapshots, never sockets.
 void netObserveRetryPolicy(bool mediaBusy);
+
+// Main-task facade. Success means queued, never wire acceptance.
+bool netPublish(const char* topic,const char* payload,const char* category="imu",const char* trigger="periodic");
+int netMqttState();
+void netMainTick();
+bool netMqttBusy();
+bool netMqttFaulted();
+bool netMqttLeaseHeld();
+void netShutdown();
+void netLinkEvent(bool up); // WiFi callback, fixed metadata only
+void netShowReconnectNotice(); // main/UI only

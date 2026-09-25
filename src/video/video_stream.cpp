@@ -1,3 +1,4 @@
+#include "../net/net_module.h"
 #include "../diagnostics/diagnostics_retrieval.h"
 #include "../diagnostics/diagnostics_operation.h"
 #include "../diagnostics/diagnostics_network.h"
@@ -733,6 +734,7 @@ static void printSummary() {
 
 //***************************************************************************************************
 bool videoStreamStart(const char* trigger) {
+    if (netMqttLeaseHeld()) { netShowReconnectNotice(); diagnet::event("LIVE_REFUSED","reason=mqtt_reconnecting"); return false; }
   if (logRetrievalActive()) {
     diagnet::event("LIVE_REQUEST", "trigger=%s result=refused reason=download_mode", trigger);
     USBSerial.println("Live refused: download mode");
