@@ -14,9 +14,9 @@ Last updated: September 25, 2026.
   Both reconnects succeeded. The initiating WiFi loss remains unexplained.
 - Field observation continues. No firmware improvement is approved or implemented by
   this journal. Do not treat one successful ride as long-term reliability proof.
-- Reference: [bench results](sd_iphone_log_download_bench.md),
-  [retrieval spec](sd_iphone_log_download_spec.md),
-  [accepted UI polish](sd_iphone_log_download_ui_polish.md).
+- Reference: [bench results](../sd_iphone_log_download_bench.md),
+  [retrieval spec](../sd_iphone_log_download_spec.md),
+  [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
 
 ## How to add a field session
 
@@ -34,14 +34,30 @@ For each session record:
 - Measured event timeline, logging/connection/recovery results, and evidence gaps.
 - Which finding the session supports or contradicts, and the next decision.
 
-Suggested evidence handling: keep each export and its screenshots together in a dated
-folder outside Git, such as 2026-09-25-first-ride. Generic screenshot names get replaced
-on later exports. The first session has now been archived by copying its three files; originals remain
-in Downloads. Future sessions should use their own dated folder. Reference
-original filenames and hashes here rather than committing whole operational logs.
+Evidence lives beside this journal in `evidence/YYYY-MM-DD-description/`, ignored by
+Git. Preserve original names and verified hashes. Each session gets its own folder so
+generic screenshot names cannot overwrite another session. The first session's three
+files have been copied here and verified; Downloads copies remain as a separate copy.
+Git does not back up this evidence directory: include it in normal project backups.
+Do not force-add raw evidence without JP's approval. Both assistants read the same local
+files and keep their analysis in this tracked journal.
 A current.log snapshot normally excludes its own transfer END; the last-result view or
 later log can supply that completion evidence. Avoid requesting another transfer when
 existing evidence is sufficient.
+
+## Shared editing protocol
+
+- Edit sequentially: JP hands the journal to one assistant at a time. Check Git status
+  and read the latest journal before editing; preserve another assistant's work.
+- Each session has JP observations, attributed Codex and Claude analyses, and an agreed
+  findings / unresolved questions section. Do not overwrite another author's conclusions.
+- Claude should inspect raw evidence first, then compare with Codex's analysis. Add
+  concrete agreements, disagreements and evidence gaps, not a duplicate event transcript.
+- Record author and date on analyses or corrections. Cross-review consensus is separate
+  from JP's approval to implement. Proposed improvements remain unapproved until JP agrees.
+- Maintain the one shared findings table and improvement list. Annotate disputed items
+  rather than silently replacing them. Record implementation and validation evidence
+  when a proposal eventually progresses.
 
 ## Open findings
 
@@ -59,6 +75,7 @@ failure. Health snapshots can be stale while the main loop is blocked.
 
 ### P001 - Keep UI and IMU responsive during MQTT reconnection
 
+Status: proposed; not approved or implemented.
 Priority: first proposed improvement, linked to I001. Goal: reconnect without freezing
 the G-meter or other main-loop UI work. The current synchronous call is measured to
 block for about eight seconds; reducing the normal IMU rate is not the issue.
@@ -79,6 +96,8 @@ Claude reviews the code before JP builds/flashes. No new case is issued by this 
 
 ### P002 - Add targeted timing detail only if needed
 
+Status: conditional proposal; not approved or implemented.
+
 The current log already identifies the blocking MQTT span. DNS/TCP/TLS/CONNACK timing is
 not separated. Consider bounded phase timing only if it is needed to choose or validate
 P001; avoid high-volume per-frame or per-sample records. Do not claim such measurements
@@ -86,6 +105,8 @@ exist today. A second useful measure could be UI/IMU service gaps, with a define
 and bounded reporting, if loop gaps alone cannot validate the selected design.
 
 ### P003 - Investigate recurring hotspot loss from field patterns
+
+Status: observing field data; no WiFi-policy change approved.
 
 Collect time, recovery duration and known phone/power circumstances across sessions.
 The first ride does not identify weak signal, cellular handover or iPhone behavior as
@@ -109,14 +130,19 @@ stage3-context; CAR selection was confirmed in the workspace before deployment.
 Exact flashed Git commit is not encoded in this evidence and is not assumed.
 Analysis first recorded at e3951ea; consolidated here without changing its conclusions.
 
+#### JP observations
+
 JP installed the car firmware around September 24 21:30, tested parked, and drove
 about 20 minutes the next morning. He noticed two roughly three-second G-meter freezes
 around 07:04, without noticing connection loss. Analysis below uses local -04:00 times.
 
-#### Evidence and retrieval
+#### Codex analysis - September 25, 2026
+
+##### Evidence and retrieval
 
 Preserved evidence folder (September 25, copied at JP's request):
-`C:\Users\photo\Downloads\Companion-car-evidence\2026-09-25-first-ride`.
+`docs/car_testing/evidence/2026-09-25-first-ride/` (relative to the project root).
+Originally preserved in Downloads; project copies verified against those copies.
 All three copies were verified SHA256-identical to their originals; originals retained.
 - `start-unknown_41-1-current-98264.log`: hash below.
 - `listing.PNG`: SHA256 58bb086e36e5f45c545d8ff933a6a023a0af89995ef1a24d315bc511407d8e2e.
@@ -138,7 +164,7 @@ the snapshot ends at HTTP_GET_BEGIN 07:09:07.722. The transfer's own END cannot 
 its frozen snapshot; screenshot supplies final result. No morning reboot is recorded.
 Panel Stop after this download is not in supplied evidence; do not claim verified exit.
 
-#### Two G-meter freezes: strong correlation with blocking reconnects
+##### Two G-meter freezes: strong correlation with blocking reconnects
 
 | Event | First interruption | Second interruption |
 |---|---|---|
@@ -168,7 +194,7 @@ MQTT_LOST tls_code=48 has tls_fresh=unknown and is not proof of a fresh TLS faul
 The combined reconnect span does not separate DNS/TCP/TLS/CONNACK time. Per-stage
 5-second limits are not a five-second total-connect budget.
 
-#### Other observations
+##### Other observations
 
 - Morning records show zero logger drops/truncated and slow writes=0. Write max 7199 us,
   flush max 10515 us, SD max 165686 us, unchanged around the freezes. Logging continued
@@ -180,7 +206,7 @@ The combined reconnect span does not separate DNS/TCP/TLS/CONNACK time. Per-stag
   Live had a 2.688 s frame gap at 07:01:09.463. Separate from G-meter incidents.
 - MQTT-triggered image at 07:08:30 and subsequent Live handover succeeded after recovery.
 
-#### Disposition
+##### Disposition
 
 First real-car fresh-card logging and phone retrieval are demonstrated. User-observed
 G-meter freezes are a field responsiveness issue, with measured blocking MQTT reconnects
@@ -190,3 +216,15 @@ Continue field observations with approximate time/screen/symptom and a later log
 Proposed next code work, if JP wants to address responsiveness: review a bounded design
 for keeping UI/IMU responsive during MQTT recovery, preserving network/TLS ownership;
 do not simply move the existing shared client to another task without that review.
+
+#### Claude analysis
+
+Pending independent review of the three raw evidence files, followed by comparison
+with the Codex analysis above. Claude should add dated findings here.
+
+#### Agreed findings and unresolved questions
+
+Cross-review agreement is pending; the current findings table reflects Codex's analysis.
+Open questions: what initiated the two WiFi outages, whether the reconnect design should
+change, and which bounded approach preserves network ownership while servicing the UI.
+JP has authorized shared documentation and review, not a firmware implementation.

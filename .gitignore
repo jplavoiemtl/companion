@@ -36,3 +36,6 @@ sketch.yaml
 
 # Python bytecode (e.g. from syntax-checking doc/proxy/app.py)
 __pycache__/
+
+# Local car field logs and screenshots; preserve separately from Git
+/docs/car_testing/evidence/
