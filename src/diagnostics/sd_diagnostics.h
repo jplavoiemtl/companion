@@ -4,7 +4,7 @@
 
 // All calls from task context. No caller touches SD; only the writer owns it.
 struct DiagnosticsHealth {
-  char mqttWorkerPhase[12] = "idle";
+  char mqttWorkerPhase[16] = "idle";
   uint32_t mqttWorkerId = 0, mqttBackoffMs = 0;
   uint64_t mqttWorkerAge = 0;
   bool mqttLease = false;
