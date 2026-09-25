@@ -619,3 +619,15 @@ No firmware build/flash or additional hardware test. Three retained bench cases 
 successful reconnect, failed attempts/recovery, and a pending-attempt hotspot flap; one
 at a time after review clearance. Actual failure/flap evidence remains pending. Car
 rollout follows acceptance and only evidence-justified corrections.
+
+
+### P001 retained case 1 — September 25, 2026, Codex
+
+PASS: JP reports no G-meter freeze. Boot 132 real recovery took 888 ms; measured maximum
+UI/IMU/loop service gaps were 23/26/26 ms with zero intervals over100 ms. A preceding
+five-second TCP wait was cancelled by serial on; gaps remained 27/23/23 ms. This adds
+long-wait/cancellation evidence but does not replace failed-attempt or WiFi-flap cases.
+Worker stack 7228, attempt largest 51188; retained media/logger largest 24564, all above
+gates. No drops/reset during the case; Latest displayed after recovery. See the
+[increment 2 handoff](p001_increment2_handoff.md) for timing, hashes and qualifications.
+Evidence is preserved in `evidence/2026-09-25-p001-case1/`. Cases 2 and 3 remain pending.

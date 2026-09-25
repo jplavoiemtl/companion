@@ -164,3 +164,46 @@ suites**. Not compiled, per the handoff.
 - **N3 - reading the new fields.** `contexts` is sampled only at observation boundaries,
   and `span` is the longest completed main operation. Both are attribution hints, as the
   handoff states, not causes.
+
+
+## Retained case 1 — September 25, 2026, Codex
+
+**PASS.** JP reports no G-meter freezing during MQTT reconnection and calls the test
+passed. Reviewed source checkpoint a83c96a; exact firmware Git hash is not embedded.
+Boot 132 remained unchanged throughout the supplied console. Evidence preserved in
+`evidence/2026-09-25-p001-case1/` (ignored by Git); Downloads original retained.
+- `132-current.log`: 117179 bytes; SHA-256 `a723434c0de8d5b6ca252ee400b19e7bebbbb7bdeffa8f0a48d13100df8a4b8a`; CRC32 `B3FE49E2`.
+- `console.txt`: 12991 bytes; SHA-256 `1fa96ffc0a7a83916b97324f0b66c01aea87a42ed4c4de4261786292727e0196`; CRC32 `6417FB3F`.
+
+USB export: 117179 bytes, CRC OK. The current snapshot includes prior boots; this result
+uses boot 132 only. No new reset, logger error, queue/packet drops or stuck worker during
+the retained interval. Subscriptions accepted (SUBACK remains unobserved).
+
+- Prior Live completed normally: 161 frames / 60.426 s = 2.664 FPS, max frame gap
+  962.311 ms. This is heap preconditioning, not a paired FPS regression comparison.
+- Serial off at 11:37:57.450; on at 11:38:04.431, about 7 seconds later rather than
+  within 2 seconds. A test-endpoint connection was already pending. Do not repeat case 1:
+  the extra cancellation supplies useful evidence without invalidating real recovery.
+- Attempt 2 (test) result=cancelled, TCP setup 5003 ms, total 5016 ms. SERVICE window
+  5027 ms: UI gap/call 27/17 ms, IMU 23/5 ms, loop 23/23 ms; all over100 counts zero.
+  The main on command invalidated the epoch while native TCP setup ran; owner cleanup
+  completed before the replacement real attempt. This is cancellation during a long
+  TCP wait, not an uninterrupted failed attempt or a WiFi-flap test.
+- Attempt 3 (real) result=ok: DNS 1 ms, TCP setup 164 ms, TLS 627 ms, MQTT exchange
+  58 ms, total 888 ms. SERVICE window 899 ms: UI gap/call 23/15 ms, IMU 26/6 ms,
+  loop 26/26 ms; all over100 counts zero. Context=idle; longest completed main span
+  calibration 1 ms. UI_n=111, IMU_n=111, loop_n=113.
+- Worker PSRAM/internal TCB confirmed; stack minimum 7228 >=2048. Real-attempt internal
+  largest and DMA largest minima 51188 >=20480. Retained logger/media largest minimum
+  24564 also stays above gate. Logger drops=0, truncated=0, error=none; owner drops=0,
+  cancelled=1 expected, stuck=0, lease=0 and connected=1 after recovery.
+- Post-recovery Latest completed: 36947/36947 bytes, displayed in 1604 ms. Touch
+  navigation back from G-meter and Latest request are present in the console.
+- Boot setup's separate SERVICE id=1 reports loop_n=0 / loop_gap_ms=624 because setup
+  has not entered Arduino loop yet; UI and IMU were serviced. This is not a 624 ms
+  reconnect freeze. No >1 s LOOP_GAP record appears for boot 132 in this export.
+
+Next retained case: two uninterrupted failed broker attempts with hotspot kept connected,
+then real recovery, with one USB retrieval-entry refusal during a held reconnect lease.
+No new code, rebuild or extra regression case is needed for this result. Case 3 hotspot
+flap remains pending; the serial on cancellation does not replace it.
