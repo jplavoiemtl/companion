@@ -36,7 +36,8 @@ For each session record:
 
 Suggested evidence handling: keep each export and its screenshots together in a dated
 folder outside Git, such as 2026-09-25-first-ride. Generic screenshot names get replaced
-on later exports. This is a recommendation; no user files have been moved. Reference
+on later exports. The first session has now been archived by copying its three files; originals remain
+in Downloads. Future sessions should use their own dated folder. Reference
 original filenames and hashes here rather than committing whole operational logs.
 A current.log snapshot normally excludes its own transfer END; the last-result view or
 later log can supply that completion evidence. Avoid requesting another transfer when
@@ -113,6 +114,14 @@ about 20 minutes the next morning. He noticed two roughly three-second G-meter f
 around 07:04, without noticing connection loss. Analysis below uses local -04:00 times.
 
 #### Evidence and retrieval
+
+Preserved evidence folder (September 25, copied at JP's request):
+`C:\Users\photo\Downloads\Companion-car-evidence\2026-09-25-first-ride`.
+All three copies were verified SHA256-identical to their originals; originals retained.
+- `start-unknown_41-1-current-98264.log`: hash below.
+- `listing.PNG`: SHA256 58bb086e36e5f45c545d8ff933a6a023a0af89995ef1a24d315bc511407d8e2e.
+- `last-result.PNG`: SHA256 7b723808354a3a15702570dfb29815ef900e5468a152f1e0e25dd4485f8aed85.
+
 
 Downloads/start-unknown_41-1-current-98264.log: 98264 bytes, independently computed
 CRC32 F1E81AFB; SHA256
