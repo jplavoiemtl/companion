@@ -108,3 +108,59 @@ before deciding a correction is warranted. Additional testing needs an observed 
 or unresolved ambiguity. After acceptance: one ordinary car ride with full export; no
 outage means normal-use evidence, not proof of reconnect responsiveness. Increment 3 is
 limited to evidence-justified corrections and field rollout, not extra speculative scope.
+
+## Claude review - September 25, 2026 (1cdbf41 against 36a9819)
+
+**Verdict: cleared for JP's build and the three retained cases.** No blockers. One
+one-line fix is recommended before building (N1). Host checks re-run: **355 pass in 15
+suites**. Not compiled, per the handoff.
+
+### Verified
+
+- **Window clock.** `begin()` uses the owner's request timestamp, the same
+  `esp_timer` millisecond clock as the observer's `now()`, immediately after an accepted
+  `request()`. `finish(result.id)` is the last statement of the common `takeResult`
+  branch, after READY acknowledgement, calibration enqueue and failure-budget handling.
+  That gives exactly one SERVICE record for success, failure and cancellation.
+  `request()` refuses while a result or loss is unconsumed or during Fault, so windows
+  cannot overlap. A stuck worker leaves the window open without inventing a record, as
+  documented.
+- **Clipping and tails.** Every metric's `last` resets to the request time. Calls open at
+  `begin` are counted once and their cost is clipped to the request time. `finish()`
+  closes every tail gap and clips still-open calls at adoption. No pre-request interval
+  leaks in, and a stall at the start or end of the window cannot be omitted.
+- **Nesting and early returns.** `Call` is RAII. The depth counter collapses nesting and
+  cannot underflow. The Loop observer lives in `diagop::Loop`'s constructor and
+  destructor, so it covers the shutdown gatekeeper's early return. The `updateImuData`
+  RAII covers the mutex-refused path. The request (`netCheckMqtt`) and adoption
+  (`netMainTick`) both run outside any `lv_timer_handler` scope; a surrounding Loop scope
+  is handled by the depth-at-begin count and the clip at finish.
+- **Coverage.** A source search finds no uninstrumented `lv_timer_handler()` in authored
+  code; the only remaining matches are two comments in video_stream.cpp. `lv_refr_now`
+  is not a service call. That is conservative: time spent in it appears inside gaps
+  rather than hiding them.
+- **Bounded records.** SERVICE uses a 456-byte buffer, the queued-field limit, and the
+  host check bounds its worst-case width. NET_HEALTH is written by the writer into a
+  704-byte buffer. `DIAG_ENABLED` reaches the observer through `diagnostics_internal.h`
+  -> `sd_diagnostics.h` -> `diagnostics_config.h`. `mainBreadcrumb()` is always compiled.
+- **Reconnect behaviour is unchanged.** net_module only adds `begin`/`finish`, the health
+  snapshot and a read-only backoff calculation. The worker only adds the DMA-largest
+  sample inside the existing busy-only `sample()`. Client, deadlines, lease, admission and
+  retry timing are untouched.
+- **Tests not weakened.** The only edits to existing suites are the fourth heap walk in
+  the owner sampler mock and observer stubs in the operation harness. All original
+  assertions remain.
+
+### Nonblocking
+
+- **N1 - phase name truncated (recommended before build).**
+  `DiagnosticsHealth::mqttWorkerPhase[12]` truncates `mqtt_exchange` (13 characters) to
+  `mqtt_exchan` in NET_HEALTH. Use `[16]`, so bench evidence carries the correct phase
+  label.
+- **N2 - the measurement slightly inflates what it measures.** During an attempt, main
+  now performs four heap walks every 20 ms, as does the worker. The main-side walks add a
+  little to the UI and loop gaps they measure (expected well under 1 ms per sample, not
+  measured). Keep this in mind if service maxima land near a threshold.
+- **N3 - reading the new fields.** `contexts` is sampled only at observation boundaries,
+  and `span` is the longest completed main operation. Both are attribution hints, as the
+  handoff states, not causes.
