@@ -86,28 +86,31 @@ contains two full analyses; later sessions follow the workflow below.
 3. **Hardware:** JP builds, flashes and runs one case at a time. Codex records results.
    Claude reviews results only when a case fails or looks unusual.
 
+### Defaults so JP's prompts can stay short
+
+- **New evidence:** any folder under `docs/car_testing/evidence/` that no session
+  references yet. If there are several, handle them in date order as one session each,
+  unless JP says they belong together.
+- **Session ID:** the next number after the highest existing session (F001, F002, ...).
+- **JP's observations:** whatever JP writes in the prompt. If the prompt has none,
+  record "no symptoms reported" rather than asking.
+- **Review target:** the newest session that has no "Claude review" block yet.
+- **Always:** follow the workflow above, verify and record evidence hashes, make no
+  firmware changes, builds or flashes, then commit and push the journal.
+
 ### Prompt templates for JP
 
 Analysis request to Codex:
 
 ```text
-New car evidence is in docs/car_testing/evidence/<YYYY-MM-DD-description>/.
-My observations: <approximate time, screen, symptom, duration, phone circumstances>.
-Add session F00X to docs/car_testing/field_journal.md following the ride analysis
-workflow: verify and record hashes, analyze the raw evidence, write the session entry,
-and update the findings table, improvement list and agreed/unresolved section.
-No firmware changes, builds or flashes. Commit and push when done.
+New car evidence added. Analyze it following the field journal workflow.
+My observations: <time, screen, symptom, duration, what the phone was doing>
 ```
 
 Review request to Claude:
 
 ```text
-Review Codex's F00X entry in docs/car_testing/field_journal.md against the evidence in
-docs/car_testing/evidence/<YYYY-MM-DD-description>/, following the ride analysis
-workflow. Spot-check the key claims, look for anything missed, and add one dated
-"Claude review" block (agree / disagree / additions, about 10-15 lines). Do not
-re-transcribe the timeline or edit the shared tables; Codex integrates the review.
-No firmware changes. Commit and push when done.
+Review the newest field session following the field journal workflow.
 ```
 
 ## Open findings
