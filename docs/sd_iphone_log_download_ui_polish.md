@@ -31,3 +31,17 @@ same selected profile and performs one visual case: load companion download mode
 view Safari listing and last-result, then Stop. Capture both screens to assess text
 fit and colors. Existing transfer-integrity and storage gates need not be repeated
 for this styling-only patch absent a regression.
+
+## JP visual acceptance
+
+JP explicitly accepted the iPhone and companion screen appearance after Claude cleared
+8a9cf0f. Screenshots are not required by JP; visual acceptance is his observation,
+not an independent image inspection. No further UI bench case is required.
+
+Next: retain JP's bench-used car configuration, flash the car unit and install a blank
+FAT32 card while fully powered off. First field gate is one parked-car retrieval using
+normal car USB power and the iPhone hotspot, without a PC: enter from the panel, save
+current.log in Files, inspect Last result, Stop and return. Send the exported log and
+report normal return. Use the displayed address (it may change). Real car use remains
+unverified until this gate. A subsequent ordinary drive and post-drive retrieval can
+then start field observation; no new feature implementation is proposed.
