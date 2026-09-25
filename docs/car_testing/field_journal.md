@@ -242,6 +242,28 @@ Plan, in priority order:
 This plan changes no WiFi policy. Per the workflow, Codex integrates any resulting
 finding into the tables.
 
+**Update, September 25 (JP):** a second client is not available now, so step 1 is
+replaced by a stationary test, alongside more ordinary rides:
+
+- **A. Driveway, within home Wi-Fi range, stationary, 20-30 min.** Module on the hotspot
+  as usual. Note whether the iPhone's own Wi-Fi shows the home network.
+- **B. Parked outside home range, stationary, 20-30 min.**
+- **C. Transition.** Start in the driveway, drive away, and note the time you leave home
+  range.
+
+Interpretation:
+- Drops only in C, shortly after leaving: the home-Wi-Fi hand-off restarting the hotspot
+  is the likely cause.
+- Drops in A or B while stationary: iPhone hotspot behaviour independent of movement and
+  home Wi-Fi. Suspect phone settings next (Low Power Mode, CarPlay/Bluetooth, screen
+  lock).
+- No drops in A or B, but drops while driving: movement or cellular hand-offs.
+
+Keep the phone state constant within each test. Note start and end times and any phone
+activity. Keep the module powered continuously and export the log afterwards; the log
+records every drop and its timing. Evidence goes in a new folder under `evidence/` as
+usual.
+
 ## Working agreement
 
 Keep the accepted reduced bench scope. Reopen a waived case only for relevant evidence
