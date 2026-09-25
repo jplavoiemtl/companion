@@ -132,7 +132,7 @@ failure. Health snapshots can be stale while the main loop is blocked.
 
 ### P001 - Keep UI and IMU responsive during MQTT reconnection
 
-Status: design requested by JP; [revision 1](p001_mqtt_responsiveness_design.md) written
+Status: design requested by JP; [revision 2](p001_mqtt_responsiveness_design.md) written
 by Codex for Claude review and JP approval. Implementation is not approved. F002 strengthens the need to cover failed
 reconnects and UI animation as well as successful recovery; no architecture selected.
 Priority: first proposed improvement, linked to I001. Goal: reconnect without freezing
@@ -549,3 +549,15 @@ is measured independently from worker duration. Several behavior trade-offs are 
 approval items. Claude reviews this design before JP approves implementation. No firmware
 changes, tests, builds or flashes accompany this documentation. Historical analyses above
 retain their original uncertainty; the integrated corrections and latest status govern.
+
+### P001 revision 2 - review integration
+
+At JP's request, Codex integrated Claude review 8daed34 into P001 revision 2. Required
+vTaskDelay polling protection and its host check ship with increment 1. DNS wait is
+15 s, attempt budget 35 s, worker-stuck threshold 40 s; socket timeout remains a constant
+5000 ms. Media/retrieval lease starts only before TCP setup; shared admission includes
+USB as well as panel refusal. DNS callback lifetime and both ERR_MEM paths are explicit.
+The first hardware check after increment 1 is one TLS handshake/CONNACK on the worker.
+The obsolete 3.1.3 capability branch is removed. Remaining JP decisions are enumerated
+in design section 11. Design only; focused B1/B2 check and implementation approval remain
+pending. No code, build, flash or host execution accompanied this documentation change.

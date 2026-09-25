@@ -1,6 +1,6 @@
 # P001 - Responsive UI and IMU during MQTT recovery
 
-Revision 1, September 25, 2026. Author: Codex. Status: DESIGN FOR CLAUDE REVIEW AND
+Revision 2, September 25, 2026. Author: Codex. Status: DESIGN FOR CLAUDE REVIEW AND
 JP APPROVAL. No firmware edits, build, flash or hardware case is authorized by this
 text. Source baseline is the current iphone-log-retrieval checkout. Related evidence:
 [field journal](field_journal.md), F001/F002 and I001; bounded phase timing requested
@@ -45,7 +45,7 @@ Merely lowering timeouts is not sufficient; successful recovery must be preserve
 Worker recommendation: lazy, boot-retained 12288-byte PSRAM stack, internal static TCB,
 core 0, priority 1. Main/IMU/SD writer remain on their existing core. Core 0 choice keeps
 TLS CPU work off main's core and below WiFi/lwIP task priorities; hardware verifies
-contention and watchdog behavior. Yield on every polling turn. The already validated
+contention and watchdog behavior. Use vTaskDelay of at least one tick on every continuing polling turn. The already validated
 HTTP worker establishes PSRAM/lwIP viability, not MQTT/TLS stack sufficiency. Measure
 worker high-water; require >=2048 bytes in retained gates. No automatic internal-stack
 fallback or larger allocation on failure: stay offline, report worker_alloc, preserve UI.
@@ -74,10 +74,10 @@ Package paths for reproducibility: Arduino15/internal/
 esp32_esp32_3.3.11_b0d8b7bad2896d0b/libraries/{NetworkClientSecure,Network};
 PubSubClient_2.8_48867b22d3bf7501/PubSubClient/src; installed esp32s3-libs/3.3.11
 lwip headers for DNS and tcpip callback APIs. No edits to global installed libraries.
-Primary target remains the accepted 3.3.11 profile. Before merging code, verify 3.1.3
-has the same split API; if not, keep the legacy profile compiling behind an explicit
-capability branch using worker-owned combined transport timing, marked combined rather
-than fabricated separate fields. No silent change to its certificate validation.
+Primary target remains the accepted 3.3.11 profile. Claude verified that 3.1.3 exposes
+the same split APIs; use one implementation, with no legacy capability branch. Preserve
+certificate validation on both. This source verification is not a new hardware acceptance
+claim for the older profile.
 
 ## 4. Ownership and application integration
 
@@ -157,18 +157,31 @@ No new WiFi stability delay is introduced in this change.
 
 A timeout or cancel has two meanings: logical invalidation is immediate; resource release
 occurs only when worker returns and cleans up. Main must not report release merely because
-it reached a deadline. After 25 s without attempt completion, report one worker_stuck
-notice and counter, remain disconnected/FAULT_HELD, retain buffers/task and resource lease,
-refuse new connects/media that need that lease. Late cleanup clears the fault explicitly;
+it reached a deadline. After 40 s without attempt completion, report one worker_stuck
+notice and counter, remain disconnected/FAULT_HELD, retain buffers/task and any acquired resource lease,
+refuse new connects and media requiring a held lease. A fault before lease acquisition
+does not reserve TLS resources or exclude media. Late cleanup clears the fault explicitly;
 otherwise restart is the recovery path. Main/UI/IMU continue. No unsafe forced deletion.
 
 ## 6. Phase timing and bounded transport behavior
 
-Attempt wall budget: 20 s nominal, with DNS 5 s, TCP socket connect 5 s, TLS handshake
-5 s, MQTT exchange absolute 5 s, each limited by remaining attempt time. Subscription
-setup is a separate bounded 2 s budget before READY. Allocation/CA parsing and underlying
-library cleanup are not hard-real-time bounded; record actual phase overrun and use
-FAULT_HELD policy. Do not advertise these as guaranteed resource-release deadlines.
+Attempt wall budget: 35 s nominal from dispatch through subscriptions/READY, with DNS
+wait 15 s, TCP socket connect 5 s, TLS handshake 5 s, MQTT exchange absolute 5 s,
+and subscription setup 2 s (3 s remaining nominal scheduling/setup allowance).
+worker_stuck threshold: 40 s from the same dispatch timestamp. Neither clock resets
+on phase changes. This accommodates the native DNS first-server retry/failover schedule
+without the old 5 s cap. A resolver needing more than 15 s can still time out; its late
+callback remains safe and retryable. Timing will establish actual field behavior.
+
+setConnectionTimeout is ALWAYS 5000 ms on both secure and plain MQTT transports.
+It also sets persistent socket/read/write timeout behavior; never replace it with a
+shrinking attempt remainder. Before TCP, TLS, MQTT or subscriptions, require enough
+remaining attempt budget for that phase's full nominal allowance, otherwise clean up
+with attempt_budget without starting it. TLS handshake limit remains 5 s; MQTT/packet
+absolute deadlines stay 5 s. No stage shrinks ONLINE socket timeouts. User-code checks
+also invalidate progress at the overall budget; they cannot preempt a native call.
+Allocation/CA parsing, scheduling and cleanup are not hard-real-time bounded. Record
+phase/attempt overruns honestly and use FAULT_HELD policy, not forced resource release.
 
 ### DNS
 
@@ -177,23 +190,46 @@ attempt ID, epoch, callback result and state. Submit with tcpip_try_callback to 
 thread; perform dns_gethostbyname_addrtype there, IPv4 for the currently IPv4 STA/hotspot
 scope. Literal configured addresses bypass DNS and report skipped_literal. Cached success,
 asynchronous completion and immediate error all have explicit paths. Poll/notify worker
-in <=20 ms intervals, enforcing a 5 s wait even if resolver still owns the request.
+in <=20 ms intervals using vTaskDelay of at least one tick, enforcing a 15 s wait
+from dispatch (including submission delay) even if resolver still owns the request.
 
-A timed-out/cancelled slot is a tombstone until the queued submission and any DNS callback
-finish. Never reuse/free its hostname or callback context first. Completion releases its
-own matching slot even after invalidation, but cannot advance a stale attempt. If both
-slots are retained, return dns_slots_busy and defer; do not allocate a third or globally
-reset DNS. No application DNS cache, prewarming lookup, address/hostname logging, or
+Submission failure: if tcpip_try_callback returns ERR_MEM, no callback was queued;
+release that matching slot immediately, report dns_submit_busy and defer for the normal
+15 s retry interval without consuming the initial-failure budget. Other immediate
+submission errors follow the same no-retained-callback cleanup with their error code.
+Inside the TCP/IP callback, dns_gethostbyname_addrtype returns ERR_OK (copy result and
+release), ERR_INPROGRESS (retain until DNS callback), or an immediate error including
+ERR_MEM from resolver-table exhaustion (release, report dns_resolver_busy for ERR_MEM,
+defer without counting a broker failure). Never wait for a callback on an immediate
+error path. Distinguish submission mailbox saturation from resolver table saturation.
+
+A timed-out/cancelled slot is a tombstone until queued submission and any DNS callback
+finish. lwIP copies the hostname into its table when the lookup is submitted; hostname
+storage only needs to survive that submission. Keep the complete fixed slot nonetheless:
+its callback argument, ID and epoch must survive until completion. Completion releases
+its own matching slot even after invalidation but cannot advance a stale attempt.
+
+Installed schedule reviewed by Claude: roughly 7 s per configured DNS server, at most
+three servers, hence about 21 s until a callback (NULL on failure), plus TCP/IP mailbox
+and timer scheduling delay. This is the normal resolver lifetime bound, NOT permission
+to free a slot at 21 s: application scheduling stalls can extend it. Callback/submission
+acknowledgement is the only release authority. With 15 s DNS wait followed by 15 s
+backoff, two retained slots cover ordinary overlap, including cancellation. If either
+submission or callback is delayed abnormally, bounded slots still prevent unsafe reuse.
+If both are retained, report dns_slots_busy and defer; do not allocate a third or reset
+DNS globally. Repeated saturation/stuck resolver is visible in status; restart is the
+recovery path if callbacks never arrive. No TLS lease is held for these DNS tombstones.
+No application DNS cache, prewarming lookup, address/hostname logging, or
 second hidden hostname connect. Native resolver caching is permitted; report cache state
 unknown, not inferred. IPv6-only connectivity is outside the current approved hotspot
 scope and must be explicitly refused/marked unsupported rather than silently accepted.
 
 ### TCP setup and TLS
 
-For secure ports: setPlainStart(), setConnectionTimeout(remaining <=5000), configure CA,
+For secure ports: setPlainStart(), setConnectionTimeout(5000), configure CA,
 then connect(resolvedIPv4, port, ORIGINAL_HOSTNAME, CA, nullptr, nullptr). Time that as
 `tcp_setup_ms`: includes socket establishment, CA parsing and TLS context setup, but no
-DNS or TLS handshake. Then time startTLS() as `tls_ms` with <=5 s handshake timeout.
+DNS or TLS handshake. Then time startTLS() as `tls_ms` with the unchanged 5 s handshake timeout.
 Keep hostname/SNI verification; never use setInsecure or connect by address without the
 original name. No MQTT bytes may be written between TCP setup and successful startTLS.
 Every retry must set plain-start anew; verify error cleanup leaves no stale TLS state.
@@ -217,7 +253,11 @@ not-entered phases get an explicit validity bit, not a misleading zero duration.
 Use a project-local, renamed PubSubClient 2.8 derivative with a MINIMAL reviewed patch:
 absolute operation deadline/cancel predicate checked in connect's CONNACK wait,
 readByte, readPacket (including oversize discard), and outgoing write boundaries;
-cooperative delay/yield in polling loops. Enforce remaining-length/packet bounds before
+vTaskDelay of at least one RTOS tick on EVERY continuing polling loop path, including
+CONNACK wait, readByte, packet/discard loops and facade polling. yield() alone is forbidden.
+Core 0 IDLE is watchdog-monitored; a priority-1 task must actually block to let it run.
+The local patch ships in increment 1 with the worker, never in a later increment. No
+intermediate build may run unpatched PubSubClient on that worker. Enforce remaining-length/packet bounds before
 unbounded discard. For ONLINE partial packet receive, use an absolute 5 s packet budget
 from first byte, not a fresh budget per byte. No packet or callback can bypass generation
 cancellation. This patch is part of P001, with upstream version/license retained and an
@@ -236,18 +276,30 @@ establishment and media startup, nor two MQTT TLS contexts. Worker owns at most 
 
 A main-owned resource arbiter issues a generation-tagged MQTT establishment lease only
 when imageFetcherIsBusy, videoStreamActive and pending-display/handover predicates are
-clear. Acquire atomically against main media admission, before DNS starts. All Latest,
+clear. DNS runs WITHOUT this lease. After DNS succeeds and immediately before TCP
+setup/CA parsing, request the lease through the main arbiter; worker cannot allocate TLS
+until main grants the matching epoch. Acquire atomically against main media admission.
+All Latest,
 Back/history, MQTT-triggered still and Live paths check the same arbiter before side
-effects. While lease held, refuse local media with a short "Reconnecting. Try again."
+effects. If media/retrieval already won admission, defer this attempt, discard its
+resolved address, and retry after the normal backoff when eligible. No DNS result is
+held indefinitely waiting for media; each retry resolves anew (native cache permitted).
+Bound lease-response wait to 100 ms; on expiry invalidate the request and defer. A late
+grant must be revoked by epoch/request-ID check without starting TCP or leaving a lease
+held. DNS, lease wait and backoff do not exclude media. While lease held, refuse local media with a short "Reconnecting. Try again."
 notice; suppress/deduplicate remote refused notifications by existing convention. No
 unbounded deferred request. Release only after worker cleanup or READY; FAULT_HELD keeps
 exclusion. Once ONLINE, existing media behavior resumes. Worker MQTT loop/publishes may
 coexist with HTTPS as an established connection, but a loss cannot start a new handshake
 until media ends. This temporarily refused-media behavior is part of JP's design approval.
 
-Retrieval HTTP uses memory too. Do not start a new MQTT establishment while retrieval is
-STARTING/ACTIVE/STOPPING; keep retry pending. Conversely refuse new retrieval entry with
-mqtt_reconnecting while establishment owns the lease, before server allocation. An
+Retrieval HTTP uses memory too. DNS may run while retrieval is
+STARTING/ACTIVE/STOPPING, but do not grant the TCP/TLS establishment lease then; defer
+that attempt and keep retry pending. Conversely refuse new retrieval entry with
+mqtt_reconnecting while establishment owns the lease, before server allocation. This
+is the shared entryRefusal(): BOTH panel entry and USB `log mode on` are refused. Panel
+shows "Reconnecting. Try again."; USB reports reason=mqtt_reconnecting with the existing
+response format. DNS alone refuses neither entry path. An
 already established MQTT connection continues servicing messages during retrieval. This
 changes recovery timing during download mode (maximum existing five-minute idle window),
 not the existing WiFi recovery logic; make the deferral visible in status/logs. No abort
@@ -296,7 +348,7 @@ broker names, IPs from DNS, SSIDs, certificates or payload contents in these rec
 
 While an attempt is pending, include phase/age in normal health/status. Record no per-poll
 lines. Completion slot must be acknowledged by main before reuse; if main is busy, worker
-stays in a yielding state and does not overwrite evidence. Queue/status counters report
+waits with vTaskDelay of at least one tick and does not overwrite evidence. Queue/status counters report
 any lost optional records. Main emits original worker timestamps with the correct stamp
 rather than pretending delayed delivery happened at emission time; align both monotonic
 and wall time, retaining quality if SNTP changes during a phase.
@@ -311,22 +363,44 @@ operation running concurrently is identified, so unrelated image latency is not 
 
 ## 10. Implementation increments and focused review gates
 
-No implementation yet. After Claude review and JP approval, use three reviewable increments:
-1. Ownership facade, fixed queues, event snapshots, worker state and lifecycle; migrate
-   every direct MQTT access and preserve callback/thread boundaries. Host review before
-   any flash. Do not ship a temporary concurrent-client implementation.
-2. Bounded resolver, split TLS phases, minimal local PubSub patch, media/retrieval lease,
-   cancellation and telemetry. Host tests and Claude review before JP build/flash.
-3. Only corrections justified by the retained bench evidence; then field rollout.
+No implementation yet. After the focused review and JP approval, use three increments:
+1. A safe end-to-end worker path: ownership facade, fixed queues, event snapshots and
+   lifecycle; migrate every direct MQTT access and callback/thread boundary. The local
+   PubSubClient delay/deadline patch MUST ship here. Include all prerequisites needed
+   to safely connect once: bounded DNS, split transport, generation cancellation,
+   cleanup, media/retrieval admission and minimal phase/memory/stack result reporting.
+   There is no intermediate unpatched worker or concurrent-client build. Host checks
+   and Claude code review precede JP's first build/flash.
+2. Complete the planned service-gap/field telemetry and failure/flap validation, plus
+   any refinements from the first handshake. Increment 1 already has safety bounds;
+   this increment must not be the first delivery of watchdog protection, cancellation,
+   DNS lifetime or TLS admission. Re-review changes before JP builds/flashes.
+3. Only corrections justified by retained bench evidence; then field rollout.
+
+FIRST hardware check after increment 1: exactly one real-broker TLS handshake and
+CONNACK on the PSRAM-stacked worker, before any case A or forced failure. Confirm
+ONLINE/subscriptions, hostname-verified TLS success, responsive UI, worker stack margin,
+internal-largest gate and absence of reset. This specifically validates mbedTLS/hardware
+crypto from the worker's PSRAM stack; the HTTP worker proved lwIP, not this property.
+Worker must never write NVS/flash (including Preferences/calibration); those stay on main.
+If handshake crashes or fails this placement check, stop and revise the stack design for
+review; do not automatically switch to an internal stack or continue other cases.
 
 Required host checks (real implementation logic, not merely regex where practicable):
+- every worker-reachable polling loop and continuing wait path includes vTaskDelay
+  (>=1 tick), not yield(): audit actual local PubSub patch plus facade/worker loops,
+  and run delayed-CONNACK/partial-packet simulations proving tick-delay calls and
+  deadlines. A static guard rejects bare-yield waits or newly unguarded polling loops;
 - zero direct client access outside owner; no callbacks/UI on worker; publish admission
   versus completion; RX/TX overflow, size bounds, stale-generation discard;
 - same-IP link flap, config/bench switch during each phase, cancelled-success suppression,
-  retained DNS tombstones, late completion release and slots exhausted;
+  retained DNS tombstones beyond 21 s, late completion release, slots exhausted,
+  tcpip submission ERR_MEM and resolver ERR_MEM without false failure-budget debit;
 - DNS fail, TCP fail, TLS fail, CONNACK fail/trickle/oversize and absolute deadlines;
-  hostname/SNI preserved, no plaintext MQTT before TLS, no implicit reconnect;
-- bidirectional media/retrieval lease admission, pending handover, memory refusal;
+  hostname/SNI preserved, no plaintext MQTT before TLS, no implicit reconnect; pin
+  DNS wait=15000, attempt=35000, stuck=40000 and lifetime connection timeout=5000;
+- bidirectional media/retrieval lease admission only after DNS, late grant rollback,
+  both panel and USB refusal, pending handover, memory refusal;
 - shutdown returns without waiting; held worker fault and late recovery do not free
   live resources; failure budget/backoff reset after completion, setup asynchronous;
 - phase timestamp validity, bounded record sizes, main service metrics, no secret fields.
@@ -356,16 +430,38 @@ split secure API, bounded local PubSub patch, DNS context lifetime, TLS concurre
 mailbox thread safety and media admission coverage. Append a dated review below or link
 a review document; Codex integrates revisions before JP approval.
 
-JP approval must cover the persistent PSRAM worker/core placement, explicit media refusal
-while reconnecting, MQTT recovery deferral during retrieval, and retained initial give-up
-policy. These are recommended choices, not already approved implementation. Phase timing
-is explicitly requested by JP and is mandatory; no separate instrumentation-only flash
-is proposed. No WiFi-loss cure is promised by P001.
+### Decisions still requiring JP approval
 
-### Review status
+JP has directed the revision-2 corrections; the following wider choices are still
+recommendations, not implementation authorization:
 
-Claude review of revision 1 recorded below: architecture endorsed, two blockers and one
-minor correction for Codex to integrate. JP implementation approval pending.
+1. **Worker and memory:** persistent 12288-byte PSRAM stack, internal static TCB, core 0
+   priority 1, exclusive MQTT ownership and bounded queues. Failure stays offline;
+   no automatic internal-stack fallback. Recommend approve, subject to first-handshake gate.
+2. **Temporary admission behavior:** after DNS, an active establishment lease refuses
+   Latest/Back/Live and BOTH panel/USB retrieval entry with a retry notice. If media or
+   retrieval is already active, MQTT waits instead; no forced abort. Recommend approve.
+3. **Initial failure policy:** retain five genuine failures before first successful MQTT
+   connection, then give up until reboot; once connected, retry indefinitely with 15 s
+   backoff. Recommend preserve for P001 rather than combine a policy redesign.
+4. **Acceptance and rollout:** <=100 ms UI/IMU service-gap target in reconnect-only cases,
+   >=20480 internal-largest gate, >=2048 worker-stack margin, first single handshake then
+   cases A/B/C one at a time. Recommend approve the focused sequence, not an expanded suite.
+
+DNS=15 s, attempt=35 s and stuck=40 s are revision-2 proposed concrete values implementing
+JP's direction to raise the bounds. Phase timing is mandatory; no instrumentation-only
+flash. No WiFi-loss cure is promised. JP's approval of revision 2 must explicitly authorize
+increment 1 implementation; approving this documentation edit does not do so.
+
+### Revision 2 integration and review status
+
+Codex integrated review 8daed34 at JP's request: B1 tick-delay patch and host check move
+to increment 1; B2 DNS is 15 s, attempt 35 s, stuck 40 s; constant socket timeout 5000;
+lease only before TCP; explicit DNS lifetime/ERR_MEM paths; no 3.1.3 capability branch;
+first hardware check is worker TLS/CONNACK; panel and USB refusal both specified.
+The historical revision-1 review below is preserved unchanged. Its quoted old values
+are not revision-2 requirements. Claude requested only a focused B1/B2 integration check,
+not another full architecture review. JP implementation approval remains pending.
 
 ### Claude review - September 25, 2026 (revision 1, commit 16cda62)
 
