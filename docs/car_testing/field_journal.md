@@ -16,7 +16,8 @@ Last updated: September 25, 2026.
   then automatic recovery. Two ~0.12 s storage operations were also recorded without loss.
 - Field observation continues. JP approved P001 revision 2 and increment 1 on September 25;
   Claude cleared c9629df and the first worker TLS/CONNACK bench gate has technically
-  passed on boot 130. JP acceptance / increment 2 go-ahead is pending.
+  passed on boot 130. JP accepted increment 1 and authorized increment 2; telemetry
+  implementation is now awaiting Claude review.
   The car firmware has not been changed by this work. One successful ride is not long-term
   reliability proof.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
@@ -606,3 +607,15 @@ pending. Full evidence, hashes and limitations are in the
 [handoff result](p001_increment1_handoff.md#p001-increment-1-first-hardware-gate--september-25-2026-codex).
 The original 57,256-byte USB export is preserved under
 `evidence/2026-09-25-p001-first-handshake/130-current.log` (ignored by Git).
+
+
+### P001 increment 2 — September 25, 2026, Codex
+
+JP accepted increment 1 and requested essential-only testing, then authorized increment 2.
+Implemented bounded per-attempt main UI/IMU/loop service records, overlapping-operation
+context, DMA-largest memory sampling and normal worker phase/age/backoff health snapshots.
+355 host checks / 15 suites pass. See [review handoff](p001_increment2_handoff.md).
+No firmware build/flash or additional hardware test. Three retained bench cases only:
+successful reconnect, failed attempts/recovery, and a pending-attempt hotspot flap; one
+at a time after review clearance. Actual failure/flap evidence remains pending. Car
+rollout follows acceptance and only evidence-justified corrections.

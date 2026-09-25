@@ -396,7 +396,7 @@ bool request(uint32_t id,int connection,bool test) {
     pending={id,status.epoch,at,connection,test}; commandReady=true;
     status.id=id; status.attemptEpoch=status.epoch; status.started=at; status.phaseAt=at;
     status.busy=true; status.phase=Phase::Dns;
-    status.internalMin=status.largestMin=status.dmaMin=UINT32_MAX;
+    status.internalMin=status.largestMin=status.dmaMin=status.dmaLargestMin=UINT32_MAX;
   }
   portEXIT_CRITICAL(&mux); return allowed;
 }
@@ -417,9 +417,10 @@ void sample() {
   const uint32_t free=heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
   const uint32_t largest=heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
   const uint32_t dma=heap_caps_get_free_size(MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
+  const uint32_t dmaLargest=heap_caps_get_largest_free_block(MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
   portENTER_CRITICAL(&mux);
   if(status.busy && status.id==before.id) {
-    status.internalMin=min(status.internalMin,free); status.largestMin=min(status.largestMin,largest); status.dmaMin=min(status.dmaMin,dma);
+    status.internalMin=min(status.internalMin,free); status.largestMin=min(status.largestMin,largest); status.dmaMin=min(status.dmaMin,dma); status.dmaLargestMin=min(status.dmaLargestMin,dmaLargest);
   }
   portEXIT_CRITICAL(&mux);
 }

@@ -619,3 +619,15 @@ RX drops are counted, including pending messages discarded by invalidation.
 
 Implementation and 341 host checks are recorded in the [focused handoff](p001_increment1_handoff.md).
 Claude's focused re-check is pending. No firmware build, flash or hardware gate has run.
+
+
+### Increment 2 authorization and handoff — September 25, 2026
+
+JP accepted increment 1's boot-130 hardware gate and authorized proceeding with increment 2.
+The bench scope remains three essential cases (successful reconnect, failed attempts then
+recovery, one pending-attempt hotspot flap), issued one at a time. No broad SD/iPhone retest.
+Implementation adds per-attempt actual UI/IMU/loop service gaps and call durations,
+main-context attribution, DMA-largest minimum and normal phase/age/backoff snapshots.
+See [increment 2 handoff](p001_increment2_handoff.md) for measurement semantics and review.
+355 checks / 15 host suites pass. Claude review pending; no build/flash or new hardware
+case issued. The 20–30 minute bench estimate assumes passing cases, not unexpected defects.

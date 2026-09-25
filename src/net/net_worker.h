@@ -13,7 +13,7 @@ struct View {
   bool allocationFailed=false;
   bool stackExternal=false, tcbInternal=false;
   int state=-1;
-  uint32_t stackMin=0, internalMin=UINT32_MAX, largestMin=UINT32_MAX, dmaMin=UINT32_MAX;
+  uint32_t stackMin=0, internalMin=UINT32_MAX, largestMin=UINT32_MAX, dmaMin=UINT32_MAX, dmaLargestMin=UINT32_MAX;
   uint32_t rxDrops=0, txDrops=0, completionDrops=0, leaseTimeouts=0;
   uint32_t cancelled=0, stuck=0, txOversize=0, txAccepted=0, txRejected=0, rxPacketDrops=0;
 };

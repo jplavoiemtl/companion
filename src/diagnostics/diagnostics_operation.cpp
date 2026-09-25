@@ -1,3 +1,4 @@
+#include "diagnostics_mqtt_service.h"
 #include "diagnostics_operation.h"
 #include "diagnostics_network.h"
 #include <esp_timer.h>
@@ -22,6 +23,7 @@ uint32_t nextId() {
 }
 void block(const char* name, uint64_t id, uint64_t start, uint64_t end) {
 #if DIAG_ENABLED
+ diagmqtt::block(name,start,end);
  // Keep only the longest measured span: nested spans are never added together.
  if (inLoop && start >= loopStart && end - start > longest) {
   longest = end - start; longestName = name; longestId = id;
@@ -42,6 +44,7 @@ void reportGap(uint64_t end) {
 }
 }
 Loop::Loop() {
+ diagmqtt::enter(diagmqtt::Service::Loop);
 #if DIAG_ENABLED
  const uint64_t started = now();
  // Entry-to-entry includes scheduler delay between loop invocations. No boot gap.
@@ -50,7 +53,7 @@ Loop::Loop() {
  longestName = "unmeasured"; inLoop = true;
 #endif
 }
-Loop::~Loop() { inLoop = false; }
+Loop::~Loop() { diagmqtt::leave(diagmqtt::Service::Loop); inLoop = false; }
 Block::Block(const char* name, uint64_t id) : name_(name), id_(id), start_(0) {
 #if DIAG_ENABLED
  start_ = now();

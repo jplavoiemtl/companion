@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics_mqtt_service.h"
 #include "../diagnostics/diagnostics_network.h"
 #include "imu_module.h"
 #include "../diagnostics/diagnostics_probes.h"
@@ -335,6 +336,7 @@ void readImuData() {
 
 //***************************************************************************************************
 void updateImuData() {
+  diagmqtt::Call service(diagmqtt::Service::Imu);
 
   // START MUTEX PROTECTION
   if (i2c_mutex && xSemaphoreTakeRecursive(i2c_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {

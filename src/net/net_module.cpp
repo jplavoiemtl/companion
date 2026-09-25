@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics_mqtt_service.h"
 #include "net_module.h"
 #include "net_worker.h"
 #include "../image/image_fetcher.h"
@@ -66,6 +67,11 @@ void intentionalDisconnect(const char* reason) {
   mqttowner::invalidate(); observedConnected=false;
 }
 
+uint32_t retryRemaining() {
+  const uint32_t elapsed=millis()-lastMqttAttempt;
+  return elapsed>=MQTT_RECONNECT_INTERVAL ? 0 : MQTT_RECONNECT_INTERVAL-elapsed;
+}
+
 void printBenchStatus() {
   const char* phase = benchPhase == BenchPhase::Outage ? "OFF" :
                       benchPhase == BenchPhase::Restoring ? "RESTORING" : "ON";
@@ -75,14 +81,14 @@ void printBenchStatus() {
                    observeMqtt() ? "CONNECTED" : "DISCONNECTED",
                    elapsed, millis());
   const auto state=mqttowner::view();
-  USBSerial.printf("[MQTT OWNER] phase=%s epoch=%lu attempt_epoch=%lu id=%lu age_ms=%llu lease=%u connected=%u stack_min=%lu stack_external=%u tcb_internal=%u internal_min=%lu largest_min=%lu dma_min=%lu rx_drops=%lu tx_drops=%lu completion_drops=%lu lease_timeouts=%lu cancelled=%lu stuck=%lu tx_size=%lu tx_ok=%lu tx_failed=%lu packet_drops=%lu result=%s\n",
+  USBSerial.printf("[MQTT OWNER] phase=%s epoch=%lu attempt_epoch=%lu id=%lu age_ms=%llu lease=%u connected=%u stack_min=%lu stack_external=%u tcb_internal=%u internal_min=%lu largest_min=%lu dma_min=%lu dma_largest_min=%lu rx_drops=%lu tx_drops=%lu completion_drops=%lu lease_timeouts=%lu cancelled=%lu stuck=%lu tx_size=%lu tx_ok=%lu tx_failed=%lu packet_drops=%lu result=%s backoff_ms=%lu\n",
     mqttowner::phaseName(state.phase),(unsigned long)state.epoch,(unsigned long)state.attemptEpoch,(unsigned long)state.id,
     (unsigned long long)(state.busy ? esp_timer_get_time()/1000-state.started : 0),state.lease,state.connected,
     (unsigned long)state.stackMin,state.stackExternal,state.tcbInternal,(unsigned long)state.internalMin,
-    (unsigned long)state.largestMin,(unsigned long)state.dmaMin,(unsigned long)state.rxDrops,
+    (unsigned long)state.largestMin,(unsigned long)state.dmaMin,(unsigned long)state.dmaLargestMin,(unsigned long)state.rxDrops,
     (unsigned long)state.txDrops,(unsigned long)state.completionDrops,(unsigned long)state.leaseTimeouts,
     (unsigned long)state.cancelled,(unsigned long)state.stuck,(unsigned long)state.txOversize,
-    (unsigned long)state.txAccepted,(unsigned long)state.txRejected,(unsigned long)state.rxPacketDrops,lastResult);
+    (unsigned long)state.txAccepted,(unsigned long)state.txRejected,(unsigned long)state.rxPacketDrops,lastResult,(unsigned long)(state.busy || state.connected ? 0 : retryRemaining()));
 }
 
 void restoreBenchMqtt(const char* reason) {
@@ -189,7 +195,7 @@ void netCheckMqtt(bool bypassRateLimit) {
   if(!bypassRateLimit && millis()-lastMqttAttempt<MQTT_RECONNECT_INTERVAL) return;
   const bool testAttempt=benchPhase==BenchPhase::Outage;
   if(!mqttowner::request(attemptId+1,configuredConnection,testAttempt)) return;
-  ++attemptId; benchFirstPending=false; restorePending=false;
+  ++attemptId; diagmqtt::begin(attemptId,mqttowner::view().started); benchFirstPending=false; restorePending=false;
   diagnosticsProbeBegin(ProbeWindow::MqttConnect);
   diagnet::event("MQTT_CONNECT_BEGIN", "execution=worker id=%lu target=%s connection=%d wifi_connection=%d port=%u tls=%u",
     (unsigned long)attemptId,testAttempt ? "test" : "real",configuredConnection,
@@ -222,6 +228,14 @@ void netShowReconnectNotice() {
   }
   lv_label_set_text(reconnectNotice,"Reconnecting. Try again.");
   lv_obj_clear_flag(reconnectNotice,LV_OBJ_FLAG_HIDDEN); noticeAt=millis();
+}
+void netMqttHealth(DiagnosticsHealth& health) {
+  const auto state=mqttowner::view();
+  snprintf(health.mqttWorkerPhase,sizeof(health.mqttWorkerPhase),"%s",mqttowner::phaseName(state.phase));
+  health.mqttWorkerId=state.id;
+  health.mqttWorkerAge=state.busy ? esp_timer_get_time()/1000-state.started : 0;
+  health.mqttBackoffMs=state.busy || state.connected ? 0 : retryRemaining();
+  health.mqttLease=state.lease;
 }
 void netMainTick() {
   if(!initialized) return;
@@ -257,9 +271,9 @@ void netMainTick() {
       (unsigned long long)(result.ended-result.started),result.ok ? "none" : mqttowner::phaseName(result.failedPhase),result.state,
       result.error,result.errorFresh,result.dnsResult,!strcmp(result.reason,"cancelled"));
     diag::recordAt(result.when,"MQTT_CONNECT_END",fields,true);
-    diagnet::event("MQTT_CONNECT_MEM","id=%lu stack_min=%lu stack_external=%u tcb_internal=%u internal_min=%lu largest_min=%lu dma_min=%lu",
+    diagnet::event("MQTT_CONNECT_MEM","id=%lu stack_min=%lu stack_external=%u tcb_internal=%u internal_min=%lu largest_min=%lu dma_min=%lu dma_largest_min=%lu",
       (unsigned long)result.id,(unsigned long)state.stackMin,state.stackExternal,state.tcbInternal,
-      (unsigned long)state.internalMin,(unsigned long)state.largestMin,(unsigned long)state.dmaMin);
+      (unsigned long)state.internalMin,(unsigned long)state.largestMin,(unsigned long)state.dmaMin,(unsigned long)state.dmaLargestMin);
     diagnosticsProbeEnd(ProbeWindow::MqttConnect);
     // Backoff begins after owner completion, never at dispatch or repeated WiFi events.
     lastMqttAttempt = millis();
@@ -284,6 +298,7 @@ void netMainTick() {
         giveUp=true; diagnet::event("MQTT_BUDGET","result=exhausted failures=%u retry=until_reboot",failureCount);
       }
     }
+    diagmqtt::finish(result.id); // Covers success, failure, cancellation and adoption work.
   }
   int lostState;
   if(mqttowner::takeLoss(lostState)) {

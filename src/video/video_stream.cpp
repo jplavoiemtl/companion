@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics_mqtt_service.h"
 #include "../net/net_module.h"
 #include "../diagnostics/diagnostics_retrieval.h"
 #include "../diagnostics/diagnostics_operation.h"
@@ -890,7 +891,7 @@ void videoStreamLoop() {
   // Let LVGL run between the heavy stages. The touch controller is only sampled
   // inside lv_timer_handler(), and a tap may change screens, which fires
   // screenVideo_event_handler and stops the feed - hence the active checks.
-  lv_timer_handler();
+  { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); }
   if (!active) return;
 
   uint32_t decodeUs = 0, blitUs = 0;
@@ -904,7 +905,7 @@ void videoStreamLoop() {
 
   if (!HEAP_CHECK("decode")) { videoStreamStop("heap_decode"); returnToPreviousScreen(); return; }
 
-  lv_timer_handler();
+  { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); }
   if (!active) return;
 
   displayFrame(&blitUs);

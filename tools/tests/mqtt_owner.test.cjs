@@ -243,10 +243,10 @@ test('busy attempt samples heap at 20ms and stack at phase boundaries plus 1Hz',
  assert(body(net,'void netMainTick(').includes('mqttowner::view().busy && millis()-sampledAt>=20'));
 });
 test('shared heap sampler refuses idle and ignores completion or new attempt racing its walk',()=>{
- const c={status:{busy:false,id:1,internalMin:999,largestMin:999,dmaMin:999},walks:0,min:Math.min,MALLOC_CAP_INTERNAL:1,MALLOC_CAP_8BIT:2,MALLOC_CAP_DMA:4};
+ const c={status:{busy:false,id:1,internalMin:999,largestMin:999,dmaMin:999,dmaLargestMin:999},walks:0,min:Math.min,MALLOC_CAP_INTERNAL:1,MALLOC_CAP_8BIT:2,MALLOC_CAP_DMA:4};
  c.view=()=>({...c.status});c.heap_caps_get_free_size=()=>{c.walks++;return 100;};c.heap_caps_get_largest_free_block=()=>{c.walks++;if(c.race==='end')c.status.busy=false;if(c.race==='new')c.status.id++;return 80;};
  vm.createContext(c);vm.runInContext(`function sample(){${adapt(body(worker,'void sample(')).replace('const auto before','const before')}}`,c);
- c.sample();assert.equal(c.walks,0);c.status.busy=true;c.sample();assert.equal(c.walks,3);assert.equal(c.status.largestMin,80);
+ c.sample();assert.equal(c.walks,0);c.status.busy=true;c.sample();assert.equal(c.walks,4);assert.equal(c.status.largestMin,80);
  for(const race of ['end','new']){c.status.busy=true;c.status.largestMin=999;c.race=race;c.sample();assert.equal(c.status.largestMin,999);}
 });
 console.log(`${count} MQTT owner checks passed; source simulations only, no firmware build.`);

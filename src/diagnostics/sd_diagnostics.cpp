@@ -871,14 +871,16 @@ void writeHealth(const char* event = "HEALTH") {
   // Separate bounded companion record, using the same main-task health snapshot.
   snprintf(fields, sizeof(fields),
     "snapshot_valid=%u snapshot_age_ms=%llu connection=%u rssi=%d rssi_valid=%u wifi_suppressed=%lu "
-    "mqtt_inbound=%llu power_count=%llu energy_count=%llu inbound_age_ms=%lld image_suppressed=%lu",
+    "mqtt_inbound=%llu power_count=%llu energy_count=%llu inbound_age_ms=%lld image_suppressed=%lu worker_phase=%s worker_id=%lu worker_age_ms=%llu backoff_ms=%lu lease=%u",
     s.healthUp != 0, static_cast<unsigned long long>(s.healthUp ? up - s.healthUp : up),
     s.health.wifiConnection, s.health.lastRssi, s.health.rssiValid,
     static_cast<unsigned long>(s.health.wifiSuppressed),
     static_cast<unsigned long long>(s.health.mqttInbound), static_cast<unsigned long long>(s.health.mqttPower),
     static_cast<unsigned long long>(s.health.mqttEnergy),
     s.health.mqttInboundKnown ? static_cast<long long>(up - s.health.mqttInboundAt) : -1LL,
-    static_cast<unsigned long>(s.health.mqttImageSuppressed));
+    static_cast<unsigned long>(s.health.mqttImageSuppressed), s.health.mqttWorkerPhase,
+    static_cast<unsigned long>(s.health.mqttWorkerId), static_cast<unsigned long long>(s.health.mqttWorkerAge),
+    static_cast<unsigned long>(s.health.mqttBackoffMs), s.health.mqttLease);
   writeRecord(diag::stamp(), "INFO", "NET_HEALTH", fields);
   snprintf(fields, sizeof(fields), "loop_max_ms=%llu loop_gaps=%llu pending_suppressed=%lu scope=main_loop",
     (unsigned long long)s.health.loopMaxMs, (unsigned long long)s.health.loopGaps,

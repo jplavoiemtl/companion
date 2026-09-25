@@ -48,3 +48,6 @@ bool netMqttLeaseHeld();
 void netShutdown();
 void netLinkEvent(bool up); // WiFi callback, fixed metadata only
 void netShowReconnectNotice(); // main/UI only
+
+struct DiagnosticsHealth;
+void netMqttHealth(DiagnosticsHealth& health); // main-only, fixed snapshot for normal health

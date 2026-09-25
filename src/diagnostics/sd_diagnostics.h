@@ -4,6 +4,10 @@
 
 // All calls from task context. No caller touches SD; only the writer owns it.
 struct DiagnosticsHealth {
+  char mqttWorkerPhase[12] = "idle";
+  uint32_t mqttWorkerId = 0, mqttBackoffMs = 0;
+  uint64_t mqttWorkerAge = 0;
+  bool mqttLease = false;
   uint64_t loopMaxMs = 0, loopGaps = 0;
   uint32_t loopSuppressed = 0;
   bool wifi = false;

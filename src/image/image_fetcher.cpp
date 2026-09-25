@@ -1,3 +1,4 @@
+#include "../diagnostics/diagnostics_mqtt_service.h"
 #include "../net/net_module.h"
 #include "../diagnostics/diagnostics_retrieval.h"
 #include "../diagnostics/diagnostics_operation.h"
@@ -521,7 +522,7 @@ static void processHTTPResponse() {
       imageReceived = jpeg_bytes_received;
 
       if (jpeg_bytes_received % 4096 == 0) {
-        lv_timer_handler();
+        { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); }
         delay(1);
       }
     }

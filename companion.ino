@@ -1,3 +1,4 @@
+#include "src/diagnostics/diagnostics_mqtt_service.h"
 #include "src/diagnostics/diagnostics_retrieval.h"
 #include "src/diagnostics/diagnostics_retrieval_ui.h"
 #include "calibration.h"
@@ -698,6 +699,7 @@ void runBackgroundTick() {
     health.image = imageFetcherIsBusy() && !health.live;
     health.moving = g_isCurrentlyMoving;
     diagnet::health(health);
+    netMqttHealth(health);
     diagop::health(health);
     diagnosticsUpdateHealth(health);
   }
@@ -729,7 +731,7 @@ void runBackgroundTick() {
 
   logRetrievalTick(); // Also service idle/link exits inside Wi-Fi recovery keep-alive.
   logRetrievalUiTick();
-  lv_timer_handler();
+  { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); }
 }
 
 
@@ -924,7 +926,7 @@ bool attemptWiFiConnection() {
     lv_label_set_text(ui_labelConnectionStatus, "Connecting...");
     lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFFFFFF), LV_PART_MAIN); // White
     // Force a refresh to show "Connecting..." immediately
-    for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
+    for (int i = 0; i < 5; i++) { { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); } delay(5); }
     
     while (!connected && retryCount < MAX_RETRIES) {  // MODIFIED: Added retry limit check
         retryCount++;
@@ -936,7 +938,7 @@ bool attemptWiFiConnection() {
             snprintf(statusBuffer, sizeof(statusBuffer), "Retry %d/%d...", retryCount - 1, MAX_RETRIES - 1);  // MODIFIED: Show x/5 format
             lv_label_set_text(ui_labelConnectionStatus, statusBuffer);
             lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFFB700), LV_PART_MAIN); // Orange
-            for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
+            for (int i = 0; i < 5; i++) { { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); } delay(5); }
             
             USBSerial.print("WiFi Connection Retry #");
             USBSerial.print(retryCount - 1);
@@ -984,7 +986,7 @@ bool attemptWiFiConnection() {
             // Update UI before shutdown
             lv_label_set_text(ui_labelConnectionStatus, "No WiFi - Shutdown");
             lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
-            for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
+            for (int i = 0; i < 5; i++) { { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); } delay(5); }
             
             delay(2000); // Show message briefly
             wifiSetup.end(false, int(WiFi.status()));
@@ -1003,7 +1005,7 @@ bool attemptWiFiConnection() {
 
             lv_label_set_text(ui_labelConnectionStatus, "No WiFi");
             lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
-            for (int i = 0; i < 5; i++) { lv_timer_handler(); delay(5); }
+            for (int i = 0; i < 5; i++) { { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); } delay(5); }
 
             wifiSetup.end(false, int(WiFi.status()));
             return false;
@@ -1754,7 +1756,7 @@ void goToDeepSleep() {
 
   // Force LVGL to redraw the screen with the new message NOW.
   for (int i = 0; i < 5; i++) {
-      lv_timer_handler();
+      { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); }
       delay(5);
   }
 
@@ -1803,7 +1805,7 @@ void goToShutdown() {
 
   // Force LVGL to redraw the screen immediately
   for (int i = 0; i < 5; i++) {
-      lv_timer_handler();
+      { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); }
       delay(5);
   }
 
@@ -2164,7 +2166,7 @@ void updateInitialUI() {
     // Force a complete screen refresh before WiFi connection
     USBSerial.println("Forcing full UI refresh before WiFi connection...");
     for (int i = 0; i < 15; i++) {
-        lv_timer_handler();
+        { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); }
         delay(5);
     }
 }
@@ -2284,7 +2286,7 @@ void finalizeSetup() {
     
     // Final UI refresh
     for (int i = 0; i < 5; i++) { 
-        lv_timer_handler(); 
+        { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); }
         delay(5); 
     }
     

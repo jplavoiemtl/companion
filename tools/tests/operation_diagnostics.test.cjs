@@ -5,8 +5,8 @@ const read=p=>fs.readFileSync(p,'utf8').replace(/\r/g,'');
 const op=read('src/diagnostics/diagnostics_operation.cpp'), image=read('src/image/image_fetcher.cpp'), video=read('src/video/video_stream.cpp');
 let count=0; function test(n,f){f();count++;console.log('PASS '+n);}
 function body(s,signature){let i=s.indexOf(signature);assert(i>=0,signature);i=s.indexOf('{',i);let start=++i,d=1;while(d){if(s[i]=='{')d++;if(s[i]=='}')d--;i++;}return s.slice(start,i-1);}
-function translate(s){return s.replace(/^#.*$/gm,'').replace(/\(unsigned long long\)|\(unsigned long\)|\(unsigned\)/g,'').replace(/const uint64_t /g,'const ').replace(/diagnet::event/g,'event');}
-const sandbox={t:0,events:[],now(){return this.t},millis(){return this.t}};
+function translate(s){return s.replace(/^#.*$/gm,'').replace(/\(unsigned long long\)|\(unsigned long\)|\(unsigned\)/g,'').replace(/const uint64_t /g,'const ').replace(/diagnet::event/g,'event').replace(/diagmqtt::/g,'diagmqtt.').replace(/Service::/g,'Service.');}
+const sandbox={diagmqtt:{enter(){},leave(){},block(){},Service:{Loop:2}},t:0,events:[],now(){return this.t},millis(){return this.t}};
 // Functions refer to the VM global t, not JS receiver binding.
 vm.createContext(sandbox);vm.runInContext(`let loopSeen=false,inLoop=false,loopStart=0,longest=0,longestId=0,maximum=0,gapCount=0,lastReport=0,suppressed=0,longestName='unmeasured'; function now(){return t;} function event(...a){events.push(a);} function reportGap(end){${translate(body(op,'void reportGap('))}} function begin(){${translate(body(op,'Loop::Loop()'))}} function end(){${translate(body(op,'Loop::~Loop()'))}} function block(name,id,start,end){${translate(body(op,'void block('))}}`,sandbox);
 const run=s=>vm.runInContext(s,sandbox);
