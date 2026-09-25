@@ -1,5 +1,35 @@
 # iPhone log retrieval - bench cases and results
 
+## September 24 20:30 - no-card pre-car gate PASSED
+
+JP observed the not-ready notice on the panel and reports success. Evidence:
+attachment 8dfb3a13-d424-4956-ab90-3c4decfde22e/Pasted text.txt, 20:30:00-20:30:45.
+Boot 124 stays stable. Logger disabled with mount_failed_or_no_card errno=5,
+zero files/writes, writer parked with final stack margin 3960. Panel request at
+20:30:15.078 is refused with logger_unavailable; mode OFF, HTTP server off,
+generation 0. Later status confirms the same. WiFi/MQTT remain connected,
+UI navigation and motion reporting continue. JP's visual observation confirms
+"Log storage is not ready." was visible. No SD log is expected for this case.
+No firmware changes or rebuild needed. Blank-card gate remains pending.
+
+### Next single case: blank FAT32 startup and iPhone retrieval
+
+Shut down fully and disconnect USB before inserting a separate blank FAT32 card;
+preserve the prior card. Boot with USB power and the iPhone hotspot available.
+Connect web console DTR=true/RTS=false and capture status, then log list. Expect
+logger ready, error none, generation 1, current.log present and no archives.
+Hold the calibration top band for one second, open the displayed URL in Safari,
+and download current.log once. Export that file and the last-result page to PC Downloads.
+Use Stop and return; capture log mode status. Download the later USB reference with
+log get current and retain it separately from the phone export. After completion,
+wait 60 seconds and capture status plus log status to establish continued appends.
+Send the console, both files and last-result page. Verify fresh FILE_OPEN/LOGGER_START,
+HTTP success and CRC agreement, exact phone-file prefix of later USB reference,
+mode OFF and append growth. Missing/unknown opened time on a fresh early-boot header
+is not a failure: the clock may not yet be synchronized. No need to await rotation.
+After this passes and JP accepts, prepare car configuration/deployment, not further
+firmware features or an expanded bench suite.
+
 ## September 24 - increment 11 accepted; no-card and fresh-card pre-car checks
 
 JP explicitly accepted increment 11, then requested two focused bench checks before car
