@@ -1,5 +1,12 @@
 # iPhone log retrieval - bench cases and results
 
+## September 25 - first car ride and phone retrieval
+
+See [car analysis](sd_iphone_car_2026-09-25.md). Exported 98264-byte snapshot CRC
+F1E81AFB matches screenshot transport/writer CRCs; appends resumed. Two WiFi outages
+at 07:04 caused successful MQTT reconnects coinciding with measured ~8-second main-loop
+gaps on the G-meter screen. Field responsiveness finding remains open; no firmware changes.
+
 ## September 24 20:35-20:41 - blank FAT32 pre-car gate PASSED
 
 JP reports success. Console attachment f1df84d7-dca8-45c3-9e24-bf8ac4a42519/Pasted text.txt;
