@@ -15,7 +15,8 @@ Last updated: September 25, 2026.
 - F002 repeats the UI stall with failed MQTT attempts (8.771 s and 5.115 s loop gaps),
   then automatic recovery. Two ~0.12 s storage operations were also recorded without loss.
 - Field observation continues. JP approved P001 revision 2 and increment 1 on September 25;
-  its implementation is awaiting Claude code review on `codex/car-improvements-p001`.
+  Claude cleared c9629df and the first worker TLS/CONNACK bench gate has technically
+  passed on boot 130. JP acceptance / increment 2 go-ahead is pending.
   The car firmware has not been changed by this work. One successful ride is not long-term
   reliability proof.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
@@ -588,3 +589,20 @@ sampling, buffered-body batch yields, duplicate GOT_IP filtering, and counted st
 drops. All 14 host suites pass, **341 checks**. See the [focused handoff](p001_increment1_handoff.md)
 for changes and review scope. Claude re-check is pending; no build, flash or hardware
 results. The car installation and raw field evidence remain unchanged.
+
+
+### P001 first worker TLS/CONNACK bench result — September 25, 2026, Codex
+
+JP compiled/flashed after Claude clearance c9629df. Boot 130 connected successfully:
+DNS 77 ms, TCP setup 91 ms, TLS 445 ms, MQTT exchange 50 ms, total 696 ms.
+Worker stack margin 7260 bytes, PSRAM placement and internal TCB confirmed; attempt
+internal-largest minimum 53236 bytes exceeds 20480. Subscriptions accepted, green
+connection recorded, no reported drops/faults. JP confirms the reset preceding boot 130
+was caused by closing/switching the VS Code monitor, the known separate limitation.
+
+The technical placement/connection/resource gate passes. This does not yet prove
+reconnect responsiveness or failure/flap behavior. JP acceptance / increment 2 approval
+pending. Full evidence, hashes and limitations are in the
+[handoff result](p001_increment1_handoff.md#p001-increment-1-first-hardware-gate--september-25-2026-codex).
+The original 57,256-byte USB export is preserved under
+`evidence/2026-09-25-p001-first-handshake/130-current.log` (ignored by Git).

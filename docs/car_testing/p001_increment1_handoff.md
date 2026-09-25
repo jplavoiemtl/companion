@@ -1,8 +1,10 @@
 # P001 increment 1 â€” code-review handoff
 
-September 25, 2026. Author: Codex. Status: ready for Claude review, **not build clearance**.
+September 25, 2026. Author: Codex. Status: Claude cleared c9629df; first hardware gate
+technically passed (see result below). JP acceptance / increment 2 go-ahead pending.
 JP approved revision 2 and all four section-11 decisions after focused review e3ae528.
-Scope follows section 10 increment 1. No firmware compile, flash or hardware action.
+Scope follows section 10 increment 1. Initial handoff was host-only; JP subsequently
+compiled/flashed and supplied the hardware evidence recorded below.
 
 ## Branch and return point
 
@@ -318,3 +320,41 @@ Nonblocking notes, no change needed before the build:
   behaviour.
 - **TX queue not counted on invalidation.** Queued TX discarded at invalidation is still
   not counted. That is harmless, but it could be added to `txDrops` for symmetry.
+
+
+## P001 increment 1 first hardware gate — September 25, 2026, Codex
+
+**Technical gate passed; JP acceptance / increment 2 go-ahead pending.** Claude cleared
+c9629df; JP then compiled and flashed the bench unit. The log embeds compilation time
+Sep 25 2026 10:51:24, not a Git hash; c9629df is the supplied source checkpoint, not an
+independently verified binary identity. No Codex build or flash.
+
+Evidence: [130-current.log](evidence/2026-09-25-p001-first-handshake/130-current.log),
+57,256 bytes; CRC32 `86D80753`; SHA-256
+`1a16bdc15434cb31af7e2d9a0079daa214d3940154e13b910d1460a4959e9f22`. Copied byte-for-byte from Downloads; original retained. The console reports
+USB CRC OK, 0.58 s. Raw evidence stays ignored by Git. This snapshot includes earlier
+boots; the retained gate is boot 130, attempt 1, epoch 5.
+
+- Real broker port 9735, tls=1; worker END result=ok, valid=15, state=0.
+- DNS 77 ms; TCP setup 91 ms; TLS 445 ms; MQTT exchange 50 ms; total 696 ms.
+  Phase durations omit dispatch/lease/subscription overhead and need not sum to total.
+- Worker stack external=1, TCB internal=1; stack minimum **7260 bytes** (gate >=2048).
+  Attempt internal minimum 94480, internal-largest minimum **53236 bytes** (gate >=20480),
+  DMA minimum 86816. Logger's later internal-largest minimum 49140 also exceeds the gate.
+- Image/power/energy subscriptions accepted=1 (broker SUBACK not independently observed).
+  Green UI connection record and SETUP_COMPLETE follow. At status, connected=1, lease=0,
+  all reported queue/packet drop, stuck, cancellation and lease-timeout counters zero.
+  Four outgoing publications accepted, none failed. SD logger ready, drops=0, error=none.
+- Boot 130 starts with reset=task_watchdog. **JP confirms this occurred when closing /
+  switching the VS Code serial monitor**, matching the pre-existing limitation. It did
+  not occur during the retained boot-130 handshake. Boot 129 also logged a successful
+  worker TLS connection; no claim that this change fixes monitor-close resets.
+- The console probe reports IMU average 44.47 Hz and gap_max_us=10833 for its window.
+  This is not a reconnect service-gap measurement or a substitute for increment 2's
+  instrumentation. No forced failure/flap case has been run. Subjective UI responsiveness
+  during the handshake was not explicitly reported; the recorded green/setup transition
+  establishes completion, not a quantified absence of visual stalls.
+
+This establishes successful TLS/CONNACK from the PSRAM worker with the required memory
+and placement margins. Next: JP acceptance/go-ahead for increment 2, then complete the
+planned service-gap telemetry and obtain Claude review before further build/bench work.
