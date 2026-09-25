@@ -134,3 +134,99 @@ The selected generated `build/build_amoled-1-8-core-3-3-11/sketch/companion.ino.
 removed because companion.ino changed. No hardware case is issued by this handoff.
 After clearance, the first gate is one real TLS/CONNACK on the worker, checking PSRAM
 placement, >=2048 stack margin and >=20480 internal-largest, before failure cases.
+
+## Claude code review - September 25, 2026 (commit d7752d9)
+
+**Verdict: not yet cleared for build.** Two blockers (B1, B2), both small. Everything else
+matches revision 2. I re-ran the 14 host suites: 329 pass. Per the handoff, I did not
+compile; JP's build is the compile check.
+
+### Verified
+
+- **Ownership:** no PubSubClient include or direct client use remains outside
+  `src/net/mqtt_client` and the worker. companion.ino, net_module.cpp and imu_module.cpp
+  are migrated. Callbacks run on main from copied, epoch-checked slots.
+- **Boot ordering:** `netInit()` (companion.ino:2422) registers WiFi events before
+  `initWiFi()` (:2436), so the first GOT_IP sets the link and requests are admitted.
+- **DNS:** slot allocation, the ERR_OK / ERR_INPROGRESS / immediate-error paths,
+  submission ERR_MEM and resolver ERR_MEM (both uncounted), and tombstones released only
+  by `completeDns`, even after abandonment. Hostname storage outlives submission.
+- **READY versus epoch race:** READY is published atomically with epoch validation.
+  `acknowledgeReady()` re-validates. A revoked success is cleaned by the worker with a
+  loss acknowledgement, and `request()` refuses until main has consumed both result and
+  loss.
+- **Split TLS:** `setPlainStart()` on every attempt; `connect(IPv4, port, hostname, CA)`
+  then `startTLS()`. The facade refuses implicit connect and all I/O until `ready`, which
+  is set only after TLS succeeds.
+- **Timing:** constants 15000/35000/40000/5000; per-phase admission against the attempt
+  clock; one 5 s absolute deadline per ONLINE `loop()` call.
+- **Lease:** requested only after DNS. `arbitrate()` grants only while `requestedLease`
+  and phase Lease hold, so a late grant is impossible after the worker's 100 ms expiry.
+  The lease is released at ack or cleanup and retained on Fault. Media refusal covers
+  Latest, Back, Live, the prepare backstop and notifications. Retrieval refusal sits in
+  the shared `entryRefusal()` (panel and USB). The handover cannot meet a held lease,
+  because arbitration excludes pending display.
+- **Patch versus upstream 2.8** (line-ending-insensitive diff): the only changes are the
+  guard, `vTaskDelay(1)` waits, CONNACK validation, packet bounds and counters. No yield-only
+  wait remains.
+- **Tests:** existing media and retrieval assertions were kept, and lease cases added.
+  Replaced network assertions now pin the same calls on the owner. `recordAt` keeps
+  queue and drop behaviour. Shutdown hooks are non-waiting.
+- **APIs:** the core 3.3.11 `Client` has exactly the 12 pure virtuals the facade
+  overrides; `std::min` is exported by Arduino.h; the lwIP and heap APIs exist.
+
+### B1 - an oversized incoming message now drops the whole connection (blocker)
+
+`readPacket` closes the session when `length + len > bufferSize`
+(OwnedPubSubClient.cpp:355-358). Upstream 2.8 read and discarded such a packet and kept
+the session. Design section 4 says oversized incoming packets are "discarded and counted".
+Any message over about 505 bytes on the image, power or energy topics (retained or
+periodic) would now cause disconnect, 15 s backoff, a new TLS handshake holding the
+lease, and repeat. The old client ignored those messages silently, so their existence
+today cannot be ruled out.
+**Fix:** discard the remainder inside the existing absolute 5 s operation deadline, count
+it, keep the session. Close only on malformed length encoding or a hard cap (for example
+a remaining length above 16 KiB). Add a host case.
+
+### B2 - the worker polls TLS about 1000 times a second on every screen (blocker)
+
+`CONFIG_FREERTOS_HZ=1000`, so `vTaskDelay(1)` is 1 ms. While ONLINE, each worker turn
+calls `client.loop()`, which runs `NetworkClientSecure::connected()`/`available()`: an
+mbedTLS read plus lwIP socket calls under the TCP/IP core lock. That is about 1000 times
+a second, against about 40 per second when main called `loop()`. Each turn also scans
+the PSRAM stack (`uxTaskGetStackHighWaterMark`), and heap walks run every 20 ms
+permanently, on both the worker and main. This competes with Live/image HTTPS for the
+core lock and PSRAM bandwidth all the time, not only during reconnects, and the first
+hardware gate would not reveal a Live FPS regression.
+**Fix:**
+- Idle and ONLINE turns use `vTaskDelay(pdMS_TO_TICKS(10))`. Keep 1-tick delays only
+  inside active waits.
+- Take the stack high-water mark at phase boundaries and at most about once a second.
+- Sample heap, on worker and main, only while an attempt is busy, as the design's
+  "while worker is active" intends.
+
+### Nonblocking
+
+- **N1 - per-byte delay.** The remaining-length and body loops of `readPacket`
+  (:340, :377) delay 1 ms per byte even when data is already waiting, so a 500-byte
+  message takes about 0.5 s and B1's discard would crawl. `readByte()` already delays
+  when nothing is available. Drop the unconditional per-iteration delay (or take it every
+  N bytes) and classify these loops in the static guard as waiting only via `readByte`.
+- **N2 - GOT_IP while the link is already up.** A same-IP DHCP renewal would bump the
+  epoch and drop a healthy ONLINE session. Ignore `linkEvent(true)` when `status.link`
+  is already true. A genuine same-IP recovery still passes through CONNECTED or
+  DISCONNECTED (link false) first.
+- **N3 - uncounted drops.** The stale or not-connected path in `receive()` and the stale
+  discard in `takeRx()` drop messages without counting them. Add them to `rxDrops` or a
+  separate stale counter.
+- **N4 - dispatch point moved.** MQTT callbacks now run at the top of
+  `runBackgroundTick()`, which also runs inside setup keep-alive loops, instead of in
+  `loop()` after the tick. MQTT only connects at the end of setup, so no new path is
+  exercised today. Note it in the handoff for future setup changes.
+- **N5 - compile.** Not compiled, per the handoff. The spot checks above passed, but
+  JP's first build is the real compile check.
+
+After B1 and B2, with N1 recommended alongside B1, I only need to re-check those diffs.
+The first hardware gate stays as planned: one worker TLS handshake and CONNACK, checking
+PSRAM stack placement, a stack margin of at least 2048 bytes and an internal largest
+block of at least 20480 bytes.
