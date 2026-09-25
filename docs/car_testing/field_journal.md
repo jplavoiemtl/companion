@@ -195,6 +195,53 @@ The first ride does not identify weak signal, cellular handover or iPhone behavi
 the cause. Change WiFi policy only when repeatable evidence supports it; do not make
 speculative power-save, retry or radio changes while diagnosing UI blocking.
 
+#### Investigation plan - Claude, September 25, 2026 (requested by JP; no changes made)
+
+What F001/F002 already show (5 beacon_timeout drops):
+
+| Ride | Drop, time into ride | RSSI | Channel before -> after | AP invisible (no_ap_found) |
+|---|---|---|---|---|
+| F001 | 07:04:12, ~15 min | -35 | 6 -> 6 | ~2.5 s |
+| F001 | 07:04:36 | -41 | 6 -> 6 | ~12 s |
+| F002 | 08:51:21, ~5 min | -29 | 4 -> 4 | ~24 s |
+| F002 | 08:52:17 | -30 | 4 -> 4 | ~2.5 s |
+| F002 | 08:52:30 | -30 | 4 -> 4 | ~2.5 s |
+
+- Signal was very strong at every drop, so range is not the cause.
+- ESP32 power save is already off (`WiFi.setSleep(false)`, companion.ino:790). The
+  module is always listening, so missed beacons are not due to modem sleep.
+- There was no channel change: each drop recovered on the same channel.
+- After each drop the module actively scanned and could not see the hotspot for
+  2.5-24 s. Combined with the points above, this points to the iPhone pausing its
+  hotspot radio rather than the module losing reception. Strong indication, not proof:
+  the module only sees its own side.
+- Drops cluster (2 within 24 s; 3 within 70 s), then the link stays stable for the
+  rest of the ride.
+
+Plan, in priority order:
+
+1. **Second client on the same hotspot (decisive; no firmware change).** During a ride,
+   connect a laptop or iPad to the iPhone hotspot with a continuous ping (for example
+   `ping -t 172.20.10.1` on Windows) and compare ping failures with the module's drop
+   times.
+   - Both drop together: the iPhone is pausing its hotspot. The module cannot prevent
+     that; P001 improves the recovery.
+   - Only the module drops: investigate the ESP32 side.
+2. **Record phone circumstances for each drop,** for P003:
+   - leaving home Wi-Fi range (fits "a few minutes into a ride"; the iPhone switching
+     off home Wi-Fi may restart the hotspot)
+   - wireless CarPlay or Bluetooth audio connecting (they share the iPhone's radio)
+   - navigation, calls, screen lock, Low Power Mode
+3. **Keep collecting normal ride logs.** Per drop, tabulate time into the ride, time the
+   hotspot was invisible, channel and RSSI, to see whether drops always come early (which
+   would support the home-Wi-Fi hypothesis) or at random.
+4. **Only if 1-3 are inconclusive (a firmware change, needs approval):** sample RSSI
+   about once a second (bounded) before drops, to tell a gradual fade from an instant
+   disappearance. An instant disappearance would confirm the AP switching off.
+
+This plan changes no WiFi policy. Per the workflow, Codex integrates any resulting
+finding into the tables.
+
 ## Working agreement
 
 Keep the accepted reduced bench scope. Reopen a waived case only for relevant evidence
@@ -577,7 +624,7 @@ The obsolete 3.1.3 capability branch is removed. Remaining JP decisions are enum
 in design section 11. Design only; focused B1/B2 check and implementation approval remain
 pending. No code, build, flash or host execution accompanied this documentation change.
 
-### P001 increment 1 — September 25, 2026, Codex
+### P001 increment 1 ï¿½ September 25, 2026, Codex
 
 JP approved all four revision-2 decisions and increment 1 following Claude focused
 review e3ae528. At JP's request, development moved to `codex/car-improvements-p001`,
@@ -593,7 +640,7 @@ is next; the first hardware gate remains one worker TLS handshake/CONNACK. Incre
 service-gap telemetry and failure/flap validation have not been implemented.
 
 
-### P001 increment 1 focused review fixes — September 25, 2026, Codex
+### P001 increment 1 focused review fixes ï¿½ September 25, 2026, Codex
 
 Addressed Claude review e51ef5a at JP's request: bounded oversized-packet discard that
 keeps the session, 10 ms idle/ONLINE cadence, phase/1 Hz stack sampling, busy-only heap
@@ -603,7 +650,7 @@ for changes and review scope. Claude re-check is pending; no build, flash or har
 results. The car installation and raw field evidence remain unchanged.
 
 
-### P001 first worker TLS/CONNACK bench result — September 25, 2026, Codex
+### P001 first worker TLS/CONNACK bench result ï¿½ September 25, 2026, Codex
 
 JP compiled/flashed after Claude clearance c9629df. Boot 130 connected successfully:
 DNS 77 ms, TCP setup 91 ms, TLS 445 ms, MQTT exchange 50 ms, total 696 ms.
@@ -620,7 +667,7 @@ The original 57,256-byte USB export is preserved under
 `evidence/2026-09-25-p001-first-handshake/130-current.log` (ignored by Git).
 
 
-### P001 increment 2 — September 25, 2026, Codex
+### P001 increment 2 ï¿½ September 25, 2026, Codex
 
 JP accepted increment 1 and requested essential-only testing, then authorized increment 2.
 Implemented bounded per-attempt main UI/IMU/loop service records, overlapping-operation
@@ -632,7 +679,7 @@ at a time after review clearance. Actual failure/flap evidence remains pending. 
 rollout follows acceptance and only evidence-justified corrections.
 
 
-### P001 retained case 1 — September 25, 2026, Codex
+### P001 retained case 1 ï¿½ September 25, 2026, Codex
 
 PASS: JP reports no G-meter freeze. Boot 132 real recovery took 888 ms; measured maximum
 UI/IMU/loop service gaps were 23/26/26 ms with zero intervals over100 ms. A preceding
@@ -644,7 +691,7 @@ gates. No drops/reset during the case; Latest displayed after recovery. See the
 Evidence is preserved in `evidence/2026-09-25-p001-case1/`. Cases 2 and 3 remain pending.
 
 
-### P001 retained case 2 — September 25, 2026, Codex
+### P001 retained case 2 ï¿½ September 25, 2026, Codex
 
 PASS. JP observed no G-meter freeze. Boot 132 attempts 4/5 each failed after 5003 ms TCP
 setup, with maximum UI/IMU/loop gaps 21/21/21 ms and no over100 intervals. Retry began
@@ -656,7 +703,7 @@ and `evidence/2026-09-25-p001-case2/`. Only the retained hotspot-flap case remai
 controlled failure endpoint or extra failure tests are needed from this result.
 
 
-### P001 retained case 3 / bench closeout — September 25, 2026, Codex
+### P001 retained case 3 / bench closeout ï¿½ September 25, 2026, Codex
 
 PASS: JP observed responsive G-meter. Driver WiFi loss at up_ms=785205 overlapped attempt
 7; that epoch ended cancelled. Same-IP GOT_IP (172.20.10.2, changed=0) preceded the next
@@ -673,7 +720,7 @@ would be one ordinary car ride with full export; field WiFi-loss causes remain o
 and no-outage driving alone cannot validate field reconnection behavior.
 
 
-### JP acceptance and car-testing handoff — September 25, 2026, Codex
+### JP acceptance and car-testing handoff ï¿½ September 25, 2026, Codex
 
 JP explicitly accepted increment 2 and will conduct car testing and report findings.
 I001 is now **addressed: implemented, reviewed, bench-validated and accepted**, with field
