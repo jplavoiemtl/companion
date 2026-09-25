@@ -282,3 +282,39 @@ simulations and C++ correctness. Append the verdict here. No build or flash. Aft
 clearance, the first hardware gate remains one worker TLS handshake/CONNACK with the
 already specified stack-placement, 2048-byte stack-margin and 20480-byte largest-block
 gates. No hardware case is issued before that review.
+
+## Claude focused re-check - September 25, 2026 (bd8d21e against e51ef5a)
+
+**Verdict: B1, B2 and N1-N3 are resolved. Cleared for JP's build** and the first hardware
+gate (one worker TLS/CONNACK: PSRAM stack placement, stack margin >= 2048, internal
+largest >= 20480, no reset). Host checks re-run: **341 pass in 14 suites** (329 before,
+plus 12 MQTT-owner checks). Not compiled, per the handoff.
+
+- **B1 resolved.** An oversized packet (<= 16 KiB remaining length) is counted once,
+  drained within the unchanged per-call 5 s operation deadline, and `readPacket` returns
+  0 without `stop()`. `loop()` then sees `connected()` still true and returns true, so the
+  session survives. Malformed length encodings, malformed topics and bodies above 16 KiB
+  still close. Host cases cover 600 and 16384-byte bodies (no stop, next CONNACK stays
+  aligned), trickle and cancellation under the deadline, and a malformed topic counted
+  once.
+- **B2 resolved.** Idle and ONLINE worker turns use `vTaskDelay(pdMS_TO_TICKS(10))`,
+  about 100 polls a second instead of about 1000. One-tick delays remain only in active
+  waits (DNS, lease, CONNACK, empty reads, subscribe spacing, chunked write). The stack
+  high-water mark is taken at phase boundaries and otherwise at most once a second. Heap
+  walks run only while an attempt is busy, and the shared `sample()` refuses when idle and
+  discards a walk that raced a completion or a new attempt.
+- **N1 resolved.** No per-byte delay remains. The remaining-length loop relies on
+  `readByte`'s empty-input wait, and buffered bodies yield once every 64 bytes, which
+  still gives IDLE0 time during a 16 KiB discard.
+- **N2 resolved.** `linkEvent(true)` is ignored while the link is already up. A real
+  down-then-up (CONNECTED or DISCONNECTED first) still bumps the epoch.
+- **N3 resolved.** Receives that are not connected, stale or stopped, stale dequeues, and
+  queued RX cleared on invalidation are all counted in `rxDrops`, without double counting.
+
+Nonblocking notes, no change needed before the build:
+- **No PUBACK for discarded QoS1 messages.** A discarded oversized QoS1 PUBLISH gets no
+  PUBACK, exactly as in upstream 2.8. It occupies one broker in-flight slot until the next
+  reconnect. If `rx_packet_drops` ever rises in the field, look at broker in-flight
+  behaviour.
+- **TX queue not counted on invalidation.** Queued TX discarded at invalidation is still
+  not counted. That is harmless, but it could be added to `txDrops` for symmetry.
