@@ -254,8 +254,11 @@ not-entered phases get an explicit validity bit, not a misleading zero duration.
 Use a project-local, renamed PubSubClient 2.8 derivative with a MINIMAL reviewed patch:
 absolute operation deadline/cancel predicate checked in connect's CONNACK wait,
 readByte, readPacket (including oversize discard), and outgoing write boundaries;
-vTaskDelay of at least one RTOS tick on EVERY continuing polling loop path, including
-CONNACK wait, readByte, packet/discard loops and facade polling. yield() alone is forbidden.
+vTaskDelay of at least one RTOS tick on every continuing empty-input wait, including
+CONNACK and readByte. Buffered packet/discard work yields every 64 bytes; the at-most
+four-byte remaining-length parser delegates waiting to readByte. Idle/ONLINE worker
+turns use `pdMS_TO_TICKS(10)`. yield() alone is forbidden. These cadence details reflect
+Claude review e51ef5a and JP's requested B1/B2/N1 corrections.
 Core 0 IDLE is watchdog-monitored; a priority-1 task must actually block to let it run.
 The local patch ships in increment 1 with the worker, never in a later increment. No
 intermediate build may run unpatched PubSubClient on that worker. Enforce remaining-length/packet bounds before
@@ -392,8 +395,9 @@ If handshake crashes or fails this placement check, stop and revise the stack de
 review; do not automatically switch to an internal stack or continue other cases.
 
 Required host checks (real implementation logic, not merely regex where practicable):
-- every worker-reachable polling loop and continuing wait path includes vTaskDelay
-  (>=1 tick), not yield(): audit actual local PubSub patch plus facade/worker loops,
+- every worker-reachable empty-input wait includes vTaskDelay (>=1 tick), not yield();
+  buffered bodies yield every 64 bytes, length decoding is bounded to four bytes, and
+  idle/ONLINE turns delay 10 ms: audit actual local PubSub patch plus facade/worker loops,
   and run delayed-CONNACK/partial-packet simulations proving tick-delay calls and
   deadlines. A static guard rejects bare-yield waits or newly unguarded polling loops;
 - zero direct client access outside owner; no callbacks/UI on worker; publish admission
@@ -598,3 +602,20 @@ Non-blocking notes for implementation and field reading:
 Codex implemented increment 1 on `codex/car-improvements-p001`. See
 [the code-review handoff](p001_increment1_handoff.md) for changed ownership boundaries,
 host coverage, validation limits and the review request. No firmware build or flash.
+
+### Increment 1 review corrections — September 25, 2026
+
+JP requested the fixes from Claude's e51ef5a review. Ordinary oversized inbound packets
+are counted and discarded under the existing absolute 5 s operation deadline, without
+closing a successfully drained session. Malformed lengths and remaining lengths above
+16 KiB close; cancellation/deadline still terminates an incomplete discard. The polling
+cadence clarification in section 6 supersedes the earlier blanket per-byte wording:
+active empty-input waits block one tick, buffered bodies yield per 64 bytes, idle/ONLINE
+worker turns wait 10 ms. Stack high-water scans occur at phase boundaries and no more
+than about 1 Hz otherwise. Heap sampling on both tasks is restricted to busy attempts
+(including their cancellation cleanup), not healthy ONLINE/idle operation. Repeated
+GOT_IP while already up is ignored; genuine down/up still invalidates the epoch. Stale
+RX drops are counted, including pending messages discarded by invalidation.
+
+Implementation and 341 host checks are recorded in the [focused handoff](p001_increment1_handoff.md).
+Claude's focused re-check is pending. No firmware build, flash or hardware gate has run.

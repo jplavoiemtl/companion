@@ -54,7 +54,7 @@ bool current(uint32_t epoch) {
   bool ok=status.epoch==epoch && status.link && !status.stop && status.phase!=Phase::Fault;
   portEXIT_CRITICAL(&mux); return ok;
 }
-void clearMessagesLocked() { rxCount=txCount=0; }
+void clearMessagesLocked() { status.rxDrops+=rxCount; rxCount=txCount=0; }
 void invalidateLocked(bool stopping) {
   if(status.phase==Phase::Online && !status.busy) { status.busy=true; status.started=nowMs(); }
   ++status.epoch; status.stop|=stopping; status.connected=false; clearMessagesLocked();
@@ -149,24 +149,30 @@ void receive(char* topic,byte* payload,unsigned int size) {
     Rx& item=queues->rx[(rxHead+rxCount)%4];
     item.epoch=operationEpoch; item.at=at; item.topic=category; item.length=size;
     memcpy(item.payload,payload,size); item.payload[size]=0; ++rxCount;
-  }
+  } else ++status.rxDrops;
   portEXIT_CRITICAL(&mux);
 }
-void workerSample() {
-  const uint32_t margin=uxTaskGetStackHighWaterMark(nullptr);
-  const bool external=esp_ptr_external_ram(&margin);
-  portENTER_CRITICAL(&mux);
-  status.stackExternal=external;
-  status.stackMin=status.stackMin ? min(status.stackMin,margin) : margin;
-  portEXIT_CRITICAL(&mux);
-  static uint64_t sampledAt=0;
-  if(nowMs()-sampledAt>=20) { sample(); sampledAt=nowMs(); }
+void workerSample(bool phaseBoundary=false) {
+  static uint64_t stackAt=0, heapAt=0;
+  const uint64_t now=nowMs();
+  // Stack scans walk PSRAM. Force a measurement at phase boundaries, otherwise
+  // sample at most once per second (including idle/ONLINE turns).
+  if(phaseBoundary || now-stackAt>=1000) {
+    const uint32_t margin=uxTaskGetStackHighWaterMark(nullptr);
+    const bool external=esp_ptr_external_ram(&margin);
+    portENTER_CRITICAL(&mux);
+    status.stackExternal=external;
+    status.stackMin=status.stackMin ? min(status.stackMin,margin) : margin;
+    portEXIT_CRITICAL(&mux);
+    stackAt=now;
+  }
+  if(view().busy && (phaseBoundary || now-heapAt>=20)) { sample(); heapAt=now; }
 }
 void phase(Phase value) {
   const uint64_t at=nowMs();
   portENTER_CRITICAL(&mux);
   if(status.phase!=Phase::Fault) { status.phase=value; status.phaseAt=at; }
-  portEXIT_CRITICAL(&mux); workerSample();
+  portEXIT_CRITICAL(&mux); workerSample(true);
 }
 bool admitPhase(const Command& cmd,Phase value,uint32_t allowance,Result& result) {
   if(!current(cmd.epoch)) { result.reason="cancelled"; return false; }
@@ -210,7 +216,7 @@ void worker(void*) {
   secure.setConnectionTimeout(5000); secure.setHandshakeTimeout(5);
   bool online=false;
   for(;;) {
-    vTaskDelay(1); // Includes idle, result acknowledgement and queue-empty paths.
+    vTaskDelay(pdMS_TO_TICKS(10)); // Idle/ONLINE cadence; active waits use one tick.
     workerSample();
     portENTER_CRITICAL(&mux); status.rxPacketDrops=client.rejectedPackets(); portEXIT_CRITICAL(&mux);
     Command cmd{};
@@ -283,6 +289,7 @@ void worker(void*) {
       // Publish READY atomically with epoch validation. Otherwise close before the
       // result/cleanup acknowledgement is visible, including a just-cancelled success.
       if(result.ok) {
+        workerSample(true); // Subscription completion / transition to READY.
         result.ended=nowMs(); result.when=diag::stamp();
         portENTER_CRITICAL(&mux);
         const bool valid=status.epoch==cmd.epoch && status.link && !status.stop && status.phase!=Phase::Fault;
@@ -297,6 +304,7 @@ void worker(void*) {
       }
       if(!current(cmd.epoch)) { result.reason="cancelled"; result.counted=false; }
       phase(Phase::Cleanup); facade.stop(); plain.stop(); secure.stop(); online=false;
+      workerSample(true); // Include cleanup stack depth before becoming idle.
       result.ended=nowMs(); result.when=diag::stamp(); attemptDeadline=0;
       portENTER_CRITICAL(&mux);
       if(status.epoch!=cmd.epoch || status.stop) { result.reason="cancelled"; result.counted=false; }
@@ -358,7 +366,11 @@ const char* phaseName(Phase value) {
 bool init(const NetConfig& value) { config=value; return true; }
 View view() { portENTER_CRITICAL(&mux); const View copy=status; portEXIT_CRITICAL(&mux); return copy; }
 void linkEvent(bool up) {
-  portENTER_CRITICAL(&mux); invalidateLocked(false); status.link=up; portEXIT_CRITICAL(&mux);
+  portENTER_CRITICAL(&mux);
+  // A repeated GOT_IP (e.g. DHCP renewal) is not a new association. Genuine
+  // same-IP recovery first passes through CONNECTED/DISCONNECTED with link=false.
+  if(!up || !status.link) { invalidateLocked(false); status.link=up; }
+  portEXIT_CRITICAL(&mux);
 }
 void invalidate(bool stopping) {
   portENTER_CRITICAL(&mux); invalidateLocked(stopping); portEXIT_CRITICAL(&mux);
@@ -400,11 +412,15 @@ void arbitrate(bool available) {
   portEXIT_CRITICAL(&mux);
 }
 void sample() {
+  const auto before=view();
+  if(!before.busy) return; // Neither caller walks heaps during idle/ONLINE operation.
   const uint32_t free=heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
   const uint32_t largest=heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
   const uint32_t dma=heap_caps_get_free_size(MALLOC_CAP_DMA|MALLOC_CAP_INTERNAL);
   portENTER_CRITICAL(&mux);
-  status.internalMin=min(status.internalMin,free); status.largestMin=min(status.largestMin,largest); status.dmaMin=min(status.dmaMin,dma);
+  if(status.busy && status.id==before.id) {
+    status.internalMin=min(status.internalMin,free); status.largestMin=min(status.largestMin,largest); status.dmaMin=min(status.dmaMin,dma);
+  }
   portEXIT_CRITICAL(&mux);
 }
 bool takeResult(Result& result) {
@@ -426,7 +442,7 @@ bool takeLoss(int& state) {
 }
 bool takeRx(Rx& message) {
   portENTER_CRITICAL(&mux); bool ready=rxCount!=0;
-  if(ready) { message=queues->rx[rxHead]; rxHead=(rxHead+1)%4; --rxCount; ready=message.epoch==status.epoch && status.connected && !status.stop; }
+  if(ready) { message=queues->rx[rxHead]; rxHead=(rxHead+1)%4; --rxCount; ready=message.epoch==status.epoch && status.connected && !status.stop; if(!ready) ++status.rxDrops; }
   portEXIT_CRITICAL(&mux); return ready;
 }
 bool publish(uint8_t topic,const char* payload,const char* category,const char* trigger) {

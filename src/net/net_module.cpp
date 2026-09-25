@@ -230,7 +230,7 @@ void netMainTick() {
   mqttowner::arbitrate(!imageFetcherIsBusy() && !videoStreamActive() &&
     !imageFetcherHasPendingDisplay() && !logRetrievalActive());
   static uint32_t sampledAt=0;
-  if(millis()-sampledAt>=20) { mqttowner::sample(); sampledAt=millis(); }
+  if(mqttowner::view().busy && millis()-sampledAt>=20) { mqttowner::sample(); sampledAt=millis(); }
   auto state=mqttowner::view();
   if(state.phase==mqttowner::Phase::Fault && !faultReported) {
     faultReported=true;

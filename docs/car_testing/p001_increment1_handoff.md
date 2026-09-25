@@ -21,10 +21,12 @@ excluding the static TCB. Stack reporting checks a local worker address, not jus
 allocation pointer. No worker UI, calibration, NVS, SD formatting or USB printing.
 
 `src/net/mqtt_client/` contains renamed PubSubClient 2.8, original MIT license and
-provenance. Its CONNACK wait, byte wait, remaining-length reader, packet reader and
-optional chunked write loop each use `vTaskDelay(1)` plus an absolute operation guard.
-Oversize/malformed packets close rather than run an unbounded discard loop. Rejected
-packets have a counter. CONNACK type/length/flags are checked. Finite local buffer copies
+provenance. Its CONNACK/empty-byte waits and optional chunked write loop use
+`vTaskDelay(1)` plus an absolute operation guard. Buffered bodies yield every 64 bytes;
+the four-byte remaining-length parser waits through readByte only. Ordinary oversized
+packets are counted and drained inside the unchanged absolute 5 s deadline, keeping
+the session. Malformed lengths and remaining lengths above 16 KiB close the session.
+Deadline/cancellation still closes rather than leaving a partly drained packet. CONNACK type/length/flags are checked. Finite local buffer copies
 and header encoders are not network polling loops. The Client facade forbids implicit
 connect and all MQTT I/O before TLS readiness. No installed library was edited.
 
@@ -48,8 +50,9 @@ paths refuse while the lease is held; shared retrieval admission refuses both pa
 entry and USB `log mode on`, with a readable retry message. Existing raw USB file
 transfer commands were not given a new admission policy.
 
-Driver association/disconnection/GOT_IP/LOST_IP/STOP events invalidate epochs even for
-same-IP recovery. Each new connection also gets a distinct message epoch. Only the
+Driver association/disconnection/LOST_IP/STOP events invalidate epochs even for
+same-IP recovery; GOT_IP invalidates only when the link was previously down. A repeat
+GOT_IP while already up preserves the session. Each new connection also gets a distinct message epoch. Only the
 worker closes its transports. Failure results are published after cleanup; a successful
 READY retains the lease until main adopts it. A cancelled READY has an owner cleanup
 acknowledgement. A stuck worker holds resources and any lease, posts one visible notice,
@@ -84,14 +87,15 @@ not wrapped as a blocking main-thread MQTT span. Existing real LOOP_GAP evidence
 
 ## Host verification
 
-All **329 checks in 14 suites pass**. The previous 288 checks remain (assertions tied to
-old APIs/locations were adapted); 39 MQTT-owner checks and two admission checks were added.
+All **341 checks in 14 suites pass** after the focused review fixes below. The initial
+implementation had 329; the MQTT-owner suite now has 51 checks (12 added). Existing
+suites still pass; polling and oversize assertions now express the reviewed correction.
 
 | Suite | Checks |
 |---|---:|
 | HTTP lifecycle / transfer | 43 / 35 |
 | Log time / media admission | 20 / 16 |
-| MQTT owner / network diagnostics | 39 / 16 |
+| MQTT owner / network diagnostics | 51 / 16 |
 | Operation / reader session | 8 / 28 |
 | Retrieval mode / UI | 42 / 15 |
 | Browser / touch | 20 / 19 |
@@ -230,3 +234,51 @@ After B1 and B2, with N1 recommended alongside B1, I only need to re-check those
 The first hardware gate stays as planned: one worker TLS handshake and CONNACK, checking
 PSRAM stack placement, a stack margin of at least 2048 bytes and an internal largest
 block of at least 20480 bytes.
+
+## Codex focused fixes for review e51ef5a — September 25, 2026
+
+Status: implemented and host-checked; awaiting Claude's focused re-check. No firmware
+compile or flash. The Claude review above is preserved as the pre-fix assessment.
+
+- **B1 / N1:** packets above the 512-byte buffer and with remaining length at most
+  16384 bytes are counted once, drained without callback/stream delivery, and leave
+  the connection open. The next packet starts at the correct byte. A malformed
+  remaining-length encoding, invalid PUBLISH topic/message-ID length, or remaining
+  length above 16384 closes. Incomplete discard still obeys the original absolute
+  operation deadline/cancellation; it cannot keep a partially consumed session alive.
+  There is no per-byte sleep for buffered data: empty waits delay one tick and body
+  processing delays one tick per 64 bytes. Length decoding is bounded to four bytes.
+- **B2:** outer idle/ONLINE turns delay `pdMS_TO_TICKS(10)`. DNS, lease, CONNACK and
+  empty-input active waits keep one-tick delays. Stack scans happen at phase boundaries
+  (including successful subscription completion and failed-attempt cleanup) and at
+  most once a second otherwise. Both worker and main heap sampling require busy state;
+  the shared sampler also rechecks busy state and attempt ID before storing minima.
+  A cancelled ONLINE cleanup can temporarily be busy under the existing state model;
+  normal idle and healthy ONLINE operation do not walk the heap.
+- **N2:** an already-up GOT_IP does not invalidate the epoch or clear queues. An actual
+  down/up sequence still invalidates, including recovery with the same IP address.
+- **N3:** rejected stale/disconnected/stopped receives and dequeues increment `rxDrops`.
+  Invalidation also counts queued RX messages before clearing them, once per message.
+  The separate parser packet-drop counter remains separate from application RX drops.
+- **N4 noted:** callbacks dispatch at the top of `runBackgroundTick`, including setup
+  keep-alive loops. MQTT currently connects at the end of setup. Future setup reordering
+  must preserve callback readiness before connecting; no dispatch change in this fix.
+- **N5 unchanged:** these are source-body simulations/static guards. JP's eventual build
+  remains the C++ compilation check, after Claude clears this diff.
+
+Validation: **341 checks / 14 suites**, including **51 MQTT-owner checks**. New simulations
+cover 600-byte and 16 KiB discard with following-packet alignment, deadline/cancellation
+under slow input, hard cap and malformed lengths, bounded buffered-body yields, repeated
+GOT_IP versus down/up, stale RX accounting, stack sampling cadence, idle heap suppression,
+and an attempt ending/changing while heap measurements are in progress. No hardware
+performance or timing result is claimed.
+
+### Focused re-check request
+
+Review this commit against e51ef5a, concentrating on B1/B2 and N1–N3: packet framing and
+absolute deadline during discard, IDLE0 opportunities without per-byte latency, sampling
+scope/cadence, epoch preservation, and once-only RX counting. Check the updated host
+simulations and C++ correctness. Append the verdict here. No build or flash. After
+clearance, the first hardware gate remains one worker TLS handshake/CONNACK with the
+already specified stack-placement, 2048-byte stack-margin and 20480-byte largest-block
+gates. No hardware case is issued before that review.

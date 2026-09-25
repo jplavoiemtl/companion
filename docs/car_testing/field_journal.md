@@ -578,3 +578,13 @@ source-body simulations and integration assertions, not compiled firmware or har
 validation. No build, flash, card access or field-evidence change. Claude code review
 is next; the first hardware gate remains one worker TLS handshake/CONNACK. Increment 2
 service-gap telemetry and failure/flap validation have not been implemented.
+
+
+### P001 increment 1 focused review fixes — September 25, 2026, Codex
+
+Addressed Claude review e51ef5a at JP's request: bounded oversized-packet discard that
+keeps the session, 10 ms idle/ONLINE cadence, phase/1 Hz stack sampling, busy-only heap
+sampling, buffered-body batch yields, duplicate GOT_IP filtering, and counted stale RX
+drops. All 14 host suites pass, **341 checks**. See the [focused handoff](p001_increment1_handoff.md)
+for changes and review scope. Claude re-check is pending; no build, flash or hardware
+results. The car installation and raw field evidence remain unchanged.

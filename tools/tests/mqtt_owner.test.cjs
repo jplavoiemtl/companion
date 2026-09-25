@@ -12,7 +12,7 @@ function test(name,f){f();++count;console.log('PASS '+name);}
 function adapt(s){return s.replace(/port(?:ENTER|EXIT)_CRITICAL\(&mux\);/g,'').replace(/Phase::/g,'Phase.').replace(/\bconst (?:bool|uint\d+_t|err_t|ip_addr_t) /g,'const ').replace(/\b(?:bool|uint\d+_t|err_t) /g,'let ').replace(/slot->/g,'slot.').replace('status.stop|=stopping','status.stop=Boolean(status.stop || stopping)');}
 const phases=['Idle','Dns','Lease','Tcp','Tls','Mqtt','Subscribe','Online','Cleanup','Fault','Stopped'];
 function context(){const c={t:0,status:{epoch:1,attemptEpoch:1,link:true,stop:false,phase:'Dns',busy:true,connected:false,lease:false,requestedLease:false,started:0,cancelled:0,stuck:0},Phase:Object.fromEntries(phases.map(x=>[x,x])),ATTEMPT_MS:35000,STUCK_MS:40000,readyAck:false,operationDeadline:0,clears:0};c.nowMs=()=>c.t;c.clearMessagesLocked=()=>c.clears++;c.phase=p=>c.status.phase=p;vm.createContext(c);
- for(const [sig,name,args] of [['bool current(','current','epoch'],['void invalidateLocked(','invalidateLocked','stopping'],['bool admitPhase(','admitPhase','cmd,value,allowance,result'],['void arbitrate(','arbitrate','available'],['void acknowledgeReady(','acknowledgeReady','epoch']])vm.runInContext(`function ${name}(${args}){${adapt(body(worker,sig))}}`,c);
+ for(const [sig,name,args] of [['void linkEvent(','linkEvent','up'],['bool current(','current','epoch'],['void invalidateLocked(','invalidateLocked','stopping'],['bool admitPhase(','admitPhase','cmd,value,allowance,result'],['void arbitrate(','arbitrate','available'],['void acknowledgeReady(','acknowledgeReady','epoch']])vm.runInContext(`function ${name}(${args}){${adapt(body(worker,sig))}}`,c);
  return c;}
 test('pins allocation, scheduling and time bounds; no internal fallback',()=>{
  for(const s of ['DNS_MS=15000','ATTEMPT_MS=35000','STUCK_MS=40000','SOCKET_MS=5000'])assert(header.includes(s));
@@ -71,12 +71,12 @@ test('two retained DNS tombstones defer without a third allocation or failure de
 });
 // Real polling code, with scripted availability. Never reset the absolute operation clock.
 function packetContext(arrivals,deadline=5000){const c={t:0,ticks:0,stops:0,bytes:arrivals.slice(),socketTimeout:5,bufferSize:512,buffer:[],stream:null,_state:0,packetDrops:0,MQTTPUBLISH:48,MQTTQOS1:2,MQTT_DISCONNECTED:-1};
- c.millis=()=>c.t;c.vTaskDelay=n=>{assert(n>=1);c.t+=10*n;c.ticks++;};c.operationAllowed=()=>{if(c.t<deadline)return true;c.stops++;return false;};
+ c.millis=()=>c.t;c.vTaskDelay=n=>{assert(n>=1);c.t+=n;c.ticks++;};c.operationAllowed=()=>{if(c.t<deadline && (c.cancelAt===undefined || c.t<c.cancelAt))return true;c.stops++;return false;};
  c._client={available:()=>c.bytes.length && c.bytes[0].at<=c.t,read:()=>c.bytes.shift().value,stop:()=>c.stops++};
  let rb=body(pub,'boolean OwnedPubSubClient::readByte(uint8_t * result)').replace(/this->/g,'').replace(/stream->/g,'stream.').replace(/_client->/g,'_client.').replace(/\buint32_t /g,'let ').replace(/\bint value/g,'let value').replace(/\(int32_t\)/g,'').replace(/(\d+)UL/g,'$1').replace('*result = static_cast<uint8_t>(value);','result.value=value;');
  vm.createContext(c);vm.runInContext(`function byte(result){${rb}}`,c);
  c.readByte=(target,index)=>{const out={};if(!c.byte(out))return false;if(index){target[index.value++]=out.value;}else target.value=out.value;return true;};
- let rp=body(pub,'uint32_t OwnedPubSubClient::readPacket(').replace(/this->/g,'').replace(/stream->/g,'stream.').replace(/_client->/g,'_client.').replace(/\b(?:uint32_t|uint16_t|uint8_t|bool) /g,'let ').replace('let len = 0;','let len = {value:0};').replace('let digit = 0;','let digit = {value:0};').replace(/\breadByte\(buffer, &len\)/g,'readByte(buffer,len)').replace(/readByte\(&digit\)/g,'readByte(digit)').replace(/\*lengthLength/g,'lengthLength.value');
+ let rp=body(pub,'uint32_t OwnedPubSubClient::readPacket(').replace(/this->/g,'').replace(/stream->/g,'stream.').replace(/_client->/g,'_client.').replace(/\bconst uint32_t /g,'const ').replace(/\b(?:uint32_t|uint16_t|uint8_t|bool) /g,'let ').replace('let len = 0;','let len = {value:0};').replace('let digit = 0;','let digit = {value:0};').replace(/\breadByte\(buffer, &len\)/g,'readByte(buffer,len)').replace(/readByte\(&digit\)/g,'readByte(digit)').replace(/\*lengthLength/g,'lengthLength.value');
  rp=rp.replace(/\blen\b/g,'len.value').replace('let len.value = {value:0}','let len = {value:0}').replaceAll('readByte(buffer,len.value)','readByte(buffer,len)');
  rp=rp.replace(/\bdigit\b/g,'digit.value').replace('let digit.value = {value:0}','let digit = {value:0}').replaceAll('readByte(digit.value)','readByte(digit)');
  vm.runInContext(`function packet(lengthLength){${rp}}`,c);return c;
@@ -87,22 +87,41 @@ test('delayed CONNACK wait yields IDLE time and honors cancellation deadline',()
  const wait=body(pub,'while (!_client->available())').replace(/_client->/g,'_client.').replace(/this->/g,'').replace(/stream->/g,'stream.').replace(/unsigned long /g,'let ').replace(/\(int32_t\)/g,'').replace(/(\d+)UL/g,'$1');
  c.MQTT_CONNECTION_TIMEOUT=-4;c.lastInActivity=0;
  vm.runInContext(`function wait(){while(!_client.available()){${wait}}return true;}`,c);
- assert.equal(c.wait(),true);assert.equal(c.t,1500);assert.equal(c.ticks,150);
+ assert.equal(c.wait(),true);assert.equal(c.t,1500);assert.equal(c.ticks,1500);
  const d=packetContext([],1200);d.MQTT_CONNECTION_TIMEOUT=-4;d.lastInActivity=0;vm.runInContext(`function wait(){while(!_client.available()){${wait}}return true;}`,d);assert.equal(d.wait(),false);assert.equal(d.t,1200);
 });
 test('partial CONNACK trickle cannot extend the absolute packet deadline',()=>{
  const c=packetContext([{at:0,value:32},{at:2000,value:2},{at:4000,value:0},{at:6000,value:0}]);assert.equal(c.packet({}),0);assert.equal(c.t,5000);assert(c.ticks>=500);
 });
-test('complete CONNACK consumes exact four bytes with tick delays',()=>{const c=packetContext([32,2,0,0].map(value=>({at:0,value})));assert.equal(c.packet({}),4);assert(c.ticks>=3);assert.deepEqual(Array.from(c.buffer),[32,2,0,0]);});
-test('oversize and malformed PUBLISH are refused before unbounded discard',()=>{
- for(const data of [[48,255,127],[48,1,0],[48,2,0,5],[50,2,0,0]]){const c=packetContext(data.map(value=>({at:0,value})));assert.equal(c.packet({}),0);assert(c.stops>=1);assert(c.packetDrops>=1);assert(c.t<5000);}
+test('buffered CONNACK consumes exact four bytes without per-byte delays',()=>{const c=packetContext([32,2,0,0].map(value=>({at:0,value})));assert.equal(c.packet({}),4);assert.equal(c.ticks,0);assert.deepEqual(Array.from(c.buffer),[32,2,0,0]);});
+test('hard-cap and malformed PUBLISH close before unbounded discard',()=>{
+ for(const data of [[48,129,128,1],[48,128,128,128,128],[48,1,0],[48,2,0,5],[50,2,0,0]]){const c=packetContext(data.map(value=>({at:0,value})));assert.equal(c.packet({}),0);assert(c.stops>=1);assert(c.packetDrops>=1);assert(c.t<5000);}
 });
+function publishBytes(length){let n=length,encoded=[];do{let b=n%128;n=Math.floor(n/128);encoded.push(b|(n?128:0));}while(n);return [48,...encoded,0,1,97,...Array(length-3).fill(120)];}
+for(const length of [600,16384])test('oversized '+length+'-byte body is counted, drained, and keeps next packet aligned',()=>{
+ const c=packetContext([...publishBytes(length),32,2,0,0].map(value=>({at:0,value})));
+ assert.equal(c.packet({}),0);assert.equal(c.packetDrops,1);assert.equal(c.stops,0);assert(c.t<5000);assert(c.buffer.length<=512);
+ assert.equal(c.packet({}),4);assert.deepEqual(Array.from(c.buffer).slice(0,4),[32,2,0,0]);assert.equal(c.bytes.length,0);assert.equal(c.stops,0);
+});
+test('oversized discard retains absolute deadline under trickle and cancellation',()=>{
+ for(const deadline of [5000,1200]){const data=publishBytes(600).map((value,i)=>({at:i<8?0:6000,value}));const c=packetContext(data);if(deadline<5000)c.cancelAt=deadline;
+ assert.equal(c.packet({}),0);assert.equal(c.packetDrops,1);assert.equal(c.t,deadline);assert(c.stops>0);assert(c.bytes.length>0);}
+});
+test('buffered normal body yields once per 64 bytes, not once per byte',()=>{
+ const c=packetContext(publishBytes(500).map(value=>({at:0,value})));assert.equal(c.packet({}),503);assert.equal(c.ticks,7);assert.equal(c.packetDrops,0);assert.equal(c.stops,0);
+});
+test('malformed oversized topic is counted once and closes',()=>{
+ const c=packetContext([48,216,4,255,255].map(value=>({at:0,value})));assert.equal(c.packet({}),0);assert.equal(c.packetDrops,1);assert.equal(c.stops,1);
+});
+
 test('all network polling loop sites keep a tick delay, no bare yield',()=>{
  assert(!/\byield\s*\(/.test(strip(pub+worker)));
  for(const sig of ['while (!_client->available())','while(!_client->available())','for (uint32_t i = start;','while((bytesRemaining > 0)'])assert(body(pub,sig).includes('vTaskDelay(1)'));
- assert(body(pub,'uint32_t OwnedPubSubClient::readPacket(').includes('do {\n        vTaskDelay(1);'));
- for(const sig of ['const char* resolve(','bool acquireLease(','void worker('])assert(body(worker,sig).includes('for(;;) {\n    vTaskDelay(1);'));
+ assert(!body(pub,'uint32_t OwnedPubSubClient::readPacket(').includes('do {\n        vTaskDelay(1);')); // Four-byte length parser delegates empty waits to readByte.
+ for(const sig of ['const char* resolve(','bool acquireLease('])assert(body(worker,sig).includes('for(;;) {\n    vTaskDelay(1);'));
 });
+test('idle and ONLINE turns wait 10ms',()=>{assert(body(worker,'void worker(').includes('for(;;) {\n    vTaskDelay(pdMS_TO_TICKS(10));'));});
+
 test('no direct MQTT access outside owner; facade never reconnects or sends pre-TLS',()=>{
  function files(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?files(path.join(d,e.name)):[path.join(d,e.name)]);}
  for(const f of ['companion.ino',...files('src')].filter(f=>/\.(?:cpp|h|ino)$/.test(f) && !f.replace(/\\/g,'/').startsWith('src/net/mqtt_client/') && !f.endsWith('net_worker.cpp')))assert(!/\bmqttClient\s*[.>-]|\b(?:Owned)?PubSubClient\s+\w+/.test(strip(read(f))),f);
@@ -154,7 +173,7 @@ test('RX full/unknown/oversize drop, stale epoch never dispatches callback',()=>
  const c=queueContext();for(let i=0;i<4;i++)c.receive('image','yes',3);assert.equal(c.rxCount,4);
  c.receive('image','fifth',5);c.receive('unknown','x',1);c.receive('image','x'.repeat(513),513);assert.equal(c.status.rxDrops,3);
  const first={};assert.equal(c.takeRx(first),true);assert.equal(first.payload,'yes');assert.equal(first.epoch,1);
- c.status.epoch=2;assert.equal(c.takeRx({}),false);c.receive('image','stale',5);assert.equal(c.rxCount,2);
+ c.status.epoch=2;assert.equal(c.takeRx({}),false);c.receive('image','stale',5);assert.equal(c.rxCount,2);assert.equal(c.status.rxDrops,5);
 });
 test('late lease grants after 100ms are revoked before TCP; denials never debit failure budget',()=>{
  for(const mode of ['grant','deny','late','cancel']){const c=context();c.status.phase='Dns';let ticks=0;
@@ -189,5 +208,45 @@ test('every new unclassified PubSub loop fails the static polling audit',()=>{
  const loops=strip(pub).match(/\b(?:while|for)\s*\([^\n]+/g)||[];
  assert.equal(loops.length,12);
  const workerLoops=strip(worker).match(/for\(;;\)/g)||[];assert.equal(workerLoops.length,3);
+});
+test('repeated GOT_IP preserves live epoch; real down/up still invalidates',()=>{
+ const c=context();c.status.phase='Online';c.status.busy=false;c.status.connected=true;
+ c.linkEvent(true);assert.equal(c.status.epoch,1);assert.equal(c.status.connected,true);assert.equal(c.clears,0);
+ c.linkEvent(false);assert.equal(c.status.epoch,2);assert.equal(c.status.connected,false);
+ c.linkEvent(true);assert.equal(c.status.epoch,3);assert.equal(c.clears,2);c.linkEvent(true);assert.equal(c.status.epoch,3);
+});
+test('disconnected/stopped RX receives and dequeues are counted; empty dequeue is not',()=>{
+ for(const flag of ['disconnected','stopped']){const c=queueContext();c.receive('image','yes',3);
+ if(flag==='disconnected')c.status.connected=false;else c.status.stop=true;
+ c.receive('image','no',2);assert.equal(c.status.rxDrops,1);assert.equal(c.takeRx({}),false);assert.equal(c.status.rxDrops,2);
+ assert.equal(c.takeRx({}),false);assert.equal(c.status.rxDrops,2);}
+});
+test('invalidation counts queued RX once before clearing',()=>{
+ const c=queueContext();c.receive('image','yes',3);c.receive('image','yes',3);
+ vm.runInContext(`function clearMessagesLocked(){${adapt(body(worker,'void clearMessagesLocked('))}}`,c);
+ c.invalidateLocked(false);assert.equal(c.status.rxDrops,2);assert.equal(c.rxCount,0);c.invalidateLocked(false);assert.equal(c.status.rxDrops,2);
+});
+function samplingContext(){const c={t:0,stackAt:0,heapAt:0,scans:0,heaps:0,status:{busy:false,stackMin:0},min:Math.min};
+ c.nowMs=()=>c.t;c.view=()=>({...c.status});c.uxTaskGetStackHighWaterMark=()=>{c.scans++;return 4096;};c.esp_ptr_external_ram=()=>true;c.sample=()=>c.heaps++;
+ vm.createContext(c);let s=adapt(body(worker,'void workerSample(')).replace('static let stackAt=0, heapAt=0;','').replace('nullptr','null').replace('&margin','margin');
+ vm.runInContext(`function workerSample(phaseBoundary=false){${s}}`,c);return c;
+}
+test('idle/ONLINE stack scans are limited to 1Hz and heap walks stop',()=>{
+ const c=samplingContext();for(c.t=0;c.t<=3000;c.t++)c.workerSample();assert.equal(c.scans,3);assert.equal(c.heaps,0);
+ c.workerSample(true);assert.equal(c.scans,4);assert.equal(c.heaps,0);assert.equal(c.status.stackMin,4096);
+});
+test('busy attempt samples heap at 20ms and stack at phase boundaries plus 1Hz',()=>{
+ const c=samplingContext();c.status.busy=true;c.workerSample(true);assert.equal(c.scans,1);assert.equal(c.heaps,1);
+ for(c.t=1;c.t<=1000;c.t++)c.workerSample();assert.equal(c.scans,2);assert.equal(c.heaps,51);
+ c.workerSample(true);assert.equal(c.scans,3);assert.equal(c.heaps,52);
+ assert(body(worker,'void phase(').includes('workerSample(true)'));
+ assert(body(net,'void netMainTick(').includes('mqttowner::view().busy && millis()-sampledAt>=20'));
+});
+test('shared heap sampler refuses idle and ignores completion or new attempt racing its walk',()=>{
+ const c={status:{busy:false,id:1,internalMin:999,largestMin:999,dmaMin:999},walks:0,min:Math.min,MALLOC_CAP_INTERNAL:1,MALLOC_CAP_8BIT:2,MALLOC_CAP_DMA:4};
+ c.view=()=>({...c.status});c.heap_caps_get_free_size=()=>{c.walks++;return 100;};c.heap_caps_get_largest_free_block=()=>{c.walks++;if(c.race==='end')c.status.busy=false;if(c.race==='new')c.status.id++;return 80;};
+ vm.createContext(c);vm.runInContext(`function sample(){${adapt(body(worker,'void sample(')).replace('const auto before','const before')}}`,c);
+ c.sample();assert.equal(c.walks,0);c.status.busy=true;c.sample();assert.equal(c.walks,3);assert.equal(c.status.largestMin,80);
+ for(const race of ['end','new']){c.status.busy=true;c.status.largestMin=999;c.race=race;c.sample();assert.equal(c.status.largestMin,999);}
 });
 console.log(`${count} MQTT owner checks passed; source simulations only, no firmware build.`);

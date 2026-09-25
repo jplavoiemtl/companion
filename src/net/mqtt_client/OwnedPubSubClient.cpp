@@ -337,7 +337,7 @@ uint32_t OwnedPubSubClient::readPacket(uint8_t* lengthLength) {
     uint32_t start = 0;
 
     do {
-        vTaskDelay(1);
+        // At most four length bytes; readByte yields if input is not available.
         if (!operationAllowed()) return 0;
         if (len == 5) {
             // Invalid remaining length encoding - kill the connection
@@ -352,18 +352,23 @@ uint32_t OwnedPubSubClient::readPacket(uint8_t* lengthLength) {
         multiplier <<=7; //multiplier *= 128
     } while ((digit & 128) != 0);
     *lengthLength = len-1;
-    // No unbounded discard loop, streaming sink or malformed short PUBLISH.
-    if (length + len > this->bufferSize || (isPublish && length < 2)) {
+    // Ignore an ordinary oversized packet without forcing TLS reconnection. A
+    // hard cap prevents an attacker from making us drain an arbitrary body.
+    const uint32_t DISCARD_LIMIT = 16384;
+    if (length > DISCARD_LIMIT || (isPublish && length < 2)) {
         ++packetDrops; _state = MQTT_DISCONNECTED; _client->stop(); return 0;
     }
 
+    bool discard = length + len > this->bufferSize;
+    if (discard) ++packetDrops;
     if (isPublish) {
         // Read in topic length to calculate bytes to skip over for Stream writing
         if(!readByte(this->buffer, &len)) return 0;
         if(!readByte(this->buffer, &len)) return 0;
         skip = (this->buffer[*lengthLength+1]<<8)+this->buffer[*lengthLength+2];
         if (skip > length-2 || ((this->buffer[0]&0x06) == MQTTQOS1 && skip+4 > length)) {
-            ++packetDrops; _state = MQTT_DISCONNECTED; _client->stop(); return 0;
+            if (!discard) ++packetDrops;
+            _state = MQTT_DISCONNECTED; _client->stop(); return 0;
         }
         start = 2;
         if (this->buffer[0]&MQTTQOS1) {
@@ -374,22 +379,25 @@ uint32_t OwnedPubSubClient::readPacket(uint8_t* lengthLength) {
     uint32_t idx = len;
 
     for (uint32_t i = start;i<length;i++) {
-        vTaskDelay(1);
+        // Available bytes do not pay one tick each. Bound continuous work too:
+        // readByte yields on empty input; every 64 body bytes lets IDLE0 run.
+        if ((i-start) % 64 == 63) vTaskDelay(1);
         if (!operationAllowed()) return 0;
         if(!readByte(&digit)) return 0;
-        if (this->stream) {
+        if (!discard && this->stream) {
             if (isPublish && idx-*lengthLength-2>skip) {
                 this->stream->write(digit);
             }
         }
 
-        if (len < this->bufferSize) {
+        if (!discard && len < this->bufferSize) {
             this->buffer[len] = digit;
             len++;
         }
         idx++;
     }
 
+    if (discard) return 0; // Entire body consumed within the original operation deadline.
     if (!this->stream && idx > this->bufferSize) {
         len = 0; // This will cause the packet to be ignored.
     }
