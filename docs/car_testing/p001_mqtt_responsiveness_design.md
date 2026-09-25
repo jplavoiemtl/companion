@@ -553,3 +553,38 @@ write-progress timeout (ssl_client.cpp:116, 171-172, 453). Use a constant 5000 m
 Once B1 and B2 are integrated, the ownership, cancellation, shutdown and diagnostics
 sections are ready for JP's decision. No further review round is needed beyond checking
 those two changes.
+
+### Claude focused integration check - September 25, 2026 (revision 2, commit 3351cde)
+
+**Verdict: B1 and B2 are fully integrated; no remaining blockers.** Revision 2 is ready for
+JP's increment 1 implementation approval. Checked only the revision-1 findings and their
+knock-on rules, not a new architecture review.
+
+- **B1 resolved.** vTaskDelay (>=1 tick) is required on every continuing wait: worker turns,
+  CONNACK wait, readByte, packet/discard loops, facade polling, DNS polling and the
+  completion-slot wait. `yield()` alone is forbidden. The patch ships in increment 1 with
+  no intermediate unpatched build, and the host checks add both simulations and a static
+  bare-yield guard. No stale "yield" wording remains in the design body.
+- **B2 resolved.** DNS 15 s (above lwIP's ~7 s per-server give-up), attempt 35 s
+  (15 + 5 + 5 + 5 + 2 + 3 allowance, arithmetic consistent) and stuck 40 s share one
+  dispatch clock that never resets. The per-phase admission rule holds: after the maximum
+  15 s DNS, 20 s remain against the 17 s TCP/TLS/MQTT/subscription allowance. No stale
+  20 s, 25 s or 5 s DNS values remain outside the preserved revision-1 review.
+- **Constant 5000 ms connection timeout** is stated on both transports, with the reason.
+- **Sequencing and lifetime are consistent.** The lease is requested only after DNS and
+  before CA parsing. Denial, the 100 ms wait expiry and late grants all roll back by
+  epoch/request ID without starting TCP, and none of them counts toward the initial
+  failure budget. A fault before the lease reserves nothing. DNS tombstones hold no lease.
+  Two slots cover the ~21 s callback bound against the 15 s wait plus 15 s backoff.
+  Callback acknowledgement stays the only release authority. Retrieval allows DNS but
+  withholds the lease, and entry refusal (panel and USB) applies only while the lease is
+  held.
+
+Non-blocking notes for implementation and field reading:
+- The worst-case media/retrieval refusal per attempt is now about 17 s (TCP to READY),
+  down from about 20 s in revision 1, and none of it during DNS.
+- With three DNS servers, a 15 s cut falls inside the third server's window. The hotspot
+  normally supplies one server, so this only matters if field timing shows otherwise.
+- The 100 ms lease wait can expire during an unrelated main-loop stall. That is a cheap,
+  uncounted deferral, but count it in status so field logs can distinguish it from media
+  contention.
