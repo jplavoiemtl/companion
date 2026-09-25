@@ -47,17 +47,68 @@ existing evidence is sufficient.
 
 ## Shared editing protocol
 
+Rule (agreed September 25, 2026): **one author, one reviewer.** Every piece of work has a
+single owner who writes it and one reviewer who checks it. The two assistants do not
+both produce full analyses or designs of the same thing. F001 predates this rule and
+contains two full analyses; later sessions follow the workflow below.
+
 - Edit sequentially: JP hands the journal to one assistant at a time. Check Git status
   and read the latest journal before editing; preserve another assistant's work.
-- Each session has JP observations, attributed Codex and Claude analyses, and an agreed
-  findings / unresolved questions section. Do not overwrite another author's conclusions.
-- Claude should inspect raw evidence first, then compare with Codex's analysis. Add
-  concrete agreements, disagreements and evidence gaps, not a duplicate event transcript.
-- Record author and date on analyses or corrections. Cross-review consensus is separate
-  from JP's approval to implement. Proposed improvements remain unapproved until JP agrees.
-- Maintain the one shared findings table and improvement list. Annotate disputed items
-  rather than silently replacing them. Record implementation and validation evidence
-  when a proposal eventually progresses.
+- Record author and date on analyses, reviews and corrections. Cross-review consensus is
+  separate from JP's approval to implement. Proposals remain unapproved until JP agrees.
+- Annotate disputed items rather than silently replacing them. Record implementation and
+  validation evidence when a proposal eventually progresses.
+
+### Ride analysis workflow
+
+1. **Codex is the primary analyst.** Codex inspects the raw evidence, writes the session
+   entry (JP observations, evidence and hashes, timeline, conclusions) and updates the
+   findings table, improvement list and the session's agreed findings / unresolved section.
+2. **Claude reviews, when JP asks.** Claude spot-checks the key claims against the raw
+   evidence, scans it for anything the entry missed and adds one dated "Claude review"
+   block of about 10-15 lines: agreements, disagreements with evidence, additions. Claude
+   does not re-transcribe the timeline and does not edit the shared tables or sections.
+3. **Codex integrates the review.** Codex updates the findings table and agreed /
+   unresolved section, stating any disagreement explicitly for JP to decide.
+4. **Review is optional for routine rides.** Request it when JP saw a symptom, a new event
+   type appears, or a conclusion would change a finding or proposal. Otherwise Codex's
+   entry stands alone. Several rides may be batched into one export and one analysis.
+
+### Design and code workflow
+
+1. **Design:** Codex owns the design document. Claude reviews it and the review is
+   recorded, with Codex incorporating agreed changes. If JP wants Claude's view before a
+   design exists, Claude writes a short options note that Codex builds on; Claude does
+   not write a competing design. JP approves the design before implementation.
+2. **Code:** Codex implements with host checks. Claude reviews the commit against the
+   approved design and reports blockers before JP builds. Codex applies fixes; Claude
+   re-reviews only the changed parts.
+3. **Hardware:** JP builds, flashes and runs one case at a time. Codex records results.
+   Claude reviews results only when a case fails or looks unusual.
+
+### Prompt templates for JP
+
+Analysis request to Codex:
+
+```text
+New car evidence is in docs/car_testing/evidence/<YYYY-MM-DD-description>/.
+My observations: <approximate time, screen, symptom, duration, phone circumstances>.
+Add session F00X to docs/car_testing/field_journal.md following the ride analysis
+workflow: verify and record hashes, analyze the raw evidence, write the session entry,
+and update the findings table, improvement list and agreed/unresolved section.
+No firmware changes, builds or flashes. Commit and push when done.
+```
+
+Review request to Claude:
+
+```text
+Review Codex's F00X entry in docs/car_testing/field_journal.md against the evidence in
+docs/car_testing/evidence/<YYYY-MM-DD-description>/, following the ride analysis
+workflow. Spot-check the key claims, look for anything missed, and add one dated
+"Claude review" block (agree / disagree / additions, about 10-15 lines). Do not
+re-transcribe the timeline or edit the shared tables; Codex integrates the review.
+No firmware changes. Commit and push when done.
+```
 
 ## Open findings
 
