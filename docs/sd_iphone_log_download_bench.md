@@ -1,5 +1,44 @@
 # iPhone log retrieval - bench cases and results
 
+## September 24 - increment 11 accepted; no-card and fresh-card pre-car checks
+
+JP explicitly accepted increment 11, then requested two focused bench checks before car
+rollout: no-card download entry refusal with an on-screen notice, followed by normal
+logging on a blank FAT32 card. Both new hardware results are pending.
+
+Source review (no firmware changes):
+- sd_diagnostics.cpp openStorage() mounts with format_on_failure=false. No card or a
+  failed mount disables logging with mount_failed_or_no_card; the companion continues.
+- diagnostics_retrieval.cpp entryRefusal() checks storage readiness after USB power and
+  closing, before WiFi. It returns logger_unavailable without starting HTTP.
+- diagnostics_retrieval_ui.cpp shows "Log storage is not ready." for that refusal,
+  stays on calibration, and hides the notice after 3 seconds. This is a generic storage
+  notice: mount failure does not distinguish an absent card from an unreadable card.
+- Mount failure is terminal for that boot. The writer cleans up and parks; inserting a
+  card alone does not retry. Shut down fully before card changes and boot afterward.
+- With a blank supported FAT32 volume, openStorage() creates /logs and current.log,
+  generation 1, with FILE_OPEN, boot and LOGGER_START records. Archives arise later
+  through rotation. No preloaded files or manual log directory creation are required;
+  firmware does not format the card. Hardware verification remains pending.
+
+### Next single case: boot without a card, refuse panel entry
+
+Use normal shutdown and ensure the bench module is fully powered off (USB unplugging
+alone is insufficient with its battery). Remove and preserve the existing card. Boot
+without a card, with USB power connected. Reconnect the web console DTR=true/RTS=false.
+Capture status. On calibration, hold the top band for 1 second without starting sampling.
+Expect "Log storage is not ready." and no download screen. Capture the notice by photo
+or report its exact text; then capture log mode status and status. Send the console and
+observation. Expected logger disabled/error mount_failed_or_no_card, mode OFF/server off,
+reason logger_unavailable, with normal UI still responsive. Queued startup records can
+be discarded when the logger disables; zero drops is not a meaningful no-card gate.
+There can be no SD log to download. No rebuild/flash required.
+
+After reviewing this result, issue only the blank FAT32 startup case. Then verify fresh
+file creation, append growth and iPhone retrieval before preparing the car rollout.
+Historical draft remains unchanged; this entry and the implementation spec track the
+new validation request.
+
 ## September 24 20:16-20:17 - increment 11 battery-only panel refusal PASSED
 
 JP reports no download mode when USB power was disconnected. Evidence: supplied

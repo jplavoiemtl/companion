@@ -33,8 +33,10 @@ JP explicitly accepted increment10 and approved increment11 design revision2 wit
 origin correction dd8c6cd. [Increment11 implementation](sd_iphone_log_download_increment11.md)
 and its touch-acquisition correction cleared Claude review and were built/flashed by JP.
 Panel entry/download/Stop and battery-only refusal passed on September 24, completing
-all retained increment 11 bench gates. Explicit JP acceptance remains pending; real car
-deployment is not yet tested. No further bench case is requested before acceptance.
+all retained increment 11 bench gates. JP explicitly accepted increment 11 on September 24.
+Before car deployment, JP requested two additional bench checks: no-card panel refusal,
+then blank FAT32 card initialization after a powered-off card change. See the latest
+bench entry. Real car deployment is not yet tested.
 Any future firmware fixes go to Claude before JP builds/flashes.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the

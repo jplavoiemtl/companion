@@ -129,3 +129,11 @@ See the latest bench entry for exact evidence and the offline-WiFi limitation.
 All retained increment 11 bench gates are complete; explicit JP acceptance is pending.
 No additional build, flash or bench measurement requested. Car deployment remains the
 next phase after acceptance, subject to configuration review and JP's build/flash.
+
+## September 24 acceptance and additional pre-car checks
+
+JP explicitly accepted increment 11. He then requested no-card panel refusal and blank
+FAT32 card initialization on the bench before flashing the car module. These are additional
+pre-car checks, not a reopening of increment 11 acceptance. Source review and the first
+single case are recorded at the top of the bench document. No firmware changes required
+for a powered-off card change followed by startup; insertion alone does not remount.
