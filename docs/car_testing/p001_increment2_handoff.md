@@ -207,3 +207,43 @@ Next retained case: two uninterrupted failed broker attempts with hotspot kept c
 then real recovery, with one USB retrieval-entry refusal during a held reconnect lease.
 No new code, rebuild or extra regression case is needed for this result. Case 3 hotspot
 flap remains pending; the serial on cancellation does not replace it.
+
+
+## Retained case 2 — September 25, 2026, Codex
+
+**PASS.** JP reports the G-meter remained responsive without freezing. Same boot 132,
+reviewed source checkpoint a83c96a; no code/rebuild since case 1. Evidence preserved under
+`evidence/2026-09-25-p001-case2/` (ignored by Git), original Downloads export retained.
+- `132-current (1).log`: 133865 bytes; SHA-256 `d2c9e4349e75fcf73f2ef4893bd2684d5a4709f05f0d3e1fbfd3e37efbe9fcf6`; CRC32 `3634D6E3`.
+- `console.txt`: 11245 bytes; SHA-256 `1c2fb9e5fca9f14db10877de4a02dc034f70b6dde47ec9ae69435ca27056cb14`; CRC32 `6FADCA72`.
+
+USB capture: 133865 bytes, 1.23 s, CRC OK. Only attempts 4–6 are this case; prior attempts
+remain in the full export. No reset, new cancellation, stuck worker, queue/packet drops,
+truncation or logger error in the retained case. WiFi remained connected in the supplied
+observations; the retrieval status line's cached link=down is not a WiFi driver event.
+
+| Attempt | Result | TCP setup | Total | UI / IMU / loop max service gap |
+|---|---|---:|---:|---:|
+| 4 test | tcp_setup_failed, not cancelled | 5003 ms | 5022 ms | 21 / 21 / 21 ms |
+| 5 test | tcp_setup_failed, not cancelled | 5003 ms | 5022 ms | 21 / 21 / 21 ms |
+| 6 real | ok | 254 ms | 1087 ms | 21 / 20 / 20 ms |
+
+All SERVICE over100 counts zero. Attempt 4 SERVICE window 5033 ms, UI/IMU calls 801;
+attempt 5 window 5026 ms, calls 710; attempt 6 window 1100 ms, calls 156. Completed
+main spans were calibration/screen_nvs, each at most 1 ms, contexts=idle.
+
+Attempt 5 began at up_ms=510758, 15004 ms after attempt 4 main SERVICE/adoption at
+495754 (END capture 495743). This supports the retained 15-second post-completion
+backoff. JP sent on after the second failure, and the real attempt recovered. Its
+DNS/TCP/TLS/MQTT phases were 122/254/637/54 ms respectively. The two real five-second
+TCP waits meet the long-wait requirement; no controlled endpoint is needed for this case.
+They do not independently exercise slow DNS, TLS failure or CONNACK failure on hardware.
+
+USB log mode on during attempt 4 refused with `mqtt_reconnecting`; server remained off.
+Worker stack 7228 >=2048, PSRAM stack/internal TCB confirmed. Failed-attempt internal
+largest minima 53236; recovery largest and DMA largest 51188 >=20480. Retained logger
+largest minimum stayed 24564. Owner lease returned to zero, connected=1, stuck=0,
+cancelled=1 unchanged from case 1, all drop/failure-to-publish counters zero.
+
+Next and final retained bench case: one hotspot down/up while a connection is pending,
+then normal recovery. No new firmware or repeat failure case is indicated by this result.

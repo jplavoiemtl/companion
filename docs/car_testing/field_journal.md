@@ -631,3 +631,15 @@ Worker stack 7228, attempt largest 51188; retained media/logger largest 24564, a
 gates. No drops/reset during the case; Latest displayed after recovery. See the
 [increment 2 handoff](p001_increment2_handoff.md) for timing, hashes and qualifications.
 Evidence is preserved in `evidence/2026-09-25-p001-case1/`. Cases 2 and 3 remain pending.
+
+
+### P001 retained case 2 — September 25, 2026, Codex
+
+PASS. JP observed no G-meter freeze. Boot 132 attempts 4/5 each failed after 5003 ms TCP
+setup, with maximum UI/IMU/loop gaps 21/21/21 ms and no over100 intervals. Retry began
+15004 ms after first result adoption. Real recovery took 1087 ms; gaps 21/20/20 ms.
+USB retrieval admission correctly refused `mqtt_reconnecting` while the lease was held.
+Worker stack 7228 and attempt largest minimum 51188 passed; no new reset, cancellation,
+drops or stuck worker. Full evidence/hashes are in the [increment 2 handoff](p001_increment2_handoff.md)
+and `evidence/2026-09-25-p001-case2/`. Only the retained hotspot-flap case remains; no
+controlled failure endpoint or extra failure tests are needed from this result.
