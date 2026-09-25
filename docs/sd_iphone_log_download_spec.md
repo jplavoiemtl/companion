@@ -36,8 +36,10 @@ Panel entry/download/Stop and battery-only refusal passed on September 24, compl
 all retained increment 11 bench gates. JP explicitly accepted increment 11 on September 24.
 Before car deployment, JP requested two additional bench checks: no-card panel refusal,
 then blank FAT32 card initialization after a powered-off card change. See the latest
-bench entry. No-card refusal passed on boot 124; blank-card initialization/retrieval
-remains pending. Real car deployment is not yet tested.
+bench entry. No-card refusal passed on boot 124; blank-card initialization, iPhone retrieval
+and append continuation passed on boot 125. Both added pre-car gates are complete;
+JP acceptance of those results and car deployment preparation are next. Real car
+deployment is not yet tested.
 Any future firmware fixes go to Claude before JP builds/flashes.
 Branch `iphone-log-retrieval`. Consolidates the settled behaviour from the
 [Claude review](sd_iphone_log_download_review_claude.md), the

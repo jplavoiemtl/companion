@@ -1,5 +1,36 @@
 # iPhone log retrieval - bench cases and results
 
+## September 24 20:35-20:41 - blank FAT32 pre-car gate PASSED
+
+JP reports success. Console attachment f1df84d7-dca8-45c3-9e24-bf8ac4a42519/Pasted text.txt;
+Downloads/start-unknown_125-1-current-8449.log and 125-current.log independently checked.
+Boot 125 initializes generation 1, zero archives and one managed file. Header records
+FILE_OPEN reason=new and LOGGER_START mount=ok format_on_failure=false. Logger ready,
+error none. This verifies automatic fresh-volume log creation without preloaded files.
+
+Safari export: 8449 bytes, CRC32 6721AA27, SHA256
+ e2b80099f4edb7b41285e56727853ace67f8eb63f456bac5e5cf7f01fdf5b8f3.
+Exact byte equality with the first 8449 bytes of later USB 125-current.log (13594 bytes,
+USB CRC OK; SHA256 10f590da1d6187c1e56083d1fb6226a8fda67ac91aeddff25c9ec59fd5d7be4c).
+HTTP id=1 reports expected=bytes=writer_bytes=8449, both CRCs 6721AA27,
+crc_check=match and result=ok. Appends resumed; paused_ms=150, max progress gap=42ms.
+HTTP margin 2784, internal largest at transfer 45044. Later writer margin 2920,
+internal largest 42996, above the 20480 gate. Zero drops/truncated/slow writes.
+
+Two panel entries/exits are recorded, final status OFF/server off/reason panel_stop,
+release_stuck=0. USB snapshot 13594 -> later current_size 15912 confirms 2318 bytes
+of continued append growth after over 60 seconds. Same boot throughout; WiFi/MQTT
+connected. The initial header's clock is unknown, so start-unknown is correct; later
+records are synchronized. No rotation wait or new clock investigation is needed.
+last-result.PNG is present but image inspection failed due to the filesystem tool;
+no claim relies on its visual contents. Actual downloaded bytes and device records
+establish transfer integrity without requiring a repeat or another screenshot.
+
+Both additional pre-car checks now pass. Increment 11 remains explicitly accepted.
+No firmware changes/builds/flashes performed. Next is JP acceptance of these added
+results and car configuration/deployment preparation, followed by one parked-car
+retrieval case. Real car behavior remains untested.
+
 ## September 24 20:30 - no-card pre-car gate PASSED
 
 JP observed the not-ready notice on the panel and reports success. Evidence:
