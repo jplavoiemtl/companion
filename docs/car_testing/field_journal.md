@@ -12,6 +12,8 @@ Last updated: September 25, 2026.
   demonstrated logging and successful iPhone export from the real car module.
 - Two G-meter freezes correlate strongly with measured blocking MQTT reconnects.
   Both reconnects succeeded. The initiating WiFi loss remains unexplained.
+- F002 repeats the UI stall with failed MQTT attempts (8.771 s and 5.115 s loop gaps),
+  then automatic recovery. Two ~0.12 s storage operations were also recorded without loss.
 - Field observation continues. No firmware improvement is approved or implemented by
   this journal. Do not treat one successful ride as long-term reliability proof.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
@@ -117,9 +119,10 @@ Review the newest field session following the field journal workflow.
 
 | ID | Finding | Evidence / confidence | Status |
 |---|---|---|---|
-| I001 | G-meter pauses during MQTT recovery | F001: two ~8 s loop gaps, ~7.9 s synchronous connects, G-meter active; strong explanation of JP's observations | Open: design review proposed. Claude (Sep 25): agreed; source suggests WiFi-up/no-internet failures could block repeatedly, not yet observed |
-| I002 | Hotspot link loses beacons | F001: two beacon_timeout episodes followed by successful recovery; cause unknown | Observe future field events |
-| I003 | Other image/Live latency | F001: 1.220 s main-loop image gap and 2.688 s Live frame gap; distinct from the G-meter freezes | Monitor; no separate fix justified yet |
+| I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Open: P001. Repeated failed attempts while associated now observed; internet outage itself not established |
+| I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Observe; underlying cause unknown. Later power-associated interruption tracked separately |
+| I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap and later Live connection_closed during a power-associated outage | Monitor separately from MQTT stalls |
+| I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor; no evidence these explain multi-second UI freezes |
 
 Do not count retry no_ap_found/sta_leaving records as separate full outages without
 checking the timeline. Do not attribute unknown-freshness TLS errors to a current TLS
@@ -129,7 +132,8 @@ failure. Health snapshots can be stale while the main loop is blocked.
 
 ### P001 - Keep UI and IMU responsive during MQTT reconnection
 
-Status: proposed; not approved or implemented.
+Status: proposed; not approved or implemented. F002 strengthens the need to cover failed
+reconnects and UI animation as well as successful recovery; no architecture selected.
 Priority: first proposed improvement, linked to I001. Goal: reconnect without freezing
 the G-meter or other main-loop UI work. The current synchronous call is measured to
 block for about eight seconds; reducing the normal IMU rate is not the issue.
@@ -153,6 +157,11 @@ Claude reviews the code before JP builds/flashes. No new case is issued by this 
 Status: conditional proposal; not approved or implemented.
 Claude (September 25): disputes the priority, recommending bounded DNS/connect-phase
 timing before the P001 design is chosen. See F001 agreed findings; JP decides.
+
+F002 update (Codex, September 25): failed connect durations vary (8659 and 5004 ms),
+then recovery takes 870 ms. A universal fixed 7.9-second wait is not supported across
+rides. Phase attribution remains unknown; this neither proves nor rules out DNS waits.
+The existing P002 priority disagreement is preserved pending review/JP decision.
 
 The current log already identifies the blocking MQTT span. DNS/TCP/TLS/CONNACK timing is
 not separated. Consider bounded phase timing only if it is needed to choose or validate
@@ -387,3 +396,103 @@ Unresolved:
 - Which P001 architecture preserves network ownership while servicing the UI.
 
 JP has authorized shared documentation and review, not a firmware implementation.
+
+### F002 - September 25 second ride, spinner pause around 08:51
+
+#### JP observations
+
+JP saw a WiFi disconnect around 08:51. The LVGL spinner continued turning initially,
+then stopped for a few seconds. JP confirmed he trimmed earlier boots from the supplied
+log. No answer yet about phone/power circumstances at 08:58:49; no circumstance assumed.
+
+#### Codex analysis - September 25, 2026
+
+##### Evidence and limits
+
+Folder: `docs/car_testing/evidence/2026-09-25-second-ride/`.
+Only `start-unknown_42-1-current-157410.log` was supplied: actual size 49755 bytes,
+CRC32 of this excerpt 46050290; SHA256
+881535583f14c1055d49017449f1906d973c4b68373b4adc39ac01953419922f.
+JP confirmed trimming, so filename size 157410 is not the size of this evidence file
+and the discrepancy is not evidence of transfer corruption. Boot 42 has all sequence
+numbers 1-250 without gaps and a complete final LF-terminated record. Do not compare
+the excerpt CRC to a CRC of the original full download. No screenshots or transfer END
+were supplied; this session's download integrity/resume/Stop cannot be independently
+validated from the excerpt. No repeat transfer requested for the symptom analysis.
+
+Boot 42: power_on, context append; build stage3-context, compiled Sep 24 2026 21:02:06.
+Exact flashed commit is not encoded. Clock sync 08:46:19.584, up_ms=17505; last record
+HTTP_GET_BEGIN at 08:59:23.910. All times below are synced local -04:00. No reboot within
+the supplied session. Earlier historical boots are deliberately absent.
+
+##### Disconnect and spinner timeline
+
+| Local time | Measured event |
+|---|---|
+| 08:51:21.365 | WiFi beacon_timeout, last RSSI -29 dBm; MQTT loss follows 10 ms later |
+| 08:51:21.581 | Connection UI red; screen 1 remains active |
+| 08:51:45.672 / 46.795 | Association restored / IP acquired after no_ap_found retry events |
+| 08:51:46.898-55.557 | MQTT attempt 11 fails, state=-2, elapsed 8659 ms |
+| 08:51:55.559 | Main-loop gap 8771 ms: connect 8659 + other 112 ms |
+| 08:51:55.573 | Connection UI orange (WiFi up, MQTT down) |
+| 08:52:10.660-15.665 | Attempt 12 fails, state=-2, elapsed 5004 ms |
+| 08:52:15.667 | Main-loop gap 5115 ms: connect 5004 + other 111 ms |
+| 08:52:17.686 / 22.377 | Another beacon timeout / IP restored |
+| 08:52:30.517 / 34.123 | Third beacon timeout / IP restored |
+| 08:52:34.229-35.100 | Attempt 13 succeeds in 870 ms; subscriptions and motion publish resume |
+| 08:52:35.125 | Connection UI green |
+
+Initial WiFi loss to MQTT recovery: 73.735 seconds. This is not a continuous 74-second
+UI freeze: it contains retry time with loop service, plus the two measured blocking calls.
+Screen 1 is recorded before, during and after the episode. Source still services LVGL
+from the main loop and performs synchronous MQTT connect there; this strongly explains
+why the spinner can animate while disconnected but freeze during reconnect calls.
+The log measures main-loop gaps, not individual spinner frames or a physical observation
+of the exact freeze boundaries. No G-meter/IMU average-rate investigation is implied.
+
+Unlike F001, the long attempts FAIL. Repeated blocking MQTT attempts while WiFi is
+associated are now observed, rather than only predicted from source. This does not prove
+cellular internet was absent: DNS/TCP/TLS/CONNACK are not separately timed. state=-2 and
+tls_code=-1, tls_fresh=unknown do not identify the failed phase. Last RSSI -29/-30 and
+beacon_timeout do not establish the hotspot outage cause. Retry disconnect records,
+including suppressed duplicates, are not counted as additional distinct full outages.
+
+##### Storage, memory, and later events
+
+- New finding I004: slow counter rises to 1 at 08:51:47.024 and 2 at 08:51:55.569.
+  Next HEALTH records write_max_us=114893 and flush_max_us=122353; both exceed the
+  100000 us threshold. Source counts BOTH writes and flushes in slowWrites. These are
+  two slow operations, not two write failures. Wall time can include scheduling delay;
+  the log does not isolate physical card latency. They are much shorter than the loop
+  gaps, whose measured MQTT spans already explain nearly all elapsed time.
+- Across all 13 HEALTH records: drops=0, truncated=0, queue_high=7/16; slow stays 2
+  afterward. SD max stays 165519 us. No persistent storage error or record loss shown.
+  Writer stack minimum 3592, internal minimum 34148, sampled internal largest minimum
+  31732, DMA largest minimum 26612: all relevant largest-block samples exceed 20480.
+- Earlier Live completes 145 frames in 60350 ms (~2.40 FPS), with a separate 1514 ms
+  main-loop gap attributed to live_connect (1340 ms) at 08:47:54.847. No paired bench
+  comparison or regression conclusion is justified by this ride alone.
+- A later, distinct episode has POWER_USB present=0 at 08:58:41.632, WiFi auth_expired
+  at 08:58:49.763 and Live connection_closed at 08:58:49.767 after 25 frames. MQTT retry
+  is deferred until media clears, then an attempt fails in 1 ms with wifi_connection=0.
+  This can reflect a state transition; not enough evidence to call it a separate bug.
+  USB returns at 08:58:59.377, association changes from channel 4 to 6, IP returns
+  08:59:01.657 and MQTT reconnects in 595 ms at 08:59:05.701. Last-result retrieval mode
+  starts at 08:59:14.955 and reaches ACTIVE. User circumstances remain unconfirmed;
+  do not assume ignition-off or hotspot toggling caused this sequence.
+- An image succeeds at 08:58:37.609 after the main outage, before the later Live failure.
+
+#### Agreed findings and unresolved questions
+
+Codex analysis complete; Claude review pending. F001 cross-review remains intact.
+F002 supports I001/P001 with failed as well as successful reconnect blocking. I002 remains
+unexplained. I004 is a bounded storage-latency observation to monitor, not a diagnosed
+cause of the UI freeze. P002's priority disagreement is unchanged; no code is approved.
+
+Review warranted because JP observed a symptom and failed long attempts/slow storage
+are new field evidence. Suggested Claude focus: timeline and 73.735 s recovery duration,
+failed-connect versus no-internet distinction, storage counter interpretation, and the
+excerpt's integrity limits. Append one concise Claude review per workflow, not a second
+full analysis. Next field input can be another normal ride log; no extra bench case,
+build or flash requested. Keep original untrimmed exports in future if available, and
+label any excerpts separately, so phone-download CRC verification remains possible.
