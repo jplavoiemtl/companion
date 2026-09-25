@@ -364,4 +364,96 @@ is proposed. No WiFi-loss cure is promised by P001.
 
 ### Review status
 
-Claude review pending. JP implementation approval pending.
+Claude review of revision 1 recorded below: architecture endorsed, two blockers and one
+minor correction for Codex to integrate. JP implementation approval pending.
+
+### Claude review - September 25, 2026 (revision 1, commit 16cda62)
+
+**Verdict.** The architecture is right: one worker that owns every MQTT operation, retained
+PubSubClient behind a minimal local patch, split secure connect, and main-side snapshots
+and queues. Reject a connect-only handoff and esp-mqtt for now, as proposed. Two
+blockers (B1, B2) must be fixed in revision 2; the rest are trade-offs for JP or
+clarifications.
+
+**Verified against installed sources (3.3.11 unless stated):**
+- `setPlainStart()`, `startTLS()` and `connect(IPAddress, port, host, CA, cert, key)` exist
+  (NetworkClientSecure.h:59, 89, 95). **3.1.3 has the same three** (same header lines in
+  its package), so the legacy capability branch in section 3 is unnecessary.
+- connect() skips the handshake in plain-start and sets `last_error`; startTLS() failure
+  calls `stop()` and does NOT set `last_error` (NetworkClientSecure.cpp:147-181). Codex's
+  "unknown freshness" rule for TLS errors after startTLS is correct.
+- TCP connect is nonblocking with `select(timeout)` (ssl_client.cpp:91, 125-143). The
+  handshake loop yields with `vTaskDelay(2)` and honours `handshake_timeout` (:331-338).
+  The write loop yields too (:463).
+- PubSubClient reuses an already connected transport (:186-188); -2 means transport
+  connect failed and -4 means no CONNACK (:258-280), as stated.
+- `CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC=y`: TLS buffers come from internal heap whatever
+  the worker stack location, so section 7's memory gate is the right concern.
+- `tcpip_try_callback`, `dns_gethostbyname_addrtype`, `DNS_TABLE_SIZE 4`,
+  `CONFIG_LWIP_TCPIP_CORE_LOCKING=y`, tcpip thread pinned to core 0.
+- Direct MQTT call sites: companion.ino (9), net_module.cpp (5), imu_module.cpp (IMU
+  telemetry :304-305, motion :498-499). image_fetcher.cpp mentions MQTT only in a comment.
+  Section 4's migration list covers all of them.
+
+**B1 - watchdog reset on core 0 (blocker).** The CONNACK wait
+`while (!_client->available())` (PubSubClient.cpp:257-265) never yields, and `readByte()`
+(:290-296) only calls `yield()`, which never lets the priority-0 IDLE task run. The
+installed config has `CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0=y`, `TIMEOUT_S=5` and
+`PANIC=y`. A priority-1 worker on core 0 waiting 5 s for a CONNACK that never comes would
+starve IDLE0 for about 5 s and reset the board. Today the same spin runs on core 1, where
+IDLE is not watched, which is why it only freezes the UI.
+- Required: every PubSubClient polling loop in the local patch uses `vTaskDelay(>=1 tick)`,
+  not `yield()`.
+- The patch ships in **increment 1** with the worker. No build may run unpatched
+  PubSubClient on the worker, even briefly. Add a host check that no worker-reachable
+  loop polls without a tick delay.
+
+**B2 - the 5 s DNS deadline would turn today's successes into failures (blocker).** lwIP
+2.x retries on a 1 s timer (`DNS_TMR_INTERVAL 1000`, `DNS_MAX_RETRIES 4`). Queries go out
+at about 0, 1, 2 and 4 s, and a server is abandoned at about 7 s before the next server
+is tried. F001's two reconnects took 7855 and 7893 ms. That fits "the first DNS server
+stays silent for about 7 s, then an answer arrives, then about 0.9 s of TCP/TLS/MQTT"
+(hypothesis; the new phase timing will test it). A 5 s DNS cap would abandon exactly
+those attempts and add a 15 s backoff each time, lengthening recovery from about 8 s to
+about 21 s, against section 2's own rule that successful recovery must be preserved.
+With the worker, phase deadlines bound resources, not UI responsiveness, so they must
+not be shorter than the native resolver schedule.
+- Recommended: DNS wait of at least 8 s (or lwIP's own completion, capped around 15 s).
+  Raise the attempt budget and the 25 s `worker_stuck` threshold accordingly.
+- Keep TCP and TLS at 5 s initially. F002's 5004 ms failure cannot show whether a longer
+  wait would have succeeded; the phase timing will.
+
+**Minor correction.** `setConnectionTimeout()` is not only the TCP connect limit. It
+becomes the connection's lifetime `socket_timeout`, `SO_RCVTIMEO` / `SO_SNDTIMEO` and the
+write-progress timeout (ssl_client.cpp:116, 171-172, 453). Use a constant 5000 ms, not
+"remaining <= 5000", so a late-phase remainder can never shorten ONLINE write timeouts.
+
+**Trade-offs and clarifications:**
+- **Lease timing (JP decision).** Acquire the media/retrieval lease just before TCP setup
+  (CA parsing and TLS allocation), not before DNS. DNS and link waits use no TLS memory.
+  Acquiring earlier, combined with B2's longer DNS wait, would lengthen "Reconnecting. Try
+  again." refusals needlessly. On a flapping link (F002: three losses in 70 s) these
+  refusals can recur. They are acceptable only if short, and media would usually fail on
+  such a link anyway.
+- **DNS lifetime.** lwIP copies the hostname into its table at enqueue, so the hostname
+  buffer only needs to survive submission. The callback argument must survive until the
+  callback, which lwIP always makes, with NULL on failure, after at most about 7 s per
+  configured server (up to 3 here, so about 21 s). With the 15 s backoff, two slots are
+  enough; state that bound in the design.
+- **DNS submission failure path.** `tcpip_try_callback` returns `ERR_MEM` when the tcpip
+  mailbox is full. That path must free the slot and defer without counting a failure.
+  Alternative: with core locking enabled, call `dns_gethostbyname_addrtype` under
+  `LOCK_TCPIP_CORE()` from the worker, which removes that failure mode. Either is
+  acceptable.
+- **TLS on a PSRAM stack is unproven.** The HTTP worker proves lwIP, not an mbedTLS
+  handshake with hardware crypto on a PSRAM stack. The design forbids an automatic
+  internal-stack fallback, so make "one handshake and CONNACK on the worker" the first
+  hardware observation after increment 1, before case A. The worker must never write NVS
+  or flash (Preferences, calibration saves stay on main).
+- **Retrieval refusal applies to USB entry too.** Adding `mqtt_reconnecting` to the shared
+  `entryRefusal()` refuses USB entry as well. That is acceptable but should be stated,
+  with a readable panel message added.
+
+Once B1 and B2 are integrated, the ownership, cancellation, shutdown and diagnostics
+sections are ready for JP's decision. No further review round is needed beyond checking
+those two changes.
