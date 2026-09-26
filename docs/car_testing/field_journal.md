@@ -31,8 +31,9 @@ Last updated: September 25, 2026.
 - **P005 A+B with P006 implemented for review:** JP approved design revision 2 after
   Claude clearance 2d93c24. The combined [implementation handoff](p005_p006_implementation_handoff.md)
   records 379 passing host checks, Claude clearance 271f94b, and two passing retained
-  bench cases on JP's build (boot 136). Awaiting JP's explicit P005/P006 acceptance.
-  P004 design follows separately. No build or flash performed by Codex.
+  bench cases on JP's build (boot 136). JP explicitly accepted P005/P006.
+  P004 design is now written for Claude review and JP approval; no implementation
+  authorized. No build or flash performed by Codex.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
   [retrieval spec](../sd_iphone_log_download_spec.md),
   [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
@@ -285,7 +286,9 @@ expanded test suite. Deployment and successful retrieval do not close I001 or I0
 
 ### P004 - Keep UI/IMU responsive during image-request setup
 
-Status: proposed from F003/I003; **no design or implementation approved**.
+Status: JP authorized design work after accepting P005/P006. Codex's
+[P004 revision 1](p004_image_responsiveness_design.md) is ready for Claude review
+and JP approval; **implementation remains unapproved**.
 F003 records main-loop gaps of 5.192 and 5.264 s around synchronous image requests,
 plus shorter image/Live setup gaps. Recommend a focused design review of image HTTP/TLS
 setup, preserving shared media ownership, Live/handover, cancellation, memory and logging
@@ -1068,3 +1071,20 @@ transitions outside the submitted console window. Raw evidence preserved under
 evidence/2026-09-25-p005-p006-case2/; hashes and precise timeline in the handoff.
 Both planned cases pass. Awaiting JP's explicit acceptance, then separate P004 design;
 no further testing or firmware work is requested now.
+
+
+### P005/P006 accepted; P004 design - September 25, 2026, Codex
+
+JP explicitly accepted P005/P006 after both retained cases and said to proceed.
+The accepted checkpoint includes implementation 734ad92, Claude clearance 271f94b
+and bench results through 02bd7bf. No additional P005/P006 bench case is required;
+longer-handshake benefit remains a field measurement, not a guaranteed outcome.
+
+Prepared P004 design revision 1 against current image/Live/source ownership. It proposes
+one shared media transport worker for still and Live network operations, keeping LVGL
+and decode/render on main, explicit single-buffer Live prefetch ownership, asynchronous
+cleanup, preserved MQTT/retrieval exclusion and unchanged 20480-byte gate. Residual
+decode/blit gaps are explicitly outside the network responsiveness target. The design
+lists protocol/admission trade-offs, host checks and at most four focused bench cases.
+Claude design review and JP implementation approval are next. No firmware changes,
+build, flash, new measurements or bench instructions in this step.

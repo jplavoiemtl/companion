@@ -238,3 +238,11 @@ No additional planned bench case, rebuild or measurement requested. Long-handsha
 benefit and later profile roaming remain the previously documented field limitations.
 Upon JP acceptance, close this increment and proceed to separate P004 design/review;
 no P004 firmware implementation is authorized by this result.
+
+
+## JP acceptance - September 25, 2026
+
+JP explicitly accepted P005/P006 after both retained bench cases and authorized moving
+on to P004 design. P005/P006 is complete for the agreed bench scope. The longer-timeout
+benefit remains a field question; the no-radio-fix and later-roaming limits still apply.
+P004 implementation is not included in this acceptance.
