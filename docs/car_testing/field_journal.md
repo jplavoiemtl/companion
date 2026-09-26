@@ -16,14 +16,18 @@ Last updated: September 25, 2026.
   then automatic recovery. Two ~0.12 s storage operations were also recorded without loss.
 - **MQTT responsiveness issue I001 addressed by P001:** owned MQTT worker and bounded
   timing/service telemetry implemented, reviewed and bench-validated. JP accepted
-  increment 2 and all three retained cases on September 25. Car testing is next;
-  installation of this new firmware in the car has not yet been reported.
+  increment 2 and all three retained cases on September 25. F003 now contains car
+  worker/SERVICE records from firmware compiled September 25 at 11:28:38; exact flashed
+  Git identity is not embedded.
 - The accepted bench covers successful reconnect, two five-second TCP failures and
   recovery, and hotspot loss during a pending attempt with same-IP recovery. G-meter
   remained responsive; maximum reconnect UI gap 27 ms, IMU/loop gap 26 ms, no drops
   or resets during the cases. Stack and 20480-byte memory gates passed.
-- Field confirmation is pending. **The cause of WiFi loss (I002) remains open**; P001
-  addresses the UI/IMU blocking during MQTT recovery, not hotspot reliability.
+- **F003 supports P001 in the field:** all 14 post-startup MQTT attempts in afternoon/
+  evening boots kept UI gaps <=23 ms and IMU/loop gaps <=25 ms, including failures.
+- **WiFi loss (I002) remains open:** nine afternoon/evening beacon-timeout episodes.
+  A separate 59.209 s MQTT outage near 20:26 occurred without recorded WiFi loss (I005).
+  Image requests still block main for up to 5.264 s (I003); P004 is proposed, not approved.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
   [retrieval spec](../sd_iphone_log_download_spec.md),
   [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
@@ -127,10 +131,11 @@ Review the newest field session following the field journal workflow.
 
 | ID | Finding | Evidence / confidence | Status |
 |---|---|---|---|
-| I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Addressed by P001; reviewed implementation and three bench cases passed, accepted by JP September 25. Field confirmation pending; see bench closeout |
-| I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Observe; underlying cause unknown. Later power-associated interruption tracked separately |
-| I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Monitor separately from MQTT stalls |
-| I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor; no evidence these explain multi-second UI freezes |
+| I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Addressed by P001, accepted by JP. F003 now supports field responsiveness: UI <=23 ms, IMU/loop <=25 ms during post-startup attempts |
+| I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Open: F003 adds nine afternoon/evening beacon-timeout episodes at reported RSSI -31 to -42 dBm. Cause unproven; separate power-associated interruption |
+| I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Open: F003 image-request main-loop gaps reach 5.264 s with two failed requests near 20:26. Proposed P004, separate from MQTT recovery |
+| I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor: F003 write/flush maxima include 118.747/229.690 ms with zero drops. No evidence these explain multi-second network spans |
+| I005 | MQTT/TLS outage while WiFi stays associated | F003 boot 48: 59.209 s observed MQTT outage, two ~5 s TLS failures, no driver WiFi disconnect | Open: path/broker/transport cause unresolved; association is not proof of working internet |
 
 Do not count retry no_ap_found/sta_leaving records as separate full outages without
 checking the timeline. Do not attribute unknown-freshness TLS errors to a current TLS
@@ -145,8 +150,8 @@ Increment 1 and increment 2 are accepted. [Increment 2 closeout](p001_increment2
 records the three retained passes. Source checkpoint a83c96a is the bench-tested firmware;
 subsequent commits through acceptance contain documentation only. Development branch:
 `codex/car-improvements-p001`. No additional corrective implementation or bench matrix
-is indicated. JP will deploy/test in the car and report evidence; do not infer deployment
-has occurred from this acceptance.
+is indicated by the MQTT bench results. F003 subsequently establishes P001-era car
+deployment and responsive field recovery; the exact flashed Git hash is not embedded.
 
 The owned worker keeps MQTT connection waits off the UI/IMU main task. Failed, cancelled
 and successful attempts preserve cleanup, epoch checks, subscriptions and resource
@@ -161,17 +166,18 @@ These observations address I001 on the bench; they do not prove all future field
 or explain WiFi losses. The earlier field firmware's synchronous MQTT call produced the
 multi-second stalls in F001/F002.
 
-Next: one ordinary car ride, full untrimmed export, approximate local times for any
-symptoms and whether a reconnect occurred. No outage means normal-use evidence only.
+F003 now supplies field recovery evidence: 14 post-startup attempts include long
+successful and failed connections with bounded UI/IMU service gaps. Continue full exports
+and symptom times, distinguishing media stalls and network outage from MQTT UI blocking.
 Increment 3 is evidence-justified corrections if needed and field rollout; no code change
 is proposed now. The known VS Code monitor-close reset limitation remains separate.
 
 ### P002 - Add targeted timing detail only if needed
 
 Status: delivered with P001 and accepted by JP September 25. Split phase timing and
-service telemetry were exercised in the three retained bench cases; field measurements
-on the new car firmware remain pending. Historical priority disagreement below is retained
-for provenance.
+service telemetry were exercised in the three retained bench cases and F003 field
+reconnects. The 20:26 episode now separates DNS, TCP setup and failed TLS. Historical
+priority disagreement below is retained for provenance.
 The new design includes bounded DNS, TCP setup, TLS handshake and MQTT-exchange timing;
 no separate instrumentation-only flash is proposed.
 
@@ -271,6 +277,16 @@ or a code change. JP performs builds/flashes; firmware changes go through Claude
 No new IMU average-rate or writer-core investigation without new relevant symptoms.
 The next useful field input is a timestamped symptom plus a later log export, not an
 expanded test suite. Deployment and successful retrieval do not close I001 or I002.
+
+### P004 - Keep UI/IMU responsive during image-request setup
+
+Status: proposed from F003/I003; **no design or implementation approved**.
+F003 records main-loop gaps of 5.192 and 5.264 s around synchronous image requests,
+plus shorter image/Live setup gaps. Recommend a focused design review of image HTTP/TLS
+setup, preserving shared media ownership, Live/handover, cancellation, memory and logging
+constraints. Do not blindly reuse the MQTT worker or move LVGL across threads. This
+would preserve responsiveness during slow network work, not necessarily shorten remote
+response times or prevent outages. No firmware change or new bench campaign now.
 
 ## Field sessions
 
@@ -751,3 +767,162 @@ remain as historical checkpoints. All three retained cases passed; no further be
 case or code change is requested. The next evidence is a full ride export with symptom
 and reconnect times if observed. I002 WiFi-loss cause remains unresolved. No claim is
 made that the car has already been flashed with P001.
+
+
+### F003 - September 25 afternoon/evening rides; MQTT outage around 20:26
+
+Author: Codex, September 25, 2026. Analysis complete; Claude review recommended because
+this is P001's first field confirmation and stronger evidence of a separate media issue.
+No firmware changes, builds or flashes. Raw evidence read in place, unchanged.
+
+#### Observation, integrity and coverage
+
+JP reports additional rides from about 13:00 and an MQTT disconnection lasting many
+seconds around 20:26. No explicit UI-freeze observation was supplied for these rides.
+Phone location/power actions and which intervals were parked versus driving are unknown.
+
+File: `evidence/2026-09-25-ride-3/start-unknown_49-1-current-524908.log`.
+524908 bytes (matches filename), 2491 lines; SHA-256
+`3d1e989fbda022250ae3ecd924c6e62de878fdce134dded67297bf7770b759cb`;
+computed CRC32 `638048F8`. These are local integrity fingerprints, not a comparison to
+an independently supplied device END/phone CRC. No screenshots/last-result supplied.
+Last record: boot 49 seq146 HTTP_GET_BEGIN, 20:43:14.378; a current snapshot normally
+excludes its own transfer END/CLOSE. No extra export is required just for that reason.
+
+Cumulative log starts at FILE_OPEN boot 39, clock unknown, and includes boots 39-49.
+Boots 39-43 embed firmware Sep 24 21:02:06: do not count their older stalls as a P001
+regression. Boots 44-49 embed Sep 25 11:28:38 and contain worker/SERVICE records,
+establishing P001-era deployment, not an exact Git hash. Every boot 44-49 has contiguous
+record sequences. Boot 44 is supplemental pre-ride data. Afternoon/evening analysis
+below uses boots 45-49. There is no synchronized 13:00 record; coverage is not invented.
+Synced wall times are local -04:00; durations below use same-boot up_ms. Unknown-clock
+startup is not assigned an exact wall time by extrapolation.
+
+| Boot | Synced coverage | End |
+|---|---|---|
+| 44 | 12:05:08-12:08:57 | Clean shutdown; supplemental before reported rides |
+| 45 | 15:23:26-15:45:35 | Clean shutdown |
+| 46 | 16:05:32-16:25:49 | Clean shutdown |
+| 47 | 18:22:17-19:31:49 | Clean shutdown |
+| 48 | 20:23:07-20:28:58 | Clean shutdown; reported outage |
+| 49 | 20:35:53-20:43:14 | Active at export |
+
+These are powered-session windows, not measured driving durations. Boots 45-49 report
+power_on; no watchdog reset boot in this scope. Boot 44 code 11 is labelled other;
+its initiating cause is not inferred.
+
+#### Reported outage: boot 48, 20:26
+
+MQTT_LOST at **20:25:59.818**, MQTT_CONNECTED at **20:26:59.027** = **59.209 s**
+(up_ms 238376 to 297585). The physical transport may have failed earlier while main
+served an image: main observation is not a precise remote-disconnect timestamp.
+Orange UI 20:26:00.697; green 20:26:59.884. No WIFI_DISCONNECT during the episode;
+WiFi health remains associated, RSSI -29 to -37 dBm around the incident.
+
+| Time | Event and measurement |
+|---|---|
+| 20:25:32.005-37.092 | Latest fails, 5087 ms image network span; LOOP_GAP 5192 ms |
+| 20:25:40.274-42.143 | Latest succeeds, 1867 ms request span; LOOP_GAP 1969 ms |
+| 20:25:49.597-51.279 | Back succeeds, 1679 ms request span; LOOP_GAP 1784 ms |
+| 20:25:54.516-59.677 | Back fails, 5157 ms request span; LOOP_GAP 5264 ms |
+| 20:25:59.818 | MQTT_LOST state=-3; no corresponding WiFi loss |
+| 20:26:02.006-03.092 | Back succeeds; temporary media deferral fits inside existing retry wait |
+| 20:26:14.822-22.863 | Attempt 2: TLS failure; DNS/TCP/TLS 1/3022/5003 ms, total 8042 ms |
+| 20:26:37.871-43.001 | Attempt 3: TLS failure; DNS/TCP/TLS 1/112/5004 ms, total 5131 ms |
+| 20:26:58.009-59.020 | Attempt 4 succeeds; DNS/TCP/TLS/MQTT 224/265/458/44 ms, total 1011 ms |
+
+About 45 s is three configured ~15 s waits (initial delay plus post-failure backoffs);
+about 14.2 s is connection work/transition overhead. Media clears before the first retry
+is due, so that short deferral does not add delay beyond the normal wait. No evidence of
+an unbounded/stuck worker. Shortening backoff is an availability/load tradeoff, not an
+automatically warranted fix on this evidence.
+
+TLS failures align with the ~5 s bound, but error=0/error_fresh=0 does not diagnose their
+cause. Fast DNS rules out DNS as the major delay in these two attempts. TCP success and
+WiFi association do not prove working internet/TLS/broker service. State=-3 identifies
+lost connection, not which endpoint/path component caused it. Nearby HTTPS failures
+suggest broader path or endpoint difficulty (inference only); they do not prove a
+cellular outage, common cause, or that MQTT loss was caused by image requests.
+
+P001 worked during the retry windows: SERVICE UI/IMU gaps were **17/17, 17/17, 19/19 ms**;
+loop gaps 17/18/18 ms, all over100 counts zero. These windows exclude the earlier image
+stalls. Post-recovery subscriptions accepted (SUBACK unobserved); later inbound power/
+energy counts advance. The near-minute disconnection is not a near-minute UI freeze.
+
+#### Other network episodes
+
+Nine driver beacon_timeout losses in boots 45-49 had reported RSSI -31 to -42 dBm.
+Strong event/last RSSI does not exclude interference/missing beacons or prove the phone
+paused its radio. Repeated no_ap_found/sta_leaving during recovery are not new outages.
+Observed MQTT loss-to-adopted-recovery intervals:
+
+| Boot | Loss | Recovery | Duration | Context |
+|---|---|---|---:|---|
+| 45 | 15:27:16.789 | 15:27:41.943 | 25.154 s | Beacon loss; successful attempt 10.141 s |
+| 45 | 15:28:34.614 | 15:29:13.140 | 38.526 s | Beacon loss; TLS failure then success |
+| 45 | 15:39:16.517 | 15:39:42.479 | 25.962 s | Beacon loss; successful attempt 10.958 s |
+| 46 | 16:09:57.598 | 16:10:17.685 | 20.086 s | Beacon loss |
+| 46 | 16:11:05.588 | 16:11:21.236 | 15.648 s | Beacon loss |
+| 47 | 18:27:32.568 | 18:27:54.800 | 22.232 s | Beacon loss |
+| 47 | 19:11:35.880 | 19:12:00.394 | 24.514 s | Beacon loss |
+| 47 | 19:12:21.749 | 19:13:09.006 | 47.257 s | Beacon loss; 5003 ms TCP failure then recovery |
+| 48 | 20:25:59.818 | 20:26:59.027 | 59.209 s | WiFi stays associated; two TLS failures |
+| 49 | 20:41:30.045 | 20:41:48.189 | 18.143 s | Beacon loss |
+
+Separate power-associated event: boot 46 POWER_USB=0 at 16:25:19.362, then Live
+connection_closed and WiFi auth_expired/MQTT loss at 16:25:24, shutdown 16:25:49. No
+recovery before shutdown. Actual phone/car action not reported; do not group it with
+unexplained beacon loss. Boot 44 adds two pre-13:00 beacon losses (12:07:27.998 and
+12:08:30.365); the first recovers, the second ends in shutdown. Excluded from count nine.
+
+Boots 45-49 have 19 worker attempts: five startup and **14 post-startup**, comprising
+ten successes and four failures (three TLS, one TCP). Across all 14 recovery SERVICE
+windows: **UI gap <=23 ms, IMU/loop <=25 ms, all over100 counts zero**. Long successful
+attempts span 7-11 s with delays spread across DNS/TCP/TLS/MQTT, not one universal failing
+phase. At 15:39 the successful MQTT exchange took 4986 ms; reducing timeout could reject
+such legitimate slow success.
+
+Startup differs: boots 46/48 have ~222-223 ms UI/IMU gaps, loop_n=0, with wifi_setup
+context. Boot 44 initially returns lease_deferred with similar spacing then succeeds.
+Setup's fixed-delay background paths (including 200 ms in initWiFi) are consistent with
+this spacing; exact per-gap causality is not measured. Record this limitation, not a
+recurring multi-second worker regression or a reason for a new test matrix.
+
+#### Other findings and limits
+
+- Image/Live: 11 explicit >1 s LOOP_GAP records across boots 45-49, all attributed to
+  image_request/live_connect; one also carries suppressed=1. Eleven records are not
+  all possible gaps. Maximum 5.264 s, plus two code=-1 image failures with TLS error
+  freshness unknown. Supports I003/P004 independently of MQTT blocking.
+- MQTT MEM minima: stack 7228, internal/DMA largest 47092 bytes, above 2048/20480 gates.
+  HEALTH retained DMA-largest reaches 21492 in boot 47, only 1012 above gate; media
+  headroom is narrower than MQTT's. These are sampled minima, not guarantees about
+  unsampled transients. No allocation-failure event found.
+- All 124 afternoon/evening HEALTH records: drops=0, truncated=0, queue high <=9.
+  Boot 46 two slow operations: write max 118.747 ms, flush max 122.073 ms. Boot 48 one
+  slow flush, 229.690 ms. They do not explain measured multi-second image network spans.
+  Writer stack minimum 3480 in these sessions.
+- Boot 46 uses MQTT profile 2 with WiFi association 1, mismatch=1 at seq44/90/114, yet
+  connects and exchanges data. Profile numbers do not establish endpoint equivalence
+  or intent. Flag for reviewer, not a proven defect; unrelated to boot-48 profile-1
+  outage at 20:26. Do not expose credentials to investigate.
+- Boot 48 initial WiFi setup took 56992 ms including a second scan/retry. Hotspot absence
+  at startup is not an in-ride loss. Early wall time was unknown. Filename start-unknown
+  is correct for original boot-39 FILE_OPEN, not evidence current time remained unknown.
+- No supplied last-result/CRC record for this export; size matches and sequences are
+  contiguous. Do not claim byte-for-byte phone/device verification beyond these facts.
+
+#### Conclusions and review handoff
+
+**I001/P001 is now field-supported:** long successful and failed MQTT recovery keeps
+UI/IMU servicing responsive. **I002 remains open:** recurring WiFi beacon loss continues.
+**I005 is new:** the reported outage is associated-WiFi MQTT/TLS disruption; normal retry
+policy recovered it in 59.209 s, cause unresolved. **I003/P004** is the next concrete
+responsiveness design candidate: nonblocking image request setup, subject to JP approval.
+
+Claude should spot-check this F003 entry against the raw file, especially the 20:26
+timeline, attribution separation, nine beacon episodes, SERVICE scope and memory margin,
+and append a short review under the shared workflow. This is Codex analysis, not yet
+cross-review consensus. No firmware edits, new bench cases or timeout/backoff/radio
+changes proposed now. Continue full exports and approximate symptom times; phone/power
+context may narrow causes, but no extra export is needed to establish these findings.
