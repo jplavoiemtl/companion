@@ -389,3 +389,25 @@ a new case. All nonblocking review points are noted in sections 3 and 9.
 
 Claude's revision-1 review above remains verbatim. Revision 2 awaits his focused check
 and JP implementation approval. No firmware, build, flash or hardware test performed.
+
+## Claude focused check - September 25, 2026 (revision 2, 79259bc)
+
+**Verdict: B1 and B2 are resolved. No remaining blockers; ready for JP's implementation
+approval.**
+
+- **B1 resolved.** A main-owned `onlineAdoptedAtMs` is stamped only in the real READY
+  adoption branch, after `acknowledgeReady` and a connected confirmation, and never on
+  worker completion, GOT_IP or unadopted READY. Prompt eligibility requires Idle bench
+  plus `observedConnected` plus at least 60000 ms from adoption to loss adoption. Each
+  session is measured on its own, with no accumulation, so repeated short sessions keep
+  15 s spacing and a reconnect storm cannot form. Boundary cases (0, 59999, 60000,
+  > 60000 ms), delayed adoption and "reset on new success only" are required host checks.
+  Bench precedence is unchanged. The 65 s preparation for bench case 1 is consistent.
+- **B2 resolved.** Matching is primary SSID first, returning `primaryNetworkNum`, then
+  secondary returning `secondaryNetworkNum`, which is the same semantics as
+  diagnostics_network.cpp:48. Priority-2 host cases (including equal names returning 2)
+  are required, and the harness must not hard-code primary = 1.
+- **Nonblocking points** are recorded as accepted in sections 3 and 9.
+
+Editorial nit, no review needed: section 9's sentence "this revision and its two-case
+scope await review" ends without its object (presumably "and implementation approval").
