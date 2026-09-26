@@ -182,3 +182,59 @@ not the reconnect window; UI/IMU there are 27/32 ms.
 Next retained gate: case 2, pending-attempt hotspot flap with failed/cancelled cleanup
 and 15-second retry spacing, then explicit on restoring the real broker. No rebuild
 required. Overall P005/P006 acceptance remains pending case 2 and JP's acceptance.
+
+
+## P005/P006 retained case 2 - September 25, 2026, Codex
+
+**Pass: both retained bench cases complete; awaiting JP's explicit acceptance.**
+JP reports the G-meter stayed responsive. Same boot 136 and build as case 1, no reset
+during this case. Evidence: evidence/2026-09-25-p005-p006-case2/ contains
+136-current (1).log and console.txt, copied byte-for-byte. Log 254172 bytes, USB CRC OK,
+CRC32 B6274F77, SHA256
+eec5bec207c796f7f2efc3d5f6d32a87c54852cee6b5e0bf6cf38232ce1e328a.
+The earlier 225030-byte case-1 log is an exact prefix; this is a cumulative capture.
+
+Main case uses worker ids 7-9 (console test-attempt numbers 1-3). Same-boot up_ms:
+
+| Event | up_ms | Interpretation |
+| --- | ---: | --- |
+| off applied | 408339 | Intentional test endpoint, no prompt credit |
+| id 7 BEGIN | 413355 | First test attempt after 5.016 s |
+| driver disconnect | 416028 | auth_expired while TCP pending |
+| id 7 END | 416030 | cancelled, total 2676 ms |
+| id 7 SERVICE/adoption window end | 416036 | UI/IMU/loop 16/17/17 ms |
+| GOT_IP | 419895 | Link returns before backoff expires |
+| id 8 BEGIN | 431041 | 15.011 s after END; 11.146 s after GOT_IP |
+| on applied | 433053 | JP restores real broker during id 8 |
+| id 8 END | 436048 | cancelled, TCP 5003 ms, total 5008 ms |
+| id 8 SERVICE/adoption window end | 436051 | UI/IMU/loop 17/18/18 ms |
+| id 9 BEGIN | 436059 | Only after cancellation cleanup/adoption |
+| id 9 END | 436730 | ok, total 671 ms |
+| real CONNECTED | 436735 | Broker restored |
+| id 9 SERVICE end | 436736 | UI/IMU/loop 24/24/24 ms |
+
+The retry began about 15.005 s after id 7's adoption/service window end. GOT_IP did
+not reset or bypass backoff. JP sent on before the second END rather than after it as
+instructed; this adds safe restore-during-cancellation evidence and does not remove
+the already measured 15-second spacing. No repeat is required. Native TCP cleanup
+was cooperative: on at 433053 did not interrupt it instantly; replacement waited
+until cleanup, then began 11 ms after worker END. Do not classify id 8 as an ordinary
+TCP failure: authoritative result=cancelled takes precedence over its 5003 ms TCP span.
+
+All three SERVICE windows have zero over100 counts. Real attempt phases: DNS 1, TCP 91,
+TLS 506, MQTT exchange 52 ms. Worker stack minimum 7228; internal/DMA largest minima
+57332/57332 on cancelled attempts and 51188/51188 on real recovery. Final lease=0,
+stuck=0, lease_timeouts=0, RX/TX/completion/packet drops=0. Logger ready, queue high=8,
+drops=0, truncated=0, error=none, writer margin=2808. cancelled=3 is boot-cumulative:
+an earlier serial-on cancellation (id 4) plus ids 7/8, not three faults in this case.
+
+Supplemental evidence before the cleared console: id 3 repeats prompt recovery after
+a stable session (GOT_IP 214155, BEGIN 214162). After id 5's adopted success at 266863,
+a loss at 283782 follows only 16.919 s ONLINE. Id 6 begins at 298784, 15.002 s after
+loss: the short-session rule retains backoff. These extra transitions are present in
+the cumulative log; their physical causes are not inferred or needed for case 2.
+
+No additional planned bench case, rebuild or measurement requested. Long-handshake
+benefit and later profile roaming remain the previously documented field limitations.
+Upon JP acceptance, close this increment and proceed to separate P004 design/review;
+no P004 firmware implementation is authorized by this result.

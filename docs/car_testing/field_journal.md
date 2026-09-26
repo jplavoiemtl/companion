@@ -30,8 +30,9 @@ Last updated: September 25, 2026.
   Image requests still block main for up to 5.264 s (I003); P004 is proposed, not approved.
 - **P005 A+B with P006 implemented for review:** JP approved design revision 2 after
   Claude clearance 2d93c24. The combined [implementation handoff](p005_p006_implementation_handoff.md)
-  records 379 passing host checks; Claude code review and JP's build/bench remain pending.
-  P004 follows separately. No build or flash performed by Codex.
+  records 379 passing host checks, Claude clearance 271f94b, and two passing retained
+  bench cases on JP's build (boot 136). Awaiting JP's explicit P005/P006 acceptance.
+  P004 design follows separately. No build or flash performed by Codex.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
   [retrieval spec](../sd_iphone_log_download_spec.md),
   [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
@@ -1049,3 +1050,21 @@ remain pending. JP confirmed the pre-test boot watchdog occurred during the seri
 monitor switch, the known limitation; no reset occurred during this case. Evidence, hashes, clock caveat and
 full metrics are in the P005/P006 implementation handoff, with raw copies preserved
 in evidence/2026-09-25-p005-p006-case1/. No firmware changes or rebuild required.
+
+
+### P005/P006 retained case 2 / bench complete - September 25, 2026, Codex
+
+JP reports responsive G-meter. Same boot 136: hotspot loss cancelled pending id 7,
+then id 8 began 15.011 s after worker END (about 15.005 s after adoption), despite IP
+returning 11.146 s before that retry. JP sent on during id 8; it cancelled and cleaned
+up before id 9 restored the real broker in 671 ms. This procedure variation preserves
+the intended gate and also verifies restore waits for native TCP cleanup; no repeat
+needed. UI/IMU/loop maxima all <=24 ms, worker stack 7228, internal/DMA largest >=51188
+for these attempts, zero drops/errors/stuck faults or resets during the case.
+
+The cumulative log also demonstrates the short-session rule: a loss after 16.919 s
+ONLINE retained 15.002 s before retry. No physical cause is inferred for those earlier
+transitions outside the submitted console window. Raw evidence preserved under
+evidence/2026-09-25-p005-p006-case2/; hashes and precise timeline in the handoff.
+Both planned cases pass. Awaiting JP's explicit acceptance, then separate P004 design;
+no further testing or firmware work is requested now.
