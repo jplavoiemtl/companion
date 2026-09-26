@@ -1,10 +1,34 @@
 # P004 - keep UI and IMU responsive during media network work
 
 Revision 1, September 25, 2026. Author: Codex.
-Status: design for Claude review and JP approval; implementation is not authorized.
+Status: **DEFERRED by JP on September 25, 2026**. No implementation authorized.
+The proposed review/implementation/bench sequence below is inactive historical design.
 JP accepted P005/P006 after both retained cases and authorized proceeding to this design.
 Source baseline: 02bd7bf, including accepted P005/P006 implementation 734ad92.
 No firmware changes, build, flash or new bench procedure accompany this document.
+
+## JP decision - defer pending demonstrated practical impact
+
+JP questioned whether keeping the UI responsive during occasional image network waits
+justifies a dedicated worker and its ownership/cancellation complexity. Codex recommended
+deferral, and JP agreed: address real problems without adding complexity for no valid reason.
+
+The measured blocking remains valid evidence; it is not being dismissed or marked fixed.
+However, JP has not specifically reported the two F003 image-request pauses as a practical
+problem. The earlier G-meter/spinner complaints were associated with MQTT reconnection,
+addressed separately by P001. P004 would improve responsiveness during network waits,
+not necessarily make images arrive faster.
+
+Do not implement P004, commission further design review, or run its proposed bench cases
+as the automatic next step. Continue ordinary car use with the accepted MQTT improvements.
+Reopen only when field observations establish meaningful image-related impact, or new
+concrete evidence changes the cost/benefit assessment, and JP explicitly agrees. Record
+the symptom, local time and supporting log; assess a narrower remedy before adopting
+this worker architecture. Preserve the design and measured findings for reference.
+
+This is a project decision: measured latency alone does not justify added architecture.
+Prefer a demonstrated user problem, a clear expected benefit and the smallest effective
+change. Deferral is not evidence that the blocking disappeared.
 
 ## 1. Problem, target and limits
 

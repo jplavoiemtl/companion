@@ -27,13 +27,15 @@ Last updated: September 25, 2026.
   evening boots kept UI gaps <=23 ms and IMU/loop gaps <=25 ms, including failures.
 - **WiFi loss (I002) remains open:** nine afternoon/evening beacon-timeout episodes.
   A separate 59.209 s MQTT outage near 20:26 occurred without recorded WiFi loss (I005).
-  Image requests still block main for up to 5.264 s (I003); P004 is proposed, not approved.
-- **P005 A+B with P006 implemented for review:** JP approved design revision 2 after
+  Image requests still block main for up to 5.264 s (I003); JP deferred P004 pending
+  demonstrated practical impact.
+- **P005 A+B with P006 accepted:** JP approved design revision 2 after
   Claude clearance 2d93c24. The combined [implementation handoff](p005_p006_implementation_handoff.md)
   records 379 passing host checks, Claude clearance 271f94b, and two passing retained
   bench cases on JP's build (boot 136). JP explicitly accepted P005/P006.
-  P004 design is now written for Claude review and JP approval; no implementation
-  authorized. No build or flash performed by Codex.
+  P004 is deferred: preserve the design, but no implementation, review or bench campaign
+  is the automatic next step. Continue ordinary car use and evidence-based improvements.
+  No build or flash performed by Codex.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
   [retrieval spec](../sd_iphone_log_download_spec.md),
   [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
@@ -139,7 +141,7 @@ Review the newest field session following the field journal workflow.
 |---|---|---|---|
 | I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Addressed by P001, accepted by JP. F003 now supports field responsiveness: UI <=23 ms, IMU/loop <=25 ms during post-startup attempts |
 | I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Open: F003 adds nine afternoon/evening beacon-timeout episodes at reported RSSI -31 to -42 dBm. Cause unproven; separate power-associated interruption |
-| I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Open: F003 image-request main-loop gaps reach 5.264 s with two failed requests near 20:26. Proposed P004, separate from MQTT recovery |
+| I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Measured, not fixed: F003 image-request main-loop gaps reach 5.264 s. JP deferred P004 until practical impact justifies added complexity; separate from accepted MQTT improvements |
 | I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor: F003 write/flush maxima include 118.747/229.690 ms with zero drops. No evidence these explain multi-second network spans |
 | I005 | MQTT/TLS outage while WiFi stays associated | F003 boot 48: 59.209 s observed MQTT outage, two ~5 s TLS failures, no driver WiFi disconnect | Open: path/broker/transport cause unresolved; association is not proof of working internet |
 
@@ -286,12 +288,15 @@ expanded test suite. Deployment and successful retrieval do not close I001 or I0
 
 ### P004 - Keep UI/IMU responsive during image-request setup
 
-Status: JP authorized design work after accepting P005/P006. Codex's
-[P004 revision 1](p004_image_responsiveness_design.md) is ready for Claude review
-and JP approval; **implementation remains unapproved**.
+Status: **deferred by JP on September 25, 2026**, after reviewing the benefit versus
+complexity. [P004 revision 1](p004_image_responsiveness_design.md) is retained for
+reference; no implementation, further review or bench testing is currently planned.
+Measured blocking alone does not establish sufficient practical benefit. Reopen with
+concrete field impact or new evidence and JP's explicit agreement, considering a narrower
+solution first.
 F003 records main-loop gaps of 5.192 and 5.264 s around synchronous image requests,
-plus shorter image/Live setup gaps. Recommend a focused design review of image HTTP/TLS
-setup, preserving shared media ownership, Live/handover, cancellation, memory and logging
+plus shorter image/Live setup gaps. The deferred design examines image HTTP/TLS
+setup, shared media ownership, Live/handover, cancellation, memory and logging
 constraints. Do not blindly reuse the MQTT worker or move LVGL across threads. This
 would preserve responsiveness during slow network work, not necessarily shorten remote
 response times or prevent outages. No firmware change or new bench campaign now.
@@ -1088,3 +1093,20 @@ decode/blit gaps are explicitly outside the network responsiveness target. The d
 lists protocol/admission trade-offs, host checks and at most four focused bench cases.
 Claude design review and JP implementation approval are next. No firmware changes,
 build, flash, new measurements or bench instructions in this step.
+
+
+### P004 deferred - September 25, 2026, JP decision recorded by Codex
+
+JP approved deferring P004. The logs establish image-related main-loop blocking, but
+JP has not identified the two F003 image waits as a practical issue requiring a fix.
+A worker would keep UI/IMU service active during those waits, not necessarily shorten
+network response time, and introduces substantial cancellation/buffer/Live complexity.
+The expected benefit currently does not justify that complexity.
+
+Preserve the findings and design; do not mark I003 fixed or automatically proceed with
+review, implementation or its proposed tests. Continue ordinary car testing with accepted
+MQTT improvements. Revisit only for demonstrated practical impact or new concrete
+evidence, with JP's agreement, and assess a smaller solution first. This supersedes the
+earlier planned P005/P006-to-P004 sequence. Project principle: address real problems
+with a clear benefit and the smallest effective change; do not add architecture solely
+because a measured delay exists. No firmware changes, build or flash.
