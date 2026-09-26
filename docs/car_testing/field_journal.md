@@ -28,6 +28,9 @@ Last updated: September 25, 2026.
 - **WiFi loss (I002) remains open:** nine afternoon/evening beacon-timeout episodes.
   A separate 59.209 s MQTT outage near 20:26 occurred without recorded WiFi loss (I005).
   Image requests still block main for up to 5.264 s (I003); P004 is proposed, not approved.
+- **P005 A+B with P006 next:** JP approved the direction; Codex wrote the combined
+  [recovery design](p005_p006_recovery_design.md) for Claude review and JP implementation
+  approval. P004 follows. No firmware changes accompany this design.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
   [retrieval spec](../sd_iphone_log_download_spec.md),
   [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
@@ -983,3 +986,27 @@ context may narrow causes, but no extra export is needed to establish these find
 7. **Memory context.** The retained DMA-largest low of 21492 was set between 18:46:57 and
    18:48 in a Live session started right after Back images, with MQTT online and no MQTT
    attempt in progress. This confirms media, not P001, as the tightest consumer.
+
+
+### P005/P006 design and F003 review integration - September 25, 2026, Codex
+
+JP requested P005 A+B together with P006, then P004. Reviewed Claude's proposal
+092b32c against current source, installed core 3.3.11 and raw F003 evidence. The
+[combined design](p005_p006_recovery_design.md) agrees with the direction and specifies
+one implementation increment, host checks and two essential bench cases. It remains
+unapproved for implementation pending Claude review and JP approval.
+
+Corrections to the proposal/review, preserving their original text: six of nine beacon
+losses recovered IP in 3.5-5.4 s; two took about 13.2 s and one 25.25 s. Eight first
+attempts began near 15 s, the last near 25.26 s. Removing only the first wait from
+the 20:26 outage predicts about 44.2 s with identical attempt outcomes, not 30 s.
+Longer TLS/MQTT allowances might help but success beyond the old caps is unproven.
+Seven of eleven explicit image LOOP_GAP records were <=1.4 s, two were 1.784/1.969 s,
+and two 5.192/5.264 s. These corrections do not change the agreed improvement order.
+
+P005 retains TCP/ONLINE five-second limits, raises connect-only TLS/MQTT to ten seconds,
+and permits one prompt retry after established loss; failed attempts keep 15 s backoff.
+P006 selects the recognized actual SSID at initial/late configuration, deferring unknown
+selection rather than treating it as secondary. No radio tuning or image changes.
+The first bench case must use normal hotspot recovery: serial on already bypasses the
+wait, so it cannot validate the new scheduling behavior. No bench case is issued yet.
