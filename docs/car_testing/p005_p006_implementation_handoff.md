@@ -145,3 +145,40 @@ Nonblocking:
 - **Deferred-selection cost.** While selection is deferred on an unknown SSID, the late
   path reads `WiFi.SSID()` (a String allocation) every loop turn. That is cheap, bounded
   by the event coalescing, and only occurs in that uncommon state.
+
+
+## P005/P006 retained case 1 - September 25, 2026, Codex
+
+Result: reconnect timing, responsiveness, profile and resource gates pass. JP reports
+G-meter stayed responsive. Boot 136, build stamp Sep 25 2026 22:37:00; no exact Git
+identity embedded. Reviewed code checkpoint is 271f94b (implementation 734ad92).
+Evidence preserved in evidence/2026-09-25-p005-p006-case1/: 136-current.log and console.txt.
+Log: 225030 bytes, CRC32 4895D185 (console CRC OK), SHA256
+564b20bca79e0040ce41ad6fe0c7fe63e2e8194d319ad6c2e7fd01bcdfdc1d1d. Raw evidence remains ignored.
+
+Use same-boot uptime: startup clock is approximate and later synchronized, so wall-clock
+subtraction across startup is inappropriate. READY/CONNECTED up_ms=9181, loss=105900:
+96.719 s ONLINE, satisfying the >=60 s rule. GOT_IP=116861, BEGIN=116872: **11 ms**.
+BEGIN occurs 10.972 s after loss, proving it did not wait the former 15 s. Approximately
+4.028 s of the former scheduling wait were avoided in this case. CONNECTED=117611:
+750 ms after GOT_IP, total MQTT outage 11.711 s. Worker reports total_ms=730, DNS=2,
+TCP=126, TLS=508, MQTT exchange=77 ms, result=ok. BEGIN/END stamps and worker total
+use slightly different capture points; preserve the reported total rather than equating them.
+
+Reconnect SERVICE: window=741 ms, UI/IMU/loop gaps=19/20/20 ms, all over100 counts=0.
+MQTT stack margin=7228 bytes, internal/DMA largest minima=47092, lease=0 after success,
+no dropped messages, lease timeouts, cancellations or stuck faults. Logger queue high=7,
+drops=0, truncated=0, error=none; writer margin=3128. P006 startup selection requested=1,
+actual=1, mismatch=0; both MQTT attempts use connection=wifi_connection=1. This does
+not hardware-exercise reversed priority or unknown-SSID selection; host coverage stands.
+Healthy TLS/CONNACK complete well below 5 s, so benefit from the longer allowance
+remains unmeasured, as planned. No reset occurs within the captured case.
+
+Boot 136 itself records reset=task_watchdog before the test. JP confirmed this happened
+during the serial-monitor switch, the known pre-existing limitation. It is not a reset
+during this recovery case. Startup SERVICE loop_gap=687 with loop_n=0 is the setup window,
+not the reconnect window; UI/IMU there are 27/32 ms.
+
+Next retained gate: case 2, pending-attempt hotspot flap with failed/cancelled cleanup
+and 15-second retry spacing, then explicit on restoring the real broker. No rebuild
+required. Overall P005/P006 acceptance remains pending case 2 and JP's acceptance.

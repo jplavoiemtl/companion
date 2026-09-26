@@ -1036,3 +1036,16 @@ The design records approval and section 9's editorial correction. All 379 checks
 See the implementation handoff for review focus, counts and retained two-case scope.
 Awaiting Claude code review before JP builds; no new bench procedure issued. P004
 and changes to WiFi radio policy remain outside this increment.
+
+
+### P005/P006 retained case 1 - September 25, 2026, Codex
+
+JP reports responsive G-meter. Boot 136 demonstrates prompt recovery: 96.719 s ONLINE
+before loss, MQTT BEGIN 11 ms after GOT_IP and 10.972 s after loss (earlier than the
+old 15-second eligibility). Reconnected 750 ms after GOT_IP; worker total 730 ms.
+UI/IMU/loop gaps 19/20/20 ms, stack 7228, internal/DMA largest 47092, zero drops/errors.
+Joined/configured network 1 agrees. Recovery case passes; case 2 and JP acceptance
+remain pending. JP confirmed the pre-test boot watchdog occurred during the serial
+monitor switch, the known limitation; no reset occurred during this case. Evidence, hashes, clock caveat and
+full metrics are in the P005/P006 implementation handoff, with raw copies preserved
+in evidence/2026-09-25-p005-p006-case1/. No firmware changes or rebuild required.
