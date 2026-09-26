@@ -3,7 +3,8 @@
 #include <stdint.h>
 #include "../diagnostics/diagnostics_internal.h"
 namespace mqttowner {
-constexpr uint32_t DNS_MS=15000, ATTEMPT_MS=35000, STUCK_MS=40000, SOCKET_MS=5000;
+constexpr uint32_t DNS_MS=15000, ATTEMPT_MS=45000, STUCK_MS=50000, SOCKET_MS=5000;
+constexpr uint32_t TLS_MS=10000, MQTT_MS=10000, SUBSCRIBE_MS=2000;
 enum class Phase : uint8_t { Idle, Dns, Lease, Tcp, Tls, Mqtt, Subscribe, Online, Cleanup, Fault, Stopped };
 struct View {
   uint32_t epoch=1, attemptEpoch=0, id=0;

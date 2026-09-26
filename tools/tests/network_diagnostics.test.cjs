@@ -44,8 +44,8 @@ test('MQTT endpoints, credentials, subscriptions and fixed timeouts migrate to s
  assert(owner.includes('cmd.connection==1 ? config.serverPort1 : config.serverPort2'));
  assert(owner.includes('cmd.test ? "192.0.2.1"'));
  assert.deepEqual(calls(owner,'client','connect'),['connect("companion-bench-test")','connect(CLIENT_ID,USERNAME,KEY)']);
- assert.deepEqual(calls(owner,'client','setSocketTimeout'),['setSocketTimeout(5)']);
- assert.deepEqual(calls(owner,'secure','setConnectionTimeout|setHandshakeTimeout'),['setConnectionTimeout(5000)','setHandshakeTimeout(5)']);
+ assert.deepEqual(calls(owner,'client','setSocketTimeout'),['setSocketTimeout(MQTT_MS/1000)','setSocketTimeout(SOCKET_MS/1000)','setSocketTimeout(SOCKET_MS/1000)']);
+ assert.deepEqual(calls(owner,'secure','setConnectionTimeout|setHandshakeTimeout'),['setConnectionTimeout(5000)','setHandshakeTimeout(TLS_MS/1000)']);
  assert.deepEqual(calls(owner,'plain','setConnectionTimeout'),['setConnectionTimeout(5000)']);
  assert(owner.includes('secure.connect(address,port,host,config.caCert,nullptr,nullptr)'));
  assert(owner.includes('config.topics.image,config.topics.power,config.topics.energy'));

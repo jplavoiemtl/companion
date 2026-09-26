@@ -28,9 +28,10 @@ Last updated: September 25, 2026.
 - **WiFi loss (I002) remains open:** nine afternoon/evening beacon-timeout episodes.
   A separate 59.209 s MQTT outage near 20:26 occurred without recorded WiFi loss (I005).
   Image requests still block main for up to 5.264 s (I003); P004 is proposed, not approved.
-- **P005 A+B with P006 next:** JP approved the direction; Codex wrote the combined
-  [recovery design](p005_p006_recovery_design.md) for Claude review and JP implementation
-  approval. P004 follows. No firmware changes accompany this design.
+- **P005 A+B with P006 implemented for review:** JP approved design revision 2 after
+  Claude clearance 2d93c24. The combined [implementation handoff](p005_p006_implementation_handoff.md)
+  records 379 passing host checks; Claude code review and JP's build/bench remain pending.
+  P004 follows separately. No build or flash performed by Codex.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
   [retrieval spec](../sd_iphone_log_download_spec.md),
   [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
@@ -1022,3 +1023,16 @@ Added host-case requirements for both corrections and noted the accepted nonbloc
 items (cancelled-attempt backoff, shutdown no-dispatch, and nondiscriminating bench
 timing). Two bench cases remain planned, with a stable-session preparation for case 1.
 Design only; awaiting Claude's focused check and JP implementation approval.
+
+
+### P005/P006 implementation - September 25, 2026, Codex
+
+JP approved revision 2 after Claude clearance 2d93c24 and authorized the combined
+increment. Implemented >=60 s stable-session prompt retry, connect-only TLS/MQTT
+ten-second allowances with ONLINE five-second restoration, 45/50-second attempt/stuck
+bounds, and joined-SSID network-number selection shared by initial/late configuration.
+The design records approval and section 9's editorial correction. All 379 checks in
+16 host suites pass; no firmware compilation or hardware validation is claimed.
+See the implementation handoff for review focus, counts and retained two-case scope.
+Awaiting Claude code review before JP builds; no new bench procedure issued. P004
+and changes to WiFi radio policy remain outside this increment.

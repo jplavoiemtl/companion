@@ -21,6 +21,19 @@ namespace mqttowner {
 namespace {
 constexpr size_t STACK_BYTES=12288, WIRE_BYTES=512;
 constexpr uint32_t INTERNAL_GATE=20480;
+// Only CONNECT gets the longer protocol wait; every return restores ONLINE policy.
+struct ConnectTimeoutScope {
+  OwnedPubSubClient& client;
+  explicit ConnectTimeoutScope(OwnedPubSubClient& value):client(value) {
+    client.setSocketTimeout(MQTT_MS/1000);
+  }
+  ~ConnectTimeoutScope() { client.setSocketTimeout(SOCKET_MS/1000); }
+};
+bool connectExchange(OwnedPubSubClient& client,bool test) {
+  ConnectTimeoutScope timeout(client);
+  return test ? client.connect("companion-bench-test") : client.connect(CLIENT_ID,USERNAME,KEY);
+}
+
 portMUX_TYPE mux=portMUX_INITIALIZER_UNLOCKED;
 StaticTask_t workerTcb;
 StackType_t* workerStack=nullptr;
@@ -211,9 +224,9 @@ void worker(void*) {
   OwnedPubSubClient client(facade);
   client.setOperationGuard(operationAllowed);
   const bool bufferOk=client.setBufferSize(WIRE_BYTES);
-  client.setSocketTimeout(5); client.setCallback(receive);
+  client.setSocketTimeout(SOCKET_MS/1000); client.setCallback(receive);
   plain.setConnectionTimeout(5000);
-  secure.setConnectionTimeout(5000); secure.setHandshakeTimeout(5);
+  secure.setConnectionTimeout(5000); secure.setHandshakeTimeout(TLS_MS/1000);
   bool online=false;
   for(;;) {
     vTaskDelay(pdMS_TO_TICKS(10)); // Idle/ONLINE cadence; active waits use one tick.
@@ -247,7 +260,7 @@ void worker(void*) {
         if((!strcmp(result.dnsResult,"ok") || !strcmp(result.dnsResult,"skipped_literal")) && acquireLease(cmd,result)) {
           if(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT)<INTERNAL_GATE) {
             result.reason="memory_refused"; result.counted=false;
-          } else if(admitPhase(cmd,Phase::Tcp,5000,result)) {
+          } else if(admitPhase(cmd,Phase::Tcp,SOCKET_MS,result)) {
             const uint64_t at=nowMs();
             facade.transport=tls ? static_cast<Client*>(&secure) : static_cast<Client*>(&plain);
             if(tls) secure.setPlainStart();
@@ -259,18 +272,18 @@ void worker(void*) {
             } else if(!current(cmd.epoch)) result.reason="cancelled";
             else {
               bool tlsOk=!tls;
-              if(tls && admitPhase(cmd,Phase::Tls,5000,result)) {
+              if(tls && admitPhase(cmd,Phase::Tls,TLS_MS,result)) {
                 const uint64_t tlsAt=nowMs();
                 tlsOk=secure.startTLS(); result.tlsMs=nowMs()-tlsAt; result.valid|=4;
                 if(!tlsOk) result.reason="tls_failed"; // startTLS does not refresh lastError.
               }
-              if(tlsOk && admitPhase(cmd,Phase::Mqtt,5000,result)) {
+              if(tlsOk && admitPhase(cmd,Phase::Mqtt,MQTT_MS,result)) {
                 facade.ready=true; // No plaintext MQTT before verified TLS success.
                 const uint64_t mqttAt=nowMs();
-                const bool ok=cmd.test ? client.connect("companion-bench-test") : client.connect(CLIENT_ID,USERNAME,KEY);
+                const bool ok=connectExchange(client,cmd.test);
                 result.mqttMs=nowMs()-mqttAt; result.valid|=8; result.state=client.state();
                 result.reason=ok ? "ok" : "mqtt_failed";
-                if(ok && admitPhase(cmd,Phase::Subscribe,2000,result)) {
+                if(ok && admitPhase(cmd,Phase::Subscribe,SUBSCRIBE_MS,result)) {
                   const char* topics[]={config.topics.image,config.topics.power,config.topics.energy};
                   bool all=true;
                   for(unsigned i=0;i<3;++i) {
@@ -325,7 +338,7 @@ void worker(void*) {
       portEXIT_CRITICAL(&mux); online=false;
     }
     if(waiting || !online) continue;
-    operationDeadline=nowMs()+5000;
+    operationDeadline=nowMs()+SOCKET_MS;
     const bool alive=client.loop() && operationAllowed();
     if(!alive) {
       const int state=client.state();
@@ -340,7 +353,7 @@ void worker(void*) {
     if(txCount) { message=queues->tx[txHead]; txHead=(txHead+1)%4; --txCount; send=true; }
     portEXIT_CRITICAL(&mux);
     if(send && message.epoch==operationEpoch && current(operationEpoch)) {
-      operationDeadline=nowMs()+5000;
+      operationDeadline=nowMs()+SOCKET_MS;
       const char* topic=message.topic==0 ? config.motionTopic : message.topic==1 ? config.imuTopic : "companion/calibration";
       const bool accepted=client.publish(topic,message.payload);
       Sent sent{}; sent.epoch=operationEpoch; sent.when=diag::stamp(); sent.accepted=accepted;

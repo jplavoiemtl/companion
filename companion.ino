@@ -190,7 +190,7 @@ const unsigned long MAX_RUNTIME_AFTER_USB_LOSS = 180000;  // 3 minutes maximum s
 
 // --- WiFi Boot State (drives "local-only" mode when WiFi never came up at boot) ---
 bool g_wifiUpAtBoot = false;          // true if attemptWiFiConnection() succeeded during setup()
-bool g_mqttConfiguredLate = false;    // true after we configure MQTT on a late WiFi-up transition
+bool g_mqttConfiguredFromWifi = false; // Initial or late successful joined-network selection
 
 // --- POINTERS for manual initialization to prevent race conditions ---
 std::shared_ptr<Arduino_IIC_DriveBus> IIC_Bus = nullptr;
@@ -737,6 +737,37 @@ void runBackgroundTick() {
 
 //***************************************************************************************************
 //***************************************************************************************************
+// Main-task only. Priority roles select network numbers, never broker role indices.
+int joinedMqttNetwork(const String& joined) {
+  if (!joined.length()) return 0;
+  if (primarySsid && joined == primarySsid) return primaryNetworkNum;
+  if (secondarySsid && joined == secondarySsid) return secondaryNetworkNum;
+  return 0;
+}
+bool configureMqttFromJoinedWifi(int requested, bool initial) {
+  if (g_mqttConfiguredFromWifi) return true;
+  int actual=0;
+  if (WiFi.status() == WL_CONNECTED) {
+    const String joined=WiFi.SSID();
+    actual=joinedMqttNetwork(joined);
+    if (WiFi.status() != WL_CONNECTED) actual=0;
+  }
+  // Coalesce unchanged outcomes (including repeated unknown/empty association).
+  static int lastActual=-1, lastRequested=-1;
+  static bool lastInitial=false;
+  if (actual!=lastActual || requested!=lastRequested || initial!=lastInitial) {
+    diagnet::event("MQTT_PROFILE_SELECT",
+      "source=%s requested=%d actual=%d result=%s mismatch=%u",
+      initial ? "initial" : "late",requested,actual,
+      actual ? "configured" : "deferred",requested!=0 && actual!=0 && requested!=actual);
+    lastActual=actual; lastRequested=requested; lastInitial=initial;
+  }
+  if (!actual) return false;
+  netConfigureMqttClient(actual);
+  g_mqttConfiguredFromWifi=true;
+  return true;
+}
+
 bool connectToWiFi(int connection) {      // connection is either 1 for wifi1 or 2 for wifi2
   bool connected = false;
   char context[48]; snprintf(context, sizeof(context), "connection=%d", connection);
@@ -790,8 +821,7 @@ bool connectToWiFi(int connection) {      // connection is either 1 for wifi1 or
       WiFi.setSleep(false);
       USBSerial.println("INFO: Wi-Fi Power Save disabled for stability.");
 
-      netConfigureMqttClient(connection);
-      netCheckMqtt();     
+      if (configureMqttFromJoinedWifi(connection, true)) netCheckMqtt();
   } else {
     USBSerial.println("Failed to connect to WiFi.");
   }
@@ -2516,17 +2546,9 @@ void loop() {
     }
   }
 
-  // --- Task 2a: WiFi came up AFTER a failed boot - configure MQTT once ---
-  // netConfigureMqttClient() is normally called from connectToWiFi() on a
-  // successful initial connect. If WiFi was down at boot we never ran that path,
-  // so the MQTT owner has no selected broker profile. Detect the late WiFi-up transition and
-  // configure MQTT exactly once; the existing rate-limited retry in netCheckMqtt
-  // takes over from there.
-  if (!g_wifiUpAtBoot && !g_mqttConfiguredLate && WiFi.status() == WL_CONNECTED) {
-    int conn = (WiFi.SSID() == ssid1) ? 1 : 2;
-    USBSerial.printf("WiFi up after failed boot - configuring MQTT for connection %d\n", conn);
-    netConfigureMqttClient(conn);
-    g_mqttConfiguredLate = true;
+  // Configure once after a late link or deferred initial SSID selection.
+  if (!g_mqttConfiguredFromWifi && WiFi.status() == WL_CONNECTED) {
+    configureMqttFromJoinedWifi(0, false);
   }
 
   // --- Task 2: Handle MQTT communications if connected ---
@@ -2535,7 +2557,7 @@ void loop() {
 
     // DNS runs on the worker; the main-task lease arbitrates TLS against media.
     if (!imageFetcherIsBusy() && !videoStreamActive()) {
-      netCheckMqtt();   // Attempt reconnection (rate-limited to every 15s)
+      netCheckMqtt();   // Stable-session loss is prompt; failures retain 15 s backoff.
     }
   } else {
     netObserveRetryPolicy(imageFetcherIsBusy() || videoStreamActive());

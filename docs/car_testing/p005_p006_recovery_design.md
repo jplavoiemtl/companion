@@ -1,12 +1,14 @@
 # P005/P006 - MQTT recovery timing and joined-network profile
 
 Revision 2 - September 25, 2026. Author: Codex.
-Status: design for Claude review, then JP implementation approval. No firmware changes,
-builds or flashes. Source checked at 092b32c and f5a25b7 on codex/car-improvements-p001;
-the intervening changes are documentation only. Integrates Claude review f5a25b7.
+Status: approved for implementation by JP on September 25, 2026, after Claude's
+focused clearance at 2d93c24. Combined increment implemented for Claude code review;
+no build or flash. Design source checks used 092b32c and f5a25b7 on
+codex/car-improvements-p001. Integrates Claude review f5a25b7.
 
 JP approved the direction: P005 A+B and P006 in one increment, P004 afterward.
-This document specifies that increment; direction approval is not implementation approval.
+JP subsequently approved this revision and authorized the combined implementation.
+Code review is required before JP builds or flashes.
 Inputs: [Claude proposal](p005_recovery_timing_proposal.md),
 [F003 and review](field_journal.md), and [P001](p001_mqtt_responsiveness_design.md).
 
@@ -311,9 +313,9 @@ Claude's focused revision-2 check covers B1's >=60 s adoption-to-adoption stabil
 condition and B2's priority-independent network-number mapping, including their host
 cases. The three nonblocking review points are accepted: cancelled-attempt backoff,
 shutdown no-dispatch rather than no-credit, and host proof plus later field timing when
-bench IP recovery cannot discriminate the scheduling change. JP's direction is recorded; this revision and its two-case scope await review
-and implementation approval. No further product choices are required unless the review
-finds a trade-off that changes this contract.
+bench IP recovery cannot discriminate the scheduling change. Claude cleared revision 2
+at 2d93c24, and JP approved the design and authorized implementation. The two-case scope
+is retained. The implementation now awaits Claude's code review before JP builds.
 
 ## Claude review - September 25, 2026 (revision 1, 5227a7a)
 
@@ -411,3 +413,12 @@ approval.**
 
 Editorial nit, no review needed: section 9's sentence "this revision and its two-case
 scope await review" ends without its object (presumably "and implementation approval").
+
+
+## JP implementation approval - September 25, 2026
+
+JP explicitly approved revision 2 following Claude clearance 2d93c24 and authorized
+P005 A+B with P006 in one increment, the required host checks, and commit/push for
+Claude code review. P004 follows separately. No build or flash was authorized for
+Codex. Section 9's sentence is completed above. See the
+[implementation handoff](p005_p006_implementation_handoff.md) for scope and validation.

@@ -49,6 +49,8 @@ char benchCommand[24] = {};
 size_t benchCommandLength = 0;
 bool benchCommandOverflow = false;
 bool observedConnected = false;
+constexpr uint64_t PROMPT_MIN_ONLINE_MS=60000;
+uint64_t onlineAdoptedAtMs=0; // Valid only while observedConnected; main-owned.
 bool benchFirstPending=false,restorePending=false;
 bool mediaDeferred = false;
 int observedAssociation = -1;
@@ -64,7 +66,7 @@ const char* lastResult="none";
 bool observeMqtt() { return mqttowner::view().connected; }
 void intentionalDisconnect(const char* reason) {
   diagnet::event("MQTT_DISCONNECT", "reason=%s state_before=%d",reason,netMqttState());
-  mqttowner::invalidate(); observedConnected=false;
+  mqttowner::invalidate(); observedConnected=false; onlineAdoptedAtMs=0;
 }
 
 uint32_t retryRemaining() {
@@ -287,6 +289,7 @@ void netMainTick() {
       else if(netIsMqttConnected()) {
         diagnet::event("MQTT_CONNECTED","recovery=%u target=real connection=%d port=%u state=%d",everConnected || benchPhase==BenchPhase::Restoring,configuredConnection,activePort,result.state);
         everConnected=true; failureCount=0; observedConnected=true;
+        onlineAdoptedAtMs=esp_timer_get_time()/1000;
         const char* categories[]={"image","power","energy"};
         for(unsigned i=0;i<3;++i) diagnet::event("MQTT_SUBSCRIBE","category=%s qos=1 accepted=%u ack=unobserved",categories[i],(result.subscriptions>>i)&1);
         calibReportStatus(); // main only, enqueues publication
@@ -302,12 +305,16 @@ void netMainTick() {
   }
   int lostState;
   if(mqttowner::takeLoss(lostState)) {
+    const uint64_t lossAdoptedAtMs=esp_timer_get_time()/1000;
+    const bool prompt=benchPhase==BenchPhase::Idle && observedConnected &&
+      lossAdoptedAtMs-onlineAdoptedAtMs>=PROMPT_MIN_ONLINE_MS;
     lastMqttAttempt = millis();
-    if(benchFirstPending) lastMqttAttempt-=MQTT_RECONNECT_INTERVAL-BENCH_FIRST_ATTEMPT_MS;
     if(restorePending) lastMqttAttempt-=MQTT_RECONNECT_INTERVAL;
+    else if(benchFirstPending) lastMqttAttempt-=MQTT_RECONNECT_INTERVAL-BENCH_FIRST_ATTEMPT_MS;
+    else if(prompt) lastMqttAttempt-=MQTT_RECONNECT_INTERVAL;
     if(observedConnected) diagnet::mqttLoss(lostState,benchPhase==BenchPhase::Outage ? "test" : "real",configuredConnection,activePort,nullptr);
     else diagnet::event("MQTT_CLEANUP","execution=worker state=%d result=closed",lostState);
-    observedConnected=false;
+    observedConnected=false; onlineAdoptedAtMs=0;
   }
   mqttowner::Sent completion{};
   for(unsigned i=0;i<4 && mqttowner::takeSent(completion);++i) {

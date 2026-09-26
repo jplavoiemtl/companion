@@ -11,11 +11,11 @@ let count=0;
 function test(name,f){f();++count;console.log('PASS '+name);}
 function adapt(s){return s.replace(/port(?:ENTER|EXIT)_CRITICAL\(&mux\);/g,'').replace(/Phase::/g,'Phase.').replace(/\bconst (?:bool|uint\d+_t|err_t|ip_addr_t) /g,'const ').replace(/\b(?:bool|uint\d+_t|err_t) /g,'let ').replace(/slot->/g,'slot.').replace('status.stop|=stopping','status.stop=Boolean(status.stop || stopping)');}
 const phases=['Idle','Dns','Lease','Tcp','Tls','Mqtt','Subscribe','Online','Cleanup','Fault','Stopped'];
-function context(){const c={t:0,status:{epoch:1,attemptEpoch:1,link:true,stop:false,phase:'Dns',busy:true,connected:false,lease:false,requestedLease:false,started:0,cancelled:0,stuck:0},Phase:Object.fromEntries(phases.map(x=>[x,x])),ATTEMPT_MS:35000,STUCK_MS:40000,readyAck:false,operationDeadline:0,clears:0};c.nowMs=()=>c.t;c.clearMessagesLocked=()=>c.clears++;c.phase=p=>c.status.phase=p;vm.createContext(c);
+function context(){const c={t:0,status:{epoch:1,attemptEpoch:1,link:true,stop:false,phase:'Dns',busy:true,connected:false,lease:false,requestedLease:false,started:0,cancelled:0,stuck:0},Phase:Object.fromEntries(phases.map(x=>[x,x])),ATTEMPT_MS:45000,STUCK_MS:50000,readyAck:false,operationDeadline:0,clears:0};c.nowMs=()=>c.t;c.clearMessagesLocked=()=>c.clears++;c.phase=p=>c.status.phase=p;vm.createContext(c);
  for(const [sig,name,args] of [['void linkEvent(','linkEvent','up'],['bool current(','current','epoch'],['void invalidateLocked(','invalidateLocked','stopping'],['bool admitPhase(','admitPhase','cmd,value,allowance,result'],['void arbitrate(','arbitrate','available'],['void acknowledgeReady(','acknowledgeReady','epoch']])vm.runInContext(`function ${name}(${args}){${adapt(body(worker,sig))}}`,c);
  return c;}
 test('pins allocation, scheduling and time bounds; no internal fallback',()=>{
- for(const s of ['DNS_MS=15000','ATTEMPT_MS=35000','STUCK_MS=40000','SOCKET_MS=5000'])assert(header.includes(s));
+ for(const s of ['DNS_MS=15000','ATTEMPT_MS=45000','STUCK_MS=50000','SOCKET_MS=5000'])assert(header.includes(s));
  for(const s of ['STACK_BYTES=12288','WIRE_BYTES=512','INTERNAL_GATE=20480','MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT','&workerTcb,0','nullptr,1,workerStack'])assert(worker.includes(s));
  assert(worker.includes('sizeof(Queues)<=8192'));assert(worker.includes('<=2048'));
  assert.equal((worker.match(/setConnectionTimeout\(5000\)/g)||[]).length,2);
@@ -27,8 +27,8 @@ for(const phase of phases.filter(x=>!['Idle','Stopped','Fault'].includes(x)))tes
  c.status.phase='Online';c.acknowledgeReady(1);assert.equal(c.status.connected,false);
 });
 test('phase admission preserves complete allowance and never changes attempt origin',()=>{
- const c=context(),cmd={epoch:1,started:0},r={};c.t=30000;assert.equal(c.admitPhase(cmd,'Tcp',5000,r),true);assert.equal(c.operationDeadline,35000);
- c.t=30001;assert.equal(c.admitPhase(cmd,'Tls',5000,r),false);assert.equal(r.reason,'attempt_budget');assert.equal(cmd.started,0);
+ const c=context(),cmd={epoch:1,started:0},r={};c.t=40000;assert.equal(c.admitPhase(cmd,'Tcp',5000,r),true);assert.equal(c.operationDeadline,45000);
+ c.t=40001;assert.equal(c.admitPhase(cmd,'Tls',5000,r),false);assert.equal(r.reason,'attempt_budget');assert.equal(cmd.started,0);
  c.invalidateLocked(false);assert.equal(c.admitPhase(cmd,'Mqtt',5000,r),false);assert.equal(r.reason,'cancelled');
 });
 test('only pending post-DNS matching lease can grant; stale grants roll back',()=>{
@@ -37,7 +37,7 @@ test('only pending post-DNS matching lease can grant; stale grants roll back',()
  c.status.phase='Lease';c.status.requestedLease=true;c.invalidateLocked(false);c.arbitrate(true);assert.equal(c.status.lease,false);
 });
 test('fault is one-shot, held resource stays held; stale READY cannot revive it',()=>{
- for(const held of [false,true]){const c=context();c.status.lease=held;c.t=40000;c.arbitrate(true);assert.equal(c.status.phase,'Fault');assert.equal(c.status.lease,held);assert.equal(c.status.stuck,1);c.t=80000;c.arbitrate(true);assert.equal(c.status.stuck,1);c.acknowledgeReady(1);assert.equal(c.status.connected,false);}
+ for(const held of [false,true]){const c=context();c.status.lease=held;c.t=50000;c.arbitrate(true);assert.equal(c.status.phase,'Fault');assert.equal(c.status.lease,held);assert.equal(c.status.stuck,1);c.t=80000;c.arbitrate(true);assert.equal(c.status.stuck,1);c.acknowledgeReady(1);assert.equal(c.status.connected,false);}
 });
 test('shutdown invalidates snapshot and queues without releasing worker resources',()=>{
  const c=context();c.status.connected=true;c.status.lease=true;c.invalidateLocked(true);assert.equal(c.status.stop,true);assert.equal(c.status.connected,false);assert.equal(c.status.lease,true);
@@ -248,5 +248,17 @@ test('shared heap sampler refuses idle and ignores completion or new attempt rac
  vm.createContext(c);vm.runInContext(`function sample(){${adapt(body(worker,'void sample(')).replace('const auto before','const before')}}`,c);
  c.sample();assert.equal(c.walks,0);c.status.busy=true;c.sample();assert.equal(c.walks,4);assert.equal(c.status.largestMin,80);
  for(const race of ['end','new']){c.status.busy=true;c.status.largestMin=999;c.race=race;c.sample();assert.equal(c.status.largestMin,999);}
+});
+test('ten-second CONNECT receives delayed and fragmented CONNACK without per-byte extension',()=>{
+ const wait=body(pub,'while (!_client->available())').replace(/_client->/g,'_client.').replace(/this->/g,'').replace(/unsigned long /g,'let ').replace(/\(int32_t\)/g,'').replace(/(\d+)UL/g,'$1');
+ for(const [times,ok,end] of [[[6000,6500,7000,9000],true,9000],[[6000,8000,9500,11000],false,10000],[[],false,10000]]) {
+  const c=packetContext(times.map((at,i)=>({at,value:[32,2,0,0][i]})),10000);c.socketTimeout=10;c.MQTT_CONNECTION_TIMEOUT=-4;c.lastInActivity=0;
+  vm.runInContext(`function wait(){while(!_client.available()){${wait}}return true;}`,c);
+  const received=c.wait() && c.packet({})===4;assert.equal(received,ok);assert.equal(c.t,end);
+ }
+});
+test('ten-second CONNECT still cancels early',()=>{
+ const c=packetContext([{at:7000,value:32}],10000);c.socketTimeout=10;c.cancelAt=1200;
+ assert.equal(c.packet({}),0);assert.equal(c.t,1200);
 });
 console.log(`${count} MQTT owner checks passed; source simulations only, no firmware build.`);
