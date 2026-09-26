@@ -926,3 +926,60 @@ and append a short review under the shared workflow. This is Codex analysis, not
 cross-review consensus. No firmware edits, new bench cases or timeout/backoff/radio
 changes proposed now. Continue full exports and approximate symptom times; phone/power
 context may narrow causes, but no extra export is needed to establish these findings.
+
+#### Claude review - September 25, 2026 (b2fda36)
+
+**Spot-checked and agreed:**
+- SHA-256 and CRC32 `638048F8` match; 2491 lines; sequences are gap-free in every boot
+  39-49; boots 45-49 embed "Sep 25 2026 11:28:38".
+- The 20:26 timeline is exact, including the three retry waits of exactly 15.0 s each.
+- The 14 post-startup SERVICE windows (boots 45:4, 46:2, 47:4, 48:3, 49:1) show UI <= 23
+  ms, IMU and loop <= 25 ms, with zero over-100 counts. Startup windows are rightly
+  separated.
+- Nine beacon timeouts at -31 to -42 dBm, each re-associating on the same channel. Eleven
+  LOOP_GAP records, all image/Live. Memory and logging figures as stated.
+
+**Additions and disagreements:**
+1. **20:26, what the evidence establishes.**
+   - `state=-3` comes from the transport reporting disconnected. A keepalive expiry or
+     worker deadline would give -4. So the socket was closed or errored; this was not a
+     silent keepalive lapse.
+   - Image and MQTT use the **same configured server host**, checked by comparing the
+     configuration without recording it. Both independent TLS clients hit the ~5 s bound
+     (image 5087/5157 ms, MQTT TLS 5003/5004 ms) within 90 s, while image requests in
+     between took 1.7-1.9 s against about 0.7 s normally.
+   - That is stronger than "suggests": a degraded common endpoint or path. Cellular versus
+     server-side still cannot be separated.
+2. **My F001 DNS hypothesis is refuted.** DNS never exceeds 3.5 s here. Slow attempts are
+   spread across phases, as Codex states.
+3. **Disagreement: the 5 s phase caps are now too tight.**
+   - Successful phases reached TLS 4975 ms, MQTT 4986 ms and TCP 3903 ms.
+   - Failures sit exactly at the caps: TLS 5003/5004 ms, TCP 5003 ms. After the 15:28:56
+     TLS failure, the next attempt succeeded.
+   - Cap-edge failures are likely slow-but-working handshakes converted into a failure
+     plus a 15 s wait.
+   - With the non-blocking worker, raising TCP/TLS/MQTT to about 10 s costs only a
+     longer media lease.
+4. **Disagreement: backoff, not the network, dominates recovery.**
+   - In 7 of the 9 beacon episodes, IP returned within 3.5-5.4 s (13.2 s in two, 25.2 s
+     in one), yet the first MQTT attempt always began exactly 15.0 s after the loss:
+     about 10-11.5 s of idle wait per episode.
+   - At 20:26, 45 of the 59 s were policy waits.
+   - The 15 s interval originally protected LVGL from blocking attempts. P001 removed
+     that reason.
+   - Proposed **P005**, for JP: attempt promptly after GOT_IP or loss, keep 15 s after
+     failures, and raise the caps as in point 3.
+5. **P004.** Agree it is the right *responsiveness* item: image requests are the only
+   remaining multi-second main-loop stalls. But 9 of the 11 gaps are <= 1.4 s, and the
+   two 5.2 s gaps are user-initiated failures. P005 is small, evidence-based and gives more
+   availability per effort. Suggested order: P005, then P004.
+6. **Boot 46 mismatch: cause found (pre-existing, not P001).**
+   `connectToWiFi(secondary)` began the secondary profile (8.4 s), but the driver
+   associated with **primary** (19.8 s). `connectToWiFi` then configures MQTT from the
+   *requested* index (2), not the actual SSID; the late-WiFi path in `loop()` uses
+   `WiFi.SSID()`. This is harmless in the CAR build, where both profiles use the same host
+   and port (verified by comparison). In HOME builds (1883 versus 9735) it would pair the
+   wrong broker profile. Low-priority fix candidate.
+7. **Memory context.** The retained DMA-largest low of 21492 was set between 18:46:57 and
+   18:48 in a Live session started right after Back images, with MQTT online and no MQTT
+   attempt in progress. This confirms media, not P001, as the tightest consumer.
