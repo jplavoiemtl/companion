@@ -275,3 +275,64 @@ on every return path, cooperative budget wording, and recognized-SSID selection 
 late retry. JP's direction is recorded; this revision and its two-case scope await review
 and implementation approval. No further product choices are required unless the review
 finds a trade-off that changes this contract.
+
+## Claude review - September 25, 2026 (revision 1, 5227a7a)
+
+**Verdict: two blockers (B1, B2), both small specification fixes.** The rest checks out
+against the current source. I accept Codex's evidence corrections to my proposal: six
+(not seven) of nine quick IP returns, about 44.2 s rather than 30 s for 20:26, and the
+image-gap counts (7 of 11 <= 1.4 s, 2 near 1.8-2.0 s, 2 near 5.2 s).
+
+**Verified:**
+- **Prompt credit and bench precedence.** `observedConnected` becomes true only when main
+  adopts a real READY (net_module `takeResult` path). `intentionalDisconnect()` clears it
+  for bench off and restore, so bench disconnects earn nothing. `restoreBenchMqtt` clears
+  `benchFirstPending`, and dispatch clears both flags, so the priority order in section 3
+  is sound and never double-subtracts. The 20:26 case (link up) dispatches in the same
+  loop turn: `takeLoss` in `netMainTick` runs before `netCheckMqtt`, and `request()` only
+  needs the loss consumed.
+- **Connect-only timeout.** `socketTimeout` is read only by the CONNACK wait and
+  `readByte`. The scope guard restores 5 before subscriptions and ONLINE use, and the MQTT
+  phase's absolute `operationDeadline` still bounds per-byte waits.
+  `setHandshakeTimeout(10)` affects only `ssl_starttls_handshake`, which yields
+  `vTaskDelay(2)`. The handshake bio is nonblocking, so the TCP-lifetime 5000 ms is
+  untouched. The budget arithmetic holds: after the maximum 15 s DNS plus the 0.1 s lease
+  wait, 29.9 s remain against 27 s of phase allowances. STUCK 50 s exceeds ATTEMPT 45 s.
+
+**B1 - an established session that keeps dropping would reconnect with no backoff
+(blocker).** Section 3 grants a prompt attempt after every adopted-success loss, with no
+minimum ONLINE time. If the broker accepts and then drops the session repeatedly, the
+cycle becomes connect, loss, immediate retry, success, loss, and so on: TLS handshakes
+back to back, with the media lease held most of the time. Causes include a duplicate
+client ID kicking an older session (for example a HOME and a CAR board, or a lingering
+session), an ACL or keepalive rejection after subscribe, or a flaky endpoint. Today's
+15 s interval prevents this.
+**Fix:** earn the prompt credit only if the session stayed ONLINE for a minimum time
+(suggested 60 s, measured from READY adoption to loss adoption on main). Shorter sessions
+fall back to the normal 15 s. Add host cases: a session shorter than the minimum gets no
+credit; repeated short sessions keep 15 s spacing.
+
+**B2 - P006 must return the network number, not the priority role (blocker).**
+Section 5 says "select 1 for primary, 2 for secondary". MQTT profiles are numbered by
+network: `ssid1` is 1 and `ssid2` is 2, as `connectToWiFi(primaryNetworkNum)` and the
+late path `(WiFi.SSID()==ssid1)?1:2` use. Primary and secondary are *roles* set by
+`WIFI_PRIORITY` (companion.ino:2179-2193). With priority 2, primary is `ssid2`, number 2.
+The existing matcher (diagnostics_network.cpp:48) already returns
+`primaryNumber`/`secondaryNumber`, which is correct.
+**Fix:** specify SSID -> network number via `primarySsid -> primaryNetworkNum` and
+`secondarySsid -> secondaryNetworkNum` (the primary check wins on equal names), and add a
+host case with the priority-2 mapping. Today `WIFI_PRIORITY` is 1, so the wording happens
+to coincide, but the HOME build P006 protects is exactly where this matters.
+
+**Nonblocking:**
+- **Flap mid-attempt still waits 15 s.** An attempt cancelled by a mid-attempt link loss
+  stamps the normal 15 s, so F002-style flapping still waits after IP returns. That is an
+  acceptable trade-off against storms; note it for field reading.
+- **Shutdown.** A loss adopted during shutdown may backdate `lastMqttAttempt`, but
+  `request()` refuses while `stop` is set. Have the host check assert "no dispatch" rather
+  than "no credit".
+- **Bench case 1** will often not discriminate the timing, as section 8 already says.
+  Accepting host proof plus a later field episode is reasonable.
+
+Once B1 and B2 are integrated, I only need to check those two changes. No further review
+round is needed before JP's implementation approval.
