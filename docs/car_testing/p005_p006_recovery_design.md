@@ -1,8 +1,9 @@
 # P005/P006 - MQTT recovery timing and joined-network profile
 
-Revision 1 - September 25, 2026. Author: Codex.
+Revision 2 - September 25, 2026. Author: Codex.
 Status: design for Claude review, then JP implementation approval. No firmware changes,
-builds or flashes. Reviewed against source at 092b32c on codex/car-improvements-p001.
+builds or flashes. Source checked at 092b32c and f5a25b7 on codex/car-improvements-p001;
+the intervening changes are documentation only. Integrates Claude review f5a25b7.
 
 JP approved the direction: P005 A+B and P006 in one increment, P004 afterward.
 This document specifies that increment; direction approval is not implementation approval.
@@ -36,7 +37,9 @@ from the driver beacon-timeout record, not wall-clock subtraction.
 Thus six, not seven, of nine recovered IP in 3.5-5.4 s. Eight began near 15 s;
 the ninth was link-limited. A removes about 9.6-11.5 s of idle wait in those six,
 about 1.8 s in two, and essentially none in the last, assuming unchanged other work.
-These are counterfactual scheduling savings, not promised recovery times.
+These are counterfactual scheduling savings before the revision-2 stability filter,
+not promised recovery times. Revision 2 grants prompt retry only after >=60 s ONLINE;
+short-lived sessions deliberately retain the first wait even when IP returns quickly.
 
 At 20:26, WiFi stayed associated. Three attempts took 8042, 5131 and 1011 ms,
 with approximately three 15 s waits, producing the 59.209 s MQTT outage. Removing
@@ -78,20 +81,32 @@ Neither P005 nor P006 fixes the underlying beacon losses or identifies a carrier
 Target remains the accepted amoled-1-8-core-3-3-11 profile. No 3.1.3 branch,
 new task, extra TLS client, buffer, authentication change, or WiFi scanning change.
 
-## 3. P005 A - one prompt attempt after established-session loss
+## 3. P005 A - one prompt attempt after a stable established-session loss
 
-At takeLoss adoption, snapshot observedConnected before changing it. Only a normal
-real-session loss (BenchPhase::Idle and observedConnected true) backdates
-lastMqttAttempt by MQTT_RECONNECT_INTERVAL. Continue emitting MQTT_LOST and clear
-observedConnected exactly as today. No new credit counter is needed: this flag becomes
-true only after main accepts a real READY, and the loss consumes it once.
+Add PROMPT_MIN_ONLINE_MS=60000 and a main-owned uint64_t onlineAdoptedAtMs, using
+esp_timer_get_time()/1000. Set it only in the real READY adoption branch, after
+acknowledgeReady and confirmation that netIsMqttConnected() is true, alongside
+observedConnected=true. Do not stamp it on worker completion, GOT_IP, an unadopted
+READY, or repeated status observations. observedConnected is its validity flag; zero
+is not a special timestamp. Each newly adopted real session starts a fresh interval.
+
+At takeLoss adoption, capture the monotonic main timestamp and snapshot
+observedConnected before clearing it. Only BenchPhase::Idle, observedConnected=true,
+and lossAdoptedAtMs-onlineAdoptedAtMs >=60000 together earn prompt eligibility:
+backdate lastMqttAttempt by MQTT_RECONNECT_INTERVAL. A session of 59999 ms does not;
+a session of exactly 60000 ms does. Measure READY adoption to loss adoption as agreed,
+not inferred RF uptime. Main delivery delay is therefore included in this duration.
+Continue emitting MQTT_LOST and clear observedConnected exactly as today; clear the
+stored timestamp on loss and intentional disconnect for clarity. No credit counter or
+accumulation across sessions is needed. Repeated short accepted-then-dropped sessions
+all keep the normal 15-second wait, preventing repeated prompt TLS handshakes.
 
 Scheduling priority is explicit, mutually exclusive:
 
 1. restorePending: retain existing immediate bench restoration.
 2. benchFirstPending: retain existing five-second first test-attempt delay.
-3. established normal loss: immediate eligibility.
-4. Other cleanup/loss acknowledgements: retain normal 15-second stamp.
+3. established normal loss after >=60000 ms ONLINE: immediate eligibility.
+4. Short-session losses and other cleanup/loss acknowledgements: normal 15-second stamp.
 
 Do not subtract multiple intervals if flags overlap. Use the existing unsigned
 millis subtraction idiom; host checks include wraparound.
@@ -104,8 +119,15 @@ attempts; flapping during an attempt invalidates its epoch and waits for worker 
 A failed or cancelled attempt stamps the normal 15-second retry interval on result
 adoption, including memory/lease deferrals. Revoked READY that was never adopted is
 not an established connection and earns no prompt retry. A later genuine success and
-loss may earn another prompt attempt. Startup and the initial five-failure budget stay
-unchanged. Shutdown and deliberate bench disconnects do not earn prompt retries.
+loss may earn another prompt attempt only after its own >=60 s ONLINE interval. Startup
+and the initial five-failure budget stay unchanged. Deliberate bench disconnects clear
+observedConnected and earn no prompt eligibility. During shutdown a loss adoption may
+backdate the retry stamp; the required invariant is no dispatch because owner request()
+refuses while stop is set. Do not add shutdown state solely to prevent an unused stamp.
+
+A mid-attempt flap still incurs 15 s after cancellation adoption, even if IP returns
+sooner. This is an intentional anti-storm trade-off, not a failed prompt retry in field
+analysis. The 60-second rule also limits the proposal's retrospective timing savings.
 
 The interval currently starts at main result adoption, slightly after owner completion.
 Keep that conservative behavior; do not claim exactly 15 s from the worker timestamp.
@@ -152,9 +174,13 @@ restart is still the recovery path. Do not describe this as a hard 27 s lease bo
 ## 5. P006 - select from the actual joined network
 
 Use one main-task helper for the initial-success and late-boot configuration paths.
-Take one WiFi.SSID() snapshot while connected; compare with configured ssid1 and ssid2.
-Select 1 for primary, 2 for secondary, 0 for neither. Primary wins if names are equal,
-matching diagnostics_network's existing matcher. Never log SSID or broker credentials.
+Take one WiFi.SSID() snapshot while connected. Match primarySsid first and return
+primaryNetworkNum; otherwise match secondarySsid and return secondaryNetworkNum;
+return 0 for neither. These are network numbers used by MQTT, not priority-role indices.
+With WIFI_PRIORITY=1 the primary/secondary numbers are 1/2; with WIFI_PRIORITY=2 they
+are 2/1. If configured names are equal, the primary check wins and returns its network
+number (2 under priority 2), matching diagnostics_network's existing matcher. Never
+log SSID or broker credentials.
 
 Configure the MQTT owner using this actual selection, never connectToWiFi's requested
 argument. Both paths use the helper so they cannot drift. Do not copy the late path's
@@ -208,9 +234,15 @@ ownership, cancellation, media/retrieval or logging expectations.
 
 Required host evidence:
 
-- Established loss earns one prompt eligibility; no startup, cleanup-only, revoked READY,
-  intentional shutdown or bench disconnect credit. Failure/cancellation returns to 15 s.
-  Repeated same-IP GOT_IP and flapping do not re-arm it; a new adopted success can.
+- Stable established loss earns one prompt eligibility at >=60000 ms from real READY
+  adoption. Exercise 0, 59999, 60000 and >60000 ms; repeated short successes/losses
+  each retain 15 s and never accumulate ONLINE time. New success resets the timestamp;
+  repeated status/GOT_IP does not. Exercise a valid zero-time adoption and delayed main
+  adoption to ensure the clock is neither worker completion nor loss-event time.
+- No startup, cleanup-only, revoked READY or bench-disconnect credit. Shutdown asserts
+  no dispatch with stop set, even if a loss adoption backdates the stamp. Failure or
+  cancellation returns to 15 s. Repeated same-IP GOT_IP and flapping do not re-arm it;
+  a new adopted success must independently survive >=60 s before earning prompt retry.
 - Preserve off's first five-second wait, on's immediate restoration, precedence without
   double subtraction, blocked admission, unsigned wraparound and initial failure budget.
 - Pin 15/5/10/10/2/45/50-second policy and unchanged ONLINE five-second bound. Exercise
@@ -222,8 +254,12 @@ Required host evidence:
 - Keep real PubSub polling tick-delay and oversized-discard/session-retention checks.
   Keep stale epoch rejection, lease retention, DNS slots/ERR_MEM, 50-second fault and
   late-cleanup recovery checks. No new task/lifetime socket timeout mutation.
-- Execute selection with requested 2/actual primary, requested 1/actual secondary,
-  matching profiles, equal configured names, unknown/empty and disconnected snapshots.
+- Execute selection with requested network 2/joined ssid1 and requested network 1/joined
+  ssid2, matching profiles, equal configured names, unknown/empty and disconnected
+  snapshots. Under WIFI_PRIORITY=2, primarySsid=ssid2/primaryNetworkNum=2 and
+  secondarySsid=ssid1/secondaryNetworkNum=1: assert each joined SSID selects its network
+  number regardless of requested number. Equal names return primaryNetworkNum=2. Also
+  retain the priority-1 cases; do not hard-code primary=1 in the harness.
   Verify both call sites configure once with actual, deferred selection can recover,
   and repeat deferrals do not produce per-loop records. Assert no secret values in events.
 
@@ -237,8 +273,9 @@ as part of this design-only work.
 Two cases maximum planned, issued separately after code review and JP's build. Reuse
 P001 evidence for everything unchanged; expand only for a failure or unresolved gate.
 
-1. **Normal hotspot loss and recovery after an established MQTT session.** Reconnect
-   with media/retrieval idle and G-meter visible. Capture status and the resulting log.
+1. **Normal hotspot loss and recovery after a stable MQTT session.** Leave the real
+   adopted connection ONLINE for at least 60 s (allow 65 s before triggering loss), with
+   media/retrieval idle and G-meter visible. Capture status and the resulting log.
    Verify first BEGIN follows usable GOT_IP/cleanup without the old remaining 15 s wait,
    actual/configured profiles agree, eventual success, responsiveness and resource gates.
    Target BEGIN within 1 s of eligibility on this idle bench; if later, inspect timestamps
@@ -270,9 +307,11 @@ this implementation. Any follow-up cap/policy tuning needs a separate decision.
 
 ## 9. Review and approval checkpoint
 
-Claude should focus on prompt-credit consumption/bench precedence, timeout restoration
-on every return path, cooperative budget wording, and recognized-SSID selection with
-late retry. JP's direction is recorded; this revision and its two-case scope await review
+Claude's focused revision-2 check covers B1's >=60 s adoption-to-adoption stability
+condition and B2's priority-independent network-number mapping, including their host
+cases. The three nonblocking review points are accepted: cancelled-attempt backoff,
+shutdown no-dispatch rather than no-credit, and host proof plus later field timing when
+bench IP recovery cannot discriminate the scheduling change. JP's direction is recorded; this revision and its two-case scope await review
 and implementation approval. No further product choices are required unless the review
 finds a trade-off that changes this contract.
 
@@ -336,3 +375,17 @@ to coincide, but the HOME build P006 protects is exactly where this matters.
 
 Once B1 and B2 are integrated, I only need to check those two changes. No further review
 round is needed before JP's implementation approval.
+
+
+## Revision 2 integration - September 25, 2026, Codex
+
+Accepted both blockers from f5a25b7 at JP's request. Section 3 now requires >=60 s
+from real READY adoption to loss adoption; each short session retains 15 s backoff.
+Section 5 returns primaryNetworkNum/secondaryNetworkNum, including WIFI_PRIORITY=2
+and primary-first equality. Section 7 adds boundary, repeated-short-session and
+priority-2 host cases; these are requirements for implementation, not tests run now.
+Section 8 adds a 65-second ONLINE preparation to the existing first bench case, not
+a new case. All nonblocking review points are noted in sections 3 and 9.
+
+Claude's revision-1 review above remains verbatim. Revision 2 awaits his focused check
+and JP implementation approval. No firmware, build, flash or hardware test performed.

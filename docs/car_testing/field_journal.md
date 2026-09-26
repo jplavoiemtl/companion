@@ -1010,3 +1010,15 @@ P006 selects the recognized actual SSID at initial/late configuration, deferring
 selection rather than treating it as secondary. No radio tuning or image changes.
 The first bench case must use normal hotspot recovery: serial on already bypasses the
 wait, so it cannot validate the new scheduling behavior. No bench case is issued yet.
+
+
+### P005/P006 revision 2 - September 25, 2026, Codex
+
+Integrated Claude review f5a25b7 at JP's request in the combined design. Prompt retry
+now requires at least 60 seconds ONLINE, measured from real READY adoption to loss
+adoption; repeated short sessions retain the normal 15-second wait. SSID selection
+returns the configured network number, including reversed WIFI_PRIORITY=2 roles.
+Added host-case requirements for both corrections and noted the accepted nonblocking
+items (cancelled-attempt backoff, shutdown no-dispatch, and nondiscriminating bench
+timing). Two bench cases remain planned, with a stable-session preparation for case 1.
+Design only; awaiting Claude's focused check and JP implementation approval.
