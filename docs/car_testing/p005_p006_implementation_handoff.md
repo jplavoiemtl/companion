@@ -103,3 +103,45 @@ Capture the existing status, END/MEM/SERVICE and WiFi/MQTT timeline through the 
 log export. Retain UI/IMU <=100 ms, stack >=2048 bytes and internal-largest >=20480
 bench gates, no new resets/drops/errors. After review, build and accepted results, P004
 image responsiveness is the next separate design; it is not authorized by this increment.
+
+## Claude code review - September 25, 2026 (734ad92 against 2d93c24)
+
+**Verdict: cleared for JP's build and the first approved bench case.** No blockers.
+Host checks re-run: **379 pass in 16 suites**. Not compiled, per the workflow.
+
+- **P005 A.** `onlineAdoptedAtMs` is stamped only in the real READY branch, after
+  `acknowledgeReady` and `netIsMqttConnected()` (net_module.cpp:289-292), and cleared on
+  loss and on `intentionalDisconnect`. Prompt eligibility requires Idle bench, a valid
+  `observedConnected` and >= 60000 ms between the two main adoptions. The precedence is
+  now an exclusive chain (restore, then first test attempt, then prompt), so no double
+  subtraction is possible. Cancelled, revoked or test attempts never set
+  `observedConnected`, so they cannot earn a prompt retry. With the link down, a backdated
+  stamp only makes `request()` refuse until the link returns, with no side effects.
+- **P005 B.** `ConnectTimeoutScope` sets 10 s around `connect()` only, and its destructor
+  restores 5 s when `connectExchange` returns, before subscriptions, READY or failure
+  handling. That covers every exit, including the operation guard failing. The MQTT phase
+  allowance (`MQTT_MS`) sets the absolute `operationDeadline`, which still bounds a
+  trickled CONNACK. `setHandshakeTimeout(TLS_MS/1000)` = 10. Both
+  `setConnectionTimeout(5000)` literals are unchanged, and the TCP allowance uses
+  `SOCKET_MS` = 5000. The ONLINE deadlines use `SOCKET_MS`. The constants 45/50/10/10/2
+  match the design, and the budget test moved to the 40000/45000 boundary.
+- **P006.** `joinedMqttNetwork` returns `primaryNetworkNum` or `secondaryNetworkNum`, with
+  primary first, and never a role index. It returns 0 for empty or unknown names, and a
+  status recheck after the SSID read defers a disconnected snapshot. Both call sites use
+  the helper. The initial path only dispatches when configured. The late path now runs
+  whenever the profile is unconfigured and WiFi is connected (no longer only after a
+  failed boot), which covers deferred initial selection. Outcome events are coalesced and
+  carry only numbers.
+- **Tests.** The only existing assertions changed are the timing constants and boundaries
+  and the `setSocketTimeout`/`setHandshakeTimeout` call lists. New cases cover a delayed
+  or fragmented CONNACK inside 10 s, a timeout at 10 s, and early cancellation.
+  Credential, endpoint and media assertions are untouched.
+
+Nonblocking:
+- **Profile set once per boot.** `g_mqttConfiguredFromWifi` is never reset, so the
+  profile stays fixed for the boot after the first successful selection. That matches the
+  design's "no automatic re-selection after roaming", and the existing
+  `MQTT_WIFI_PROFILE mismatch` telemetry would expose a later change.
+- **Deferred-selection cost.** While selection is deferred on an unknown SSID, the late
+  path reads `WiFi.SSID()` (a String allocation) every loop turn. That is cheap, bounded
+  by the event coalescing, and only occurs in that uncommon state.
