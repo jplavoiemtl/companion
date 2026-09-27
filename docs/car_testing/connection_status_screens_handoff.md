@@ -116,3 +116,24 @@ Nonblocking:
 - **Pre-existing unused files.** `ui_Screen4.c` and three images (`camera_button`,
   `150082900`, `956914132`) are tracked and compiled but referenced nowhere. This is
   outside this change; optional cleanup later.
+
+
+## JP acceptance and SquareLine export resolution - September 27, 2026
+
+JP built/flashed and reports the code works very well. After the SquareLine setting
+correction, he copied the full export, rebuilt and again reports it works very well,
+then explicitly requested merging to main. Accepted on JP's report; no new console
+capture or numerical hardware measurements supplied for this UI change.
+
+The project remains LVGL 8.3.11. JP disabled Optimize Image Formats, saved project
+settings, reopened SquareLine and confirmed the checkbox remained unchecked. The
+saved companion.sll now also confirms optimize_image_formats=false. The re-exported
+five images use LVGL 8 descriptors with identical pixel data; their root diffs are
+only generator-version comments and whitespace. The previous unsafe-copy warning is
+resolved for this saved configuration and verified export. Full UI-folder copying
+can resume; retain LVGL 8 targeting and optimization disabled on future exports.
+SquareLine project settings are local/ignored; this note records the required setting.
+
+The focused seven host checks pass on the final copied export. The earlier full
+386-check run and Claude clearance ebbbd14 still apply; no functional code changed
+since review. No additional build, flash or test performed by Codex.
