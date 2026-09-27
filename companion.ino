@@ -40,6 +40,21 @@
 #include "src/diagnostics/diagnostics_operation.h"
 
 
+// Main-task UI only. SquareLine owns layout; all status paths share text and color.
+// Read the current globals on each update, and tolerate an uninitialized label.
+void setConnectionStatusLabels(const char* text, uint32_t color) {
+    lv_obj_t* labels[] = {
+        ui_labelConnectionStatus,
+        ui_labelConnectionStatusGmeter,
+        ui_labelConnectionStatusInclinometer
+    };
+    for (lv_obj_t* label : labels) {
+        if (!label) continue;
+        lv_label_set_text(label, text);
+        lv_obj_set_style_text_color(label, lv_color_hex(color), LV_PART_MAIN);
+    }
+}
+
 // QMI8658 Register Addresses
 #define QMI8658_CTRL2       0x03
 #define QMI8658_CTRL7       0x08
@@ -953,8 +968,7 @@ bool attemptWiFiConnection() {
     bool connected = false;
     
     // Initial UI state before starting connection
-    lv_label_set_text(ui_labelConnectionStatus, "Connecting...");
-    lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFFFFFF), LV_PART_MAIN); // White
+    setConnectionStatusLabels("Connecting...", 0xFFFFFF); // White
     // Force a refresh to show "Connecting..." immediately
     for (int i = 0; i < 5; i++) { { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); } delay(5); }
     
@@ -966,8 +980,7 @@ bool attemptWiFiConnection() {
         if (retryCount > 1) {
             char statusBuffer[32];
             snprintf(statusBuffer, sizeof(statusBuffer), "Retry %d/%d...", retryCount - 1, MAX_RETRIES - 1);  // MODIFIED: Show x/5 format
-            lv_label_set_text(ui_labelConnectionStatus, statusBuffer);
-            lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFFB700), LV_PART_MAIN); // Orange
+            setConnectionStatusLabels(statusBuffer, 0xFFB700); // Orange
             for (int i = 0; i < 5; i++) { { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); } delay(5); }
             
             USBSerial.print("WiFi Connection Retry #");
@@ -1014,8 +1027,7 @@ bool attemptWiFiConnection() {
             USBSerial.println("Initiating shutdown to conserve battery...");
             
             // Update UI before shutdown
-            lv_label_set_text(ui_labelConnectionStatus, "No WiFi - Shutdown");
-            lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
+            setConnectionStatusLabels("No WiFi - Shutdown", 0xFF0000); // Red
             for (int i = 0; i < 5; i++) { { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); } delay(5); }
             
             delay(2000); // Show message briefly
@@ -1033,8 +1045,7 @@ bool attemptWiFiConnection() {
         if (retryCount >= MAX_RETRIES) {
             USBSerial.println("Maximum retry attempts reached. Continuing in local-only mode (USB powered).");
 
-            lv_label_set_text(ui_labelConnectionStatus, "No WiFi");
-            lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
+            setConnectionStatusLabels("No WiFi", 0xFF0000); // Red
             for (int i = 0; i < 5; i++) { { diagmqtt::Call service(diagmqtt::Service::Ui); lv_timer_handler(); } delay(5); }
 
             wifiSetup.end(false, int(WiFi.status()));
@@ -1667,7 +1678,7 @@ void updateBatteryInfoUI() {
  * Checks the current state of WiFi and MQTT and updates a dedicated label
  * with concise, color-coded status messages. It only redraws the label
  * when the connection state actually changes.
- * Assumes a label named 'ui_labelConnectionStatus' exists.
+ * All three SquareLine labels are created by ui_init() and kept for the boot.
  */
 void updateConnectionStatusUI() {
     static int prev_wifi_status = -1;
@@ -1704,19 +1715,16 @@ void updateConnectionStatusUI() {
         
         // If using secure port (9735), we are effectively Remote (even if on Connection 1 in CAR mode)
         if (activePort == 9735 || activePort == 8883) {
-             lv_label_set_text(ui_labelConnectionStatus, "MQTT Remote");
+             setConnectionStatusLabels("MQTT Remote", 0x00FF00);
         } else {
-             lv_label_set_text(ui_labelConnectionStatus, "MQTT Local");
+             setConnectionStatusLabels("MQTT Local", 0x00FF00);
         }
-        lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0x00FF00), LV_PART_MAIN); // Green
     } else if (current_wifi_status == WL_CONNECTED) {
         // Good case: WiFi is connected, but MQTT is not (or is trying)
-        lv_label_set_text(ui_labelConnectionStatus, "WiFi Connected");
-        lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFFB700), LV_PART_MAIN); // Orange
+        setConnectionStatusLabels("WiFi Connected", 0xFFB700); // Orange
     } else {
         // Worst case: No WiFi connection
-        lv_label_set_text(ui_labelConnectionStatus, "Offline");
-        lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
+        setConnectionStatusLabels("Offline", 0xFF0000); // Red
     }
 
     // Save the current state for the next check
@@ -1781,8 +1789,7 @@ void goToDeepSleep() {
   USBSerial.println("Preparing to enter Deep Sleep...");
 
   // --- Display "Sleeping..." message on the UI ---
-  lv_label_set_text(ui_labelConnectionStatus, "Sleeping...");
-  lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFFB700), LV_PART_MAIN); // Orange
+  setConnectionStatusLabels("Sleeping...", 0xFFB700); // Orange
 
   // Force LVGL to redraw the screen with the new message NOW.
   for (int i = 0; i < 5; i++) {
@@ -1825,8 +1832,7 @@ void goToShutdown() {
   USBSerial.println("Preparing to shut down...");
 
   // --- Display "Shutdown..." message on the UI ---
-  lv_label_set_text(ui_labelConnectionStatus, "Shutdown...");
-  lv_obj_set_style_text_color(ui_labelConnectionStatus, lv_color_hex(0xFF0000), LV_PART_MAIN); // Red
+  setConnectionStatusLabels("Shutdown...", 0xFF0000); // Red
   
   // Hide the motion icon as it's no longer relevant
   lv_obj_add_flag(ui_labelMotionIcon, LV_OBJ_FLAG_HIDDEN);
