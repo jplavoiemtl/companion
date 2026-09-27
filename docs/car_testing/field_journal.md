@@ -1,6 +1,6 @@
 # Companion in-car field analysis and improvements
 
-Living journal for JP's car module. Keep new field results, open findings and improvement
+Living journal for JP's companion field modules (car and bike). Keep new field results, open findings and improvement
 proposals here rather than creating a separate analysis document for every ride.
 Last updated: September 27, 2026.
 
@@ -46,6 +46,10 @@ Last updated: September 27, 2026.
   No reconnect occurred, so this does not validate P005 as the cause of fewer drops.
   The cumulative export adds a September 26 post-export loss after USB power removal;
   see the dated F005 addendum rather than treating F004 as a complete-day claim.
+- **F006 (September 27, bike):** afternoon boot 145 connected after a startup scan
+  miss/retry, then stayed connected through shutdown. One unmeasured 1.102 s loop
+  gap and retained DMA-largest 19444 bytes merit review; no media/logging failure.
+  Bike evidence includes older bench history, which is not counted as ride faults.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
   [retrieval spec](../sd_iphone_log_download_spec.md),
   [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
@@ -154,6 +158,8 @@ Review the newest field session following the field journal workflow.
 | I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Measured, not fixed: F003 image-request main-loop gaps reach 5.264 s. JP deferred P004 until practical impact justifies added complexity; separate from accepted MQTT improvements. F004 adds a 5.302 s Live-connect gap with eventual success; no reported symptom. F005 maximum explicit loop gap 1.222 s; JP reports stable behavior |
 | I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor: F003 write/flush maxima include 118.747/229.690 ms with zero drops. F004 adds two slow operations (flush maximum 124.554 ms), zero drops. F005 write/flush maxima 235.312/240.719 ms, zero drops. No evidence these explain multi-second network spans |
 | I005 | MQTT/TLS outage while WiFi stays associated | F003 boot 48: 59.209 s observed MQTT outage, two ~5 s TLS failures, no driver WiFi disconnect | Open: path/broker/transport cause unresolved; association is not proof of working internet. No recurrence in F004 snapshot or F005 morning coverage |
+| I006 | Reduced retained DMA-capable largest block during media | F006 bike boot 145: 19444 bytes first reported after first Live, versus previous car minima 21492; no allocation failure, periodic general-internal largest >=31732 | Review/monitor. DMA capability differs from the formal internal-largest gate; do not declare the full retained gate passed from periodic samples alone |
+| I007 | Isolated unattributed main-loop pause | F006 bike at 15:38:00.468: 1102 ms, span=unmeasured; nearby snapshots show inclinometer, online MQTT, no storage spike | Unexplained; no corresponding user symptom reported yet. Review before assigning a cause or adding code |
 
 Do not count retry no_ap_found/sta_leaving records as separate full outages without
 checking the timeline. Do not attribute unknown-freshness TLS errors to a current TLS
@@ -1360,3 +1366,136 @@ the changes prevented the radio losses. It is too early to separate natural vari
 from any indirect effect. I002/I005 remain open; I001 remains addressed. I003/P004 stay
 deferred under JP's decision. Monitor I004 and memory using ordinary exports; no new
 implementation or dedicated bench test justified. Review by Claude remains optional.
+
+
+## F006 - September 27 afternoon BIKE ride
+
+Author: Codex, September 27, 2026. JP installed a companion module on his bike and
+requested analysis using this same field-journal workflow. Similar setup to the car;
+**this session is a bike ride**, not a car ride. JP supplied no specific symptom.
+Keep this module's boot numbering separate from car boots 39-56 in F001-F005.
+No firmware changes, build, flash or new bench case performed.
+
+### Evidence and scope
+
+Folder `evidence/bike/`, one file and no screenshots:
+`start-unknown_146-1-current-544946.log`, actual 544946 bytes, filename size agrees,
+2495 records. SHA256 `63fefbae7ef35dcdb4f98ac524ec20494005eeaa4c61ac2dd4f9e932fa32b89d`;
+computed CRC32 `79E78976`. Preserve as received. This is a different cumulative log
+from the car export, not its replacement. All boot sequences 128-146 are contiguous
+within each boot; sequence order is authoritative when asynchronous timestamps differ.
+
+The afternoon ride is **boot 145**: power_on, compiled `Sep 27 2026 10:48:00`, matching
+the day's UI-change build era but not embedding an exact Git SHA. Synced local coverage
+UTC-04:00 is 14:55:16.343-15:45:16.685; uptime at clean shutdown is 3063741 ms (51 min
+3.741 s including unsynced startup). Boot 146 is the later export session, synced
+15:46:54.098-15:47:07.964, also power_on on the same build. It ends at HTTP_GET_BEGIN;
+its own END/CRC/close records are not in this snapshot. The computed checksum identifies
+the supplied file but is not an independent HTTP completion comparison.
+
+Boots 128-144 are earlier bench/setup/history, not the afternoon ride. In particular,
+boot 142 contains morning disconnect/reconnect activity and boots 142/144 report
+watchdog resets before the ride. Do not count these as bike-ride failures or assume
+all were monitor switches without confirmation. Earlier boot 130/136 monitor-switch
+resets were already confirmed in the bench record. No reset occurs within boot 145,
+and it ends SESSION_END reason=shutdown pending=0. No unlogged interval between
+physical departure/arrival and powered times is inferred.
+
+### Connectivity: slow initial discovery, then stable
+
+**No WIFI_DISCONNECT or MQTT_LOST in ride boot 145 or export boot 146.** All 51 ride
+HEALTH/NET_HEALTH pairs report connected/online, with no suppressed WiFi events.
+Periodic RSSI -51 to -25 dBm. Configured/joined network 1 agree; no profile mismatch.
+
+Startup details, measured from boot because the clock was not yet synchronized:
+
+| Event | Uptime ms | Interpretation |
+|---|---:|---|
+| First scan ends | 5305 | 13 networks seen, requested SSID not found |
+| Second scan ends | 8331 | 14 networks seen, requested SSID not found |
+| Setup retry 2 | 53529 | About 45.2 s after the second scan ended |
+| Next scan succeeds | 56839 | Requested SSID found |
+| GOT_IP | 58254 | First connection, not recovery of a lost session |
+| MQTT worker END | 59067 | Success, total 677 ms |
+| MQTT connected adopted | 59262 | Main observes worker completion |
+| SETUP_COMPLETE | 61083 | Ready |
+
+The scan 'failed' result means the requested SSID was absent from returned results,
+not that the driver scan itself failed. The scan profile field reports primary even
+on the helper used to search a secondary name; do not infer both scans targeted the
+same SSID from that label alone. Once reachable, MQTT was quick: DNS 116, TCP 61,
+TLS 354, MQTT exchange 35 ms. Most startup delay was the existing WiFi retry policy,
+not a slow broker handshake. Hotspot discoverability/enable timing is unknown; the log
+cannot tell when the phone began advertising relative to those scans.
+
+Startup SERVICE reports UI gap 217 ms and IMU gap 226 ms over an 873 ms window,
+loop_n=0, before SETUP_COMPLETE. Source initWiFi() services background work between
+200 ms stabilization delays; this supports setup cadence as the explanation. Do not
+claim the usual <=30 ms startup service result or a runtime MQTT reconnect freeze.
+The P001 worker itself completes successfully; no post-startup reconnect is measured.
+Export boot 146 connects successfully in 921 ms (UI/IMU gaps 26/28 ms).
+
+### Media and the isolated pause
+
+Both still requests succeed with HTTP 200 and exact expected byte counts: 14:57:50,
+1806 ms total; 15:40:44, 1369 ms total. All three Live sessions report failure=none.
+FPS below is frame count divided by full elapsed duration, including startup.
+
+| Local start | ID | Frames | Duration s | FPS | End | First frame s | Max frame gap s |
+|---|---:|---:|---:|---:|---|---:|---:|
+| 14:57:51 | 2 | 156 | 60.308 | 2.59 | duration | 1.312 | 1.972 |
+| 15:31:47 | 3 | 167 | 60.382 | 2.77 | duration | 1.353 | 0.991 |
+| 15:40:45 | 5 | 14 | 6.089 | 2.30 | screen_left | 1.096 | 0.452 |
+
+The short final sequence ended on leaving the screen, not a recorded network failure.
+Only the two unsuccessful startup scans have failed NET_END results; all media network
+operations succeed.
+
+At **15:38:00.468**, one LOOP_GAP records **1102 ms**, observed_span=unmeasured,
+span_ms=0. Nearby health snapshots show screen 4 (inclinometer), idle media, WiFi/MQTT
+online and no increase in storage maxima. No recorded UI action or network attempt
+coincides with it. The log establishes a main-loop scheduling gap, not its cause or
+whether JP noticed a freeze. Do not attribute it to MQTT, SD, touch or NVS without
+evidence. This becomes I007 for review/monitoring, not automatic implementation.
+
+### Resources: a new low worth reviewing
+
+Zero logger drops, truncations or slow-operation counts; queue high=7, writer stack
+minimum 3592 bytes. Maximum write 9.225 ms, flush 12.352 ms, mount-inclusive SD
+172.862 ms. Worker stack minimum 7228 bytes and attempt internal/DMA-largest minimum
+51188 bytes. No error-level records, media allocation failures or logger errors in
+ride boot 145. USB power disappears at 15:44:24.921; orderly shutdown follows at
+15:45:16.685 with no pending log records.
+
+A new low: retained **DMA-capable largest block 19444 bytes**, compared with 21492 in
+F004/F005. It was 24564 at 14:58:15 during the first Live and 19444 at 14:59:15 after
+that cycle, so the minimum occurred in that interval, not necessarily at the latter
+sample. It remains 19444 thereafter because this is a boot-retained minimum, not proof
+of a persistently small current block or accumulating leak. No MQTT attempt overlaps
+this interval. Media activity is a temporal association; it does not identify the
+allocation responsible or prove the two added UI labels caused it.
+
+The specification's 20480-byte gate is for **internal largest block**. Periodic general
+internal-largest samples stay >=31732, while DMA-largest uses the narrower internal+
+DMA capabilities and is retained across samples. Thus 19444 is 1036 below the numerical
+reference, but not alone proof that the formal general-internal gate was crossed.
+Conversely, periodic samples cannot prove its transient minimum stayed above the gate.
+No full log status or per-media general-internal retained minimum was supplied here.
+Record I006 honestly as a reduced memory margin requiring focused review, not a crash,
+not a proven leak, and not a blanket resource-gate pass.
+
+### Findings and next decision
+
+Connectivity during the actual ride was stable; I002/I005 remain open historically.
+P005 retry after established loss was not exercised. Startup discovery wait is separate
+from a disconnect. JP says late hotspot availability is possible and asks to focus
+on the ride itself; no startup follow-up is requested. I001 remains addressed for the
+previously measured MQTT problem; the new unmeasured I007 gap is not attributed to it.
+P004 remains deferred. I006/I007 are the new observations for a focused Claude review,
+with no authorization for memory tuning, a new worker, or a firmware change.
+
+JP replied that delayed hotspot availability is possible and requested focusing on
+the ride; he did not confirm a perceived pause at 15:38. Do not pursue startup testing.
+Continue normal use and retain this module's logs separately from car exports. Recommend Claude
+spot-check the retained-vs-current memory interpretation and unmeasured pause, following
+the shared review workflow, before deciding whether any narrow follow-up is worthwhile.
