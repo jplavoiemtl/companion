@@ -70,3 +70,49 @@ color and position, then do one ordinary hotspot off/on cycle and check the G-me
 inclinometer reflect the changing connection state. Confirm calibration/download still
 have no added label. No performance campaign is proposed for this small UI change.
 Do not start the hardware case until review clears the code.
+
+## Claude code review - September 27, 2026 (83459e2 against 1cc02a6)
+
+**Verdict: cleared for JP's build and the single bench gate.** No blockers. Host checks
+re-run: **386 pass in 17 suites**. The only test change is the new
+`connection_status_ui` suite. Not compiled, per the workflow.
+
+- **Shared updates.** A search finds no remaining direct write to
+  `ui_labelConnectionStatus` outside `setConnectionStatusLabels`. All ten former call
+  sites (Connecting, Retry n/m, No WiFi - Shutdown, No WiFi, MQTT Remote/Local, WiFi
+  Connected, Offline, Sleeping, Shutdown) keep their exact text and colour. MQTT
+  Remote/Local now pass green in the same call instead of a following colour call. The
+  `updateConnectionStatusUI` change cache, its early return and the one-per-transition
+  UI_CONNECTION record are untouched, so diagnostic output is unchanged.
+- **Screen lifetime.** Both new labels are direct screen children created in the
+  generated `*_screen_init`, which `ui_init()` runs eagerly, and nothing deletes Screen3
+  or InclinometerScreen at runtime. The G-meter's runtime container is created and
+  deleted on load and unload, but the label is not inside it. `lv_obj_move_background`
+  on that container predates this change (companion.ino:283 at 1cc02a6), so the label
+  already draws above the opaque circle. The inclinometer load handler does not clear
+  children. Null pointers are skipped.
+- **Touch and layout.** The labels match Screen1's properties exactly (x 8, y -137,
+  content size, Montserrat 20, centre). They are not clickable, so taps still reach the
+  transparent navigation buttons beneath (Screen3 Button1/Button3, inclinometer
+  Button4/Button5). No coordinate collides with existing text: braking (-156,-163),
+  motion icons (190,-155), pitch/roll widgets at y >= -65.
+- **SquareLine export.** Apart from the version comments, the generated diff is the two
+  labels and `_ui_screen_delete`'s new callback signature. That function has no callers
+  in compiled source; the only matches are stale copies under `build/`. The five root
+  images are unchanged from main and use LVGL 8 `lv_img_dsc_t`, which the new host check
+  asserts.
+- **Side benefit.** "Sleeping..." and "Shutdown..." are now visible when the device
+  powers down from the G-meter or inclinometer screen. Previously they only appeared on
+  Screen1.
+
+Nonblocking:
+- **Unsafe copy source.** The export folder `ui/` still holds the five LVGL 9 images
+  (`lv_image_dsc_t`). Copying `ui/` wholesale into the root would break the build. Before
+  the next export, correct the SquareLine project's image and LVGL output settings, or
+  copy only the screen, helper and header files. The root host check will catch a
+  regression.
+- **Dot hidden under the label.** On the G-meter, the dot and trail pass beneath the
+  label near the top of the circle. This is cosmetic; look at it during the bench gate.
+- **Pre-existing unused files.** `ui_Screen4.c` and three images (`camera_button`,
+  `150082900`, `956914132`) are tracked and compiled but referenced nowhere. This is
+  outside this change; optional cleanup later.
