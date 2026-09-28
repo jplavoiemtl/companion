@@ -1685,3 +1685,84 @@ end-session outage count. Continue normal field collection; no code/build/flash 
 extra bench campaign is justified solely by this analysis. Do not change retry policy
 again without weighing faster flapping recovery against repeated connection load and
 JP's preference for essential, evidence-based changes.
+
+### Claude review - September 27, 2026 (acf05d5)
+
+Raw file checked independently: SHA256 and CRC32 `12A4B338` match, with 5889 records.
+All 11 recovered outages, their phase timings and the stable/short-session split
+reproduce exactly.
+
+**Confirmed findings**
+1. **Every recovered outage starts with a driver beacon timeout 3-23 ms before MQTT
+   loss,** at RSSI -34 to -47 dBm. None is an MQTT-only loss.
+2. **After each beacon timeout the hotspot is back almost at once.** In 13 of 15
+   powered beacon timeouts, the rejoin is identical: one failed scan at +2.4 s,
+   association at +2.5 s, IP at +3.55 +/- 0.1 s. The exceptions are 12:53:03, which had
+   an extra `auth_expired` and IP at +14.3 s, and the post-power 18:25 event. This
+   differs from F002, where the AP stayed invisible for up to 24 s. In F007 the
+   association breaks and the AP is available again about 2.5 s later.
+3. **Losses come in bursts:** 12:53:03, 12:53:37, 12:54:33; 13:06:06, 13:06:18,
+   13:07:14, 13:07:25; 14:27:12, 14:27:57, 14:28:31. Intervals are 11-56 s, then the
+   link is quiet for 10+ minutes.
+4. **P005 works as designed.** After stable sessions, the first attempt starts 2-18 ms
+   after IP. Four successful TLS handshakes of 6.6-9.7 s would have failed under the old
+   5 s cap. One TLS failure at 10003 ms shows the cap can still be reached.
+5. **The 15 s waits in bursts are idle time with the link up.** Waiting with IP restored
+   and no attempt: 12:53:37 11.5 s, 12:54:33 11.4 s, 14:27:57 11.4 s. At 13:06:06 an
+   attempt was cancelled by a renewed WiFi loss, and the next one still waited 15 s from
+   the cancellation: 11.5 s idle after IP returned at +15.2 s.
+6. **P001 still holds.** In the 16 post-startup windows the maximum UI gap is 77 ms,
+   with over-100 counts all zero.
+   - The rise from F003's <= 25 ms comes from single long `lv_timer_handler` calls
+     (ui_call_ms 46-67 ms), not from MQTT waits. These occurred on screens 1 and 4,
+     about the cost of one full-frame blit.
+   - One startup window (boot 65 id 1, unsynced) records `ui_over100=1` (120 ms gap,
+     101 ms call). That is outside the post-startup scope, as Codex states, but should
+     not be read as "never over 100 ms".
+
+**Hypotheses (not established)**
+- The beacon losses look like short interruptions on the phone or radio side, not loss
+  of range or a long hotspot shutdown. The AP is back within about 2.5 s, RSSI is
+  strong, and module power saving is off. The logs cannot show when beacons actually
+  stopped, only when the driver gave up, so the true pause length is unknown.
+- The recent rise in UI-call time is likely full-screen redraws on the active screen
+  (dashboard or inclinometer), not networking. Look into it only if JP notices
+  sluggishness.
+
+**Proposed improvement (one, small; JP decision)**
+
+**P007 - treat a WiFi-caused loss or cancellation as "link returned: retry now",
+whatever the session length.** Keep the 60 s gate for losses while WiFi stays
+associated (the broker-kick storm case B1 guarded against), and keep 15 s after a
+genuinely failed attempt with the link up.
+- **Why it is safe:** each prompt attempt needs a full WiFi down-then-up cycle first
+  (at least about 3.5 s, and 11+ s between losses here). The attempt rate is therefore
+  bounded by the physical link, not by the broker. There is still only one attempt,
+  one TLS context and one lease at a time. The memory gate, cancellation and media
+  refusal are unchanged.
+- **Expected effect on F007:** 4 of the 11 outages about 11.5 s shorter, assuming the
+  same attempt outcomes:
+  - 12:53:37: 44.3 -> about 32.8 s
+  - 12:54:33: 20.6 -> about 9.1 s
+  - 13:06:06: 35.6 -> about 24.1 s
+  - 14:27:57: 38.5 -> about 27.1 s
+
+  In a burst, a prompt attempt may be cancelled again. That costs one handshake, not
+  extra wall time.
+- **Complexity:** main needs to know that a link-down event occurred between the last
+  adopted connection or attempt and this loss or cancellation. The WiFi event callback
+  can increment a counter (`netLinkEvent(false)` already exists). No worker or protocol
+  change. Host checks: the link-caused short-session loss is prompt, the link-caused
+  cancellation is prompt, and a link-up short-session loss keeps 15 s. Validate in
+  ordinary rides; no bench campaign.
+
+**Not recommended now**
+- **Shorter spacing after a failed attempt with the link up (15 -> 5 s).** Only three
+  cases (11:51 TCP, 12:53:37 TLS, 14:37 DNS). Each next attempt succeeded, but against a
+  truly unreachable broker this would roughly triple attempt and lease frequency.
+  Revisit with more evidence.
+- **Keeping the MQTT socket across a 3.5 s same-IP rejoin, or lengthening the ESP32
+  beacon/inactive timeout.** Either could avoid reconnects entirely, but both are
+  unproven. We do not know whether the iPhone NAT preserves the TCP session, or how long
+  beacons actually stop. They would also change WiFi or ownership policy. Revisit only
+  if P007 plus more rides leave outages practically annoying.
