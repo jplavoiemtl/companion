@@ -1766,3 +1766,20 @@ genuinely failed attempt with the link up.
   unproven. We do not know whether the iPhone NAT preserves the TCP session, or how long
   beacons actually stop. They would also change WiFi or ownership policy. Revisit only
   if P007 plus more rides leave outages practically annoying.
+
+
+### P007 direction and design handoff - September 27, 2026, Codex
+
+JP approved the direction of Claude's F007 proposal at cb06706: link-caused MQTT
+losses and cancellations should become eligible on link return even after short
+sessions. The [P007 revision-1 design](p007_link_return_retry_design.md) specifies
+main-side link-cycle tracking, terminal adoption and one pending eligibility flag,
+while retaining broker-kick stability, genuine-failure spacing and all admission
+protections. This is recovery scheduling, not a fix for the underlying beacon loss.
+Design submitted for Claude review; implementation is not yet approved. Validation
+will use ordinary rides, with no new bench campaign. No code, build or flash.
+
+Claude's review is integrated as the basis of this proposal. Preserve the powered
+count distinction: the analysis counts 14 powered beacon events plus one after power
+removal, whereas review point 2 calls all 15 powered before identifying the post-power
+exception. This wording does not change the 11 recovered outages or P007 rationale.
