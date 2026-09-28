@@ -101,3 +101,54 @@ a relevant link loss does not exercise P007 or prove a WiFi fix. Keep P004 defer
 ## Claude review
 
 Pending.
+
+## Claude code review - September 27, 2026 (ec487bc against 2362ea0)
+
+**Verdict: cleared for JP's build.** No blockers. Host checks re-run: **405 pass in 17
+suites**. Not compiled, per the workflow.
+
+- **Counter (S1).** `++status.linkDowns` happens only on `!up && status.link`, inside
+  the owner mux and before the unchanged `invalidateLocked`. It is therefore atomic
+  with the epoch bump. Duplicate `false` events and GOT_IP while up cannot count twice.
+  The `View` grows by 4 bytes, well inside the 2048-byte metadata `static_assert`.
+- **Dispatch.** The snapshot is taken before `request()`. A refused request leaves
+  baselines and `linkRetryPending` untouched. An accepted one installs
+  `attemptLinkId = attemptId+1`, which matches `result.id`, and clears the session
+  baseline and the pending flag, so the opportunity is consumed.
+- **Races traced through `netMainTick`.**
+  - *Stale READY* (epoch changed before `takeResult`): reclassified as cancelled. The
+    attempt baseline shows the change, so pending is set and the baseline retained. The
+    worker keeps the lease until cleanup, so `request()` cannot dispatch in between.
+    The cleanup loss (`observedConnected=false`) re-reads the same attempt baseline and
+    schedules `wifi_return` once, then retires the baseline.
+  - *Drop between the stale check and `acknowledgeReady`*: the acknowledgement refuses,
+    no session is created, and the attempt baseline survives to the cleanup, as above.
+  - *Drop after acknowledgement*: the session baseline is the pre-acknowledgement
+    snapshot (`readyLinkDowns`), so the later loss sees the change.
+  - *Genuine failure*: `clearLinkRetry()` drops pending and both baselines, giving 15 s.
+- **Protections preserved.**
+  - `scheduleRetry` precedence is restore, then bench_first, then Idle+pending, then
+    Idle+stable, then backoff, with a single stamp. That reproduces the old result
+    stamp, since `restorePending` and `benchFirstPending` are cleared at dispatch. It
+    also reproduces the old loss stamp and adds `wifi_return`.
+  - Test results never set pending. Bench non-Idle never earns `wifi_return`.
+  - `intentionalDisconnect`, `netConfigureMqttClient` and `netShutdown` clear all P007
+    state. Shutdown dispatch remains blocked by the owner's stop check.
+  - Failure counting, `giveUp`, request guards, lease and media/retrieval admission are
+    untouched.
+- **Tests.** The old policy harness was replaced by one that executes the real result,
+  loss, dispatch and scheduling bodies. The only other changes are a `linkDowns` field
+  in the owner mock and three source-order assertions retargeted from the old inline
+  stamp to `adoptResultRetry`. No behavioural assertion was dropped without a
+  replacement.
+
+Nonblocking:
+- **Misleading log on success.** Every *successful* result also logs
+  `MQTT_RETRY_DECISION source=result policy=backoff wait_ms=15000`, although the
+  connection is up and the stamp is irrelevant. That can mislead ride analysis.
+  Consider skipping the record on `result.ok`, or labelling it `policy=connected`, in a
+  later touch.
+- **Admission refusals still wait 15 s.** A prompt attempt refused by admission
+  (`lease_deferred`, `memory_refused`, `dns_slots_busy`) is a non-cancelled result, so
+  it waits 15 s, as the design specifies. When reading rides, separate these from
+  genuine network failures.
