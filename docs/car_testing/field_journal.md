@@ -50,6 +50,11 @@ Last updated: September 27, 2026.
   miss/retry, then stayed connected through shutdown. One unmeasured 1.102 s loop
   gap and retained DMA-largest 19444 bytes merit review; no media/logging failure.
   Bike evidence includes older bench history, which is not counted as ride faults.
+- **F007 (September 27 later car rides):** recurring beacon losses explain JP
+  reporting a long outage around 12:50 (logged cluster 12:53-12:55). Eleven recovered
+  MQTT outages lasted 8.548-44.329 s. P005 now has field evidence: prompt attempts
+  after stable-session losses and four successful TLS phases above the old 5 s cap.
+  P001 kept recovery UI gaps <=77 ms and IMU/loop <=74 ms. Radio cause remains open.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
   [retrieval spec](../sd_iphone_log_download_spec.md),
   [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
@@ -153,8 +158,8 @@ Review the newest field session following the field journal workflow.
 
 | ID | Finding | Evidence / confidence | Status |
 |---|---|---|---|
-| I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Addressed by P001, accepted by JP. F003 now supports field responsiveness: UI <=23 ms, IMU/loop <=25 ms during post-startup attempts |
-| I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Open: F003 adds nine afternoon/evening beacon-timeout episodes at reported RSSI -31 to -42 dBm. Cause unproven; separate power-associated interruption. F004 snapshot and F005 morning have no beacon losses; F005 adds a September 26 post-export auth_expired loss after power removal. I002 remains open |
+| I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Addressed by P001, accepted by JP. F003 now supports field responsiveness: UI <=23 ms, IMU/loop <=25 ms during post-startup attempts. F007 adds 16 recovery attempts with UI <=77 ms, IMU/loop <=74 ms, none >100 ms |
+| I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Open: F003 adds nine afternoon/evening beacon-timeout episodes at reported RSSI -31 to -42 dBm. Cause unproven; separate power-associated interruption. F004 snapshot and F005 morning have no beacon losses; F005 adds a September 26 post-export auth_expired loss after power removal. I002 remains open. F007 adds 14 powered beacon-loss events in 11 recovered MQTT outages plus a separate post-power-loss beacon episode |
 | I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Measured, not fixed: F003 image-request main-loop gaps reach 5.264 s. JP deferred P004 until practical impact justifies added complexity; separate from accepted MQTT improvements. F004 adds a 5.302 s Live-connect gap with eventual success; no reported symptom. F005 maximum explicit loop gap 1.222 s; JP reports stable behavior |
 | I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor: F003 write/flush maxima include 118.747/229.690 ms with zero drops. F004 adds two slow operations (flush maximum 124.554 ms), zero drops. F005 write/flush maxima 235.312/240.719 ms, zero drops. No evidence these explain multi-second network spans |
 | I005 | MQTT/TLS outage while WiFi stays associated | F003 boot 48: 59.209 s observed MQTT outage, two ~5 s TLS failures, no driver WiFi disconnect | Open: path/broker/transport cause unresolved; association is not proof of working internet. No recurrence in F004 snapshot or F005 morning coverage |
@@ -1499,3 +1504,184 @@ the ride; he did not confirm a perceived pause at 15:38. Do not pursue startup t
 Continue normal use and retain this module's logs separately from car exports. Recommend Claude
 spot-check the retained-vs-current memory interpretation and unmeasured pause, following
 the shared review workflow, before deciding whether any narrow follow-up is worthwhile.
+
+
+## F007 - September 27 later CAR rides: repeated link loss and slow recovery
+
+Author: Codex, September 27, 2026. JP reports WiFi drops and a long MQTT disconnection
+around 12:50. This is the car module, separate from F006's bike module. No new UI-freeze
+symptom was reported. Closest logged prolonged cluster is **12:53-12:55**; no recorded
+WiFi/MQTT loss occurs at exactly 12:50. Treat JP's time as approximate.
+
+### Evidence and coverage
+
+`evidence/2026-09-27-car/start-unknown_65-1-current-1271452.log`: 1271452 bytes,
+5889 records, filename size agrees. SHA256
+`315decdd7e5286d1ceff97405b87c622dcce0fa60718580c7fc1ed6f0e2d9798`;
+computed CRC32 `12A4B338`. No screenshots supplied. The entire 854829-byte F005
+morning file is an exact prefix, so earlier faults are not new afternoon events.
+
+Boot 56 tail confirms F005 export success, both device CRCs=0FA7EB89 over 854829 bytes,
+matching that retained file, with appends resumed after 13703 ms. Boot 57 is a short
+unsynced older-build session with no established date/ending. Boot 58 reports other/
+reset_code=11 on the newer compiled label; do not infer a spontaneous fault from it.
+Boots 59-65 report power_on, with no intervening ride watchdog or brownout recorded.
+New analyzed boots 58-65 each have contiguous sequence numbers starting at 1.
+
+All these new boots report compiled `Sep 27 2026 10:48:00`, consistent with the UI-label
+build era including accepted P001/P005/P006, not proof of an exact flashed Git SHA.
+Synced local times UTC-04:00; initial setup may be unsynced:
+
+| Boot | Synced coverage | End |
+|---|---|---|
+| 58 | 11:20:09-11:22:36 | shutdown |
+| 59 | 11:29:49-11:41:19 | shutdown |
+| 60 | 11:48:03-11:53:32 | shutdown |
+| 61 | 12:49:22-13:09:19 | shutdown |
+| 62 | 14:22:22-14:45:16 | shutdown |
+| 63 | 17:37:07-18:25:22 | shutdown |
+| 64 | 18:53:56-19:32:45 | shutdown |
+| 65 | 19:46:01-19:53:41 | current-log export begins |
+
+All seven completed sessions end pending=0. The last snapshot excludes its own HTTP
+completion as expected; no additional export needed for this analysis. Boot 63 also
+records an earlier successful 1160268-byte HTTP export, device CRC check match and
+result=ok; no separately supplied phone file is assumed for that intermediate transfer.
+
+### The reported long outage: boot 61
+
+The first WiFi beacon loss is 12:53:03.381, MQTT loss adopted at 12:53:03.403. IP
+returns 12:53:17.690 after a failed reassociation/auth_expired within the same outage.
+MQTT starts 2 ms after GOT_IP and succeeds at 12:53:26.987. Total MQTT outage
+**23.583 s**, including about 14.3 s to regain IP and a 9.290 s connect attempt.
+It then stays online only **10.196 s** before another loss.
+
+The longest uninterrupted outage is **12:53:37.182-12:54:21.512 = 44.329 s**:
+
+| Step | Local time | Contribution |
+|---|---|---|
+| MQTT loss after beacon timeout | 12:53:37.182 | Start |
+| IP restored | 12:53:40.699 | 3.517 s after loss |
+| Retry starts | 12:53:52.187 | 15.004 s after loss; short prior session retains backoff |
+| TLS attempt fails | 12:54:04.161 | TCP 1958 ms + TLS 10003 ms; total 11975 ms |
+| Next retry starts | 12:54:19.168 | 15.007 s after worker END |
+| MQTT restored | 12:54:21.512 | Final successful attempt 2341 ms |
+
+The first 15 s includes WiFi recovery; do not add those 3.517 s again. Approximately
+30 s is the specified retry spacing, 14.3 s connection work/adoption. The ten-second
+TLS failure has no fresh detailed TLS error, so no certificate/server error is inferred.
+
+Online lasts another **12.301 s**, then a third loss at 12:54:33.813. IP returns
+12:54:37.365; the short-session rule again waits until 12:54:48.814, then a 5550 ms
+attempt restores MQTT at 12:54:54.368 (**20.555 s** outage). From first loss to this
+restoration is about 111 s with two brief online intervals, not one continuous 111 s
+MQTT disconnection. This repeated loss explains a prolonged impression of instability.
+
+### All recovered MQTT outages in new coverage
+
+Measured from MQTT_LOST adoption to MQTT_CONNECTED adoption; retry driver events do
+not each count as a new outage. There are **11 recovered MQTT outages**, containing
+**14 beacon-timeout events while USB power remains present**. Three additional beacon
+losses occur during already-disconnected recovery, explaining the different counts.
+
+| Loss time | Boot | MQTT unavailable s | Main recovery complication |
+|---|---:|---:|---|
+| 11:51:37 | 60 | 24.654 | TCP fails at 5002 ms, then 15 s retry spacing |
+| 12:53:03 | 61 | 23.583 | 14.3 s IP recovery and slow successful TCP/TLS |
+| 12:53:37 | 61 | 44.329 | Short-session backoff, ten-second TLS failure, retry |
+| 12:54:33 | 61 | 20.555 | Short-session backoff plus 5.550 s connect |
+| 13:06:06 | 61 | 35.645 | WiFi drops again during TLS; cancellation then retry |
+| 13:07:14 | 61 | 24.269 | Short-session backoff, another WiFi loss, slow TLS |
+| 14:27:12 | 62 | 8.548 | 3.6 s IP recovery, then 4.969 s connect |
+| 14:27:57 | 62 | 38.505 | Short-session backoff, TCP timeout, another WiFi loss |
+| 14:37:26 | 62 | 27.250 | DNS fails after 7000 ms, then retry succeeds |
+| 19:16:31 | 64 | 16.219 | Successful TLS takes 9741 ms |
+| 19:52:13 | 65 | 12.965 | DNS 2369 ms plus successful TLS 6766 ms |
+
+The DNS failure is a resolver failure returned before the 15 s application deadline,
+not proof that the configured wait was shortened to 7 s. Causes span DNS, TCP, TLS
+and repeated link loss; no single universal DNS explanation fits.
+
+Four further MQTT losses near session endings follow USB power removal: 11:22:13,
+13:08:58, 14:44:54 (auth_expired), and 18:25:01 (beacon_timeout then assoc_expired).
+They do not recover before clean shutdown and are separate from the 11 recovered
+outages. The last has weak reported RSSI -78/-90 dBm. The 14 powered beacon events
+report -34 to -47 dBm, so weak sampled signal alone does not explain those episodes.
+RSSI at an event does not prove continuous beacon reception or a healthy internet path.
+Phone movement, hotspot policy, radio environment and upstream conditions remain
+unresolved; do not assert a physical cause from reason labels alone.
+
+### What the accepted changes did and did not fix
+
+P005 now has positive field evidence beyond the earlier clean rides:
+
+- After stable sessions, the first MQTT attempt starts about 2-18 ms after restored
+  IP in the measured cases; it does not impose an extra 15 s initial recovery wait.
+- Short sessions of 10.196, 12.301, 32.248 and 36.815 s retain the intended backoff.
+  These delays are policy operating as approved, not a newly found scheduling defect.
+- Four successful TLS phases exceed the old 5000 ms allowance: boot 61 id 7 **8483 ms**,
+  boot 61 id 8 **6641 ms**, boot 64 id 2 **9741 ms**, boot 65 id 2 **6766 ms**.
+  This establishes that the extended allowance is useful for real slow handshakes;
+  exact counterfactual recovery time on old firmware is not measurable here.
+- One TLS attempt still fails at 10003 ms. The allowance helps but cannot guarantee
+  success or keep a flapping WiFi association alive. No further timeout increase is
+  proposed automatically.
+
+There are 16 post-startup attempts: 11 success, two TCP failures, one TLS failure,
+one DNS failure, one cancellation on renewed WiFi loss. Across all these windows,
+UI gap <=77 ms, IMU/loop <=74 ms, and all over100 counters zero. P001 continues to
+prevent multi-second main-task freezes during long MQTT work. These maxima are higher
+than F003's <=25 ms but remain under 100 ms. A one-millisecond serial_commands span
+in SERVICE is not evidence of actual user commands or the cause of larger UI calls.
+No MQTT-only loss without a corresponding WiFi episode occurs in this new coverage.
+
+### Media, logging and memory
+
+All 18 still images succeed; the slowest completes in 1731 ms. Sixteen Live sessions
+begin: ten end normally on duration, two on screen_left, three fail connection_closed
+at the post-power-removal WiFi losses (13:08:58, 14:44:54, 18:25:01). One in boot 60
+runs into shutdown without LIVE_END; do not invent its completion or a network failure.
+
+Full-cycle FPS (frames divided by entire recorded duration):
+
+| Start | Frames | Duration s | FPS |
+|---|---:|---:|---:|
+| 11:30:25 | 186 | 60.366 | 3.08 |
+| 12:50:05 | 154 | 60.339 | 2.55 |
+| 13:00:40 | 185 | 60.459 | 3.06 |
+| 14:23:21 | 190 | 60.208 | 3.16 |
+| 17:38:02 | 138 | 60.341 | 2.29 |
+| 18:17:41 | 174 | 60.245 | 2.89 |
+| 18:19:57 | 169 | 60.197 | 2.81 |
+| 18:54:36 | 196 | 60.282 | 3.25 |
+| 19:22:45 | 193 | 60.358 | 3.20 |
+| 19:24:15 | 200 | 60.366 | 3.31 |
+
+One successful cycle (19:22:45) includes a 4.557 s frame gap despite its 3.20 average
+FPS, so average FPS is not proof of uniformly smooth playback. Only three explicit
+main-loop gaps, all media spans, 1018-1140 ms; no F006-style unmeasured gap here.
+
+Logger drops/truncations=0; queue high reaches 9 without loss. Three slow-operation
+increments across boots 61/64, maximum write 118.180 ms and flush 232.659 ms. Writer
+stack minimum 3016 bytes. Across all new MQTT attempts, worker stack >=7228 and
+attempt internal/DMA-largest >=45044 bytes. Periodic general-internal-largest >=31732,
+retained DMA-largest >=21492. No recurrence of bike I006's 19444 low. As with F006,
+periodic general-memory samples and retained DMA minima are different metrics and
+do not by themselves establish every transient general-internal minimum.
+
+### Findings and next decision
+
+I002 remains the principal unresolved issue: powered WiFi losses recur despite good
+sampled RSSI. I001 stays addressed; P005 behavior and useful longer TLS allowances are
+now demonstrated in the field, while some long recovery comes from intentionally
+retained backoff during flapping. I005's earlier MQTT-only outage does not recur as
+an independent pattern here. P004 remains deferred; I004 continues without loss;
+I006/I007 from the bike are not reproduced by these car sessions.
+
+Recommend Claude's focused review because JP observed a symptom and this evidence
+changes P005's field-validation status. Review the 12:53 timing decomposition, stable/
+short-session retry distinction, four slow successful TLS phases, and the powered versus
+end-session outage count. Continue normal field collection; no code/build/flash or
+extra bench campaign is justified solely by this analysis. Do not change retry policy
+again without weighing faster flapping recovery against repeated connection load and
+JP's preference for essential, evidence-based changes.
