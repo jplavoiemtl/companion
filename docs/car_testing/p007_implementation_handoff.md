@@ -175,3 +175,23 @@ for successful-record suppression, stale/revoked READY reporting, and unchanged
 uncounted resource deferral. The owner helper-call assertion follows the new report
 argument. No build or flash. Request Claude's quick review of this small delta before
 JP builds; no new bench case. companion.ino remains unchanged.
+
+## Claude focused check - September 27, 2026 (f276e6d against 1551e65)
+
+**Verdict: cleared.** Only logging changed. Host checks re-run: **407 pass in 17 suites**.
+
+- **Timing unchanged.** `scheduleRetry` computes `waitMs` and writes `lastMqttAttempt`
+  before the new `report` guard, with identical precedence. Only the
+  `MQTT_RETRY_DECISION` emission is conditional.
+- **Suppression is limited to genuine successes.** The single result call site passes
+  `report=!result.ok`, and the loss/cleanup call site keeps the default `true`. Stale
+  reclassification sets `result.ok=false` before `adoptResultRetry`, so a stale READY
+  still logs its cancellation policy (`wifi_return` or `backoff`). A READY revoked
+  after the stale check logs nothing at the result, then logs once through the cleanup
+  loss. Every cancellation and failure path still reports.
+- **Tests.** The two new recovery checks cover suppression with an unchanged 15 s
+  stamp, stale and revoked READY reporting, and uncounted 15 s resource deferrals. The
+  only edited existing assertion is the call-string update for the new argument.
+
+The resource-deferral note is handled correctly as documentation only: no behaviour
+change. Ready for JP's build.
