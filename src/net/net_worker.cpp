@@ -380,6 +380,7 @@ bool init(const NetConfig& value) { config=value; return true; }
 View view() { portENTER_CRITICAL(&mux); const View copy=status; portEXIT_CRITICAL(&mux); return copy; }
 void linkEvent(bool up) {
   portENTER_CRITICAL(&mux);
+  if(!up && status.link) ++status.linkDowns;
   // A repeated GOT_IP (e.g. DHCP renewal) is not a new association. Genuine
   // same-IP recovery first passes through CONNECTED/DISCONNECTED with link=false.
   if(!up || !status.link) { invalidateLocked(false); status.link=up; }

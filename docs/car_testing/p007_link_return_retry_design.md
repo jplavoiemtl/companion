@@ -1,8 +1,9 @@
 # P007 - Prompt MQTT retry after WiFi link loss
 
-Revision 1 - September 27, 2026. Author: Codex.
-Status: direction approved by JP; design for Claude review and subsequent JP
-implementation approval. No implementation, build or flash authorized by this document.
+Revision 2 - September 27, 2026. Author: Codex.
+Status: JP approved implementation after Claude clearance 2362ea0 and explicitly
+adopted S1. Implementation is complete for Claude code review; no build or flash.
+Revision 2 incorporates S1 only; the reviewed scheduling contract is unchanged.
 Source reviewed: main at cb06706. Inputs: [F007 and Claude review](field_journal.md)
 and [P005/P006](p005_p006_recovery_design.md).
 
@@ -27,7 +28,8 @@ ownership, cleanup, cancellation, shutdown no-dispatch and all admission protect
 
 The change belongs in src/net/net_module.cpp and tools/tests/mqtt_recovery.test.cjs
 (with existing owner/service harness adaptations only where necessary).
-No net_worker implementation/header, MQTT protocol, sketch or WiFi scan changes.
+S1 adds only linkDowns to the owner View and increments it under the existing owner
+mux in linkEvent. No worker execution/protocol, sketch or WiFi scan changes.
 
 Current boundaries:
 - netLinkEvent forwards fixed metadata to mqttowner::linkEvent. CONNECTED,
@@ -44,24 +46,20 @@ Current boundaries:
 
 ## 3. Definition of link-caused and fixed metadata
 
-Use a small net-module observer protected by its own portMUX, shared only between
-WiFi callback and main. Store a usable-link boolean (initially false) and uint32_t
-linkDownSerial (initially zero). A transition from usable=true to false increments
-the serial once. Repeated false events while down do not increment it. A true event
-marks usable=true, without incrementing anything. A DHCP GOT_IP while already true
-cannot earn eligibility. CONNECTED while already down is not a second loss.
+S1: use the existing owner status.link boolean (initially false) and add uint32_t
+status.linkDowns (initially zero) to View. Inside mqttowner::linkEvent, under its
+existing mux and before invalidation, increment linkDowns only for !up && status.link.
+Repeated false events while down do not increment it. GOT_IP true never increments it;
+a repeated GOT_IP while already true cannot earn eligibility. CONNECTED while already
+down is not a second loss. Main reads the counter through the existing view() snapshot.
+The scheduling serial called linkDownSerial below is this linkDowns field.
 
 Here 'link' means the owner's usable-IP lifecycle, including LOST_IP/STOP, not solely
-radio association. The existing false forwarding remains unchanged. No event reason
-heuristic, RSSI threshold, socket inspection, scan or callback logging is added.
-
-Inside netLinkEvent, hold the observer lock while updating this metadata AND forwarding
-the existing mqttowner::linkEvent call. This call only takes the owner's metadata lock;
-it performs no allocation or network operation. Main snapshots the observer under its
-lock, then releases it before other owner calls. Lock order is observer -> owner only;
-never acquire observer while holding the owner lock. This prevents main seeing a new
-serial before the corresponding owner invalidation has been published. Do not hold
-this lock across request(), logging, LVGL, or any potentially blocking work.
+radio association. Existing event forwarding and invalidation remain unchanged. No
+reason heuristic, RSSI threshold, socket inspection, scan or callback logging is added.
+The serial and epoch invalidation are published under one existing lock. There is no
+second observer, new portMUX, nested lock or lock-order rule. No new allocation,
+network operation or logging occurs inside the owner lock.
 
 Main owns an accepted-attempt baseline serial/id, an adopted-session baseline serial,
 and one linkRetryPending boolean. Each baseline has an explicit validity flag; zero
@@ -84,7 +82,7 @@ bench/configuration/shutdown invalidation must not invent a WiFi cause.
 
 ### Accepted dispatch
 
-Snapshot the observer immediately BEFORE request(). If request refuses, leave the
+Snapshot linkDowns through view() immediately BEFORE request(). If request refuses, leave the
 current baselines and pending eligibility untouched. On acceptance, store that snapshot
 as the new attempt baseline with the accepted id, clear linkRetryPending and clear the
 old session baseline. Capture before request so a drop racing with dispatch is not
@@ -95,7 +93,7 @@ hide a newly invalidated attempt. Existing attempt IDs and worker epochs remain 
 
 ### READY adoption
 
-Snapshot the observer immediately before acknowledgeReady. Only after acknowledgement
+Snapshot linkDowns through view() immediately before acknowledgeReady. Only after acknowledgement
 and the existing connected confirmation succeeds, install that snapshot as the session
 baseline and set observedConnected/onlineAdoptedAtMs as today. Clear pending eligibility
 and retire the attempt baseline. A drop after the snapshot remains visible at loss.
@@ -227,12 +225,13 @@ Required checks:
    uncounted, giveUp is not revived. Preserve busy/link/lease/mailbox/fault request guards,
    media/retrieval arbitration, unsigned millis retry arithmetic and worker epoch checks.
 8. Retry-decision records match scheduling and remain terminal-event-only. No secret
-   values, network operations or logging under the observer lock; inspect lock order.
+   values, network operations or logging under the owner lock; inspect atomic counter/epoch publication.
 
 Run all existing host suites, including mqtt_owner, mqtt_service, mqtt_recovery,
 media_admission and retrieval suites. No firmware build by Codex. Handoff to Claude
 with changed files, test counts and the counter/READY/cleanup race coverage before JP
-builds. This document does not authorize implementation yet.
+builds. JP has authorized this implementation; Claude code review precedes JP
+building or flashing.
 
 ## 8. Ordinary-ride validation and approval
 
@@ -249,10 +248,10 @@ exercised; a quiet ride does not prove P007 fixed WiFi. Further timeout/radio ch
 P004 media worker, NAT/socket survival experiments and shorter genuine-failure backoff
 remain outside scope.
 
-Claude review requested: counter publication/lock order, baseline race boundaries,
+Claude code review requested: counter/epoch publication, baseline race boundaries,
 revoked READY double-adoption, the one-opportunity-per-cycle claim, and unchanged
-bench/failure/shutdown protections. JP approved the direction only; implementation
-awaits the reviewed design and explicit authorization.
+bench/failure/shutdown protections. JP approved implementation and S1 after design clearance; no build or flash has
+been performed. See the [implementation handoff](p007_implementation_handoff.md).
 
 ## Claude review - September 27, 2026 (revision 1, a609655)
 
@@ -310,3 +309,14 @@ to test. JP or Codex's choice.
   implies.
 - **`MQTT_RETRY_DECISION` volume.** At most two per terminal adoption, and none per event
   or loop turn. Fine as specified.
+
+
+## JP approval and S1 integration - September 27, 2026
+
+JP approved implementation following Claude's no-blocker review at 2362ea0, then
+explicitly answered "Adopt S1". Revision 2 replaces the separate observer/lock in
+section 3 with the existing owner View/mux counter. This authorizes the two small
+net_worker changes; retry decisions remain main-owned. Claude's revision-1 review
+above is preserved verbatim. The other review notes are retained: evaluate
+IMAGE_REFUSED/LIVE_REFUSED reason=mqtt_reconnecting counts on ordinary rides as
+well as outage duration, and keep retry-decision records terminal-only.

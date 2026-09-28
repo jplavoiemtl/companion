@@ -51,6 +51,9 @@ bool benchCommandOverflow = false;
 bool observedConnected = false;
 constexpr uint64_t PROMPT_MIN_ONLINE_MS=60000;
 uint64_t onlineAdoptedAtMs=0; // Valid only while observedConnected; main-owned.
+// Main-owned lifecycle baselines. Zero is a valid counter/id; validity is explicit.
+bool attemptLinkValid=false, sessionLinkValid=false, linkRetryPending=false;
+uint32_t attemptLinkDowns=0, attemptLinkId=0, sessionLinkDowns=0;
 bool benchFirstPending=false,restorePending=false;
 bool mediaDeferred = false;
 int observedAssociation = -1;
@@ -64,9 +67,38 @@ bool faultReported=false,allocReported=false;
 const char* lastResult="none";
 
 bool observeMqtt() { return mqttowner::view().connected; }
+void clearLinkRetry() {
+  attemptLinkValid=false; sessionLinkValid=false; linkRetryPending=false;
+}
+
+void scheduleRetry(const char* source,bool linkChanged,bool stable) {
+  uint32_t waitMs=MQTT_RECONNECT_INTERVAL;
+  const char* policy="backoff";
+  if(restorePending) { waitMs=0; policy="restore"; }
+  else if(benchFirstPending) { waitMs=BENCH_FIRST_ATTEMPT_MS; policy="bench_first"; }
+  else if(benchPhase==BenchPhase::Idle && linkRetryPending) { waitMs=0; policy="wifi_return"; }
+  else if(benchPhase==BenchPhase::Idle && stable) { waitMs=0; policy="stable"; }
+  lastMqttAttempt=millis()-(MQTT_RECONNECT_INTERVAL-waitMs);
+  diagnet::event("MQTT_RETRY_DECISION","source=%s policy=%s link_changed=%u pending=%u wait_ms=%lu",
+    source,policy,linkChanged,linkRetryPending,(unsigned long)waitMs);
+}
+
+void adoptResultRetry(const mqttowner::Result& result) {
+  const bool linkChanged=attemptLinkValid && attemptLinkId==result.id &&
+    mqttowner::view().linkDowns!=attemptLinkDowns;
+  if(!result.ok) {
+    if(!strcmp(result.reason,"cancelled")) {
+      if(benchPhase==BenchPhase::Idle && !result.test && linkChanged) linkRetryPending=true;
+      // Retain the baseline: a revoked READY can still have a cleanup acknowledgement.
+    } else {
+      clearLinkRetry(); // A genuine failure never carries earlier prompt eligibility.
+    }
+  }
+  scheduleRetry("result",linkChanged,false);
+}
 void intentionalDisconnect(const char* reason) {
   diagnet::event("MQTT_DISCONNECT", "reason=%s state_before=%d",reason,netMqttState());
-  mqttowner::invalidate(); observedConnected=false; onlineAdoptedAtMs=0;
+  mqttowner::invalidate(); observedConnected=false; onlineAdoptedAtMs=0; clearLinkRetry();
 }
 
 uint32_t retryRemaining() {
@@ -186,6 +218,7 @@ void netInit(const NetConfig& c) {
 }
 void netLinkEvent(bool up) { mqttowner::linkEvent(up); }
 void netConfigureMqttClient(int connection) {
+  clearLinkRetry();
   configuredConnection=connection;
   activePort=connection==1 ? cfg.serverPort1 : cfg.serverPort2;
   mqttowner::invalidate();
@@ -196,7 +229,11 @@ void netCheckMqtt(bool bypassRateLimit) {
   if(!initialized || !configuredConnection || giveUp || netIsMqttConnected() || netMqttBusy()) return;
   if(!bypassRateLimit && millis()-lastMqttAttempt<MQTT_RECONNECT_INTERVAL) return;
   const bool testAttempt=benchPhase==BenchPhase::Outage;
+  // Snapshot BEFORE request so a concurrent link drop is not absorbed into the baseline.
+  const uint32_t linkDowns=mqttowner::view().linkDowns;
   if(!mqttowner::request(attemptId+1,configuredConnection,testAttempt)) return;
+  attemptLinkDowns=linkDowns; attemptLinkId=attemptId+1; attemptLinkValid=true;
+  sessionLinkValid=false; linkRetryPending=false;
   ++attemptId; diagmqtt::begin(attemptId,mqttowner::view().started); benchFirstPending=false; restorePending=false;
   diagnosticsProbeBegin(ProbeWindow::MqttConnect);
   diagnet::event("MQTT_CONNECT_BEGIN", "execution=worker id=%lu target=%s connection=%d wifi_connection=%d port=%u tls=%u",
@@ -210,7 +247,7 @@ int netMqttState() { return mqttowner::view().state; }
 bool netMqttBusy() { const auto state=mqttowner::view(); return state.busy || state.lease; }
 bool netMqttFaulted() { return mqttowner::view().phase==mqttowner::Phase::Fault; }
 bool netMqttLeaseHeld() { return mqttowner::view().lease; }
-void netShutdown() { mqttowner::invalidate(true); }
+void netShutdown() { clearLinkRetry(); mqttowner::invalidate(true); }
 bool netPublish(const char* topic,const char* payload,const char* category,const char* trigger) {
   if(!topic) return false;
   int which=-1;
@@ -278,18 +315,20 @@ void netMainTick() {
       (unsigned long)state.internalMin,(unsigned long)state.largestMin,(unsigned long)state.dmaMin,(unsigned long)state.dmaLargestMin);
     diagnosticsProbeEnd(ProbeWindow::MqttConnect);
     // Backoff begins after owner completion, never at dispatch or repeated WiFi events.
-    lastMqttAttempt = millis();
-    if(restorePending) lastMqttAttempt-=MQTT_RECONNECT_INTERVAL;
+    adoptResultRetry(result);
     if(benchPhase!=BenchPhase::Idle) USBSerial.printf("[TEST] MQTT attempt %u END -> %s | %s | elapsed=%llu ms | state=%d\n",
       benchAttempt,result.test ? "TEST endpoint" : "REAL broker",result.ok ? "CONNECTED" : "FAILED",
       (unsigned long long)(result.ended-result.started),result.state);
     if(result.ok) {
+      const uint32_t readyLinkDowns=mqttowner::view().linkDowns;
       mqttowner::acknowledgeReady(result.epoch);
       if(result.test) restoreBenchMqtt("unexpected test connection");
       else if(netIsMqttConnected()) {
         diagnet::event("MQTT_CONNECTED","recovery=%u target=real connection=%d port=%u state=%d",everConnected || benchPhase==BenchPhase::Restoring,configuredConnection,activePort,result.state);
         everConnected=true; failureCount=0; observedConnected=true;
         onlineAdoptedAtMs=esp_timer_get_time()/1000;
+        sessionLinkDowns=readyLinkDowns; sessionLinkValid=true;
+        attemptLinkValid=false; linkRetryPending=false;
         const char* categories[]={"image","power","energy"};
         for(unsigned i=0;i<3;++i) diagnet::event("MQTT_SUBSCRIBE","category=%s qos=1 accepted=%u ack=unobserved",categories[i],(result.subscriptions>>i)&1);
         calibReportStatus(); // main only, enqueues publication
@@ -306,12 +345,15 @@ void netMainTick() {
   int lostState;
   if(mqttowner::takeLoss(lostState)) {
     const uint64_t lossAdoptedAtMs=esp_timer_get_time()/1000;
-    const bool prompt=benchPhase==BenchPhase::Idle && observedConnected &&
+    const uint32_t linkDowns=mqttowner::view().linkDowns;
+    const bool linkChanged=observedConnected
+      ? sessionLinkValid && linkDowns!=sessionLinkDowns
+      : attemptLinkValid && linkDowns!=attemptLinkDowns;
+    const bool stable=observedConnected &&
       lossAdoptedAtMs-onlineAdoptedAtMs>=PROMPT_MIN_ONLINE_MS;
-    lastMqttAttempt = millis();
-    if(restorePending) lastMqttAttempt-=MQTT_RECONNECT_INTERVAL;
-    else if(benchFirstPending) lastMqttAttempt-=MQTT_RECONNECT_INTERVAL-BENCH_FIRST_ATTEMPT_MS;
-    else if(prompt) lastMqttAttempt-=MQTT_RECONNECT_INTERVAL;
+    if(benchPhase==BenchPhase::Idle && linkChanged) linkRetryPending=true;
+    scheduleRetry(observedConnected ? "loss" : "cleanup",linkChanged,stable);
+    attemptLinkValid=false; sessionLinkValid=false;
     if(observedConnected) diagnet::mqttLoss(lostState,benchPhase==BenchPhase::Outage ? "test" : "real",configuredConnection,activePort,nullptr);
     else diagnet::event("MQTT_CLEANUP","execution=worker state=%d result=closed",lostState);
     observedConnected=false; onlineAdoptedAtMs=0;

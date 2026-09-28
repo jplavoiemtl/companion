@@ -1783,3 +1783,15 @@ Claude's review is integrated as the basis of this proposal. Preserve the powere
 count distinction: the analysis counts 14 powered beacon events plus one after power
 removal, whereas review point 2 calls all 15 powered before identifying the post-power
 exception. This wording does not change the 11 recovered outages or P007 rationale.
+
+
+### P007 implementation handoff - September 27, 2026, Codex
+
+Following Claude's no-blocker design review at 2362ea0, JP approved implementation
+and explicitly adopted S1 (link-down counter under the existing owner lock, exposed
+through View). The [implementation handoff](p007_implementation_handoff.md) records
+the small counter change and main-side retry scheduling, with 405 passing host checks
+in 17 suites. Broker-only stability and genuine-failure backoff remain; no radio,
+worker execution or timeout change. Await Claude code review before JP builds.
+No build, flash or hardware test performed. Ordinary rides will validate recovery
+timing and media/refusal frequency; no new bench campaign. I002 remains open.

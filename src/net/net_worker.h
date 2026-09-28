@@ -8,6 +8,7 @@ constexpr uint32_t TLS_MS=10000, MQTT_MS=10000, SUBSCRIBE_MS=2000;
 enum class Phase : uint8_t { Idle, Dns, Lease, Tcp, Tls, Mqtt, Subscribe, Online, Cleanup, Fault, Stopped };
 struct View {
   uint32_t epoch=1, attemptEpoch=0, id=0;
+  uint32_t linkDowns=0; // Usable up->down transitions, atomic with epoch invalidation.
   uint64_t started=0, phaseAt=0;
   Phase phase=Phase::Idle;
   bool link=false, stop=false, busy=false, connected=false, lease=false, requestedLease=false;

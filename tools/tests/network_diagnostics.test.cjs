@@ -56,7 +56,7 @@ test('retry budgets, pacing and media guard remain at accepted values',()=>{
  for(const pattern of [/MQTT_RECONNECT_INTERVAL\s*=\s*15000/,/MAX_INITIAL_FAILURES\s*=\s*5/,/BENCH_FIRST_ATTEMPT_MS\s*=\s*5000/]) assert(pattern.test(net));
  assert(/WIFI_RETRY_INTERVAL_MS\s*=\s*30000/.test(sketch));
  assert(sketch.includes('if (!imageFetcherIsBusy() && !videoStreamActive()) {\n      netCheckMqtt();'));
- assert(net.indexOf('lastMqttAttempt = millis();',net.indexOf('void netMainTick')) > net.indexOf('mqttowner::takeResult(result)'));
+ assert(net.indexOf('adoptResultRetry(result);',net.indexOf('void netMainTick')) > net.indexOf('mqttowner::takeResult(result)'));
 });
 test('media hostname TLS and HTTP transport calls are unchanged',()=>{
  assert.deepEqual(calls(video,'vidClient','connect|setCACert|setConnectionTimeout|setHandshakeTimeout|stop'),
@@ -70,7 +70,7 @@ test('every real/test MQTT attempt is bracketed through worker result adoption',
  assert(request.includes('execution=worker'));
  const adopt=between(net,'if(mqttowner::takeResult(result))', 'int lostState;');
  assert(adopt.indexOf('"MQTT_CONNECT_END"')<adopt.indexOf('diagnosticsProbeEnd('));
- assert(adopt.indexOf('diagnosticsProbeEnd(')<adopt.indexOf('lastMqttAttempt = millis();'));
+ assert(adopt.indexOf('diagnosticsProbeEnd(')<adopt.indexOf('adoptResultRetry(result);'));
  assert(owner.indexOf('client.connect(CLIENT_ID')<owner.indexOf('client.subscribe('));
  assert(owner.indexOf('client.subscribe(')<owner.indexOf('finalResult=result; resultReady=true;'));
  assert(!net.includes('diagnet::Span attempt(')); // Worker latency is not main blocking.

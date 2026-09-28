@@ -11,7 +11,7 @@ let count=0;
 function test(name,f){f();++count;console.log('PASS '+name);}
 function adapt(s){return s.replace(/port(?:ENTER|EXIT)_CRITICAL\(&mux\);/g,'').replace(/Phase::/g,'Phase.').replace(/\bconst (?:bool|uint\d+_t|err_t|ip_addr_t) /g,'const ').replace(/\b(?:bool|uint\d+_t|err_t) /g,'let ').replace(/slot->/g,'slot.').replace('status.stop|=stopping','status.stop=Boolean(status.stop || stopping)');}
 const phases=['Idle','Dns','Lease','Tcp','Tls','Mqtt','Subscribe','Online','Cleanup','Fault','Stopped'];
-function context(){const c={t:0,status:{epoch:1,attemptEpoch:1,link:true,stop:false,phase:'Dns',busy:true,connected:false,lease:false,requestedLease:false,started:0,cancelled:0,stuck:0},Phase:Object.fromEntries(phases.map(x=>[x,x])),ATTEMPT_MS:45000,STUCK_MS:50000,readyAck:false,operationDeadline:0,clears:0};c.nowMs=()=>c.t;c.clearMessagesLocked=()=>c.clears++;c.phase=p=>c.status.phase=p;vm.createContext(c);
+function context(){const c={t:0,status:{epoch:1,attemptEpoch:1,linkDowns:0,link:true,stop:false,phase:'Dns',busy:true,connected:false,lease:false,requestedLease:false,started:0,cancelled:0,stuck:0},Phase:Object.fromEntries(phases.map(x=>[x,x])),ATTEMPT_MS:45000,STUCK_MS:50000,readyAck:false,operationDeadline:0,clears:0};c.nowMs=()=>c.t;c.clearMessagesLocked=()=>c.clears++;c.phase=p=>c.status.phase=p;vm.createContext(c);
  for(const [sig,name,args] of [['void linkEvent(','linkEvent','up'],['bool current(','current','epoch'],['void invalidateLocked(','invalidateLocked','stopping'],['bool admitPhase(','admitPhase','cmd,value,allowance,result'],['void arbitrate(','arbitrate','available'],['void acknowledgeReady(','acknowledgeReady','epoch']])vm.runInContext(`function ${name}(${args}){${adapt(body(worker,sig))}}`,c);
  return c;}
 test('pins allocation, scheduling and time bounds; no internal fallback',()=>{
@@ -193,7 +193,10 @@ test('failure budget counts only genuine real failures and retry time follows ow
  const run=new Function('result','everConnected','failureCount','MAX_INITIAL_FAILURES',`let giveUp=false,recorded=0;if(result.counted && !result.test){${failure}}return {giveUp,failureCount,recorded};`);
  for(const result of [{counted:false,test:false},{counted:true,test:true}])assert.equal(run(result,false,4,5).giveUp,false);
  assert.equal(run({counted:true,test:false},false,4,5).giveUp,true);assert.equal(run({counted:true,test:false},true,4,5).giveUp,false);
- assert(net.indexOf('lastMqttAttempt = millis();',net.indexOf('mqttowner::takeResult'))>net.indexOf('mqttowner::takeResult'));
+ assert(body(net,'if(mqttowner::takeResult(result))').includes('adoptResultRetry(result);'));
+ assert(body(net,'void adoptResultRetry(').includes('scheduleRetry("result",linkChanged,false);'));
+ assert(body(net,'void scheduleRetry(').includes('lastMqttAttempt=millis()-(MQTT_RECONNECT_INTERVAL-waitMs);'));
+ assert(!body(net,'void netCheckMqtt(').includes('lastMqttAttempt='));
  assert(worker.indexOf('phase(Phase::Cleanup); facade.stop(); plain.stop(); secure.stop(); online=false;')<worker.lastIndexOf('finalResult=result; resultReady=true;'));
 });
 test('setup dispatch services UI/IMU and stops waiting on held faults; power hooks never wait',()=>{
