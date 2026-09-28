@@ -253,3 +253,60 @@ Claude review requested: counter publication/lock order, baseline race boundarie
 revoked READY double-adoption, the one-opportunity-per-cycle claim, and unchanged
 bench/failure/shutdown protections. JP approved the direction only; implementation
 awaits the reviewed design and explicit authorization.
+
+## Claude review - September 27, 2026 (revision 1, a609655)
+
+**Verdict: no blockers.** The design is correct against the current source. One
+simplification is recommended (S1). JP can approve implementation with or without it.
+
+**Verified:**
+- **Link-event tracking.** net_module forwards CONNECTED, DISCONNECTED, LOST_IP and STOP as
+  `false` and GOT_IP as `true` (net_module.cpp:176-183). Counting only usable true->false
+  transitions gives one increment per F007 drop sequence (DISCONNECTED, then repeated
+  no_ap_found/sta_leaving, then CONNECTED, then GOT_IP). A repeated GOT_IP while up is
+  ignored, matching the owner's N2 rule (net_worker.cpp:385).
+- **Race boundaries.**
+  - A drop between the pre-request snapshot and `request()` is refused, because the owner
+    sees `link=false` under its own lock.
+  - A full down-then-up cycle in that gap only affects a later *cancellation*, never a
+    genuine failure, as stated.
+  - A drop between the stale check and `acknowledgeReady` makes the acknowledgement
+    refuse. The revoked path then relies on the retained attempt baseline.
+  - A cycle between the worker's READY and main adoption is caught by the existing stale
+    reclassification. The worker also re-labels a mid-attempt failure as cancelled when
+    its epoch changed (net_worker.cpp:298/302). So "genuine failure despite link loss"
+    can only arise when the drop comes after main adoption, which is correct.
+- **Revoked READY.** Until cleanup the owner keeps `lease` and `lossReady`, so `request()`
+  cannot dispatch between the cancelled result and the cleanup loss. Keeping one pending
+  flag across both adoptions, with cleanup forbidden to overwrite it with 15 s, gives
+  exactly one opportunity.
+- **One opportunity per cycle.** There is a single boolean, consumed by accepted dispatch
+  and cleared by genuine failure, bench, reconfiguration and shutdown. No credits
+  accumulate. Any serial change during an ONLINE session necessarily ended that session,
+  because every `false` invalidates the owner epoch. So "serial changed" really does mean
+  link-ended.
+- **Preserved behaviour.** Bench precedence stays restore, then first test, then P007 or
+  stable, then 15 s, with a single backdate. Bench phases never earn credit. Genuine
+  failures keep 15 s. `giveUp` and counted-failure logic are untouched. Shutdown keeps
+  relying on the owner's stop check. Request guards and admission are unchanged.
+
+**S1 - put the counter in the owner instead of a second lock (recommended
+simplification).** The owner's `linkEvent` already detects the usable transition under
+its own mux. Adding `if(!up && status.link) ++status.linkDowns;` there, and exposing it
+through `view()`, makes the serial atomic with the epoch bump:
+- it removes the new portMUX, the nested critical section and the lock-order rule;
+- it removes the "publish serial before invalidation" argument;
+- it costs two worker lines, against the design's "no net_worker changes" scope.
+
+The design's nested approach is also safe: different muxes, and the WiFi event task and
+main both run on core 1 (`EventsCore=1`, `LoopCore=1`). But it is more to get right and
+to test. JP or Codex's choice.
+
+**Nonblocking:**
+- **Lease frequency during bursts.** In a burst, attempts may run almost back to back
+  (F007: losses 11-56 s apart, attempts 1-12 s), so Latest, Live and download entry are
+  refused more often. The existing `IMAGE_REFUSED`/`LIVE_REFUSED reason=mqtt_reconnecting`
+  events already measure this; include their count in ride analysis, as section 6
+  implies.
+- **`MQTT_RETRY_DECISION` volume.** At most two per terminal adoption, and none per event
+  or loop turn. Fine as specified.
