@@ -194,7 +194,7 @@ test('failure budget counts only genuine real failures and retry time follows ow
  for(const result of [{counted:false,test:false},{counted:true,test:true}])assert.equal(run(result,false,4,5).giveUp,false);
  assert.equal(run({counted:true,test:false},false,4,5).giveUp,true);assert.equal(run({counted:true,test:false},true,4,5).giveUp,false);
  assert(body(net,'if(mqttowner::takeResult(result))').includes('adoptResultRetry(result);'));
- assert(body(net,'void adoptResultRetry(').includes('scheduleRetry("result",linkChanged,false);'));
+ assert(body(net,'void adoptResultRetry(').includes('scheduleRetry("result",linkChanged,false,!result.ok);'));
  assert(body(net,'void scheduleRetry(').includes('lastMqttAttempt=millis()-(MQTT_RECONNECT_INTERVAL-waitMs);'));
  assert(!body(net,'void netCheckMqtt(').includes('lastMqttAttempt='));
  assert(worker.indexOf('phase(Phase::Cleanup); facade.stop(); plain.stop(); secure.stop(); online=false;')<worker.lastIndexOf('finalResult=result; resultReady=true;'));

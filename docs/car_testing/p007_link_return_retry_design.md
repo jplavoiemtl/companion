@@ -185,7 +185,9 @@ still waits 15 s, and link-up short-session kicks remain rate-limited as before.
 ## 6. Observability and resources
 
 No new worker telemetry, protocol or periodic event. Add one small main-side
-MQTT_RETRY_DECISION record at each terminal scheduling decision with:
+MQTT_RETRY_DECISION record at each terminal scheduling decision except an ok
+Result awaiting READY adoption (suppress its misleading retry record, while retaining
+the same stamp). A revoked READY still reports the cleanup decision. Fields:
 source=loss|result|cleanup policy=restore|bench_first|wifi_return|stable|backoff
 link_changed=0|1 pending=0|1 wait_ms=0|5000|15000.
 This exposes policy, not inferred physical cause. Two records for cancelled READY and

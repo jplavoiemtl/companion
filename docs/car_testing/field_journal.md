@@ -1795,3 +1795,13 @@ in 17 suites. Broker-only stability and genuine-failure backoff remain; no radio
 worker execution or timeout change. Await Claude code review before JP builds.
 No build, flash or hardware test performed. Ordinary rides will validate recovery
 timing and media/refusal frequency; no new bench campaign. I002 remains open.
+
+
+### P007 code-review notes - September 27, 2026, Codex
+
+Claude cleared ec487bc at 1551e65. A small subsequent logging correction suppresses
+the misleading wait-15-seconds retry record on successful Result adoption without
+changing scheduling. All 407 host checks pass. Resource deferrals retain their
+uncounted 15 s backoff and must be separated from network failures in ride analysis;
+pre-dispatch request refusal instead retains prompt eligibility. See the handoff
+addendum for the delta awaiting Claude's quick review. No build or flash.

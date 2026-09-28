@@ -71,7 +71,7 @@ void clearLinkRetry() {
   attemptLinkValid=false; sessionLinkValid=false; linkRetryPending=false;
 }
 
-void scheduleRetry(const char* source,bool linkChanged,bool stable) {
+void scheduleRetry(const char* source,bool linkChanged,bool stable,bool report=true) {
   uint32_t waitMs=MQTT_RECONNECT_INTERVAL;
   const char* policy="backoff";
   if(restorePending) { waitMs=0; policy="restore"; }
@@ -79,7 +79,7 @@ void scheduleRetry(const char* source,bool linkChanged,bool stable) {
   else if(benchPhase==BenchPhase::Idle && linkRetryPending) { waitMs=0; policy="wifi_return"; }
   else if(benchPhase==BenchPhase::Idle && stable) { waitMs=0; policy="stable"; }
   lastMqttAttempt=millis()-(MQTT_RECONNECT_INTERVAL-waitMs);
-  diagnet::event("MQTT_RETRY_DECISION","source=%s policy=%s link_changed=%u pending=%u wait_ms=%lu",
+  if(report) diagnet::event("MQTT_RETRY_DECISION","source=%s policy=%s link_changed=%u pending=%u wait_ms=%lu",
     source,policy,linkChanged,linkRetryPending,(unsigned long)waitMs);
 }
 
@@ -94,7 +94,9 @@ void adoptResultRetry(const mqttowner::Result& result) {
       clearLinkRetry(); // A genuine failure never carries earlier prompt eligibility.
     }
   }
-  scheduleRetry("result",linkChanged,false);
+  // READY is not a retry decision. Keep the stamp, but do not log a fictitious wait.
+  // A revoked READY still reports its real retry policy on cleanup.
+  scheduleRetry("result",linkChanged,false,!result.ok);
 }
 void intentionalDisconnect(const char* reason) {
   diagnet::event("MQTT_DISCONNECT", "reason=%s state_before=%d",reason,netMqttState());

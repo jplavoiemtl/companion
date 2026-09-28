@@ -44,8 +44,8 @@ no generated sketch deletion was needed or performed.
    gates still own admission. No direct main-side MQTT access or forced cleanup added.
 5. Logging occurs only on terminal scheduling decisions. policy=wifi_return means
    eligibility is prompt, not that BEGIN must occur immediately while offline or busy.
-   Successful Result adoption also records its default scheduling decision before
-   READY adoption, as specified; connected status continues to report no backoff.
+   Successful Result adoption preserves its scheduling stamp but suppresses the
+   retry record (post-review correction below); connected status reports no backoff.
 
 ## Host verification
 
@@ -152,3 +152,26 @@ Nonblocking:
   (`lease_deferred`, `memory_refused`, `dns_slots_busy`) is a non-cancelled result, so
   it waits 15 s, as the design specifies. When reading rides, separate these from
   genuine network failures.
+
+
+## Post-review notes addressed - September 27, 2026, Codex
+
+Following Claude clearance 1551e65, JP asked whether to implement the two notes.
+
+1. Implemented the logging correction: scheduleRetry still writes the same stamp,
+   with the same precedence, but result.ok suppresses MQTT_RETRY_DECISION. Do not
+   label it connected before READY acknowledgement. Stale READY has already become
+   cancelled and still reports its policy; a later revoked acknowledgement reports
+   the policy through cleanup. No retry timing changes.
+2. Resource deferral is retained, not treated as a scheduling defect. Distinguish
+   request() refusal before acceptance (pending prompt remains, no attempt started)
+   from an accepted attempt ending lease_deferred, memory_refused or dns_slots_busy
+   (15 s backoff, uncounted). Existing MQTT_CONNECT_END result identifies these;
+   separate them from DNS/TCP/TLS/broker failures when reading rides. Do not remove
+   the backoff and risk repeatedly requesting scarce resources.
+
+All **407 checks pass in 17 suites**, including two new recovery checks (43 total)
+for successful-record suppression, stale/revoked READY reporting, and unchanged
+uncounted resource deferral. The owner helper-call assertion follows the new report
+argument. No build or flash. Request Claude's quick review of this small delta before
+JP builds; no new bench case. companion.ino remains unchanged.

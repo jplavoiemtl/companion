@@ -22,7 +22,7 @@ function policy(){
  vm.createContext(c);
  const tr=s=>adapt(s).replace(/port(?:ENTER|EXIT)_CRITICAL\(&mux\);/g,'');
  for(const [sig,name,args] of [['void invalidateLocked(','invalidateLocked','stopping'],['void linkEvent(','linkEvent','up'],['void acknowledgeReady(','acknowledgeReady','epoch']])vm.runInContext(`function ${name}(${args}){${tr(body(worker,sig))}}`,c);
- for(const [sig,name,args] of [['void clearLinkRetry(','clearLinkRetry',''],['void scheduleRetry(','scheduleRetry','source,linkChanged,stable'],['void adoptResultRetry(','completion','result={ok:false,reason:"failed",id:attemptLinkId,test:false}'],['void intentionalDisconnect(','intentionalDisconnect','reason'],['void netCheckMqtt(','dispatch','bypassRateLimit=false'],['void netShutdown(','shutdown',''],['void netConfigureMqttClient(','configure','connection']])
+ for(const [sig,name,args] of [['void clearLinkRetry(','clearLinkRetry',''],['void scheduleRetry(','scheduleRetry','source,linkChanged,stable,report=true'],['void adoptResultRetry(','completion','result={ok:false,reason:"failed",id:attemptLinkId,test:false}'],['void intentionalDisconnect(','intentionalDisconnect','reason'],['void netCheckMqtt(','dispatch','bypassRateLimit=false'],['void netShutdown(','shutdown',''],['void netConfigureMqttClient(','configure','connection']])
  vm.runInContext(`function ${name}(${args}){${adapt(body(net,sig))}}`,c);
  c.cfg={serverPort1:9735,serverPort2:1883};c.adoptResultRetry=c.completion;
  vm.runInContext(`function loss(){${adapt(body(net,'if(mqttowner::takeLoss(lostState))'))}}`,c);
@@ -175,6 +175,23 @@ test('P007 intentional resets clear credit and baselines, late callbacks cannot 
 test('P007 initial failure budget and cancellation debit are unchanged',()=>{
  const c=policy();for(let i=0;i<5;i++){start(c);cycle(c);c.finish({reason:'cancelled',counted:false});assert.equal(c.failureCount,i);start(c);c.finish({reason:'tcp_failed',counted:true});}
  assert.equal(c.failureCount,5);assert(c.giveUp);const before=c.dispatches;cycle(c);c.linkRetryPending=true;c.dispatch(true);assert.equal(c.dispatches,before);
+});
+test('P007 successful READY suppresses retry record without changing the scheduled stamp',()=>{
+ const c=policy();start(c);c.t=1000;ready(c);
+ assert.equal(c.remaining(),15000);assert(c.status.connected);
+ assert.equal(c.events.filter(e=>e[0]==='MQTT_RETRY_DECISION').length,0);
+ const d=policy();start(d);d.status.phase='Online';d.beforeAck=()=>cycle(d);d.finish({ok:true,reason:'ok'});
+ assert.equal(d.events.filter(e=>e[0]==='MQTT_RETRY_DECISION').length,0);
+ d.loss();const records=d.events.filter(e=>e[0]==='MQTT_RETRY_DECISION');assert.equal(records.length,1);assert.equal(records[0][3],'wifi_return');
+});
+test('P007 stale READY still records cancellation retry; resource deferrals remain uncounted 15s',()=>{
+ const c=policy();const epoch=start(c);cycle(c);c.finish({epoch,ok:true,reason:'ok'});
+ const records=c.events.filter(e=>e[0]==='MQTT_RETRY_DECISION');assert.equal(records.length,1);assert.equal(records[0][3],'wifi_return');
+ for(const reason of ['lease_deferred','memory_refused','dns_slots_busy']){
+ const d=policy();d.adopt();cycle(d);d.loss();d.dispatch();d.finish({reason,counted:false});
+ assert.equal(d.remaining(),15000);assert.equal(d.failureCount,0);assert(!d.linkRetryPending);assert.equal(d.lastResult,reason);
+ const rec=d.events.filter(e=>e[0]==='MQTT_RETRY_DECISION').at(-1);assert.equal(rec[3],'backoff');assert.equal(rec.at(-1),15000);
+ }
 });
 test('P007 no synthetic event or periodic polling changes the retry stamp',()=>{
  for(const sig of ['void linkEvent('])assert(!body(worker,sig).includes('lastMqttAttempt'));
