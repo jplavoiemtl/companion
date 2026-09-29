@@ -2,7 +2,7 @@
 
 Living journal for JP's companion field modules (car and bike). Keep new field results, open findings and improvement
 proposals here rather than creating a separate analysis document for every ride.
-Last updated: September 27, 2026.
+Last updated: September 29, 2026.
 
 ## Current position
 
@@ -55,6 +55,12 @@ Last updated: September 27, 2026.
   MQTT outages lasted 8.548-44.329 s. P005 now has field evidence: prompt attempts
   after stable-session losses and four successful TLS phases above the old 5 s cap.
   P001 kept recovery UI gaps <=77 ms and IMU/loop <=74 ms. Radio cause remains open.
+- **F008 (September 28-29, car):** JP reports no noticeable driving problems.
+  New-firmware boots 68-77 exercise P007: 11 WiFi-led recovered outages, including
+  five short-session losses and two cancelled attempts; recovery BEGIN follows each
+  usable IP return in 2-19 ms. A separate 20.597 s associated-WiFi MQTT outage recurs
+  (I005). All 15 post-startup attempts keep UI <=66 ms and IMU <=65 ms. Beacon cause
+  remains open; no evidence justifies a new bench campaign or firmware change now.
 - Reference: [bench results](../sd_iphone_log_download_bench.md),
   [retrieval spec](../sd_iphone_log_download_spec.md),
   [accepted UI polish](../sd_iphone_log_download_ui_polish.md).
@@ -158,13 +164,13 @@ Review the newest field session following the field journal workflow.
 
 | ID | Finding | Evidence / confidence | Status |
 |---|---|---|---|
-| I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Addressed by P001, accepted by JP. F003 now supports field responsiveness: UI <=23 ms, IMU/loop <=25 ms during post-startup attempts. F007 adds 16 recovery attempts with UI <=77 ms, IMU/loop <=74 ms, none >100 ms |
-| I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Open: F003 adds nine afternoon/evening beacon-timeout episodes at reported RSSI -31 to -42 dBm. Cause unproven; separate power-associated interruption. F004 snapshot and F005 morning have no beacon losses; F005 adds a September 26 post-export auth_expired loss after power removal. I002 remains open. F007 adds 14 powered beacon-loss events in 11 recovered MQTT outages plus a separate post-power-loss beacon episode |
-| I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Measured, not fixed: F003 image-request main-loop gaps reach 5.264 s. JP deferred P004 until practical impact justifies added complexity; separate from accepted MQTT improvements. F004 adds a 5.302 s Live-connect gap with eventual success; no reported symptom. F005 maximum explicit loop gap 1.222 s; JP reports stable behavior |
-| I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor: F003 write/flush maxima include 118.747/229.690 ms with zero drops. F004 adds two slow operations (flush maximum 124.554 ms), zero drops. F005 write/flush maxima 235.312/240.719 ms, zero drops. No evidence these explain multi-second network spans |
-| I005 | MQTT/TLS outage while WiFi stays associated | F003 boot 48: 59.209 s observed MQTT outage, two ~5 s TLS failures, no driver WiFi disconnect | Open: path/broker/transport cause unresolved; association is not proof of working internet. No recurrence in F004 snapshot or F005 morning coverage |
-| I006 | Reduced retained DMA-capable largest block during media | F006 bike boot 145: 19444 bytes first reported after first Live, versus previous car minima 21492; no allocation failure, periodic general-internal largest >=31732 | Review/monitor. DMA capability differs from the formal internal-largest gate; do not declare the full retained gate passed from periodic samples alone |
-| I007 | Isolated unattributed main-loop pause | F006 bike at 15:38:00.468: 1102 ms, span=unmeasured; nearby snapshots show inclinometer, online MQTT, no storage spike | Unexplained; no corresponding user symptom reported yet. Review before assigning a cause or adding code |
+| I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Addressed by P001, accepted by JP. F003 now supports field responsiveness: UI <=23 ms, IMU/loop <=25 ms during post-startup attempts. F007 adds 16 recovery attempts with UI <=77 ms, IMU/loop <=74 ms, none >100 ms F008 adds 15 post-startup attempts with UI <=66 ms, IMU <=65 ms, loop <=64 ms; none over 100 ms. |
+| I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Open: F003 adds nine afternoon/evening beacon-timeout episodes at reported RSSI -31 to -42 dBm. Cause unproven; separate power-associated interruption. F004 snapshot and F005 morning have no beacon losses; F005 adds a September 26 post-export auth_expired loss after power removal. I002 remains open. F007 adds 14 powered beacon-loss events in 11 recovered MQTT outages plus a separate post-power-loss beacon episode F008 new firmware adds 13 powered beacon events in 11 recovered outages; P007 prompt scheduling is field-validated, radio cause remains open. |
+| I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Measured, not fixed: F003 image-request main-loop gaps reach 5.264 s. JP deferred P004 until practical impact justifies added complexity; separate from accepted MQTT improvements. F004 adds a 5.302 s Live-connect gap with eventual success; no reported symptom. F005 maximum explicit loop gap 1.222 s; JP reports stable behavior F008 adds five media-attributed 1.029-1.092 s loop gaps and two 4.37/4.54 s Live frame gaps; the latter are not main-loop freeze measurements. No symptom reported; P004 stays deferred. |
+| I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor: F003 write/flush maxima include 118.747/229.690 ms with zero drops. F004 adds two slow operations (flush maximum 124.554 ms), zero drops. F005 write/flush maxima 235.312/240.719 ms, zero drops. No evidence these explain multi-second network spans F008 new firmware adds five slow-count increments across three boots, max write/flush 118.569/233.910 ms; drops/truncation remain zero. |
+| I005 | MQTT/TLS outage while WiFi stays associated | F003 boot 48: 59.209 s observed MQTT outage, two ~5 s TLS failures, no driver WiFi disconnect | Open: path/broker/transport cause unresolved; association is not proof of working internet. No recurrence in F004 snapshot or F005 morning coverage F008 boot 72: September 28 16:10:27, 20.597 s MQTT outage with no WiFi event, failed 5 s TCP setup then successful retry after 15 s. Cause remains unlocalized. |
+| I006 | Reduced retained DMA-capable largest block during media | F006 bike boot 145: 19444 bytes first reported after first Live, versus previous car minima 21492; no allocation failure, periodic general-internal largest >=31732 | Review/monitor. DMA capability differs from the formal internal-largest gate; do not declare the full retained gate passed from periodic samples alone F008 reproduces retained DMA-largest 19444 in car boots 68/72/75/76, so this is not bike-specific; no allocation failure. MQTT attempt internal-largest >=47092; periodic general-largest >=28660. |
+| I007 | Isolated unattributed main-loop pause | F006 bike at 15:38:00.468: 1102 ms, span=unmeasured; nearby snapshots show inclinometer, online MQTT, no storage spike | Unexplained; no corresponding user symptom reported yet. Review before assigning a cause or adding code No new unmeasured >=1 s loop gap in F008; keep the isolated bike observation open without speculative changes. |
 
 Do not count retry no_ap_found/sta_leaving records as separate full outages without
 checking the timeline. Do not attribute unknown-freshness TLS errors to a current TLS
@@ -1805,3 +1811,195 @@ changing scheduling. All 407 host checks pass. Resource deferrals retain their
 uncounted 15 s backoff and must be separated from network failures in ride analysis;
 pre-dispatch request refusal instead retains prompt eligibility. See the handoff
 addendum for the delta awaiting Claude's quick review. No build or flash.
+
+
+## F008 - September 28-29 car rides: P007 exercised in the field
+
+Analysis: Codex, September 29, 2026. JP reports updating firmware yesterday morning
+and no noticeable problems during driving. Scope is every newly appended record since
+F007, not just the new-firmware rides. Local times below are synced UTC-04:00; use
+up_ms for interval calculations. Stationary/driving boundaries within each powered
+session are not independently known.
+
+### Evidence and cumulative boundary
+
+- Folder: evidence/2026-09-car; one file, no screenshots supplied.
+- File: start-unknown_77-1-current-1804524.log, **1,804,524 bytes / 8,301 records**.
+  Filename length matches; computed CRC32 **A2A2F2ED**.
+- SHA256: **6e558c8557882b5e902ecc27403d1b3958dcf0877a0328e9b679bea55578aa3f**.
+- The first 1,271,452 bytes hash to F007's recorded SHA256
+  **315decdd7e5286d1ceff97405b87c622dcce0fa60718580c7fc1ed6f0e2d9798**.
+  Thus the earlier export is preserved byte-for-byte even though its former evidence
+  folder currently contains no file. Do not count its historical faults again.
+- New portion: **533,072 bytes / 2,412 records**, boot 65 tail plus boots 66-77.
+  New sequences are contiguous within each boot. The final snapshot excludes its own
+  HTTP_GET_END, so the computed file CRC is not independently matched to that latest
+  device END or last-result screenshot. No extra export is needed for this analysis.
+- Boot 65 tail now confirms F007 export completion: bytes=writer_bytes=1271452,
+  both CRCs=12A4B338, crc_check=match, appends=resumed, paused_ms=20546.
+
+### Firmware and coverage
+
+Boot 66 and the brief unsynced boot 67 still identify compiled="Sep 27 2026 10:48:00".
+Boots **68-77** identify compiled="Sep 28 2026 07:49:17". Their wifi_return records
+and absence of successful-result retry records support deployment of the P007-era
+behavior including the logging correction. The log does not embed a Git SHA; do not
+claim an exact flashed commit from current main (79430dc, documentation clearance).
+
+| Boot | Synced coverage | Interpretation |
+|---|---|---|
+| 65 tail | Sep 27 19:53:41-19:55:16 | Previous export completion and end of previous session |
+| 66 | Sep 28 06:45:44-07:07:06 | Old firmware morning ride; recovered long outage |
+| 67 | Unknown; only through up_ms=5365 | Brief old-build startup; no SESSION_END |
+| 68 | Sep 28 08:14:36-08:19:59 | First new build, brief session with power toggles |
+| 69 | Sep 28 09:45:20-10:03:09 | New build, three WiFi-led outages |
+| 70 | Sep 28 11:37:20-11:48:03 | New build, three WiFi-led outages |
+| 71 | Sep 28 11:57:44-12:17:34 | No recorded WiFi/MQTT loss |
+| 72 | Sep 28 16:06:07-16:27:46 | MQTT-only outage while WiFi stays associated |
+| 73 | Sep 28 17:11:34-17:34:07 | Two outages; one cancelled attempt during renewed loss |
+| 74 | Sep 29 06:44:19-07:21:18 | One outage, mainly waiting for usable WiFi |
+| 75 | Sep 29 10:31:07-11:02:09 | Two outages; one cancelled attempt; Live frame gaps |
+| 76 | Sep 29 12:08:26-12:33:21 | No recorded WiFi/MQTT loss |
+| 77 | Sep 29 13:31:33-13:31:40 snapshot | Successful startup and iPhone export |
+
+Boots 68-76 total **193.64 minutes from boot to shutdown** (not all driving).
+All nine end with SESSION_END reason=shutdown pending=0. Boot 68 reset=other/code11
+coincides with the build transition; cause is not established, and it is not evidence
+of an in-ride watchdog. Boots 69-77 are power_on. No new ride watchdog/brownout or
+worker fault is recorded. Boot 67's missing end is explicitly left unexplained rather
+than counted as a runtime firmware crash.
+
+### Old-firmware and prior-session additions
+
+Boot 65 loses USB power at Sep 27 19:54:17.558, then Live ends with a fetch timeout
+at 19:54:53.495. MQTT reports state=-4 loss at 19:55:00.720 without a new WiFi event;
+TCP setup fails after 5004 ms and shutdown follows at 19:55:16.442. This is a
+post-power-removal end-session interruption, not a newly powered P007 outage.
+
+Boot 66 has one **83.125 s** recovered MQTT outage, Sep 28 **06:51:03.915 to
+06:52:27.041**, with three beacon losses. Initial IP return takes about 25.3 s;
+the first reconnect fails at the 10 s TLS allowance, the next is cancelled by renewed
+WiFi loss, and old policy waits another 15 s after cancellation (11.480 s after IP
+has returned) before success. This precedes the new build and is not a P007 regression.
+Its three recovery attempts keep UI <=90 ms, IMU/loop <=87 ms with no >100 counts.
+
+### New-firmware outage timeline
+
+All times in this table use MQTT_LOST to subsequent MQTT_CONNECTED, including cleanup
+and retry delays. All twelve outages occur with recorded USB power present and recover.
+
+| Date/time of MQTT loss | Boot | Outage seconds | Measured explanation |
+|---|---:|---:|---|
+| Sep 28 09:56:11 | 69 | 19.332 | WiFi IP return ~13.2 s; connect 6.110 s |
+| Sep 28 09:56:44 | 69 | 12.973 | Short ONLINE 13.581 s; immediate retry after IP, connect 9.362 s |
+| Sep 28 09:57:29 | 69 | 8.984 | Short ONLINE 32.179 s; immediate retry, connect 5.389 s |
+| Sep 28 11:45:21 | 70 | 8.251 | IP return ~3.6 s then successful connect |
+| Sep 28 11:45:45 | 70 | 29.987 | Short ONLINE 15.975 s; WiFi/auth recovery takes ~23.9 s |
+| Sep 28 11:47:03 | 70 | 3.421 | Short ONLINE 47.671 s; IP return ~2.7 s and fast connection |
+| Sep 28 16:10:27 | 72 | 20.597 | No WiFi loss; TCP setup fails at 5003 ms, retained 15 s retry then success |
+| Sep 28 17:15:33 | 73 | 20.577 | WiFi returns, attempt cancelled by another beacon loss; prompt replacement succeeds |
+| Sep 28 17:29:31 | 73 | 21.304 | IP return ~13.2 s; connect 8.138 s |
+| Sep 29 06:49:54 | 74 | 26.034 | Repeated unsuccessful joins; IP return ~25.3 s, connect 729 ms |
+| Sep 29 10:40:01 | 75 | 10.369 | WiFi return then connect 6.711 s |
+| Sep 29 10:40:24 | 75 | 18.419 | Short ONLINE 12.159 s; renewed WiFi loss cancels first attempt; prompt replacement succeeds |
+
+**WiFi:** eleven recovered outages begin with beacon loss. Two additional beacon
+losses happen inside pending attempts: **13 powered beacon events**, not thirteen
+separate MQTT outages. The other 39 driver disconnect records are 19 no_ap_found,
+19 sta_leaving and one auth_expired during recovery. Last reported RSSI at beacon
+loss is -33 to -47 dBm. These strong samples do not establish uninterrupted radio
+quality, nor identify an iPhone/ESP32 cause. Some IP recoveries now take 13-25 s;
+P007 cannot eliminate that unavailable-link interval.
+
+### P007 field validation and retained failure policy
+
+All **13** post-startup attempt starts following a fresh WiFi return occur **2-19 ms**
+after the latest GOT_IP (device uptime). Each relevant terminal decision reports
+policy=wifi_return, link_changed=1, wait_ms=0. No successful-result backoff record
+appears; the logging correction is exercised.
+
+- Five lost sessions were ONLINE for less than 60 s: **13.581, 32.179, 15.975,
+  47.671 and 12.159 s**. They all receive wifi_return eligibility. Four have usable
+  link back before the former 15 s deadline, so the scheduling improvement is directly
+  visible; the 15.975 s session takes ~23.9 s to regain IP, where old backoff would
+  already have expired. Do not claim a 15 s saving for every short session.
+- Sep 28 17:15:46.256: TLS attempt cancelled after a second beacon loss. Result
+  adoption at up_ms=272517 schedules zero wait. GOT_IP=273744, next BEGIN=273752:
+  **8 ms after IP**, not another 15 s after cancellation.
+- Sep 29 10:40:35.646: another TLS cancellation. Decision=586971, GOT_IP=590630,
+  next BEGIN=590633: **3 ms after IP**. Both replacements succeed.
+- A different path is correctly retained at Sep 28 **16:10:27**: no WiFi event in
+  boot 72, MQTT state=-4 loss after ~265.6 s ONLINE, policy=stable. Immediate attempt
+  fails TCP setup (5003 ms). policy=backoff at up_ms=283729; next BEGIN=298732,
+  **15003 ms later**, and succeeds. This supports I005's recurrence, not a beacon
+  cause or a proven broker defect. WiFi association is not proof of internet reachability.
+
+There are **15 post-startup attempts**: twelve successes, two link-caused cancellations
+and one TCP failure. All ten startup attempts also succeed. No resource-deferral
+result, worker fault, initial-budget exhaustion or IMAGE_REFUSED/LIVE_REFUSED is
+recorded. MQTT_IMAGE includes seven ignored_live results, which are the existing
+Live exclusivity behavior, not new MQTT lease refusals. This sample therefore does
+not show a practical increase in media refusals from prompt retries, but cannot
+establish that none will occur in future bursts.
+
+The data validates P007's intended scheduling paths. It does not support a claim
+that P007 prevents WiFi loss or that total outage durations are a paired before/after
+improvement under identical radio/cellular conditions.
+
+### Responsiveness, memory and logging
+
+- All 15 recovery SERVICE windows: UI gap <=**66 ms**, IMU <=**65 ms**, loop <=**64 ms**;
+  every over100 counter is zero. This supports JP's symptom-free observation and I001
+  remaining addressed, including failed/cancelled reconnects.
+- Startup is separate: boot 72 id=1 records UI=105 ms and IMU=113 ms, one over100 each.
+  Setup windows have loop_n=0 and a loop gap equal to the startup window (maximum
+  912 ms); that is not evidence the serviced UI was frozen for that whole interval.
+- MQTT attempt minimum stack margin **7164 bytes**, internal-largest **47092 bytes**,
+  above the 2048/20480 gates. No allocation-failure record. Stack remains PSRAM with
+  internal TCB in attempt reports.
+- Periodic general-internal largest minimum **28660 bytes**. Retained DMA-largest
+  reaches **19444 bytes in car boots 68/72/75/76**, reproducing I006 outside the bike.
+  That retained capability-specific minimum is not the same measurement as the general
+  internal-largest admission gate; periodic snapshots cannot certify every transient
+  outside MQTT attempts. Keep monitoring; do not declare a gate failure or dismiss it.
+- HEALTH drops=0, truncated=0 throughout; sequence continuity agrees. Queue high <=9.
+  Five slow-operation count increments across boots 68/72/75; measured write/flush
+  maxima **118.569/233.910 ms**. Writer stack minimum **3480 bytes**. No logging loss,
+  incomplete shutdown queue, or new storage error is recorded.
+
+### Images, Live and other pauses
+
+All **20 still-image requests succeed**, longest total=1824 ms. There are 19 Live
+starts: twelve duration completions, one fetch timeout and six without LIVE_END before
+shutdown. Do not manufacture failure or FPS values for the six shutdown-truncated
+sessions. The timeout is Sep 28 17:34:07, after USB removal at 17:33:13 and immediately
+before session shutdown; it is an end-session media failure, not a recovery freeze.
+
+The twelve full cycles deliver **1.92-3.16 FPS**, aggregate **2.73 FPS**
+(1979 frames / 723.604 s), calculated from frames divided by elapsed duration.
+Five explicit main-loop gaps are media-attributed, **1.029-1.092 s**; no new unmeasured
+>=1 s gap reproduces I007. P004 stays deferred because JP reports no practical symptom.
+
+Two separate Live frame gaps are **4.542 s at Sep 29 10:33:09** and **4.370 s at
+10:35:39** (boot 75). Both cycles complete. MQTT and WiFi remain connected during
+these intervals; the WiFi losses occur later around 10:40. These are frame-delivery
+gaps, not proof of a 4.5 s UI/main-loop freeze. No new media worker is justified by
+this measurement alone.
+
+### Findings, decision and review handoff
+
+P007's two target cases (short-session link loss and cancellation) now have ordinary-
+ride evidence, with the unchanged genuine-failure backoff also exercised. I001 remains
+addressed. I002 remains open; I005 recurs as an independently timed TCP/path problem
+while associated. I006 now occurs in both car and bike. No new firmware change or
+bench campaign is proposed from this symptom-free sample; continue ordinary use.
+
+Request Claude's focused review because this is first field validation of P007 and
+changes I005/I006 evidence. Check the cumulative hash boundary, build transition,
+short-session/cancellation timelines, the 16:10 MQTT-only outage and memory distinction.
+Keep radio/NAT/timeout changes and P004 deferred unless symptoms or stronger evidence
+justify them. No code, build or flash performed by Codex; this update is documentation.
+
+### Claude review
+
+Pending.
