@@ -2000,6 +2000,62 @@ short-session/cancellation timelines, the 16:10 MQTT-only outage and memory dist
 Keep radio/NAT/timeout changes and P004 deferred unless symptoms or stronger evidence
 justify them. No code, build or flash performed by Codex; this update is documentation.
 
-### Claude review
+### Claude review - September 29, 2026 (cdf38f6)
 
-Pending.
+**Confirmed (independently recomputed from the raw file):**
+- **Evidence boundary.** SHA256 `6e558c85...` and CRC32 `A2A2F2ED`; 8301 lines. The first
+  1,271,452 bytes hash to F007 (`315decdd...`), and the new portion (2412 lines) starts
+  on a record boundary. The F001 (98,264 bytes, `4aa2f1a6...`) and F003 (524,908 bytes,
+  `3d1e989f...`) exports are **also exact prefixes**, so this single file preserves the
+  full car history from boot 39, even though the older evidence folders are gone.
+  Sequences are contiguous in every boot.
+- **Firmware separation.** Boots 64-67 carry `Sep 27 10:48:00`; boots 68-77 carry
+  `Sep 28 07:49:17`. Old and new builds are correctly separated.
+- **P007 works exactly as designed.**
+  - All 11 WiFi-led losses log `wifi_return link_changed=1 wait_ms=0`. The next BEGIN
+    follows GOT_IP by 2-19 ms, including all five sessions shorter than 60 s.
+  - Both cancellations (17:15:46, 10:40:35) log `source=result policy=wifi_return`, and
+    the replacement starts 8 ms and 3 ms after IP.
+  - No success-result retry record appears.
+- **The 16:10 outage is on the protected path.** It is a `state=-4` loss (keepalive or
+  operation timeout, not a transport close), with no WiFi event, after a 265.6 s
+  session. The `stable` prompt attempt fails TCP at 5003 ms. `backoff` then waits
+  15003 ms before success, so the preserved 15 s failure spacing was exercised.
+- **Service and memory figures as stated.** Post-startup UI/IMU/loop <= 66 ms with zero
+  over-100 counts. MQTT attempt memory minima are well above the gates.
+
+**Additions:**
+1. **Retained DMA-largest low: Live, not MQTT.** In every new boot, the retained
+   `dma_largest` minimum (19444, 21492 or 24564) is set in the minute containing the
+   *first Live session*: `operation=live` or LIVE_END in that window, with no MQTT
+   attempt. The attempt reports in the same boots show DMA-largest >= 47092. Periodic
+   general `internal_largest` stays >= 28660 at those moments, so the 20480 TLS
+   admission gate (general internal) was not the limiting measure. The only open
+   question is whether anything needs a single DMA block over about 19 KB during Live.
+   Keep I006 as a Live/media observation, with low practical risk on this evidence.
+2. **Every completed Live feed reconnects once, at about frame 100.** In 14 of 14
+   completed cycles there is exactly one mid-feed `live_connect`, at frames 92-105
+   (30-52 s in). Three of the five >1 s main-loop gaps are these reconnects: 11:43:00,
+   16:07:13 and 17:12:54, with `observed_span=live_connect` and 861-918 ms.
+   - The Pi proxy runs Flask's development server (`app.run`, docs/proxy/app.py:410),
+     which by default does not keep connections alive. Keep-alive is therefore most
+     likely held by the Synology reverse proxy. nginx's historical default is
+     `keepalive_requests 100`, which matches "once every ~100 frames".
+   - This is a **hypothesis**. If confirmed, raising that limit on the Synology is
+     server-side only: no firmware. It would remove about one 0.9 s UI stall plus one
+     TLS handshake per 60 s feed. That is optional, for JP.
+3. **The 4.5 s Live frame gaps (boot 75, frames 82 and 115) are separate.** They are
+   not at the reconnect points (frames about 105 and 94). WiFi and MQTT stayed up, and
+   no main-loop gap was recorded, so the main loop kept running while a frame fetch
+   waited. This points to a stalled HTTP fetch on the network path. Cause unknown; no
+   action.
+4. **The slow WiFi rejoins show a fixed retry rhythm.** Eight of 13 beacon losses rejoin
+   at the usual +3.6 s. The slow ones (13.2, 23.9, 25.3 s) show failed rejoin scans at
+   about +2.4, +9.7, +16.9 and +24.1 s: a regular gap of about 7.3 s. The log cannot
+   show whether the hotspot was absent for that whole time, or whether the ESP32's own
+   retry/scan cadence adds up to about 7 s. Hypothesis only; it would be relevant if
+   WiFi policy is ever revisited (P003).
+
+**Decision:** agree with JP. No firmware change and no bench work. Continue ordinary
+rides. The only low-cost action suggested is optional and server-side: check the
+Synology reverse-proxy keep-alive request limit.
