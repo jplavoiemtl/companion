@@ -118,3 +118,59 @@ Claude: review budget arithmetic, native-call cancellation limits and the longer
 lease tradeoff. JP: approve or reject 15/50/55 s and ordinary-ride validation after
 review. P004 and optional server keep-alive investigation remain separate and
 deferred; this document does not authorize either.
+
+## Claude review - October 3, 2026 (revision 1, d664ecf)
+
+**Verdict: no blockers.** The design matches the current source and the F009 evidence.
+JP can approve 15/50/55 s. Three small additions are recommended (A1-A3); none
+changes the values.
+
+**Verified against source:**
+- **Budget arithmetic.** The DNS deadline is measured from `cmd.started`
+  (net_worker.cpp:111), and `admitPhase` refuses any phase that cannot fit before
+  `cmd.started+ATTEMPT_MS` (net_worker.cpp:192). Worst case is DNS 15 + lease 0.1 +
+  TCP 5 + TLS 15 + MQTT 10 + subscribe 2 = 47.1 s, inside 50 s. Each phase is
+  admitted well before its latest start: TLS needs to start by 35 s and starts by
+  20.1 s at worst. The 2.9 s margin and the 5 s attempt-to-stuck gap are both the
+  same as today (42.1/45/50). Phase overruns observed in F009 are a few ms
+  (TCP 5002-5022, TLS 10004, MQTT 10002), so the margin is ample.
+- **Consumers.** `TLS_MS` feeds exactly `secure.setHandshakeTimeout(TLS_MS/1000)`
+  (line 229) and `admitPhase(cmd,Phase::Tls,TLS_MS,...)` (line 275). The stuck check
+  (line 423) uses `STUCK_MS` only. The CONNECT socket-timeout scope (lines 25-31) is
+  unaffected. 15 is a whole number of seconds, so the integer division is exact.
+- **Lease span.** The lease is taken after DNS (line 260) and released at cleanup
+  (line 325) or READY adoption (line 449). The nominal span going from 27 s to 32 s
+  is correct.
+
+**A1 - The cleanup-wait cost is narrower than stated.** The design says a link loss
+"can extend that wait by about 5 s." In F009 all four cancellations ended 1-3 ms after
+the beacon-loss record. Two were mid-handshake, at boot 90 TLS 7773 ms and boot 103
+TLS 3640 ms. So in the field, link loss aborts the native call almost immediately.
+The extra 5 s applies only to a dead path *without* a link event (the I005 pattern)
+and to a genuine TLS timeout. Suggest saying so, so the risk is not overstated.
+Keep the post-call epoch validation exactly as designed.
+
+**A2 - Setup is a third consumer.** `initMQTT()` (companion.ino:2283-2289) makes up to
+three attempts and waits on `netMqttBusy()` for each, running `runBackgroundTick()`
+throughout. Its worst case grows by 3 x 5 s. The UI keeps running and every F009
+startup TLS was <=709 ms, so the practical effect is nil, but the design should name
+it. Shutdown and sleep do not wait on the worker (`netShutdown()` only invalidates),
+so they are unaffected.
+
+**A3 - Test fixture specifics.**
+- `mqtt_owner.test.cjs`: lines 14 and 18 (fixtures and header strings), plus the
+  boundary at line 30 and the stuck test at line 40, move to 50000/55000.
+- `mqtt_recovery.test.cjs`: lines 206 and 211 move to the new values. Add **15000** to
+  the allowance list at line 214, so the new TLS allowance itself is boundary-tested,
+  not just the old 5/10/2 s ones.
+- `network_diagnostics.test.cjs:48` checks the symbolic call and needs no change.
+
+**Validation note.** F009 had four TLS failures at the cap in about 9.8 h, so the
+direct benefit signal (a TLS success in (10,15] s) is rare. Suggest an explicit
+horizon: evaluate after roughly the same coverage as F009, about 10 h of rides, and
+report "no demonstrated benefit yet" if none occurs, as the design already allows.
+No new telemetry is needed; `tls_ms` already shows it. A supporting observation:
+successful F009 handshakes are dense just below the cap (7437, 7570, 7750, 8469,
+9602, 9708 ms). That suggests the distribution continues past 10 s rather than
+stopping there. It is consistent with a handshake waiting on TCP retransmission
+backoff after the path reopens (hypothesis).
