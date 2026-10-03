@@ -44,6 +44,22 @@ needed for this change. Record the new flashed build boundary. Watch tls_ms >100
 successes, near-15000 failures, service/memory gates and practical media refusal
 delays. No specific bench case is issued. No build or flash performed by Codex.
 
-## Claude review
+## Claude review - October 3, 2026 (e4457f6)
 
-Pending.
+**Cleared: no blockers. JP can build and flash.**
+- **Production diff.** Exactly the three constants in `src/net/net_worker.h`. A search
+  of `src/` and `companion.ino` finds no other code or comment that depends on the
+  old 10/45/50 s values. `WIFI_RETRY_DELAY_MS=45000` is unrelated.
+- **Media and retrieval paths.** The lease consumers (`image_fetcher.cpp:240/628/713`,
+  `video_stream.cpp:738`, `diagnostics_retrieval.cpp:47`) refuse immediately and
+  have no deadlines tied to these budgets. `initMQTT()` exits its wait on
+  `netMqttFaulted()`, so the 55 s stuck threshold still bounds setup.
+- **Tests.** I reran all suites independently: 408 checks in 17 suites pass, matching
+  the counts above. The new checks are meaningful:
+  - The 47.1 s walk-through drives the real `admitPhase` body.
+  - The allowance loop now includes 15000, with pass exactly at the deadline and
+    refuse 1 ms later.
+  - The stuck test checks both sides of 55000.
+  - Header string checks pin all seven constants, so a partial revert would fail.
+- **Build note.** Only a file under `src/` changed, so the stale `companion.ino.cpp`
+  trap does not apply. Record the new `compiled=` stamp as the field boundary.
