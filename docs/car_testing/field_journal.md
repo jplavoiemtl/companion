@@ -6,6 +6,13 @@ Last updated: October 3, 2026.
 
 ## Current position
 
+- **P008 deployed to the car:** JP reports all rides from **October 3, 2026,
+  18:00 local (America/Toronto, EDT, UTC-04:00)** use the latest firmware.
+  P008 source change e4457f6, Claude code clearance 8555e6e; TLS/attempt/stuck
+  limits are 15/50/55 s. Use this reported boundary for subsequent field analysis;
+  benefit and hardware behavior remain to be evaluated from new ride evidence.
+
+
 - SD diagnostics and iPhone retrieval completed the accepted bench scope, including
   increment 11, UI polish, no-card refusal and blank FAT32 initialization.
 - JP installed the car firmware around September 24 at 21:30. The first morning ride
@@ -2439,3 +2446,20 @@ remaining MQTT/subscription budget and pre/exact stuck-boundary checks. No firmw
 build or flash. [Code-review handoff](p008_implementation_handoff.md) is ready for
 Claude; JP builds only after clearance. Ordinary rides, about 10 h of comparable
 coverage, will assess benefit and regressions; no new bench campaign.
+
+
+### P008 car deployment - October 3, 2026, Codex recording JP's report
+
+JP installed the latest firmware in the car module and confirms that **all rides
+from 18:00 local on October 3, 2026 (EDT, UTC-04:00; 22:00 UTC)** use it.
+Implementation: e4457f6; Claude code-review clearance: 8555e6e.
+This is the owner-reported field deployment boundary, not a build identity
+independently extracted from a device log. Exact flash time and boot ID were not
+provided. Separate earlier rides from this P008 cohort when analyzing the next
+archive/current exports, checking boot/build records where available.
+
+P008 is now deployed for ordinary-ride validation: TLS 15 s, attempt 50 s,
+stuck 55 s; other phase limits and retry policy unchanged. No new bench campaign.
+Evaluate roughly 10 hours of comparable coverage for >10 s TLS successes,
+near-15 s failures, recovery responsiveness/memory and practical media delays.
+Deployment alone does not demonstrate benefit or close field validation.
