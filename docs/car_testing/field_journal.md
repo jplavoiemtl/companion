@@ -2309,6 +2309,87 @@ noticeable, reconsider P004 explicitly rather than silently expanding scope.
 No firmware changed, built or flashed during this analysis. Raw evidence remains
 ignored and unmodified; Git backs up the journal, not these logs.
 
-### Claude review
+### Claude review - October 3, 2026 (8eccdae)
 
-Pending.
+**Confirmed (independently recomputed from the raw files):**
+- **Boundary and rotation.** Both SHA256/CRC32 values match. The archive's first
+  1,804,524 bytes hash to F008 `6e558c85...` and end on a newline, leaving 7,017 new
+  records. Per-boot sequences are contiguous in all 32 boots: boot 77 resumes at seq 46,
+  and boot 81 runs 538 -> 539 across the rotation with the queued seq 541 as described.
+- **P007 and service figures.** 63 post-startup attempts: 50 ok, 4 cancelled, 4 TCP,
+  4 TLS, 1 MQTT exchange. IP-to-BEGIN is 1-13 ms. Across all 63 windows UI <=94 ms,
+  IMU/loop <=98 ms, zero over-100 counts. Minor addition: boot 108's second *startup*
+  window has loop_gap 516 ms (UI/IMU 24). This is startup only and outside the
+  recovery gates.
+
+**1. October 2 17:35 (93.180 s): no avoidable firmware delay outside the policy.**
+The total breaks down as link down 3.6 + 13.3 = 16.9 s, attempt work
+5.02 + 0.21 + 11.14 + 5.01 + 9.90 = 31.3 s, and three backoffs of 15.00 s = 45.0 s.
+That sums to 93.15 s, so Codex's split is exact. Both link returns get a BEGIN 2 and
+4 ms after IP. The cancellation takes wifi_return; each genuine failure waits 15 s from
+END. The attempt 15 s after the TLS failure (17:36:19) still failed TCP, so the path
+was still unusable 15-20 s later. A shorter backoff could have saved about 15-25 s at
+most, in one outage in about 9.8 h. Agree: no policy change.
+
+**2. Addition: the typical ~13 s outage is set by the network, not by firmware.**
+- **Startup vs recovery.** The 31 startup connects begin about 3 s after IP and take a
+  median of 589 ms (TCP 60, TLS 406). The 43 successful recovery connects begun
+  1-13 ms after IP take a median of 6690 ms (TCP 1331, TLS 3140).
+- **Fixed path delay.** 19 of those 43 finish 9.1-10.7 s after IP, however that time
+  splits between TCP, TLS and MQTT. Examples: 1626+6148, 4332+2871+2182, 559+7437.
+  Recovered outages cluster at 12.4-13.7 s (16 of 50), matching about 3.6 s of rejoin
+  plus about 9.3 s.
+- **Reading.** The path seems to start carrying traffic at a roughly fixed time after
+  rejoin. The cause (hotspot, NAT or cellular) is a hypothesis. Prompt starts cost
+  nothing, and a delayed first attempt would not obviously help.
+- **Only firmware knob the data points at: the MQTT TLS cap.** All four genuine TLS
+  failures are prompt post-rejoin attempts stopped at exactly 10004 ms. Successful
+  handshakes reach 9708 ms, and boots 87 and 93 then succeeded in 6468 and 933 ms
+  after the 15 s backoff. A longer cap might turn some of these into earlier successes;
+  the cost is longer attempts on dead paths, which the worker absorbs. Leave it
+  unchanged unless JP wants the long tail shortened.
+
+**3. September 30 media cluster: real but contained; does not reopen P004.**
+- **One session only.** All six failed media connects in F009 are in boot 81. The
+  other 29 complete sessions have none, so this is not a trend.
+- **Pauses are bounded by existing timeouts.** Each pause equals one failed connect:
+  Live 5128-5927 ms, the still 6088 ms. That is one 5 s limit plus overhead
+  (`video_stream.cpp:346-347`, `image_fetcher.cpp:43-45`). `tls_code=-1` with unknown
+  freshness cannot separate TCP from TLS.
+- **Failures come before beacon losses.** Live failures at 07:07:07, 07:07:22 and
+  07:07:35 precede the 07:07:36 beacon loss by 29, 14 and 1 s, while MQTT still showed
+  online. The 07:08:00 connect after rejoin took 4637 ms, with 3-6 s frame gaps, the
+  same post-rejoin slowness as in item 2. Media saw the I002 degradation before the
+  driver declared it.
+- **Someone was using the panel.** UI_ACTION live presses at 07:07:02, 07:07:16,
+  07:07:29 and 07:07:55 answer each failure about 10 s later, and the fourth press
+  works. This is measured interaction, not a reported symptom; it is compatible with
+  JP not recalling it.
+- **P004 assessment.** P004 would keep the IMU/LVGL running during those ~5 s, but each
+  request would still fail at the same limit. The person is already on the media
+  screen, and an MQTT still switches to Screen 2 before blocking. Reconsider P004 if
+  >4 s pauses recur across sessions or appear on a non-media screen.
+
+**4. The ~100-request Live reconnect is now measured.** 42 of 44 mid-feed reconnects
+fall at an estimated frame 97-110, at elapsed times anywhere from 27 to 50 s. The two
+longest feeds (214 and 226 frames) reconnect again at about frame 198. The trigger is a
+request count, not a timer, which strongly supports a per-connection limit of about
+100 requests in the chain. The component is still unverified; nginx
+`keepalive_requests 100` remains the prime candidate. The 06:53:36 prefetch failure
+happened exactly at this forced reconnect (frame 99), so the limit now has a measured
+cost beyond the ~0.6-1 s stall.
+
+**5. The three associated-WiFi losses: nothing actionable.**
+- **No precursor.** All are `state=-3` (connection closed; F008's I005 case was a
+  `-4` timeout), on three different days. Estimated inbound age at loss (68, 78,
+  120 s) sits inside normal online values (p99 136 s over 565 samples). Inbound
+  silence is not a usable early warning.
+- **Upstream disturbance, as a hypothesis.** Two of the reconnects found a slow path
+  with WiFi associated: 07:31 DNS 1096 ms / TLS 5441 ms, and 14:14 DNS 207 ms / TCP
+  885 ms. That fits an upstream disturbance better than a broker close.
+- **Policy correct in all three.** The 16:01 loss came 59.5 s after a beacon-led
+  reconnect, and its retry 15 s later took 489 ms.
+
+**Decision:** agree with Codex and JP. No firmware change and no bench work. The
+optional Synology keep-alive check is now better supported. The MQTT TLS cap is the
+only firmware candidate the data suggests, and it is recorded here for JP, not proposed.
