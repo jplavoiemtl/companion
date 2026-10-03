@@ -203,15 +203,15 @@ test('P007 no synthetic event or periodic polling changes the retry stamp',()=>{
 
 test('new constants and phase uses preserve 5s lifetime/ONLINE and full admission budgets',()=>{
  assert(net.includes('PROMPT_MIN_ONLINE_MS=60000'));
- for(const s of ['DNS_MS=15000','ATTEMPT_MS=45000','STUCK_MS=50000','SOCKET_MS=5000','TLS_MS=10000','MQTT_MS=10000','SUBSCRIBE_MS=2000'])assert(header.includes(s));
+ for(const s of ['DNS_MS=15000','ATTEMPT_MS=50000','STUCK_MS=55000','SOCKET_MS=5000','TLS_MS=15000','MQTT_MS=10000','SUBSCRIBE_MS=2000'])assert(header.includes(s));
  for(const s of ['Phase::Tcp,SOCKET_MS','Phase::Tls,TLS_MS','Phase::Mqtt,MQTT_MS','Phase::Subscribe,SUBSCRIBE_MS','secure.setHandshakeTimeout(TLS_MS/1000)'])assert(worker.includes(s));
  assert.equal((worker.match(/operationDeadline=nowMs\(\)\+SOCKET_MS;/g)||[]).length,2);
  assert.equal((worker.match(/setConnectionTimeout\(5000\)/g)||[]).length,2);
  let b=adapt(body(worker,'bool admitPhase('));
- const c={t:0,current:()=>true,nowMs:()=>c.t,ATTEMPT_MS:45000,phase(){},operationDeadline:0};vm.createContext(c);
+ const c={t:0,current:()=>true,nowMs:()=>c.t,ATTEMPT_MS:50000,phase(){},operationDeadline:0};vm.createContext(c);
  // Same real function with an explicit allowance parameter.
  vm.runInContext(`function admit(cmd,value,allowance,result){${b}}`,c);
- for(const allowance of [5000,10000,2000]){const cmd={epoch:1,started:1000};c.t=46000-allowance;assert(c.admit(cmd,'phase',allowance,{}));assert.equal(c.operationDeadline,46000);c.t++;const r={};assert(!c.admit(cmd,'phase',allowance,r));assert.equal(r.reason,'attempt_budget');assert.equal(cmd.started,1000);}
+ for(const allowance of [5000,15000,10000,2000]){const cmd={epoch:1,started:1000};c.t=51000-allowance;assert(c.admit(cmd,'phase',allowance,{}));assert.equal(c.operationDeadline,51000);c.t++;const r={};assert(!c.admit(cmd,'phase',allowance,r));assert.equal(r.reason,'attempt_budget');assert.equal(cmd.started,1000);}
 });
 test('connect scope executes 10s setting then restores 5s on success/failure/cancellation',()=>{
  const enter=body(worker,'explicit ConnectTimeoutScope('),leave=body(worker,'~ConnectTimeoutScope(');

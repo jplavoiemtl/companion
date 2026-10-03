@@ -11,11 +11,11 @@ let count=0;
 function test(name,f){f();++count;console.log('PASS '+name);}
 function adapt(s){return s.replace(/port(?:ENTER|EXIT)_CRITICAL\(&mux\);/g,'').replace(/Phase::/g,'Phase.').replace(/\bconst (?:bool|uint\d+_t|err_t|ip_addr_t) /g,'const ').replace(/\b(?:bool|uint\d+_t|err_t) /g,'let ').replace(/slot->/g,'slot.').replace('status.stop|=stopping','status.stop=Boolean(status.stop || stopping)');}
 const phases=['Idle','Dns','Lease','Tcp','Tls','Mqtt','Subscribe','Online','Cleanup','Fault','Stopped'];
-function context(){const c={t:0,status:{epoch:1,attemptEpoch:1,linkDowns:0,link:true,stop:false,phase:'Dns',busy:true,connected:false,lease:false,requestedLease:false,started:0,cancelled:0,stuck:0},Phase:Object.fromEntries(phases.map(x=>[x,x])),ATTEMPT_MS:45000,STUCK_MS:50000,readyAck:false,operationDeadline:0,clears:0};c.nowMs=()=>c.t;c.clearMessagesLocked=()=>c.clears++;c.phase=p=>c.status.phase=p;vm.createContext(c);
+function context(){const c={t:0,status:{epoch:1,attemptEpoch:1,linkDowns:0,link:true,stop:false,phase:'Dns',busy:true,connected:false,lease:false,requestedLease:false,started:0,cancelled:0,stuck:0},Phase:Object.fromEntries(phases.map(x=>[x,x])),ATTEMPT_MS:50000,STUCK_MS:55000,readyAck:false,operationDeadline:0,clears:0};c.nowMs=()=>c.t;c.clearMessagesLocked=()=>c.clears++;c.phase=p=>c.status.phase=p;vm.createContext(c);
  for(const [sig,name,args] of [['void linkEvent(','linkEvent','up'],['bool current(','current','epoch'],['void invalidateLocked(','invalidateLocked','stopping'],['bool admitPhase(','admitPhase','cmd,value,allowance,result'],['void arbitrate(','arbitrate','available'],['void acknowledgeReady(','acknowledgeReady','epoch']])vm.runInContext(`function ${name}(${args}){${adapt(body(worker,sig))}}`,c);
  return c;}
 test('pins allocation, scheduling and time bounds; no internal fallback',()=>{
- for(const s of ['DNS_MS=15000','ATTEMPT_MS=45000','STUCK_MS=50000','SOCKET_MS=5000'])assert(header.includes(s));
+ for(const s of ['DNS_MS=15000','ATTEMPT_MS=50000','STUCK_MS=55000','SOCKET_MS=5000'])assert(header.includes(s));
  for(const s of ['STACK_BYTES=12288','WIRE_BYTES=512','INTERNAL_GATE=20480','MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT','&workerTcb,0','nullptr,1,workerStack'])assert(worker.includes(s));
  assert(worker.includes('sizeof(Queues)<=8192'));assert(worker.includes('<=2048'));
  assert.equal((worker.match(/setConnectionTimeout\(5000\)/g)||[]).length,2);
@@ -27,9 +27,16 @@ for(const phase of phases.filter(x=>!['Idle','Stopped','Fault'].includes(x)))tes
  c.status.phase='Online';c.acknowledgeReady(1);assert.equal(c.status.connected,false);
 });
 test('phase admission preserves complete allowance and never changes attempt origin',()=>{
- const c=context(),cmd={epoch:1,started:0},r={};c.t=40000;assert.equal(c.admitPhase(cmd,'Tcp',5000,r),true);assert.equal(c.operationDeadline,45000);
- c.t=40001;assert.equal(c.admitPhase(cmd,'Tls',5000,r),false);assert.equal(r.reason,'attempt_budget');assert.equal(cmd.started,0);
+ const c=context(),cmd={epoch:1,started:0},r={};c.t=45000;assert.equal(c.admitPhase(cmd,'Tcp',5000,r),true);assert.equal(c.operationDeadline,50000);
+ c.t=45001;assert.equal(c.admitPhase(cmd,'Tls',5000,r),false);assert.equal(r.reason,'attempt_budget');assert.equal(cmd.started,0);
  c.invalidateLocked(false);assert.equal(c.admitPhase(cmd,'Mqtt',5000,r),false);assert.equal(r.reason,'cancelled');
+});
+test('near-limit DNS and phases retain MQTT and subscription budget',()=>{
+ const c=context(),cmd={epoch:1,started:1000};c.t=cmd.started+15000+100;
+ for(const [phase,allowance] of [['Tcp',5000],['Tls',15000],['Mqtt',10000],['Subscribe',2000]]){
+  assert(c.admitPhase(cmd,phase,allowance,{}));assert.equal(c.operationDeadline,c.t+allowance);c.t+=allowance;
+ }
+ assert.equal(c.t,cmd.started+47100);assert.equal(cmd.started+c.ATTEMPT_MS-c.t,2900);assert.equal(cmd.started,1000);
 });
 test('only pending post-DNS matching lease can grant; stale grants roll back',()=>{
  const c=context();c.status.phase='Lease';c.status.requestedLease=true;c.arbitrate(true);assert.equal(c.status.lease,true);
@@ -37,7 +44,7 @@ test('only pending post-DNS matching lease can grant; stale grants roll back',()
  c.status.phase='Lease';c.status.requestedLease=true;c.invalidateLocked(false);c.arbitrate(true);assert.equal(c.status.lease,false);
 });
 test('fault is one-shot, held resource stays held; stale READY cannot revive it',()=>{
- for(const held of [false,true]){const c=context();c.status.lease=held;c.t=50000;c.arbitrate(true);assert.equal(c.status.phase,'Fault');assert.equal(c.status.lease,held);assert.equal(c.status.stuck,1);c.t=80000;c.arbitrate(true);assert.equal(c.status.stuck,1);c.acknowledgeReady(1);assert.equal(c.status.connected,false);}
+ for(const held of [false,true]){const c=context();c.status.lease=held;c.t=54999;c.arbitrate(true);assert.equal(c.status.phase,'Dns');assert.equal(c.status.stuck,0);assert.equal(c.status.lease,held);c.t=55000;c.arbitrate(true);assert.equal(c.status.phase,'Fault');assert.equal(c.status.lease,held);assert.equal(c.status.stuck,1);c.t=80000;c.arbitrate(true);assert.equal(c.status.stuck,1);c.acknowledgeReady(1);assert.equal(c.status.connected,false);}
 });
 test('shutdown invalidates snapshot and queues without releasing worker resources',()=>{
  const c=context();c.status.connected=true;c.status.lease=true;c.invalidateLocked(true);assert.equal(c.status.stop,true);assert.equal(c.status.connected,false);assert.equal(c.status.lease,true);

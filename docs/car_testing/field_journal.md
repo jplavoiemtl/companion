@@ -2420,10 +2420,22 @@ Integrated Claude review 1489ec7; no disagreements with its measured additions.
 
 ### P008 - Extend MQTT TLS handshake allowance
 
-Status: **design proposed, implementation not approved**. JP requested a short
+Status: **approved and implemented for Claude code review**, October 3, 2026;
+see the implementation entry below. JP originally requested a short
 proposal after Claude's F009 finding. [P008 revision 1](p008_mqtt_tls_limit_design.md)
 recommends TLS 15 s, attempt 50 s and stuck 55 s, preserving all other phase and
 retry limits. Benefit is potential earlier completion on a slow recovering path;
 cost is up to five additional seconds before failure/cleanup and longer media
 exclusion. Claude reviews before JP decides. No code, build or flash; ordinary
 ride validation is proposed only after approval, implementation and code review.
+
+
+### P008 implementation - October 3, 2026, Codex
+
+JP approved P008 after Claude design clearance b3dc48a. Implemented TLS_MS=15000,
+ATTEMPT_MS=50000 and STUCK_MS=55000; all other phase limits and policies unchanged.
+All 408 host checks across 17 suites pass, including full TLS allowance admission,
+remaining MQTT/subscription budget and pre/exact stuck-boundary checks. No firmware
+build or flash. [Code-review handoff](p008_implementation_handoff.md) is ready for
+Claude; JP builds only after clearance. Ordinary rides, about 10 h of comparable
+coverage, will assess benefit and regressions; no new bench campaign.

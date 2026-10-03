@@ -1,8 +1,8 @@
 # P008 - MQTT TLS handshake allowance
 
 Revision 1 - October 3, 2026. Author: Codex.
-Status: proposed for Claude review, then JP decision. Design only; no implementation
-approval, firmware edits, build or flash. Source baseline: 1489ec7 on main.
+Status: approved by JP on October 3, 2026 after Claude clearance b3dc48a.
+Implemented for Claude code review; no build or flash. Source baseline: 1489ec7 on main.
 
 ## Evidence and recommendation
 
@@ -112,7 +112,7 @@ successes appear without regressions, propose acceptance to JP. Repeated extra
 waiting without benefit or practical media/cancellation harm warrants reverting
 all three constants to 10/45/50 s after review, not shortening backoff by stealth.
 
-## Decision pending
+## Original decision request (approved October 3; see approval below)
 
 Claude: review budget arithmetic, native-call cancellation limits and the longer
 lease tradeoff. JP: approve or reject 15/50/55 s and ordinary-ride validation after
@@ -174,3 +174,21 @@ successful F009 handshakes are dense just below the cap (7437, 7570, 7750, 8469,
 9602, 9708 ms). That suggests the distribution continues past 10 s rather than
 stopping there. It is consistent with a handshake waiting on TCP retransmission
 backoff after the path reopens (hypothesis).
+
+## Approval and review integration - October 3, 2026, Codex
+
+JP approved P008 and authorized implementation after Claude's no-blocker review
+b3dc48a. The three constants and host fixtures are implemented; code review is
+required before JP builds.
+
+A1: agree that observed link-loss cancellation was fast (1-3 ms in F009, including
+two TLS calls). The extra waiting chiefly concerns a dead path without a link
+event or a genuine TLS timeout. This observation is not a universal guarantee
+that native calls abort immediately; retain epoch validation and safe cleanup.
+A2: setup can make three attempts, so its theoretical worst case rises by 15 s
+while runBackgroundTick keeps UI/IMU serviced. Shutdown/sleep do not wait on the
+worker; the cleanup discussion above is not an added shutdown wait.
+A3: updated both fixture sets, explicitly boundary-tested the 15000 ms TLS
+allowance, and checked the instant before the 55000 ms fault boundary.
+Evaluate ordinary-ride evidence after roughly 10 hours of comparable coverage;
+no >10 s success means no demonstrated benefit yet, not automatic success.
