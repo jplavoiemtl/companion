@@ -170,3 +170,52 @@ logs, not a connection-timeout change. Existing aggregate spans stay comparable.
 
 Claude review required before JP decides on implementation, especially the
 subclass/guard invariant and truthful unavailable handshake error reporting.
+
+## Claude review - October 8, 2026 (revision 1, 306edde)
+
+**Verdict: no blockers.** The core claims are correct, the subclass/guard is the
+right minimal fix for the shared-client hazard, and the error reporting is honest.
+JP can approve implementation. Four additions follow (A1-A4); none changes the
+design's shape.
+
+**Verified against the installed 3.3.11 core**
+(`internal/esp32_esp32_3.3.11_*/libraries/NetworkClientSecure/src`):
+- **Plain-start flag.** `setPlainStart()` only sets it (`.h:89-91`).
+  `stop()` never clears it (`.cpp:101-108`). The IP `connect()` skips the
+  handshake when the flag is set and calls `stop()` on failure (`.cpp:147-164`).
+  `startTLS()` clears it only after success and calls `stop()` first on failure
+  (`.cpp:167-182`). `write()` sends plaintext while it is set (`.cpp:234`).
+  The hazard is real: without the guard, a failed Live TCP or TLS attempt would
+  make the next still request's HTTP bytes go out unencrypted.
+- **Identical connection path.** Today's `connect(host,port)` is literally
+  `Network.hostByName()` followed by the same IP overload with the hostname
+  (`.cpp:139-145`). The split therefore uses the same resolver, SNI and hostname
+  verification (`ssl_client.cpp:309`).
+
+**A1 - The TLS limit is unchanged by the split.** The handshake timer starts inside
+`ssl_starttls_handshake()` (`ssl_client.cpp:330-336`), not in `connect()`. TLS
+keeps exactly its 5 s, and time spent in TCP is not charged to it, the same as
+in the combined call. Worth stating, since the design asserts unchanged limits.
+
+**A2 - The rollback core is compatible.** 3.1.3 (`internal/esp32_esp32_3.1.3_*`)
+has the same protected `_stillinPlainStart` (`.h:30-34`) and the same `stop()`.
+The subclass therefore compiles on both the default 3.3.11 profile and the
+rollback profile. The implementation should confirm both compile, or at least
+note that the subclass depends on this protected member name.
+
+**A3 - The split gives up the old handshake error code; acceptable.** In the
+combined call, a handshake failure did write `last_error` (`.cpp:157`). Every
+F009/F010 failure nevertheless logged `-1 "Generic error"`, unknown freshness:
+that `-1` is both the socket-failure and the handshake-timeout return
+(`ssl_client.cpp:130-160, 336`), so it never separated the phases. Phase timing
+is worth more than that code. Record this trade explicitly.
+
+**A4 - Add a duration rule to "next failure reads as".**
+- `failed_phase=tls` with `tls_ms` about 5000 means a handshake timeout (no answer).
+- `tls_ms` well under 5000 means the handshake was actively refused or failed
+  verification.
+- Likewise, `tcp_setup` at about 5000 ms is a connect timeout. A short
+  `tcp_setup` is a refusal/reset or a local setup error, which its fresh code
+  separates.
+- This needs no extra logging and answers October 8's question directly: no
+  answer from the Synology versus an active rejection.
