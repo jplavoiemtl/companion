@@ -2883,3 +2883,18 @@ survived because it is the same container and json-file driver.
   the internet/cellular path. Only Synology-side logs could, and they are not
   logged by default. A board-side DNS/TCP/TLS split still adds information:
   failing in TCP versus TLS against the Synology narrows it further.
+
+
+### P009 design - October 8, 2026, Codex
+
+JP requested [P009 Live-connect diagnostics](p009_live_connect_diagnostics_design.md)
+after Claude F010 review and Pi-proxy addendum. Design only, awaiting Claude
+review and JP approval. Split DNS/TCP/setup/TLS timing on Live only; retain
+5000 ms TCP and 5 s TLS, no application DNS deadline, no retry/worker/UI change.
+Verified the cached target core 3.3.11: stop() and failed TCP OR TLS leave the
+plain-start flag set. The proposed scoped reset on the same shared client is
+mandatory to prevent a subsequent still request from connecting in plaintext.
+Native startTLS supplies no fresh lastError; records must mark that unavailable.
+The Pi evidence narrows the failed starts to at/before the Synology, while
+established-response stalls remain a separate path issue. No source edited,
+compiled or flashed. P008 accepted; P004 remains deferred.
