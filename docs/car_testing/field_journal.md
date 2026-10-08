@@ -6,6 +6,12 @@ Last updated: October 8, 2026.
 
 ## Current position
 
+- **P009 deployed to the car:** JP reports installation from **October 8, 2026,
+  17:15 Montreal local (America/Toronto, EDT, UTC-04:00)**, or **21:15 UTC**.
+  Implementation 870f258; Claude code clearance b0c1de0. Use this owner-reported
+  cutoff for the next analysis and confirm the boot/compiled stamp in the logs.
+  See the deployment entry below for interpretation and coverage rules.
+
 - **F010 (October 3-8, P008 car):** four TLS successes at 11.8-12.7 s demonstrate
   the longer cap's benefit; four 15 s TLS failures show its cost. All 43 MQTT
   outages recover; 52 recovery windows keep UI/IMU gaps <100 ms. Today's
@@ -2917,3 +2923,29 @@ Claude A4: phase timing narrows the failing operation, but near-timeout does not
 prove remote silence and a fast failure does not prove active rejection.
 Ordinary rides remain the validation plan; record the deployment boundary after
 review clearance. P004 remains deferred.
+
+
+### P009 car deployment and next-analysis cutoff - October 8, 2026
+
+JP reports installing the new firmware in the car from **October 8, 2026,
+17:15 Montreal local** (America/Toronto, EDT, UTC-04:00; **21:15 UTC**).
+Implementation: 870f258. Claude code clearance: b0c1de0. This deployment boundary
+is owner-reported, not yet verified against an exported boot or compiled= record.
+JP performed the build/flash; Codex did neither.
+
+For the next cumulative archive/current analysis:
+- Cover all previously unanalysed records, separating pre-cutoff and post-cutoff
+  firmware. Use F010 overlap for deduplication; retain any older unanalysed sessions.
+- Confirm the new boot/compiled stamp and P009 phase fields. Report any conflict
+  between log identity/clock evidence and the reported cutoff before attributing
+  behavior to P009; do not infer an exact flashed Git identity from current HEAD.
+- Read Live NET_END/LIVE_CONNECT using dns_ms, tcp_ms, tls_ms, phase_valid,
+  failed_phase and error freshness. TLS code=0 with unavailable detail is not
+  success. Duration alone cannot prove remote silence versus active rejection;
+  correlate with server evidence where available.
+- Continue checking WiFi/MQTT recovery, UI/IMU pauses, memory and Live FPS.
+  Successful connection followed by response timeout remains a separate issue.
+  P009 adds diagnosis, not a timeout/retry change or a responsiveness fix.
+
+Continue ordinary rides. No dedicated bench campaign or further code change is
+scheduled. P004 remains deferred; hardware results await the next evidence.
