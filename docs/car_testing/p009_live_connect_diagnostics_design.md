@@ -189,7 +189,7 @@ design's shape.
   make the next still request's HTTP bytes go out unencrypted.
 - **Identical connection path.** Today's `connect(host,port)` is literally
   `Network.hostByName()` followed by the same IP overload with the hostname
-  (`.cpp:139-145`). The split therefore uses the same resolver, SNI and hostname
+  (`.cpp:138-145`). The split therefore uses the same resolver, SNI and hostname
   verification (`ssl_client.cpp:309`).
 
 **A1 - The TLS limit is unchanged by the split.** The handshake timer starts inside
@@ -204,7 +204,7 @@ rollback profile. The implementation should confirm both compile, or at least
 note that the subclass depends on this protected member name.
 
 **A3 - The split gives up the old handshake error code; acceptable.** In the
-combined call, a handshake failure did write `last_error` (`.cpp:157`). Every
+combined call, a handshake failure did write `last_error` (`.cpp:156`). Every
 F009/F010 failure nevertheless logged `-1 "Generic error"`, unknown freshness:
 that `-1` is both the socket-failure and the handshake-timeout return
 (`ssl_client.cpp:130-160, 336`), so it never separated the phases. Phase timing
