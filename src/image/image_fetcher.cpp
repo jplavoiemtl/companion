@@ -77,7 +77,7 @@ constexpr unsigned long NOTIFICATION_ECHO_WINDOW_MS = 10000;  // 10 seconds
 // State
 ImageRequestState httpState = HTTP_IDLE;
 HTTPClient httpClient;
-WiFiClientSecure httpsClient;
+MediaSecureClient httpsClient;
 
 uint16_t* image_buffer_psram = nullptr;
 lv_img_dsc_t img_dsc{};
@@ -136,7 +136,7 @@ static void imageBegin(const char* trigger, const char* endpoint, unsigned long 
 //***************************************************************************************************
 // Lend the TLS client to other modules. See the note in image_fetcher.h: this
 // board has too little contiguous internal RAM for a second one.
-WiFiClientSecure* imageFetcherSecureClient() {
+MediaSecureClient* imageFetcherSecureClient() {
   return &httpsClient;
 }
 

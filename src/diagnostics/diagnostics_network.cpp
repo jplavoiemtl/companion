@@ -238,5 +238,29 @@ void Span::end(bool ok, int code, WiFiClientSecure* secure) {
 #endif
   done_ = true;
 }
+void Span::endLiveConnect(bool ok, uint32_t liveId, const LiveConnectResult& result) {
+  if (done_) return;
+#if DIAG_ENABLED
+  const uint64_t ended = nowMs();
+  const uint64_t elapsed = ended - start_;
+  diagop::block(kind_, id_, start_, ended);
+  const char* fresh = result.tlsQueried ? "fresh" : "unavailable";
+  event("NET_END",
+        "id=%llu kind=live_connect result=%s elapsed_ms=%llu code=%d dns_ms=%llu tcp_ms=%llu tls_ms=%llu phase_valid=%u failed_phase=%s tls_queried=%u tls_code=%d tls_fresh=%s",
+        static_cast<unsigned long long>(id_), ok ? "ok" : "failed",
+        static_cast<unsigned long long>(elapsed), ok ? 1 : 0,
+        static_cast<unsigned long long>(result.dnsMs), static_cast<unsigned long long>(result.tcpMs),
+        static_cast<unsigned long long>(result.tlsMs), unsigned(result.valid), result.failedPhase,
+        unsigned(result.tlsQueried), result.tlsCode, fresh);
+  event("LIVE_CONNECT",
+        "id=%lu net_id=%llu ok=%u dns_ms=%llu tcp_ms=%llu tls_ms=%llu phase_valid=%u failed_phase=%s tls_queried=%u tls_code=%d tls_fresh=%s",
+        static_cast<unsigned long>(liveId), static_cast<unsigned long long>(id_), unsigned(ok),
+        static_cast<unsigned long long>(result.dnsMs), static_cast<unsigned long long>(result.tcpMs),
+        static_cast<unsigned long long>(result.tlsMs), unsigned(result.valid), result.failedPhase,
+        unsigned(result.tlsQueried), result.tlsCode, fresh);
+  diag::breadcrumb(false, static_cast<diag::Phase>(previous_.phase), previous_.operation);
+#endif
+  done_ = true;
+}
 Span::~Span() { if (!done_) end(false, -1); }
 }

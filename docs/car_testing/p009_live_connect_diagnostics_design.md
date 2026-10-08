@@ -1,7 +1,8 @@
 # P009 - Live connection phase diagnostics
 
 Revision 1 - October 8, 2026. Author: Codex.
-Status: design for Claude review and JP approval; no implementation authorized.
+Status: JP approved implementation October 8 after Claude clearance 718fff9 /
+125fc18. Implementation complete, awaiting Claude code review; no build or flash.
 Source baseline fd4f0b8. Inputs: F010 review a70fa42 and Pi-proxy addendum
 8544ccb in [the field journal](field_journal.md). P008 is accepted by JP.
 
@@ -170,6 +171,24 @@ logs, not a connection-timeout change. Existing aggregate spans stay comparable.
 
 Claude review required before JP decides on implementation, especially the
 subclass/guard invariant and truthful unavailable handshake error reporting.
+
+## Approval and implementation interpretation - October 8, 2026
+
+JP approved the reviewed design. Implemented as described in the
+[code-review handoff](p009_implementation_handoff.md). A1-A3 below are accepted:
+the TLS timer starts at the handshake; the protected member exists in both
+cached 3.3.11 and rollback 3.1.3; loss of fresh handshake detail is explicit.
+Neither profile has been compiled by Codex. Compatibility is source-inspected,
+not a build result, and depends on the protected member name remaining available.
+
+A4 needs a narrower field interpretation. A near-5000 ms TLS failure is
+consistent with exhausting the handshake allowance, but does not prove the
+Synology sent no answer: partial progress or a return-path problem can also
+exhaust it. A fast failure can be local setup/verification, peer rejection,
+link loss or another transport failure; timing alone does not distinguish them.
+Apply the same caution to tcp_setup, which includes local TLS configuration.
+Use phase, duration, any fresh code and server evidence together. The original
+review is retained below; this clarification governs subsequent field reading.
 
 ## Claude review - October 8, 2026 (revision 1, 306edde)
 

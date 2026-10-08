@@ -14,6 +14,16 @@ void imageNotification(const char* result);
 void publish(const char* category, const char* trigger, bool accepted);
 void mqttLoss(int state, const char* target, int connection, uint16_t port, WiFiClientSecure* secure);
 
+// Live only. Bits 1/2/4 distinguish executed DNS/TCP-setup/TLS from skipped
+// phases. Native startTLS does not refresh lastError: never infer freshness.
+struct LiveConnectResult {
+  uint64_t dnsMs = 0, tcpMs = 0, tlsMs = 0;
+  uint8_t valid = 0;
+  const char* failedPhase = "none";
+  bool tlsQueried = false;
+  int tlsCode = 0;
+};
+
 // Main task only. Restores the enclosing breadcrumb (including operation ID).
 // These are observable blocking spans, not claims of isolated handshake timing.
 class Span {
@@ -22,6 +32,7 @@ class Span {
   ~Span();
   uint64_t id() const { return id_; }
   void end(bool ok, int code = 0, WiFiClientSecure* secure = nullptr);
+  void endLiveConnect(bool ok, uint32_t liveId, const LiveConnectResult& result);
   Span(const Span&) = delete;
   Span& operator=(const Span&) = delete;
  private:

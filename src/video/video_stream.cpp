@@ -7,9 +7,11 @@
 #include "../diagnostics/diagnostics_probes.h"
 
 #include <WiFi.h>
+#include <Network.h>
 #include <WiFiClientSecure.h>
 #include <ESP32_JPEG_Library.h>
 #include <esp_heap_caps.h>
+#include <esp_timer.h>
 #include <string.h>
 #include <stdlib.h>
 #include <strings.h>                 // strncasecmp, for the header scan
@@ -215,7 +217,7 @@ VideoStreamConfig cfg{};
 //
 // There is no second JPEG buffer. While frame N is decoded and blitted, the
 // response for N+1 accumulates in lwIP's socket buffer, not ours.
-WiFiClientSecure* vidClient = nullptr;      // borrowed, never owned or deleted
+MediaSecureClient* vidClient = nullptr;    // borrowed, never owned or deleted
 
 // Endpoint split out of IMAGE_SERVER_REMOTE once per feed. A raw client takes
 // host and port separately where HTTPClient took the whole URL. Parsed rather
@@ -332,37 +334,68 @@ static bool parseEndpoint() {
 }
 
 //***************************************************************************************************
-// Connect and handshake. Blocking, but only once per feed - the connection is
-// then held open for all 130-odd frames. A handshake per frame cost 906 ms and
-// dominated 84% of the frame time.
+// Blocking on main for initial and mid-feed connections: DNS (no application
+// deadline) + up to 5000 ms TCP wait + 5000 ms TLS, plus local setup/scheduling
+// overhead: about 10 s + DNS, not a hard 10 s total. This diagnostic does not
+// keep UI/IMU serviced during connection setup. Keep-alive avoids per-frame TLS.
 static bool ensureConnected() {
   if (!vidClient) return false;
-  if (vidClient->connected()) return true;
+  // A plaintext connection is never a reusable encrypted media connection.
+  if (!vidClient->stillInPlainStart() && vidClient->connected()) return true;
 
   const uint32_t heapBefore = ESP.getFreeHeap();
 
   vidClient->stop();
+  vidClient->clearPlainStart();
   vidClient->setCACert(remote_server_ca_cert);
   vidClient->setConnectionTimeout(5000);   // TCP connect, ms; independent of prior still requests
   vidClient->setHandshakeTimeout(5);        // seconds, per the setter's units
 
   diagnet::Span connect("live_connect", diag::Phase::LiveTls, "tls=1 phase=dns_tcp_tls");
   diagnosticsProbeBegin(ProbeWindow::LiveTls);
-  const bool connected = vidClient->connect(epHost, epPort);
-  connect.end(connected, connected ? 1 : 0, vidClient);
-  diagnet::event("LIVE_CONNECT", "id=%lu net_id=%llu ok=%u", (unsigned long)liveId, (unsigned long long)connect.id(), connected);
+  diagnet::LiveConnectResult result;
+  IPAddress address;
+  uint64_t phaseAt = esp_timer_get_time() / 1000;
+  const bool resolved = Network.hostByName(epHost, address) == 1;
+  result.dnsMs = esp_timer_get_time() / 1000 - phaseAt;
+  result.valid = 1;
+  bool connected = false;
+  if (!resolved) {
+    result.failedPhase = "dns";
+  } else {
+    MediaPlainStartGuard plainStart(*vidClient);
+    phaseAt = esp_timer_get_time() / 1000;
+    // Includes TCP and local TLS configuration; retain hostname/SNI and CA.
+    const bool tcpOk = vidClient->connect(address, epPort, epHost, remote_server_ca_cert, nullptr, nullptr);
+    result.tcpMs = esp_timer_get_time() / 1000 - phaseAt;
+    result.valid |= 2;
+    plainStart.tcpComplete(tcpOk);
+    if (!tcpOk) {
+      result.failedPhase = "tcp_setup";
+      char ignored[1];
+      result.tlsCode = vidClient->lastError(ignored, sizeof(ignored));
+      result.tlsQueried = true; // This IP connect wrote the error before stopping.
+    } else {
+      plainStart.tlsStarted();
+      phaseAt = esp_timer_get_time() / 1000;
+      connected = vidClient->startTLS();
+      result.tlsMs = esp_timer_get_time() / 1000 - phaseAt;
+      result.valid |= 4;
+      // Native startTLS does not update lastError; leave its detail unavailable.
+      if (!connected) result.failedPhase = "tls";
+    }
+  } // Restore the flag before logging/return, including both native failures.
+  connect.endLiveConnect(connected, liveId, result);
   if (!connected) liveFailure = "connect";
   diagnosticsProbeEnd(ProbeWindow::LiveTls);
   if (!connected) {
     // Report enough to tell a RAM problem from a TLS or server problem. Largest
     // free block matters: mbedTLS needs a contiguous allocation, so fragmentation
     // can defeat it even when total free looks sufficient.
-    char tlsErr[128] = {0};
-    vidClient->lastError(tlsErr, sizeof(tlsErr));
-    USBSerial.printf("Video: connect failed | heap before %u, now %u, largest block %u | TLS: %s\n",
+    USBSerial.printf("Video: connect failed | heap before %u, now %u, largest block %u | phase=%s code=%d fresh=%s\n",
                      heapBefore, ESP.getFreeHeap(),
                      heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
-                     tlsErr[0] ? tlsErr : "(none reported)");
+                     result.failedPhase, result.tlsCode, result.tlsQueried ? "fresh" : "unavailable");
     return false;
   }
   return true;

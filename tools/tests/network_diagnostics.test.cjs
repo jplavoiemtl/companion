@@ -58,9 +58,12 @@ test('retry budgets, pacing and media guard remain at accepted values',()=>{
  assert(sketch.includes('if (!imageFetcherIsBusy() && !videoStreamActive()) {\n      netCheckMqtt();'));
  assert(net.indexOf('adoptResultRetry(result);',net.indexOf('void netMainTick')) > net.indexOf('mqttowner::takeResult(result)'));
 });
-test('media hostname TLS and HTTP transport calls are unchanged',()=>{
- assert.deepEqual(calls(video,'vidClient','connect|setCACert|setConnectionTimeout|setHandshakeTimeout|stop'),
-                  calls(baseline('src/video/video_stream.cpp'),'vidClient','connect|setCACert|setConnectionTimeout|setHandshakeTimeout|stop'));
+test('P009 splits Live while retaining hostname TLS, limits and unchanged still transport',()=>{
+ assert.deepEqual(calls(video,'vidClient','setCACert|setConnectionTimeout|setHandshakeTimeout|stop'),
+                  calls(baseline('src/video/video_stream.cpp'),'vidClient','setCACert|setConnectionTimeout|setHandshakeTimeout|stop'));
+ assert.deepEqual(calls(video,'vidClient','connect'),['connect(address,epPort,epHost,remote_server_ca_cert,nullptr,nullptr)']);
+ assert.deepEqual(calls(video,'Network','hostByName'),['hostByName(epHost,address)']);
+ assert.deepEqual(calls(video,'vidClient','startTLS'),['startTLS()']);
  assert.deepEqual(calls(image,'httpClient','begin|GET|end|setTimeout|setConnectTimeout'),
                   calls(baseline('src/image/image_fetcher.cpp'),'httpClient','begin|GET|end|setTimeout|setConnectTimeout'));
 });
@@ -79,8 +82,10 @@ test('HTTP and Live error snapshots precede application teardown',()=>{
  const request=between(image,'int httpCode = httpClient.GET();', 'int contentLength =');
  assert(request.indexOf('request.end(') < request.indexOf('httpClient.end()'));
  assert(request.includes('isSecureConnection ? &httpsClient : nullptr'));
- const connect=between(video,'const bool connected = vidClient->connect(', '// The single teardown.');
- assert(connect.indexOf('connect.end(') < connect.indexOf('return false;'));
+ const connect=between(video,'const bool tcpOk = vidClient->connect(', '// The single teardown.');
+ assert(connect.indexOf('vidClient->lastError(') < connect.indexOf('connect.endLiveConnect('));
+ assert(connect.indexOf('connect.endLiveConnect(') < connect.indexOf('return false;'));
+ assert(!connect.slice(connect.indexOf('vidClient->startTLS()')).includes('vidClient->lastError('));
  assert(owner.indexOf('secure.lastError(')<owner.indexOf('phase(Phase::Cleanup); facade.stop(); plain.stop(); secure.stop(); online=false;'));
  assert(owner.includes('startTLS does not refresh lastError'));
 });

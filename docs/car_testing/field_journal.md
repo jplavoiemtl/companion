@@ -2898,3 +2898,22 @@ Native startTLS supplies no fresh lastError; records must mark that unavailable.
 The Pi evidence narrows the failed starts to at/before the Synology, while
 established-response stalls remain a separate path issue. No source edited,
 compiled or flashed. P008 accepted; P004 remains deferred.
+
+
+### P009 implementation - October 8, 2026, Codex
+
+JP approved P009 after Claude design clearance 718fff9 / 125fc18.
+Implemented Live-only DNS, TCP/setup and TLS measurements with unchanged
+5000 ms TCP / 5 s TLS and no application DNS deadline. A scoped guard on the
+existing shared client clears plain-start on every connection outcome, so a
+failed Live attempt cannot leave the next still request in plaintext mode.
+Native startTLS error detail remains explicitly unavailable; TCP/setup errors
+are captured fresh. No still flow, retry, worker or UI change.
+
+[Implementation handoff](p009_implementation_handoff.md): 426 passing host checks
+in 18 suites; awaiting Claude code review before JP builds/flashes. No firmware
+build or hardware validation performed. The design approval section qualifies
+Claude A4: phase timing narrows the failing operation, but near-timeout does not
+prove remote silence and a fast failure does not prove active rejection.
+Ordinary rides remain the validation plan; record the deployment boundary after
+review clearance. P004 remains deferred.
