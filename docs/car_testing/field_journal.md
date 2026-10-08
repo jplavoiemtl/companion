@@ -2748,6 +2748,97 @@ and byte-verified archive export work; no sequence loss or storage fault found.
 
 No firmware changed, built or flashed. Raw evidence read-only and ignored by Git.
 
-### Claude review
+### Claude review - October 8, 2026 (5d64d05)
 
-Pending.
+**Confirmed (independently recomputed):**
+- **Boundary.** Archive2's first 1,244,462 bytes hash to F009's current
+  `97904e0c...` and end on a newline. The SHA256/CRC32 values of both files match,
+  and the new data is 6,423 records / 1,405,215 bytes.
+- **Build stamps.** Boot 109 is `Sep 28`; boots 110-133 are `Oct 3 17:34:48`.
+- **P008 counts.** Four TLS successes at 11784-12671 ms, four `tls_failed` at
+  15003-15004 ms, four cancellations (one at 13795 ms), and zero
+  `attempt_budget`, stuck, memory-refused or media-refused events.
+- **Recovery service and memory.** All 52 recovery windows: UI <=91 ms, IMU/loop
+  <=95 ms, zero over-100 counts. Stack >=7132; internal/DMA-largest >=42996.
+
+**Addition - boot 110's reset_code=11 is `ESP_RST_USB` ("Reset by USB peripheral",
+`esp_system.h`).** The firmware's name table stops at `ESP_RST_SDIO`
+(`diagnostics_clock.cpp:89-98`), so it logs `other`. A USB-peripheral reset during
+installation fits the post-upload reset, and it is not a fault class. Optional
+cosmetic follow-up: add the remaining enum names.
+
+**1. October 8 13:34-13:35: what is established and what is not.**
+- **Bounded episode.** The episode lasts about 66 s, between two healthy sessions:
+  Live at 13:31:17 (connect 636 ms, 175 frames) and from 13:35:40 onward (connect
+  758 ms). Normal Live connect in the cohort is a median of 653 ms, p90 918 ms. The
+  recovering connect at 13:35:16 (4210 ms) is the cohort's second-slowest success.
+- **Two failure modes in one minute.**
+  - Four new TCP+TLS connections fail.
+  - The fifth succeeds slowly, serves two frames, then gets no response for the full
+    15 s. The non-blocking `HTTP_TIMEOUT_MS` (`video_stream.cpp:117`) expires at
+    22.2 s, with no main-loop gap.
+  - The path to the media endpoint degraded both for new connections and inside an
+    established TLS session, then healed on its own. That argues against a
+    certificate, memory or firmware-state cause, all of which would persist.
+- **MQTT health is weaker evidence than stated.** The car's MQTT target (`SERVER1`)
+  is a *different hostname* from `IMAGE_SERVER_REMOTE`. I compared the names only;
+  no values were printed. The two names could still resolve to one address; that is
+  unknown. So continued MQTT traffic shows the phone and cellular uplink worked,
+  not that the media host, its port or its upstream chain did.
+- **Unknown.** Whether this was cellular routing, the Synology port/reverse proxy,
+  or the Pi/Node-RED/Frigate chain. The response stall after TLS succeeded is
+  compatible with an upstream stall; that is a hypothesis.
+- **What you saw.** `videoStreamStart()` loads Screen 2 and refreshes it before
+  connecting (`video_stream.cpp:777-783`). Each failure then silently returns to
+  Screen 1 (`UI_RETURN "live feed failed to start"`), with no message. You pressed
+  again 3-5 s after each return.
+
+**2. The 10.144 s pause: verified, and the bound is DNS + 5 s + 5 s, not 5 s.**
+- **Why.** `ensureConnected()` sets a 5000 ms TCP limit and a 5 s handshake limit
+  separately (`video_stream.cpp:346-347`) and then calls one combined
+  `connect(host,port)`. DNS is not separately bounded there.
+- **What the spans show.** The 9915 ms span must contain a slow-but-successful earlier
+  phase (about 4.9 s) followed by a failure in a later one, because neither limit
+  alone reaches 9.9 s. The 5.3-5.5 s spans are one limit plus 0.3-0.5 s and cannot
+  be split.
+- **Undocumented bound.** No comment states the Live worst case, unlike the still
+  path's 18 s note (`image_fetcher.cpp:36-40`). Document it as about 10 s + DNS.
+- **Smallest useful diagnostic:** give Live's connect the phase split the MQTT
+  worker already uses: resolve, then `setPlainStart()`,
+  `connect(IP,port,host,CA)` and `startTLS()` (`net_worker.cpp:266-277`). Log
+  dns/tcp/tls ms and the failed phase in the existing NET_END. This keeps the same
+  limits, adds no worker, and changes only the Live path (the still path uses
+  HTTPClient). This answers "TCP or TLS" on the next occurrence.
+- **Zero-firmware diagnostic, time-sensitive.** Check the Synology reverse-proxy and
+  Pi proxy logs for October 8 13:34:28-13:35:34 before they rotate. This only reads
+  logs. The Pi logs at INFO (`docs/proxy/app.py:45-50`).
+  - No Live requests at the Pi while 13:31 and 13:35:40 appear: the failure is at or
+    before the Synology.
+  - Requests at the Pi with slow upstream: the failure is behind the TLS endpoint.
+- **UI, separately from P004.** A one-line failure notice on the
+  failed-to-start return would make the cause visible ("Live unavailable") instead
+  of a silent bounce. A notice mechanism already exists (`netShowReconnectNotice`, `net_module.cpp:261`).
+  It changes no timing and adds no worker. P004 would keep the IMU/LVGL running for
+  those 5-10 s, but it would not make a single one of today's requests succeed. The
+  problem you saw is reliability, so P004 remains the wrong first lever.
+
+**3. P008: retain. The net effect is now bounded, not just plausible.**
+- **Benefit (lower bound).** Under the old cap, each of the four >10 s successes
+  would have failed at 10 s. P007 keeps a failure's 15 s backoff through link
+  cycles, so the earliest old-cap success is about 25 s after the TLS start plus
+  the retry. The actual successes came 11.8-12.7 s after it. That saves **at least
+  about 12 s each, >=48 s in total**.
+- **Cost (upper bound).** A handshake still unfinished at 15 s would also have failed
+  at 10 s, so each timeout cost **at most 5 s, <=20 s in total**.
+- **Net.** At least about +28 s over about 8.4 h, in P008's favour. The cancellations
+  are neutral or better: 121/id3 would have become a genuine failure plus backoff
+  at 10 s, before its 13.8 s link loss. The resource and responsiveness gates are
+  unchanged. Recommend that JP accept P008; do not raise the cap further.
+
+**The 10:12:55 still failure is a different class from 13:34.** It came 33 s after
+a beacon loss, into a degraded path: the MQTT reconnect at 10:12:26 shows DNS
+2239 ms. That is the F009 post-rejoin pattern, not the no-WiFi-event episode at 13:34.
+
+**Next steps, in order:** check the server logs (now, no change); a small Live
+phase-split diagnostic, plus the bound comment, for Codex to design; an optional
+failure notice; keep P004 deferred; accept P008.
