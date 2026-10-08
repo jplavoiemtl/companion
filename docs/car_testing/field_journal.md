@@ -2842,3 +2842,34 @@ a beacon loss, into a degraded path: the MQTT reconnect at 10:12:26 shows DNS
 **Next steps, in order:** check the server logs (now, no change); a small Live
 phase-split diagnostic, plus the bound comment, for Codex to design; an optional
 failure notice; keep P004 deferred; accept P008.
+
+### Claude addendum - October 8, 2026: Pi proxy log check
+
+At JP's request, I read the `esp32-image-proxy` Docker log on dockerpi (read-only;
+nothing changed). The Synology refuses SSH, so its reverse-proxy logs were not read.
+Saved as `evidence/2026-10-08-pi-proxy/esp32-image-proxy_2026-10-08_redacted.log`:
+554 lines, SHA256 `5635d22b...`. The API token and the carrier client IP are
+redacted. The proxy logs in UTC; requests reach it from 192.168.1.131 (the
+Synology). The Pi rebooted at about 14:10, after the episode; the container log
+survived because it is the same container and json-file driver.
+
+- **The proxy was up throughout.** `/health` returned 200 every 30 s from
+  13:29 to 13:39, and every logged request returned 200.
+- **The four failed Live starts (13:34:28-13:35:09) never reached the Pi.** No
+  request was logged between the end of the 13:31 feed and 13:35:16.628. Because
+  those connections failed during TCP/TLS setup, they ended at or before the
+  Synology. The Pi, Node-RED and Frigate are cleared for these four.
+- **The 13:35:12 session's stall happened downstream of the Pi.** The Pi served three
+  requests with 200 (13:35:16.628, 19.222 and 19.524), but the board received only
+  two frames, then timed out after 15 s. Even the first response was logged at the
+  Pi about 2.5 s before the board's first frame (13:35:19.155). So the third
+  response was lost or stalled between the Pi and the board: in the Synology, the
+  internet or the cellular path. The next request reached the Pi at 13:35:41.8,
+  for the healthy feed.
+- **The 10:12:49 still failure also never reached the Pi.** The next `/esp32/latest`
+  is 10:13:10, the successful retry.
+- **Conclusion.** Both failure modes on October 8 sit at or before the Synology,
+  never in the Pi chain. The logs cannot separate the Synology reverse proxy from
+  the internet/cellular path. Only Synology-side logs could, and they are not
+  logged by default. A board-side DNS/TCP/TLS split still adds information:
+  failing in TCP versus TLS against the Synology narrows it further.
