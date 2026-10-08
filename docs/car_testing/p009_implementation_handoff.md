@@ -66,3 +66,36 @@ Ordinary rides provide the planned validation, with the next connection failure
 read by phase/duration and correlated with server evidence. A successful connect
 followed by response timeout remains a separate issue. No further change is
 automatically authorized by this diagnostic increment.
+
+## Claude review - October 8, 2026 (870f258)
+
+**Cleared: no blockers. JP can build and flash.**
+- **Shared-client invariant holds on every path.**
+  - Entry: `stop()`, then `clearPlainStart()`.
+  - DNS failure: the guard is never armed.
+  - TCP failure: native `stop()`, then the guard clears the flag.
+  - TLS failure: native `stop()`, then the guard clears the flag.
+  - Success: native `startTLS()` cleared the flag; the guard's clear is a no-op.
+  - Early exit after TCP: the guard calls `stop()`, then clears.
+  - The reuse fast path refuses a plaintext connection
+    (`!stillInPlainStart() && connected()`). No request is sent before
+    `ensureConnected()` returns true.
+- **Error freshness is truthful.** In the installed 3.3.11 core,
+  `stop_ssl_socket()` does not reset `last_error`. The TCP-setup code read after
+  the native `stop()` is therefore this attempt's code, the same pattern
+  net_worker.cpp:271 relies on (F009 MQTT `error_fresh=1`). TLS stays
+  `unavailable`, as designed.
+- **Behavior is unchanged.** Same resolver (`Network.hostByName`, which is what the
+  old `connect(host)` called internally), same hostname/CA arguments to the IP
+  overload, same 5000 ms / 5 s limits. `MediaSecureClient` adds no members and no
+  virtual functions; HTTPClient still receives the same object. The rollback core
+  3.1.3 provides `hostByName`, `stillInPlainStart()` and the protected flag.
+- **Diagnostics.** `endLiveConnect` keeps `diagop::block` (LOOP_GAP attribution)
+  and breadcrumb restore, and emits one NET_END and one LIVE_CONNECT. The generic
+  `Span::end` is untouched.
+- **Tests.** I reran all suites: 426 checks in 18 suites pass. The new suite runs the
+  real `clearPlainStart` body against a mock whose `stop()` keeps the flag set, the
+  same as the core. It includes a negative control proving that an unguarded
+  failure sends plaintext.
+- **Build note.** `companion.ino` is unchanged, so the stale-sketch trap does not
+  apply. Build the default 3.3.11 profile and record the new `compiled=` boundary.
