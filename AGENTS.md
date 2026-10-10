@@ -92,7 +92,12 @@ extern HWCDC USBSerial;  // Required for serial output
 - **LVGL**: 8.4.0
 - **PubSubClient**: 2.8
 - **SensorLib**: 0.3.1 (QMI8658 driver)
-- **ESP32_JPEG**: 0.0.1 (local folder, SIMD JPEG decoder for the video feed)
+- **ESP32_JPEG**: 0.0.1 (local folder, SIMD JPEG decoder for the video feed). **Core 3.3.12 and
+  later include Espressif's `esp_new_jpeg`, which has the same function names with a different
+  API: with both linked, Live crashes in `jpeg_dec_parse_header()` ("Unsupport rotation degree").**
+  Core 3.3.11 is not affected. Before moving companion past 3.3.11, port `decodeFrame()` to the
+  core decoder and drop ESP32_JPEG from the profile, as home_panel did in October 2026 (commit
+  `a0266c8` in home_panel).
 
 ## Screens
 
