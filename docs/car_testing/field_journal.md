@@ -2,9 +2,16 @@
 
 Living journal for JP's companion field modules (car and bike). Keep new field results, open findings and improvement
 proposals here rather than creating a separate analysis document for every ride.
-Last updated: October 8, 2026.
+Last updated: October 11, 2026.
 
 ## Current position
+
+- **F011 (October 8-11, P009 car):** October 11's 19:35 symptom matches three
+  near-5 s TLS failures, one near-5 s TCP/setup failure and a separate one-frame
+  response timeout. No WiFi/MQTT loss is recorded until 19:36:31. P009 identifies
+  the failing stages, not the remote cause. Nineteen complete sessions cover
+  590.233 operating minutes. A 180.563 s hotspot outage, retained DMA-largest
+  12276 bytes and one 180/185 ms UI/IMU recovery window merit focused review.
 
 - **P009 deployed to the car:** JP reports installation from **October 8, 2026,
   17:15 Montreal local (America/Toronto, EDT, UTC-04:00)**, or **21:15 UTC**.
@@ -194,13 +201,13 @@ Review the newest field session following the field journal workflow.
 
 | ID | Finding | Evidence / confidence | Status |
 |---|---|---|---|
-| I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Addressed by P001, accepted by JP. F003 now supports field responsiveness: UI <=23 ms, IMU/loop <=25 ms during post-startup attempts. F007 adds 16 recovery attempts with UI <=77 ms, IMU/loop <=74 ms, none >100 ms F008 adds 15 post-startup attempts with UI <=66 ms, IMU <=65 ms, loop <=64 ms; none over 100 ms. F009: all 63 recovery windows UI <=94 ms, IMU/loop <=98 ms; no over100 count. F010: 52 recovery windows UI <=91 ms, IMU/loop <=95 ms, no over100 counters. |
-| I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Open: F003 adds nine afternoon/evening beacon-timeout episodes at reported RSSI -31 to -42 dBm. Cause unproven; separate power-associated interruption. F004 snapshot and F005 morning have no beacon losses; F005 adds a September 26 post-export auth_expired loss after power removal. I002 remains open. F007 adds 14 powered beacon-loss events in 11 recovered MQTT outages plus a separate post-power-loss beacon episode F008 new firmware adds 13 powered beacon events in 11 recovered outages; P007 prompt scheduling is field-validated, radio cause remains open. F009: 54 powered beacon events; 47 recovered WiFi-led outages plus one ending at shutdown. Prompt retry remains effective; some WiFi rejoins take ~37 s. F010: 47 powered beacon events; 41 WiFi-associated recovered outages (40 beacon-led, one auth-expired); radio cause still unknown. |
-| I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Measured, not fixed: F003 image-request main-loop gaps reach 5.264 s. JP deferred P004 until practical impact justifies added complexity; separate from accepted MQTT improvements. F004 adds a 5.302 s Live-connect gap with eventual success; no reported symptom. F005 maximum explicit loop gap 1.222 s; JP reports stable behavior F008 adds five media-attributed 1.029-1.092 s loop gaps and two 4.37/4.54 s Live frame gaps; the latter are not main-loop freeze measurements. No symptom reported; P004 stays deferred. F009: Sep 30 06:50-07:08 has one failed still, six failed Live sessions and seven >4 s media-attributed main-loop gaps (max 6.193 s). JP does not recall symptoms. Stronger measured impact; P004 stays deferred after F009 review: reconsider if >4 s pauses recur across sessions or occur on non-media screens. F010: JP reports Live trouble; Oct8 boot133 has four first-connect failures and a two-frame timeout while MQTT remains online, plus 10.144 s main-loop gap. Recurrent cross-session media pauses justify focused review; P004 not authorized. |
-| I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor: F003 write/flush maxima include 118.747/229.690 ms with zero drops. F004 adds two slow operations (flush maximum 124.554 ms), zero drops. F005 write/flush maxima 235.312/240.719 ms, zero drops. No evidence these explain multi-second network spans F008 new firmware adds five slow-count increments across three boots, max write/flush 118.569/233.910 ms; drops/truncation remain zero. F009: 11 slow-count increments, max flush 236.491 ms, zero drops/truncation; rotation/export integrity verified. F010: three slow-count increments, flush max 239.429 ms, zero drops/truncation; no storage fault. |
-| I005 | MQTT/TLS outage while WiFi stays associated | F003 boot 48: 59.209 s observed MQTT outage, two ~5 s TLS failures, no driver WiFi disconnect | Open: path/broker/transport cause unresolved; association is not proof of working internet. No recurrence in F004 snapshot or F005 morning coverage F008 boot 72: September 28 16:10:27, 20.597 s MQTT outage with no WiFi event, failed 5 s TCP setup then successful retry after 15 s. Cause remains unlocalized. F009: three associated-WiFi state=-3 losses recover in 7.196/1.811/15.492 s, last one correctly keeps 15 s after only 59.542 s ONLINE. Broker/path cause remains unproven. F009 review: four post-rejoin TLS failures hit 10004 ms, successful TLS reaches 9708 ms; P008 proposes a 15 s cap for review, not a fix for WiFi loss. F010: two associated-WiFi losses recover in 1.915/5.106 s; P008 separately enables four TLS successes above 10 s and has four 15 s timeout failures. Recommend retaining pending review/acceptance. |
-| I006 | Reduced retained DMA-capable largest block during media | F006 bike boot 145: 19444 bytes first reported after first Live, versus previous car minima 21492; no allocation failure, periodic general-internal largest >=31732 | Review/monitor. DMA capability differs from the formal internal-largest gate; do not declare the full retained gate passed from periodic samples alone F008 reproduces retained DMA-largest 19444 in car boots 68/72/75/76, so this is not bike-specific; no allocation failure. MQTT attempt internal-largest >=47092; periodic general-largest >=28660. F009: retained DMA minimum unchanged at 19444; periodic general-largest >=24564 and recovery largest >=45044; no allocation failure recorded. F010: retained DMA-largest 19444 again; recovery internal-largest >=42996, periodic >=26612; no recorded allocation failure. |
-| I007 | Isolated unattributed main-loop pause | F006 bike at 15:38:00.468: 1102 ms, span=unmeasured; nearby snapshots show inclinometer, online MQTT, no storage spike | Unexplained; no corresponding user symptom reported yet. Review before assigning a cause or adding code No new unmeasured >=1 s loop gap in F008; keep the isolated bike observation open without speculative changes. F009 has no unmeasured LOOP_GAP; all 28 explicit gaps are image_request/live_connect. F010: no unmeasured gap; all 34 cohort gaps are media-attributed. |
+| I001 | UI pauses during MQTT recovery | F001: two ~8 s G-meter gaps; F002: 8.771 s and 5.115 s gaps on screen 1 during failed connects, matching spinner symptom | Addressed by P001, accepted by JP. F003 now supports field responsiveness: UI <=23 ms, IMU/loop <=25 ms during post-startup attempts. F007 adds 16 recovery attempts with UI <=77 ms, IMU/loop <=74 ms, none >100 ms F008 adds 15 post-startup attempts with UI <=66 ms, IMU <=65 ms, loop <=64 ms; none over 100 ms. F009: all 63 recovery windows UI <=94 ms, IMU/loop <=98 ms; no over100 count. F010: 52 recovery windows UI <=91 ms, IMU/loop <=95 ms, no over100 counters. F011: 43 post-setup worker windows; one UI/IMU gap 180/185 ms with a 174 ms UI call and screen changes, others <=97/95 ms. No multi-second worker-attributed stall. |
+| I002 | Hotspot link loses beacons | F001: two episodes; F002: three beacon-timeout losses in a 73.735 s MQTT recovery episode | Open: F003 adds nine afternoon/evening beacon-timeout episodes at reported RSSI -31 to -42 dBm. Cause unproven; separate power-associated interruption. F004 snapshot and F005 morning have no beacon losses; F005 adds a September 26 post-export auth_expired loss after power removal. I002 remains open. F007 adds 14 powered beacon-loss events in 11 recovered MQTT outages plus a separate post-power-loss beacon episode F008 new firmware adds 13 powered beacon events in 11 recovered outages; P007 prompt scheduling is field-validated, radio cause remains open. F009: 54 powered beacon events; 47 recovered WiFi-led outages plus one ending at shutdown. Prompt retry remains effective; some WiFi rejoins take ~37 s. F010: 47 powered beacon events; 41 WiFi-associated recovered outages (40 beacon-led, one auth-expired); radio cause still unknown. F011: 39 beacon-timeout records, 35 recovered link-caused MQTT outages and two shutdown-censored losses. Longest outage 180.563 s is dominated by hotspot rediscovery; radio cause unresolved. |
+| I003 | Other image/Live latency | F001 image/Live gaps; F002 1.514 s Live-connect loop gap. Later Live disconnect was JP's intervention, not a field fault | Measured, not fixed: F003 image-request main-loop gaps reach 5.264 s. JP deferred P004 until practical impact justifies added complexity; separate from accepted MQTT improvements. F004 adds a 5.302 s Live-connect gap with eventual success; no reported symptom. F005 maximum explicit loop gap 1.222 s; JP reports stable behavior F008 adds five media-attributed 1.029-1.092 s loop gaps and two 4.37/4.54 s Live frame gaps; the latter are not main-loop freeze measurements. No symptom reported; P004 stays deferred. F009: Sep 30 06:50-07:08 has one failed still, six failed Live sessions and seven >4 s media-attributed main-loop gaps (max 6.193 s). JP does not recall symptoms. Stronger measured impact; P004 stays deferred after F009 review: reconsider if >4 s pauses recur across sessions or occur on non-media screens. F010: JP reports Live trouble; Oct8 boot133 has four first-connect failures and a two-frame timeout while MQTT remains online, plus 10.144 s main-loop gap. Recurrent cross-session media pauses justify focused review; P004 not authorized. F011/P009: 10 failed Live connects (8 TLS, 2 TCP/setup), no DNS failure. Oct11 19:35 matches JP symptom; one-frame response timeout is distinct. Main-loop gap reaches 10.120 s. Server/path review recommended; no timeout or P004 approval. |
+| I004 | Occasional slow storage operations | F002: write 114.893 ms, flush 122.353 ms; slow counter 2, zero drops/truncation | Monitor: F003 write/flush maxima include 118.747/229.690 ms with zero drops. F004 adds two slow operations (flush maximum 124.554 ms), zero drops. F005 write/flush maxima 235.312/240.719 ms, zero drops. No evidence these explain multi-second network spans F008 new firmware adds five slow-count increments across three boots, max write/flush 118.569/233.910 ms; drops/truncation remain zero. F009: 11 slow-count increments, max flush 236.491 ms, zero drops/truncation; rotation/export integrity verified. F010: three slow-count increments, flush max 239.429 ms, zero drops/truncation; no storage fault. F011: zero slow writes, drops or truncation; write/flush maxima 10.195/18.625 ms. Archive CRCs and rotation join verified. |
+| I005 | MQTT/TLS outage while WiFi stays associated | F003 boot 48: 59.209 s observed MQTT outage, two ~5 s TLS failures, no driver WiFi disconnect | Open: path/broker/transport cause unresolved; association is not proof of working internet. No recurrence in F004 snapshot or F005 morning coverage F008 boot 72: September 28 16:10:27, 20.597 s MQTT outage with no WiFi event, failed 5 s TCP setup then successful retry after 15 s. Cause remains unlocalized. F009: three associated-WiFi state=-3 losses recover in 7.196/1.811/15.492 s, last one correctly keeps 15 s after only 59.542 s ONLINE. Broker/path cause remains unproven. F009 review: four post-rejoin TLS failures hit 10004 ms, successful TLS reaches 9708 ms; P008 proposes a 15 s cap for review, not a fix for WiFi loss. F010: two associated-WiFi losses recover in 1.915/5.106 s; P008 separately enables four TLS successes above 10 s and has four 15 s timeout failures. Recommend retaining pending review/acceptance. F011: two associated-WiFi losses in boot143 recover in 15.930/21.582 s. P008 enables an 11.069 s TLS success; no full 15 s TLS failure in the cohort. |
+| I006 | Reduced retained DMA-capable largest block during media | F006 bike boot 145: 19444 bytes first reported after first Live, versus previous car minima 21492; no allocation failure, periodic general-internal largest >=31732 | Review/monitor. DMA capability differs from the formal internal-largest gate; do not declare the full retained gate passed from periodic samples alone F008 reproduces retained DMA-largest 19444 in car boots 68/72/75/76, so this is not bike-specific; no allocation failure. MQTT attempt internal-largest >=47092; periodic general-largest >=28660. F009: retained DMA minimum unchanged at 19444; periodic general-largest >=24564 and recovery largest >=45044; no allocation failure recorded. F010: retained DMA-largest 19444 again; recovery internal-largest >=42996, periodic >=26612; no recorded allocation failure. F011: retained DMA-largest falls to 12276 bytes in boot143. Periodic general-internal largest >=24564, worker attempt largest >=34804; no allocation failure recorded. Continuous general-internal gate is not established by periodic samples. |
+| I007 | Isolated unattributed main-loop pause | F006 bike at 15:38:00.468: 1102 ms, span=unmeasured; nearby snapshots show inclinometer, online MQTT, no storage spike | Unexplained; no corresponding user symptom reported yet. Review before assigning a cause or adding code No new unmeasured >=1 s loop gap in F008; keep the isolated bike observation open without speculative changes. F009 has no unmeasured LOOP_GAP; all 28 explicit gaps are image_request/live_connect. F010: no unmeasured gap; all 34 cohort gaps are media-attributed. F011: all 45 explicit post-cutoff LOOP_GAP records are media-attributed (34 Live, 11 still); no new unmeasured >=1 s gap. |
 
 Do not count retry no_ap_found/sta_leaving records as separate full outages without
 checking the timeline. Do not attribute unknown-freshness TLS errors to a current TLS
@@ -2949,3 +2956,227 @@ For the next cumulative archive/current analysis:
 
 Continue ordinary rides. No dedicated bench campaign or further code change is
 scheduled. P004 remains deferred; hardware results await the next evidence.
+
+
+## F011 - October 8-11 car rides: P009 diagnoses missed Live starts
+
+Author: Codex, October 11, 2026. Primary analysis; Claude review pending. No
+firmware change, build, flash or bench campaign. JP reports green screen without
+Live on several events, particularly October 11 around 19:35 and earlier that
+day despite an apparently good connection. Times below are Montreal EDT
+(UTC-04:00). Logs confirm zero-frame failures, not the physical screen colour.
+
+### Evidence and new coverage
+
+All three files in evidence/2026-10-car were checked. Archive2 is identical to
+F010's archive, with a different export filename. The first 552686 bytes / 2526
+records of archive3 exactly reproduce F010's current snapshot, SHA256
+6f7e6fdb60a15e9e15ed78c6104086db5860f3c3ade97a34481bf68c522c4ac3.
+Exclude both overlaps from new statistics. New coverage is **1569108 bytes /
+6817 records**, boot133 seq268 through boot156 seq65. Per-boot sequences are
+contiguous and every file ends with a newline.
+
+| Export filename                                           | Bytes   | Records | CRC32    |
+| --------------------------------------------------------- | ------: | ------: | -------- |
+| 2026-09-30T070835-0400_156-1-archive-00000002-2096991.log | 2096991 | 9529    | C34652AF |
+| 2026-10-07T064539-0400_156-2-archive-00000003-2096828.log | 2096828 | 9221    | 0C93E1A8 |
+| 2026-10-11T194754-0400_156-3-current-24966.log            | 24966   | 122     | 9AFD8460 |
+
+SHA256, same order:
+
+- 689e83943cb0ad387a01e9cb0efc01425b85015b002e462824e186d7b2b8621a
+- f26ab7d8cd86406e2eeda9b0f7d0faad2fbc77dcc8ed52fb7000196e37493445
+- 2baf99aafdb452c5ed06c6d8510a5cfafaa52b85230a34468b6397f55c16b271
+
+Boot156 HTTP_GET_END seq54/62 confirms both archive sizes/CRCs with
+crc_check=match. Current ends at its own HTTP_GET_BEGIN and lacks its independent
+END, as expected. Boot133 seq269 confirms F010's current CRC 53C1F2F2. Archive3
+boot155 seq274 -> current FILE_OPEN seq275 -> rotation BOOT seq276 joins without
+reboot. Queued records can carry slightly earlier stamps across rotation.
+
+The reported cutoff remains October 8 17:15. The actual compiled stamp changes
+from Oct3 17:34:48 to **Oct8 16:03:21** in boot136, first synced 17:13:39 and
+already emitting P009 fields, about 81 seconds before the reported cutoff.
+Treat boot136 as installation/transition, not a clean post-cutoff ride. Boot135
+has four unsynced records without SESSION_END; boot136 reports other/reset_code=11.
+Exact cause is unproven; do not count this installation transition as a ride fault.
+
+Old-firmware new tail: boot133 ends normally after a ten-frame response timeout
+at 13:51:15; boot134 ends 16:33:48 with four MQTT losses. Boots137-155 are
+**19 complete sessions, 590.233 minutes (~9 h 50 min)** from boot to shutdown,
+including startup/parked tails, not measured driving time. All have power_on
+resets and normal SESSION_END. Boot156 is the later export session, 21:51-21:53.
+No exact flashed Git SHA is embedded.
+
+| Boot | First synced local time | End                 | MQTT losses |
+| ---- | ----------------------- | ------------------- | ----------: |
+| 137  | 2026-10-08 17:58:32     | 2026-10-08 18:01:26 | 0           |
+| 138  | 2026-10-08 18:07:18     | 2026-10-08 18:13:30 | 2           |
+| 139  | 2026-10-08 18:27:37     | 2026-10-08 18:49:24 | 1           |
+| 140  | 2026-10-09 06:48:03     | 2026-10-09 07:31:04 | 3           |
+| 141  | 2026-10-09 09:30:51     | 2026-10-09 09:48:27 | 0           |
+| 142  | 2026-10-09 10:20:29     | 2026-10-09 10:39:31 | 1           |
+| 143  | 2026-10-09 16:03:15     | 2026-10-09 16:55:42 | 8           |
+| 144  | 2026-10-09 17:05:58     | 2026-10-09 17:30:06 | 0           |
+| 145  | 2026-10-09 19:47:37     | 2026-10-09 20:05:36 | 1           |
+| 146  | 2026-10-10 12:45:29     | 2026-10-10 12:54:00 | 3           |
+| 147  | 2026-10-10 13:04:13     | 2026-10-10 13:15:38 | 1           |
+| 148  | 2026-10-10 14:50:55     | 2026-10-10 15:13:48 | 4           |
+| 149  | 2026-10-10 18:56:13     | 2026-10-10 19:45:34 | 5           |
+| 150  | 2026-10-10 19:50:12     | 2026-10-10 19:59:27 | 2           |
+| 151  | 2026-10-10 21:03:28     | 2026-10-10 21:11:31 | 0           |
+| 152  | 2026-10-10 23:46:36     | 2026-10-11 00:31:32 | 2           |
+| 153  | 2026-10-11 11:11:46     | 2026-10-11 13:05:02 | 3           |
+| 154  | 2026-10-11 17:02:00     | 2026-10-11 18:31:19 | 0           |
+| 155  | 2026-10-11 19:31:25     | 2026-10-11 19:53:22 | 3           |
+
+### October 11 around 19:35
+
+Connect completion times, boot155. Durations in milliseconds; seq85-130 contain
+the matching NET_END / LIVE_CONNECT / LIVE_END records.
+
+| Time / Live id   | DNS  | TCP/setup | TLS     | Result                                      |
+| ---------------- | ---: | --------: | ------: | ------------------------------------------- |
+| 19:35:27.707 / 3 | 1    | 4884      | 5003    | TLS failed; zero frames                     |
+| 19:35:39.005 / 4 | 0    | 1086      | 5004    | TLS failed; zero frames                     |
+| 19:35:48.624 / 5 | 0    | 608       | 837     | Connected; one frame, then response timeout |
+| 19:36:16.670 / 6 | 527  | 346       | 5001    | TLS failed; zero frames                     |
+| 19:36:28.911 / 7 | 1    | 5002      | skipped | TCP/setup failed; fresh generic -1          |
+
+The first attempt starts 19:35:17.722 and spends 9888 ms connecting, with a
+**10120 ms main-loop gap** at seq92. Failed first requests explicitly return
+with UI_RETURN reason="live feed failed to start". Successful id5 displays its
+first frame at 19:35:49.012, then times out at 19:36:03.860. That is a separate
+established-response failure; extending the handshake limit cannot fix it.
+
+No WiFi/MQTT loss is recorded until **19:36:31.373 beacon loss**, then MQTT loss
+at .379. HEALTH at 19:35:07 / 19:36:07 reports wifi=1, mqtt=1, RSSI -45/-47.
+A green MQTT status is not proof of working HTTPS. A common underlying disturbance
+is possible, but the later beacon loss does not prove the earlier failures were
+already WiFi disconnections. MQTT recovers 19:36:35.845, after 4.466 s.
+
+**P009 helped:** DNS completed; three TLS handshakes exhausted approximately five
+seconds, one TCP/setup call approximately five seconds. Native TLS detail is
+correctly unavailable, not success/code-zero evidence. TCP/setup also covers local
+secure configuration. Neither the generic -1 nor duration alone identifies peer
+refusal, Synology silence, return-path loss or local/verification failure. No
+October 11 server log was supplied. October 8's Pi evidence cannot prove that
+today's requests did not reach it.
+
+### Other media outcomes and earlier symptoms
+
+Post-cutoff cohort: **181 Live connect calls, 171 successful, eight TLS failures,
+two TCP/setup failures, zero DNS failures**. Including new-firmware installation/
+export produces 184 calls (174 successes); keep these populations separate.
+Seven of eight TLS failures take 5001-5005 ms; the remaining 1418 ms failure
+(Oct9 10:24:39) is closely followed by link loss.
+
+| Other failed connect completion | Boot / Live id | Phase     | DNS / TCP / TLS ms |
+| ------------------------------- | -------------- | --------- | ------------------ |
+| Oct9 09:34:50.036               | 141 / 4        | TLS       | 0 / 3610 / 5005    |
+| Oct9 10:24:39.804               | 142 / 2        | TLS       | 0 / 246 / 1418     |
+| Oct9 16:36:47.932               | 143 / 10       | TLS       | 0 / 125 / 5003     |
+| Oct9 16:36:59.497               | 143 / 11       | TLS       | 1 / 136 / 5004     |
+| Oct9 16:40:39.521               | 143 / 15       | TCP/setup | 1 / 5003 / skipped |
+| Oct10 13:13:11.856              | 147 / 2        | TLS       | 0 / 550 / 5002     |
+
+94 LIVE_END records: 73 duration-completed, ten failed first connects, five
+connection-closed mid-response, four response timeouts, two screen exits. Nine
+additional begins have first frames but no END before normal shutdown; exclude
+from full-cycle FPS/failure counts. Three further entry requests are refused
+while offline in boot142. Still requests: 36/37 display successfully; Oct10
+14:56:09 boot148 id3 fails with HTTPClient -1 after 5401 ms waiting for headers.
+
+Earlier October 11, **all 19 ended cycles in boots153/154 complete their duration**,
+but frame gaps reach 10.681 s at 12:28:24.562, 7.149 s at 17:57:23.116 and
+5.461 s at 18:02:33.433. Boot154 id1 takes 4.699 s to its first frame, then has
+a 2.045 s gap at 17:11:33.532. These are candidate matches to earlier symptoms,
+not confirmed exact matches or main-loop freeze measurements.
+
+Full-cycle FPS: **11715 frames / 4410.233 s = 2.656 FPS aggregate**, median
+per-cycle 2.734, range 0.367-3.547 across the 73 duration completions. Partial
+and failed sessions are excluded. Network/scene variation prevents attributing
+this to P009 without a controlled comparison.
+
+### WiFi/MQTT and prior improvements
+
+- 39 MQTT losses: 37 recover; two end at normal shutdown (boots138/139, after
+  USB power removal). Of recovered losses, 35 have link_changed=1 / wifi_return;
+  two remain associated in boot143. The 39 recorded beacon timeouts are not
+  39 independent recovered outages; repeated no_ap_found/sta_leaving reports
+  and suppressed repeats must not be counted as separate rides.
+- Longest outage: Oct8 18:08:50.910 -> 18:11:51.473, **180.563 s**, with USB
+  power present. Repeated hotspot rediscovery failures dominate. IP returns
+  18:11:50.897; MQTT connects 576 ms later. Not a three-minute MQTT handshake;
+  phone discoverability/availability or radio cause remains unproven.
+- Oct10 12:49:19 loss takes 63.117 s including a TCP failure. Oct11 19:46:20
+  and 19:47:16 losses recover in 46.077/37.713 s, with renewed link drops and
+  a cancelled TLS attempt.
+- Associated-WiFi losses Oct9 16:24:49 and 16:40:39 recover in 15.930/21.582 s.
+  First uses short-session 15 s backoff; second earns prompt retry but TCP fails,
+  then normal backoff applies. The second loss is adopted just after failed
+  Live TCP: blocking main can delay adoption, so record time is not the exact
+  physical disconnect instant.
+- P007: 38 synced GOT_IP events whose next relevant event is BEGIN dispatch in
+  1-14 ms. This conditional statistic excludes intervening drops/shutdown and
+  is not a bound for every physical restoration.
+- P008: Oct11 19:47:06.899, boot155 attempt3, succeeds with **TLS 11069 ms**,
+  MQTT exchange 5824 ms and total 20775 ms. The longer cap again allows a
+  handshake above the old 10 s limit. No completed full 15 s TLS timeout here.
+  Seven non-ok attempts: three TCP failures, two link cancellations, one DNS
+  failure, one startup lease deferral.
+- P001: 43 post-setup worker service windows; 42 have UI <=97 ms, IMU/loop <=95 ms.
+  Boot142 id2 reports UI 180 ms, IMU 185 ms, loop 184 ms with **UI call 174 ms**
+  and Screen1/G-meter changes (seq104-113). This short UI-work overlap is not
+  evidence of multi-second synchronous MQTT networking. Unlike F010, do not
+  claim every recovery window stayed below 100 ms. Boot145 startup retry id2
+  reports loop_gap=573 but loop_n=0; excluded. Attempt id>1 alone is not a valid
+  post-setup filter.
+
+### Resources and integrity
+
+No post-cutoff fault reset, sequence gap, logger drops/truncation, slow-write
+count or explicit allocation-failure record. Write/flush maxima 10.195/18.625 ms;
+SD-operation maximum 190.617 ms includes other SD work. Logger stack >=3256;
+MQTT stack >=7132 with external stack/internal TCB. All 45 explicit LOOP_GAP
+records are media-attributed (34 Live, 11 still), maximum 10.120 s. No new
+unmeasured >=1 s main-loop gap.
+
+**New I006 observation:** boot143 retained DMA-largest falls through 15860 at
+16:43:01 to **12276 bytes** by 16:44:01, following successful Live id17 (145 frames,
+including another successful connection at 16:43:30). Earlier field minimum was
+19444. General internal-free minimum is 22032; periodic general-internal largest
+>=24564 and worker attempt largest >=34804, above 20480 where measured.
+DMA-largest is a retained minimum of a different capability pool (sd_diagnostics
+sampleMemory). Periodic general-largest does not prove a continuous gate pass;
+the retained DMA value does not mean the current idle block remains that small.
+No allocation failure is recorded, but unavailable native TLS error detail means
+local allocation failure is not conclusively excluded. Review separately, rather
+than assigning all handshake failures to memory.
+
+### Findings, improvements and review
+
+P009 provides field diagnostic value, not a reliability fix. I002/I003/I005/I006
+remain open; I001 remains addressed with the short UI-call exception above.
+P004 stays deferred, not automatically reopened.
+
+Recommend **Claude review of F011**, especially boot155 seq85-150, boot143 memory
+and the recovery populations. If server logs are retained, correlate Oct11
+19:35:17-19:36:29 EDT (23:35:17-23:36:29 UTC) with Synology TLS/access records
+and Pi proxy requests. Determine which stage accepted each request and whether
+responses left the server. Do not blame Pi/Node-RED for failed pre-HTTP setup.
+
+Do not raise Live TLS timeout solely because seven failures hit five seconds:
+a longer limit might help slow handshakes but extends an already measured ~10 s
+main pause and cannot fix a one-frame response stall. Any timeout/UI/worker
+change requires a separate reviewed proposal and JP approval. A clearer failure
+message can be considered after review; no implementation is authorized here.
+
+### Agreed findings / unresolved
+
+Codex findings pending Claude review: overlap and archive export integrity
+verified; P009 present in the new compiled stamp; zero-frame events match the
+19:35 symptom; no DNS failure in those attempts; a separate post-connect response
+timeout; P007/P008 benefits persist. Unresolved: cellular path versus Synology
+versus local TLS cause, exact earlier symptom times, reduced DMA block and physical
+green-screen appearance. Continue evidence-based diagnosis, with no firmware change.
