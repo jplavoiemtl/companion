@@ -3180,3 +3180,91 @@ verified; P009 present in the new compiled stamp; zero-frame events match the
 timeout; P007/P008 benefits persist. Unresolved: cellular path versus Synology
 versus local TLS cause, exact earlier symptom times, reduced DMA block and physical
 green-screen appearance. Continue evidence-based diagnosis, with no firmware change.
+
+### Claude review - October 11, 2026 (9a265d0)
+
+Checked against evidence/2026-10-car, ssl_client.cpp in the 3.3.11 core and current
+source. The boot155 seq85-150 table, the 181/171/8/2 connect cohort, the TLS
+durations, the 39/37 MQTT losses, the 180.563/63.118/46.077/37.713 s outages and
+the P008 11069 ms TLS success all reproduce. The overlap and the cutoff handling
+are correct. Three points sharpen or correct F011.
+
+**1. The ~5 s TLS failures are timeouts, not local errors.** In the core,
+`ssl_starttls_handshake` (`ssl_client.cpp:325-338`) keeps looping only while mbedTLS
+returns WANT_READ or WANT_WRITE. Any other error, including allocation failure or
+certificate-verification failure, returns at once through `handle_error`. Record
+buffers are allocated in `mbedtls_ssl_setup` (`:317`), which runs inside P009's
+tcp_setup span, before TLS starts.
+- So the seven 5001-5005 ms failures mean the server's handshake flight had not
+  fully arrived within 5 s. That excludes local allocation and verification failure
+  for those seven. F011's "local/verification failure" and its I006 caveat still
+  apply only to the single 1418 ms failure (Oct9 10:24, followed by link loss).
+- Likewise, a TCP failure at ~5002 ms with a fresh -1 is the `select()` timeout
+  (`:139-143`): no SYN-ACK arrived in 5 s. An immediate `connect` errno would end
+  in a few milliseconds.
+- F011 is right that duration cannot say *where* packets were lost. It does say
+  that they were missing, rather than refused.
+
+**2. The Pi log for October 11 is retained, and it confirms the October 8 pattern.**
+I read the Pi proxy log for 23:33-23:38 UTC (read-only; the token is redacted and
+the log contains no carrier IP). It is saved as
+`evidence/2026-10-11-pi-proxy/esp32-image-proxy_2026-10-11_redacted.log`: 12 lines,
+SHA256 `72034d52...`. The 10 `/health` checks all returned 200.
+- **Live ids 3, 4, 6 and 7 never reached the Pi.** Those failures ended at or
+  before the Synology.
+- **id5: the Pi served two requests with 200,** at 23:35:48.742 and 48.964 UTC.
+  The first matches the board's connect at 19:35:48.624 plus its 109 ms TTFB. The
+  second is the prefetch, and the board never received its response, so it timed
+  out 15 s later.
+- So the one-frame stall is again a response lost **downstream of the Pi**: in the
+  Synology, the internet or the cellular path. That matches the October 8 id7
+  pattern exactly. Pi, Node-RED and Frigate are cleared for both failure types on
+  both days.
+
+**3. The link was not dead during the failures.** SERVER1 (MQTT, port 9735) and
+IMAGE_SERVER_REMOTE (Live, port 9835) resolve today to the same public IP. I
+compared them by equality only and printed no values.
+- One power/energy pair was dispatched at about 19:35:27.85, right after id3's
+  10 s block. Its ~60 s cadence (previous pair at about 19:34:25.97) places its
+  arrival during id3's TLS wait, though not proven. The next pair was dispatched at
+  19:36:30.9, before the beacon loss.
+- So the existing MQTT session to the same address kept receiving small downlink
+  packets, while new 9835 handshakes received no server flight and id5's 13 KB
+  responses stopped.
+- This counts against "cellular fully down" and points to new-flow or large-packet
+  loss on the path, or to the Synology's 9835 reverse proxy. It doesn't separate
+  those two.
+- The 19:36:31 beacon loss, at RSSI -38, is the phone's hotspot stopping, not weak
+  signal. That is consistent with a phone-side disturbance that starts about a
+  minute earlier, but not proof of one.
+
+**Boot143 DMA (I006): agreed, with one timing fact.** The retained `dma_largest`
+was still 21492 at 16:36:00 and 16:37:00, so it dropped only *after* the
+16:36:47/16:36:59 TLS failures. It then fell to 17396, 15860 and finally 12276
+(16:44:01), all during *successful* Live sessions ids 12-17.
+- MQTT TLS reconnects (16:48:39, 16:49:01, 16:49:36) and Live id19 (16:55:13)
+  still succeeded afterwards.
+- At 19:35 the boot155 retained value stayed 19444 from 19:34 to 19:36, so there
+  was no new low during those failures.
+- So 12276 is a low-water mark recorded during healthy use. It explains none of
+  F011's failures. Keep it as an I006 observation, with no action now.
+
+**WiFi/MQTT recovery:** the figures and wording are agreed.
+- The 180.563 s outage is spent in hotspot rediscovery; MQTT connected 576 ms
+  after IP returned.
+- P007/P008 benefits persist.
+- The caveat about the boot142 174 ms UI call is fair.
+
+**Next step.** The smallest justified step is no firmware change. Keep riding with
+P009. Pull the Pi log the same day for any reported Live failure, since that one
+check separated the stall cases twice.
+- The remaining unknown, Synology versus path, needs Synology-side evidence. JP's
+  smallest step is to turn on the reverse-proxy access log on the Synology (DSM
+  setting; Claude has no SSH there). Its access log shows whether each
+  response left the Synology, and whether a request reached it at all.
+- Its error log at info level, or a short capture on port 9835, would show TLS
+  handshakes that never completed. Do this only if JP wants to close the
+  question; it is optional.
+- I agree with not raising the 5 s TLS limit: the failures stall for an unbounded
+  time rather than arriving at 6-8 s, and a longer limit lengthens the main-loop
+  freeze. A clearer "Live unavailable" notice remains a reasonable later proposal.
