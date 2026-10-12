@@ -3265,6 +3265,6 @@ check separated the stall cases twice.
 - Its error log at info level, or a short capture on port 9835, would show TLS
   handshakes that never completed. Do this only if JP wants to close the
   question; it is optional.
-- I agree with not raising the 5 s TLS limit: the failures stall for an unbounded
-  time rather than arriving at 6-8 s, and a longer limit lengthens the main-loop
-  freeze. A clearer "Live unavailable" notice remains a reasonable later proposal.
+- I agree with not raising the 5 s TLS limit: nothing shows these handshakes would
+  have finished at 6-8 s (no logged Live success took over 4 s), and a longer limit
+  lengthens the main-loop freeze. A clearer "Live unavailable" notice remains a reasonable later proposal.
